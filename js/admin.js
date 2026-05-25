@@ -157,8 +157,8 @@ async function renderGlossaryPanel() {
     </div>
     <div id="termForm" class="hidden mt-4 bg-white rounded-2xl border border-slate-200 p-4">
       <input type="hidden" id="termId">
-      <input id="termTermino" placeholder="Término" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] mb-2">
-      <textarea id="termDefinicion" placeholder="Definición" rows="2" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] resize-none mb-2"></textarea>
+      <input id="termTermino" placeholder="Término" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] mb-2">
+      <textarea id="termDefinicion" placeholder="Definición" rows="2" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] resize-none mb-2"></textarea>
       <div class="flex gap-2">
         <button id="cancelTerm" class="flex-1 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-500">Cancelar</button>
         <button id="saveTerm" class="flex-1 py-2 rounded-xl bg-[#E92129] text-white text-sm font-bold">Guardar</button>
@@ -233,14 +233,14 @@ async function renderMaterialPanel() {
     </div>
     <div id="matForm" class="hidden mt-4 bg-white rounded-2xl border border-slate-200 p-4 space-y-2">
       <input type="hidden" id="matId">
-      <input id="matTitulo" placeholder="Título del recurso"
+      <input id="matTitulo" placeholder="Título del recurso" required
         class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
       <select id="matTipo" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] bg-white">
         <option value="pdf">PDF</option>
         <option value="link">Link</option>
         <option value="video">Video</option>
       </select>
-      <input id="matUrl" placeholder="URL del recurso"
+      <input id="matUrl" placeholder="URL del recurso" required
         class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
       <p class="text-xs text-slate-400">Para subir un archivo: ve a Supabase → Storage → bucket "material" → Upload, luego pega la URL pública aquí.</p>
       <div class="flex gap-2">

@@ -27,7 +27,7 @@ export function showLogin() {
     } else {
       location.reload()
     }
-  })
+  }, { once: true })
 }
 
 export async function logout() {
