@@ -1,4 +1,5 @@
 export function renderBlocks(blocks) {
+  if (!Array.isArray(blocks)) return document.createDocumentFragment()
   const frag = document.createDocumentFragment()
   let stepCount = 0
 
@@ -12,13 +13,14 @@ export function renderBlocks(blocks) {
       circle.textContent = stepCount
       const p = document.createElement('p')
       p.style.cssText = 'font-size:13px;color:#334155;margin:3px 0 0;line-height:1.6'
-      p.textContent = block.text || ''
+      p.textContent = block.text != null ? String(block.text) : ''
       wrap.append(circle, p)
       frag.append(wrap)
 
     } else if (block.type === 'image') {
       let validUrl = false
       try { new URL(block.url); validUrl = true } catch (_) {}
+      if (validUrl && !/^https?:\/\//i.test(block.url)) validUrl = false
       if (!validUrl) continue
       const wrap = document.createElement('div')
       wrap.style.cssText = 'border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:14px'
@@ -38,6 +40,7 @@ export function renderBlocks(blocks) {
     } else if (block.type === 'video') {
       let validUrl = false
       try { new URL(block.url); validUrl = true } catch (_) {}
+      if (validUrl && !/^https?:\/\//i.test(block.url)) validUrl = false
       if (!validUrl) continue
       const a = document.createElement('a')
       a.href = block.url
@@ -65,6 +68,7 @@ export function renderBlocks(blocks) {
     } else if (block.type === 'link') {
       let validUrl = false
       try { new URL(block.url); validUrl = true } catch (_) {}
+      if (validUrl && !/^https?:\/\//i.test(block.url)) validUrl = false
       if (!validUrl) continue
       const a = document.createElement('a')
       a.href = block.url
