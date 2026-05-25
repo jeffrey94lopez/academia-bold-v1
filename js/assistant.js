@@ -70,7 +70,7 @@ async function renderAssistant() {
       <!-- Quick queries -->
       <div id="quickQueries" class="px-4 pb-2 flex gap-2 overflow-x-auto shrink-0 ${history.length > 0 ? 'hidden' : ''}">
         ${chips.map(q => `
-          <button class="quick-query shrink-0 text-xs font-bold px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 hover:border-[#E92129] hover:text-[#E92129] transition-colors whitespace-nowrap">${q}</button>
+          <button class="quick-query shrink-0 text-xs font-bold px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 hover:border-[#E92129] hover:text-[#E92129] transition-colors whitespace-nowrap">${escapeHtml(q)}</button>
         `).join('')}
       </div>
 
@@ -246,4 +246,4 @@ function openLightbox(url) {
   lb.classList.add('open')
 }
 
-renderAssistant()
+renderAssistant().catch(err => console.error('[Bodi] Failed to render assistant:', err))
