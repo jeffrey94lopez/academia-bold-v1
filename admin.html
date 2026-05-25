@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin – Academia Bold POS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
+:root{--red:#E92129;}
+body{font-family:'Inter',sans-serif;}
+.bold-red{color:var(--red);} .bg-bold-red{background:var(--red);}
+.sidebar-link{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;font-size:12px;font-weight:700;text-transform:uppercase;cursor:pointer;transition:all .2s;}
+.sidebar-link:hover,.sidebar-link.active{background:rgba(233,33,41,.12);color:#E92129;}
+.sidebar-link i{width:16px;height:16px;}
+input,textarea,select{outline:none;transition:border .2s;}
+input:focus,textarea:focus,select:focus{border-color:#E92129!important;}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:700;text-transform:uppercase;}
+.card{background:#fff;border-radius:20px;border:1px solid #f1f5f9;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+.drag-handle{cursor:grab;} .drag-handle:active{cursor:grabbing;}
+#login{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#f8fafc,#f1f5f9);}
+/* Sub-tabs */
+.subtab-btn{padding:6px 16px;border-radius:9999px;font-size:11px;font-weight:700;text-transform:uppercase;cursor:pointer;transition:all .2s;color:#64748b;background:transparent;}
+.subtab-btn.active{background:#E92129;color:#fff;}
+/* Analytics bar */
+.analytics-bar-outer{background:#f1f5f9;border-radius:9999px;height:10px;overflow:hidden;flex:1;}
+.analytics-bar-inner{background:#E92129;border-radius:9999px;height:100%;transition:width .6s ease;}
+/* Preview panel badge */
+.preview-badge-all{background:#f0fdf4;color:#16a34a;}
+.preview-badge-owner{background:#fef3c7;color:#d97706;}
+.preview-badge-seller{background:#eff6ff;color:#2563eb;}
+/* Toggle switch */
+.toggle-input{position:absolute;opacity:0;width:0;height:0;}
+.toggle-track{display:inline-block;width:44px;height:24px;background:#e2e8f0;border-radius:9999px;position:relative;cursor:pointer;transition:background .2s;}
+.toggle-track.on{background:#E92129;}
+.toggle-thumb{position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .2s;}
+.toggle-track.on .toggle-thumb{left:23px;}
+/* Lesson modal wide layout */
+@media(min-width:900px){
+  .lesson-modal-grid{display:grid;grid-template-columns:1fr 340px;gap:24px;}
+  .lesson-preview-col{display:block!important;}
+}
+</style>
+<script>tailwind.config={theme:{extend:{colors:{boldRed:'#E92129'}}}}</script>
+</head>
+<body class="bg-slate-50 text-slate-900">
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="bg-white rounded-[32px] p-10 shadow-2xl w-full max-w-sm text-center">
+    <div class="w-14 h-14 bg-[#E92129] rounded-2xl flex items-center justify-center text-white font-black italic text-3xl mx-auto mb-4 shadow-lg">B</div>
+    <h1 class="text-2xl font-black uppercase tracking-tighter mb-1">Panel de Admin</h1>
+    <p class="text-slate-400 text-sm mb-6">Academia Bold POS</p>
+    <input id="pwInput" type="password" placeholder="Contraseña" maxlength="40"
+      class="w-full px-4 py-3 bg-slate-50 rounded-2xl text-sm font-medium border-2 border-slate-100 mb-3">
+    <p id="pwErr" class="text-red-500 text-xs hidden mb-2">Contraseña incorrecta</p>
+    <button onclick="doLogin()" class="w-full bg-[#E92129] text-white py-3 rounded-2xl font-black uppercase text-sm hover:scale-[1.02] transition-transform shadow-lg">Entrar</button>
+    <p class="text-[10px] text-slate-400 mt-4">Contraseña predeterminada: <b>admin123</b></p>
+  </div>
+</div>
+
+<!-- APP (hidden until login) -->
+<div id="app" class="hidden flex min-h-screen">
+
+  <!-- Sidebar -->
+  <div class="w-64 bg-white border-r border-slate-100 flex flex-col fixed h-full z-10">
+    <div class="p-5 border-b border-slate-100">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-[#E92129] rounded-xl flex items-center justify-center text-white font-black italic text-lg">B</div>
+        <div>
+          <p class="font-black text-sm uppercase tracking-tighter">Admin Panel</p>
+          <p class="text-[9px] text-slate-400 font-bold uppercase">Academia Bold POS</p>
+        </div>
+      </div>
+    </div>
+    <nav class="flex-1 p-3 space-y-1">
+      <div onclick="showPanel('modules')" class="sidebar-link active" id="nav-modules"><i data-lucide="layers"></i> Módulos</div>
+      <div onclick="showPanel('settings')" class="sidebar-link" id="nav-settings"><i data-lucide="settings"></i> Configuración</div>
+      <div onclick="showPanel('backup')" class="sidebar-link" id="nav-backup"><i data-lucide="database"></i> Backup</div>
+      <div onclick="showPanel('analytics')" class="sidebar-link" id="nav-analytics">📊 Analytics</div>
+      <div onclick="showPanel('content')" class="sidebar-link" id="nav-content">📝 Contenido</div>
+      <div onclick="showPanel('chatbot')" class="sidebar-link" id="nav-chatbot">💬 Chatbot</div>
+    </nav>
+    <div class="p-3 border-t border-slate-100 space-y-2">
+      <a href="index.html" target="_blank" class="sidebar-link hover:bg-green-50 hover:text-green-700"><i data-lucide="external-link"></i> Ver Academia</a>
+      <div onclick="doLogout()" class="sidebar-link hover:bg-red-50 hover:text-red-500"><i data-lucide="log-out"></i> Salir</div>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="ml-64 flex-1 p-8">
+
+    <!-- MODULES PANEL -->
+    <div id="panel-modules">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-2xl font-black uppercase tracking-tighter">Módulos del Curso</h2>
+          <p class="text-slate-400 text-sm mt-0.5">Gestiona módulos y lecciones. Los cambios se guardan automáticamente.</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="saveToApp()" class="flex items-center gap-2 bg-[#E92129] text-white px-5 py-2.5 rounded-xl font-black text-xs uppercase hover:scale-105 transition-transform shadow-lg">
+            <i data-lucide="save" class="w-4 h-4"></i> Publicar Cambios
+          </button>
+          <button onclick="addModule()" class="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl font-black text-xs uppercase hover:scale-105 transition-transform">
+            <i data-lucide="plus" class="w-4 h-4"></i> Módulo
+          </button>
+        </div>
+      </div>
+      <div id="saveAlert" class="hidden mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-2xl text-sm font-bold flex items-center gap-2">
+        <i data-lucide="check-circle-2" class="w-4 h-4"></i> ¡Cambios publicados! La academia se actualizó al instante.
+      </div>
+      <div id="moduleList" class="space-y-4"></div>
+    </div>
+
+    <!-- SETTINGS PANEL -->
+    <div id="panel-settings" class="hidden">
+      <h2 class="text-2xl font-black uppercase tracking-tighter mb-6">Configuración</h2>
+      <div class="card p-6 max-w-lg space-y-5">
+        <div>
+          <label class="block text-xs font-black uppercase text-slate-400 mb-2">Contraseña de Admin</label>
+          <div class="flex gap-2">
+            <input id="newPw" type="password" placeholder="Nueva contraseña" class="flex-1 px-4 py-2.5 bg-slate-50 rounded-xl text-sm border-2 border-slate-100">
+            <button onclick="changePw()" class="px-4 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black uppercase">Cambiar</button>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-black uppercase text-slate-400 mb-2">Nombre de la Academia</label>
+          <input id="acadName" type="text" value="Academia Bold POS" class="w-full px-4 py-2.5 bg-slate-50 rounded-xl text-sm border-2 border-slate-100">
+          <p class="text-[10px] text-slate-400 mt-1">Solo informativo por ahora.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- BACKUP PANEL -->
+    <div id="panel-backup" class="hidden">
+      <h2 class="text-2xl font-black uppercase tracking-tighter mb-6">Backup y Restauración</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+        <div class="card p-6 space-y-3">
+          <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center"><i data-lucide="download" class="w-5 h-5 text-blue-600"></i></div>
+          <h3 class="font-black text-sm uppercase">Exportar JSON</h3>
+          <p class="text-slate-400 text-xs">Descarga todos los módulos y lecciones como archivo JSON.</p>
+          <button onclick="exportJson()" class="w-full py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black uppercase hover:bg-blue-700 transition-colors">Descargar JSON</button>
+        </div>
+        <div class="card p-6 space-y-3">
+          <div class="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center"><i data-lucide="upload" class="w-5 h-5 text-orange-600"></i></div>
+          <h3 class="font-black text-sm uppercase">Importar JSON</h3>
+          <p class="text-slate-400 text-xs">Restaura módulos desde un archivo JSON exportado anteriormente.</p>
+          <input type="file" id="importFile" accept=".json" class="hidden" onchange="importJson(event)">
+          <button onclick="document.getElementById('importFile').click()" class="w-full py-2.5 bg-orange-500 text-white rounded-xl text-xs font-black uppercase hover:bg-orange-600 transition-colors">Seleccionar Archivo</button>
+        </div>
+        <div class="card p-6 space-y-3 md:col-span-2">
+          <div class="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center"><i data-lucide="refresh-cw" class="w-5 h-5 text-red-500"></i></div>
+          <h3 class="font-black text-sm uppercase">Restaurar Contenido Original</h3>
+          <p class="text-slate-400 text-xs">Elimina las personalizaciones del admin y vuelve al contenido por defecto del código.</p>
+          <button onclick="resetToDefault()" class="py-2.5 px-6 bg-red-500 text-white rounded-xl text-xs font-black uppercase hover:bg-red-600 transition-colors">Restaurar Defaults</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANALYTICS PANEL -->
+    <div id="panel-analytics" class="hidden">
+      <h2 class="text-2xl font-black uppercase tracking-tighter mb-2">Analytics</h2>
+      <p class="text-slate-400 text-sm mb-6">Los datos corresponden al dispositivo actual (almacenamiento local).</p>
+      <div id="analyticsContent"></div>
+    </div>
+
+    <!-- CONTENT PANEL -->
+    <div id="panel-content" class="hidden">
+      <h2 class="text-2xl font-black uppercase tracking-tighter mb-6">Gestión de Contenido</h2>
+      <!-- Sub-tab nav -->
+      <div class="flex gap-2 mb-2 bg-slate-100 p-1 rounded-2xl w-fit">
+        <button class="subtab-btn active" id="ctab-glosario" onclick="showContentTab('glosario')">Glosario</button>
+        <button class="subtab-btn" id="ctab-recursos" onclick="showContentTab('recursos')">Recursos</button>
+      </div>
+      <p class="text-[11px] text-slate-400 mb-5 ml-1">Las preguntas rápidas del chat se gestionan en <button onclick="showPanel('chatbot')" class="text-[#E92129] font-bold hover:underline">💬 Chatbot</button></p>
+      <!-- Glosario sub-tab -->
+      <div id="ctab-panel-glosario">
+        <div class="flex items-center justify-between mb-4">
+          <p class="text-slate-500 text-sm">Términos del glosario visibles en la academia.</p>
+          <div class="flex gap-2">
+            <button onclick="addGlossaryItem()" class="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-black uppercase hover:scale-105 transition-transform"><i data-lucide="plus" class="w-3.5 h-3.5"></i> Agregar término</button>
+            <button onclick="publishGlossary()" class="flex items-center gap-1.5 px-4 py-2 bg-[#E92129] text-white rounded-xl text-xs font-black uppercase hover:scale-105 transition-transform shadow"><i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i> Publicar Glosario</button>
+          </div>
+        </div>
+        <div id="glossaryList" class="space-y-2"></div>
+      </div>
+      <!-- Recursos sub-tab -->
+      <div id="ctab-panel-recursos" class="hidden">
+        <div class="flex items-center justify-between mb-4">
+          <p class="text-slate-500 text-sm">Recursos y materiales de apoyo visibles en la academia.</p>
+          <div class="flex gap-2">
+            <button onclick="addResourceItem()" class="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-black uppercase hover:scale-105 transition-transform"><i data-lucide="plus" class="w-3.5 h-3.5"></i> Agregar recurso</button>
+            <button onclick="publishResources()" class="flex items-center gap-1.5 px-4 py-2 bg-[#E92129] text-white rounded-xl text-xs font-black uppercase hover:scale-105 transition-transform shadow"><i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i> Publicar Recursos</button>
+          </div>
+        </div>
+        <div id="resourcesList" class="space-y-2"></div>
+      </div>
+    </div>
+
+    <!-- CHATBOT PANEL -->
+    <div id="panel-chatbot" class="hidden">
+      <h2 class="text-2xl font-black uppercase tracking-tighter mb-6">Configuración del Chatbot</h2>
+      <div class="space-y-6 max-w-2xl">
+
+        <!-- Section 1: Greeting -->
+        <div class="card p-6 space-y-3">
+          <h3 class="font-black text-sm uppercase text-slate-700 flex items-center gap-2"><i data-lucide="message-square" class="w-4 h-4 text-[#E92129]"></i> Saludo inicial</h3>
+          <p class="text-[10px] text-slate-400 uppercase font-bold">Usa <code class="bg-slate-100 px-1 py-0.5 rounded text-slate-600">{nombre}</code> para incluir el nombre del usuario</p>
+          <textarea id="chatGreetingInput" rows="3" placeholder="¡Hola {nombre}! Soy el experto en Bold POS. ¿Qué duda tienes hoy?"
+            class="w-full px-4 py-3 bg-slate-50 rounded-xl text-sm border-2 border-slate-100 resize-none"></textarea>
+          <button onclick="saveChatGreeting()" class="flex items-center gap-1.5 px-4 py-2 bg-[#E92129] text-white rounded-xl text-xs font-black uppercase hover:scale-105 transition-transform shadow">
+            <i data-lucide="save" class="w-3.5 h-3.5"></i> Guardar saludo
+          </button>
+        </div>
+
+        <!-- Section 2: Quick questions -->
+        <div class="card p-6 space-y-3">
+          <h3 class="font-black text-sm uppercase text-slate-700 flex items-center gap-2"><i data-lucide="zap" class="w-4 h-4 text-[#E92129]"></i> Preguntas rápidas (chips)</h3>
+          <div id="chatbotChipsList" class="space-y-2"></div>
+          <div class="flex gap-2 pt-1">
+            <button onclick="addChatbotChip()" class="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-black uppercase hover:scale-105 transition-transform">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i> Agregar
+            </button>
+            <button onclick="saveChatbotChips()" class="flex items-center gap-1.5 px-4 py-2 bg-[#E92129] text-white rounded-xl text-xs font-black uppercase hover:scale-105 transition-transform shadow">
+              <i data-lucide="save" class="w-3.5 h-3.5"></i> Guardar preguntas
+            </button>
+          </div>
+        </div>
+
+        <!-- Section 3: Service settings -->
+        <div class="card p-6 space-y-4">
+          <h3 class="font-black text-sm uppercase text-slate-700 flex items-center gap-2"><i data-lucide="sliders" class="w-4 h-4 text-[#E92129]"></i> Configuración del servicio</h3>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="font-bold text-sm">Chatbot activo</p>
+              <p class="text-[10px] text-slate-400">Cuando está desactivado, la pestaña de chat desaparece de la academia.</p>
+            </div>
+            <label class="relative cursor-pointer" onclick="toggleChatEnabled()">
+              <div id="toggle-chat-enabled" class="toggle-track on"><div class="toggle-thumb"></div></div>
+            </label>
+          </div>
+          <div class="border-t border-slate-100 pt-4 flex items-center justify-between">
+            <div>
+              <p class="font-bold text-sm">Guardar historial</p>
+              <p class="text-[10px] text-slate-400">Guarda el historial de conversaciones en el dispositivo del usuario.</p>
+            </div>
+            <label class="relative cursor-pointer" onclick="toggleChatHistory()">
+              <div id="toggle-chat-history" class="toggle-track on"><div class="toggle-thumb"></div></div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Section 4: n8n connection -->
+        <div class="card p-6 space-y-3">
+          <h3 class="font-black text-sm uppercase text-slate-700 flex items-center gap-2"><i data-lucide="webhook" class="w-4 h-4 text-[#E92129]"></i> Conexión n8n</h3>
+          <div>
+            <label class="block text-[10px] font-black uppercase text-slate-400 mb-1.5">URL del Webhook (solo lectura)</label>
+            <input type="text" value="https://n8n.mplasesores.com/webhook/bold-pos-chat" readonly
+              class="w-full px-4 py-2.5 bg-slate-50 rounded-xl text-sm border-2 border-slate-100 text-slate-500 select-all cursor-default">
+          </div>
+          <div class="flex items-center gap-3">
+            <button onclick="testWebhook()" class="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-black uppercase hover:scale-105 transition-transform">
+              <i data-lucide="send" class="w-3.5 h-3.5"></i> Test de conexión
+            </button>
+            <span id="webhookTestResult" class="text-xs font-bold hidden"></span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- LESSON EDITOR MODAL -->
+<div id="lessonModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-white w-full max-w-5xl rounded-[28px] shadow-2xl max-h-[90vh] overflow-y-auto">
+    <div class="sticky top-0 bg-white flex items-center justify-between p-6 border-b border-slate-100 rounded-t-[28px] z-10">
+      <h3 id="lessonModalTitle" class="font-black text-lg uppercase">Editar Lección</h3>
+      <button onclick="closeLessonModal()" class="text-slate-400 hover:text-slate-700"><i data-lucide="x" class="w-5 h-5"></i></button>
+    </div>
+    <div class="p-6">
+      <div class="lesson-modal-grid">
+        <!-- Left: form -->
+        <div class="space-y-5">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[10px] font-black uppercase text-slate-400 mb-1.5">Título *</label>
+              <input id="lTitle" type="text" placeholder="Nombre de la lección" oninput="updateLessonPreview()"
+                class="w-full px-4 py-2.5 bg-slate-50 rounded-xl text-sm border-2 border-slate-100">
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase text-slate-400 mb-1.5">Audiencia</label>
+              <select id="lRole" oninput="updateLessonPreview()" class="w-full px-4 py-2.5 bg-slate-50 rounded-xl text-sm border-2 border-slate-100">
+                <option value="all">Todos</option>
+                <option value="owner">Dueños</option>
+                <option value="seller">Vendedores</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase text-slate-400 mb-1.5">Contenido (acepta HTML básico: &lt;b&gt;, &lt;br&gt;)</label>
+            <textarea id="lContent" rows="5" placeholder="Describe el contenido de esta lección..." oninput="updateLessonPreview()"
+              class="w-full px-4 py-2.5 bg-slate-50 rounded-xl text-sm border-2 border-slate-100 resize-none"></textarea>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase text-slate-400 mb-1.5">URL de Video (YouTube embed o cualquier URL)</label>
+            <input id="lVideo" type="url" placeholder="https://www.youtube.com/embed/ID_DEL_VIDEO" oninput="updateLessonPreview()"
+              class="w-full px-4 py-2.5 bg-slate-50 rounded-xl text-sm border-2 border-slate-100">
+            <p class="text-[10px] text-slate-400 mt-1">Usa la URL de <b>embed</b> de YouTube: youtube.com/embed/XXXX</p>
+            <div id="videoPreview" class="mt-3 hidden">
+              <iframe id="videoFrame" class="w-full rounded-xl aspect-video border border-slate-100" allowfullscreen></iframe>
+            </div>
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label class="block text-[10px] font-black uppercase text-slate-400">Casos de Aplicación</label>
+              <button onclick="addCase()" class="text-[9px] font-black uppercase text-boldRed hover:underline flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i> Agregar caso</button>
+            </div>
+            <div id="casesContainer" class="space-y-2"></div>
+          </div>
+          <div class="bg-slate-50 rounded-2xl p-4 space-y-3">
+            <label class="block text-[10px] font-black uppercase text-slate-400">Quiz (pregunta de evaluación)</label>
+            <input id="quizQ" type="text" placeholder="¿Pregunta del quiz?" class="w-full px-4 py-2.5 bg-white rounded-xl text-sm border-2 border-slate-100">
+            <div id="quizAnswers" class="space-y-2"></div>
+            <button onclick="addQuizOption()" class="text-[9px] font-black uppercase text-boldRed hover:underline flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i> Agregar opción</button>
+          </div>
+        </div>
+        <!-- Right: live preview (hidden on mobile, shown on wide screens) -->
+        <div class="lesson-preview-col hidden" id="lessonPreviewCol">
+          <div class="sticky top-4">
+            <p class="text-[9px] font-black uppercase text-slate-400 mb-3 flex items-center gap-1.5"><i data-lucide="eye" class="w-3.5 h-3.5"></i> Vista previa en vivo</p>
+            <div class="border-2 border-slate-100 rounded-[20px] overflow-hidden bg-white shadow-sm">
+              <!-- Preview top bar -->
+              <div class="bg-slate-50 px-4 py-3 border-b border-slate-100">
+                <div class="flex items-center gap-2">
+                  <span id="prev-badge" class="px-2 py-0.5 rounded-lg text-[9px] font-black uppercase preview-badge-all">Todos</span>
+                </div>
+                <h4 id="prev-title" class="font-black text-base mt-1 text-slate-800 leading-tight">Título de la lección</h4>
+              </div>
+              <div class="p-4">
+                <p id="prev-content" class="text-sm text-slate-600 leading-relaxed font-medium min-h-[60px]">El contenido de la lección aparecerá aquí...</p>
+                <div id="prev-video" class="mt-3 text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                  <i data-lucide="video" class="w-3.5 h-3.5"></i>
+                  <span id="prev-video-label">— Sin video</span>
+                </div>
+              </div>
+            </div>
+            <p class="text-[9px] text-slate-400 mt-2 text-center">La vista previa actualiza en tiempo real</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="sticky bottom-0 bg-white border-t border-slate-100 p-5 flex gap-3 rounded-b-[28px]">
+      <button onclick="saveLesson()" class="flex-1 bg-[#E92129] text-white py-3 rounded-xl font-black uppercase text-sm hover:scale-[1.02] transition-transform">Guardar Lección</button>
+      <button onclick="closeLessonModal()" class="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-black uppercase text-sm hover:bg-slate-200">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast2" class="fixed bottom-6 right-6 z-[500] hidden px-5 py-3 rounded-2xl text-xs font-bold shadow-2xl flex items-center gap-2"></div>
+
+<script>
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ─── AUTH ───────────────────────────────────────────────────────────────────
+const PW_KEY='bold_admin_pw';
+function getAdminPw(){return localStorage.getItem(PW_KEY)||'admin123';}
+document.getElementById('pwInput').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+function doLogin(){
+  const v=document.getElementById('pwInput').value;
+  if(v===getAdminPw()){
+    document.getElementById('login').style.display='none';
+    document.getElementById('app').classList.remove('hidden');
+    loadModules(); renderModuleList(); lucide.createIcons();
+  } else {
+    document.getElementById('pwErr').classList.remove('hidden');
+    document.getElementById('pwInput').classList.add('border-red-400');
+  }
+}
+function doLogout(){document.getElementById('login').style.display='flex';document.getElementById('app').classList.add('hidden');}
+function changePw(){
+  const v=document.getElementById('newPw').value.trim();
+  if(!v){return toast('Ingresa una contraseña','error');}
+  localStorage.setItem(PW_KEY,v);
+  document.getElementById('newPw').value='';
+  toast('Contraseña actualizada','success');
+}
+
+// ─── PANEL NAV ───────────────────────────────────────────────────────────────
+function showPanel(id){
+  ['modules','settings','backup','analytics','content','chatbot'].forEach(p=>{
+    document.getElementById(`panel-${p}`).classList.toggle('hidden',p!==id);
+    document.getElementById(`nav-${p}`).classList.toggle('active',p===id);
+  });
+  if(id==='analytics') renderAnalytics();
+  if(id==='content') renderContentPanel();
+  if(id==='chatbot') renderChatbotPanel();
+  lucide.createIcons();
+}
+
+// ─── HARDCODED DEFAULT MODULES (from index.html) ──────────────────────────────
+function getDefaultModules(){
+  return [
+    {
+      id:"m1", title:"1. Inicio y Registro", icon:"play-circle",
+      lessons:[
+        { id:"l1", role:"all", title:"Bienvenida y Registro", content:"Bold POS es la plataforma todo-en-uno para gestionar tu negocio. El primer paso es registrarte en <b>pos.bold.co/#/signup</b> con tu correo electrónico. La sesión de onboarding queda grabada para auditoría interna.", cases:[{t:"Registro para Restaurante",d:"Selecciona el tipo de negocio 'Restaurante' para habilitar la funcionalidad de Órdenes/Mesas desde el inicio."},{t:"Registro para Tienda",d:"Para tiendas, elige 'Retail'. Podrás configurar variantes de productos (talla, color) desde el primer día."}], video:"", quiz:{q:"¿Cuál es el link oficial de registro de Bold POS?",a:["bold.com.co","pos.bold.co","pagos.bold.co"],k:1} },
+        { id:"l2", role:"all", title:"Activación y Primer Acceso", content:"Tras registrarte recibirás un correo de verificación. Confirma tu cuenta y accede con tus credenciales. En el primer acceso verás el asistente de configuración rápida que te guía por los ajustes esenciales.", cases:[{t:"Correo no llega",d:"Revisa la carpeta de spam. Si tampoco está, usa la opción 'Reenviar verificación' en la pantalla de login."},{t:"Error de contraseña",d:"Usa 'Olvidé mi contraseña' en la pantalla de login para restablecerla vía correo electrónico."}], video:"", quiz:{q:"¿Qué aparece en el primer acceso a Bold POS?",a:["Lista de ventas","Asistente de configuración","Panel de reportes"],k:1} }
+      ]
+    },
+    {
+      id:"m2", title:"2. Perfil y Legal", icon:"user-check",
+      lessons:[
+        { id:"l3", role:"owner", title:"Configuración de RUT", content:"Ingresa los datos exactos de tu RUT: razón social, NIT y actividad económica. Es fundamental definir si tus productos son <b>Gravados</b> (IVA 19%), <b>Excluidos</b> (sin IVA) o <b>Exentos</b> (IVA 0%). Esto afecta directamente la facturación electrónica.", cases:[{t:"Ferretería con IVA mixto",d:"Los tornillos son gravados al 19%, pero herramientas agrícolas pueden ser excluidas. Configura cada categoría por separado."},{t:"Restaurante",d:"Los alimentos preparados para consumo en el sitio están gravados al 8%. Las bebidas y licores al 19%."}], video:"", quiz:{q:"¿Qué IVA tienen los productos Exentos?",a:["Sin IVA","IVA del 0%","IVA 19%"],k:1} },
+        { id:"l4", role:"owner", title:"Sucursales e Impresión", content:"Si tienes varias tiendas, crea cada sucursal en Ajustes > Sucursales. En ajustes de impresión selecciona siempre <b>'Todos los Formatos'</b> para que el sistema detecte automáticamente la impresora térmica conectada.", cases:[{t:"Configurar térmica 58mm",d:"Conecta la impresora por USB, ve a Ajustes > Impresión y selecciona 'Todos los formatos'. El sistema hará la detección automática."},{t:"Dos sucursales",d:"Crea cada sucursal por separado. Los inventarios y cajas se gestionan de forma independiente por sucursal."}], video:"", quiz:{q:"¿Qué opción de impresión se recomienda para todas las impresoras?",a:["80mm","Media Carta","Todos los Formatos"],k:2} },
+        { id:"l5", role:"owner", title:"Facturación Electrónica (DIAN)", content:"Para habilitar FE: ve a Ajustes > Facturación Electrónica y sube tu certificado digital. Configura el prefijo y numeración aprobada por la DIAN. Cada venta con cliente registrado generará automáticamente la factura electrónica.", cases:[{t:"Habilitación inicial DIAN",d:"Solicita la resolución de facturación en el portal DIAN. Súbela en Bold POS junto con tu certificado .p12 y la clave."},{t:"Factura sin cliente",d:"Si no ingresas datos del cliente, Bold POS emite un ticket simple (no FE). Para FE es obligatorio NIT o cédula del cliente."}], video:"", quiz:{q:"¿Qué documento se sube para habilitar FE en Bold POS?",a:["Cámara de comercio","Certificado digital DIAN","Cédula del dueño"],k:1} }
+      ]
+    },
+    {
+      id:"m3", title:"3. Inventario y Productos", icon:"package",
+      lessons:[
+        { id:"l6", role:"all", title:"Crear y Buscar Productos", content:"Agrega productos desde Inventario > Nuevo Producto. Define nombre, código de barras, precio de venta y costo. Activa <b>'Ítem con existencia'</b> si necesitas control de stock. Busca por nombre o código desde el punto de venta.", cases:[{t:"Tienda de Ropa",d:"Crea el producto 'Camiseta' con variantes: Talla (S, M, L, XL) y Color (Blanco, Negro). Cada combinación tiene su propio stock."},{t:"Ferretería",d:"Usa códigos de barras del proveedor para facilitar el escaneo en caja. Activa existencia para controlar tu inventario."}], video:"", quiz:{q:"¿Qué opción se habilita para controlar stock de un producto?",a:["Ítem con existencia","Ítem de servicio","Ítem sin código"],k:0} },
+        { id:"l7", role:"owner", title:"Carga Masiva de Inventario", content:"Para negocios con muchos productos, usa la <b>plantilla Excel</b> de carga masiva en Inventario > Importar. Descarga la plantilla, completa los campos (nombre, precio, costo, código) y súbela. El sistema valida errores antes de importar.", cases:[{t:"Supermercado 500+ productos",d:"Descarga la plantilla, pide el listado de precios al proveedor y usa BUSCARV en Excel para cruzar precios. Importa por categorías."},{t:"Actualización masiva de precios",d:"Exporta tu inventario actual, ajusta los precios en Excel y reimporta. El sistema actualizará solo los campos modificados."}], video:"", quiz:{q:"¿Dónde se encuentra la opción de importar productos masivamente?",a:["Ajustes > Impresión","Inventario > Importar","Reportes > Exportar"],k:1} },
+        { id:"l8", role:"owner", title:"Variantes y Categorías", content:"Las variantes permiten manejar un solo producto base con múltiples versiones (Talla, Color, Sabor). Las <b>categorías</b> agrupan productos para reportes más claros y navegación rápida en el POS. Crea categorías en Inventario > Categorías.", cases:[{t:"Heladería",d:"Producto: 'Helado Copa'. Variantes: Sabor (Vainilla, Fresa, Chocolate) y Tamaño (Pequeño, Grande). Cada variante con su precio."},{t:"Papelería",d:"Categorías: Útiles Escolares, Papelería Básica, Artes. Facilita la búsqueda del vendedor en caja."}], video:"", quiz:{q:"¿Qué son las variantes en Bold POS?",a:["Descuentos especiales","Versiones de un producto (talla, color)","Sucursales diferentes"],k:1} }
+      ]
+    },
+    {
+      id:"m4", title:"4. Punto de Venta", icon:"shopping-cart",
+      lessons:[
+        { id:"l9", role:"all", title:"Proceso de Venta", content:"En el POS selecciona productos por búsqueda, categoría o código de barras. Agrega al carrito, revisa totales y procede al cobro. Si el cliente requiere factura electrónica, ingresa su NIT o cédula <b>antes</b> de cobrar.", cases:[{t:"Venta rápida en Papelería",d:"Usa el lector de código de barras. Escanea el producto, ajusta la cantidad y cobra en efectivo. Proceso en menos de 30 segundos."},{t:"Venta en Restaurante con mesa",d:"Crea una Orden, asígnala a la mesa, agrega platos y cierra la orden cuando el cliente pague."}], video:"", quiz:{q:"¿Cuándo se ingresa el NIT del cliente en Bold POS?",a:["Después de cobrar","Antes de cobrar (si necesita FE)","Solo en la primera venta"],k:1} },
+        { id:"l10", role:"all", title:"Órdenes y Mesas", content:"Las <b>Órdenes</b> son comandas abiertas (perfectas para restaurantes y bares). Crea una orden, nómbrala (Mesa 1, Mesa Terraza) y ve agregando productos durante el servicio. Las órdenes no se eliminan hasta que se cierran con un pago.", cases:[{t:"Restaurante con terraza",d:"Crea órdenes 'Mesa 1' hasta 'Mesa 10'. El mesero agrega platos desde su dispositivo. El cajero cierra la orden al final."},{t:"Peluquería con citas",d:"Usa órdenes para cada cliente del día. Agrega servicios según avanza la atención y cobra al finalizar."}], video:"", quiz:{q:"¿Las órdenes en Bold POS se pueden eliminar sin pagar?",a:["Sí, siempre","No, deben cerrarse con un pago","Solo si son del mismo día"],k:1} },
+        { id:"l11", role:"seller", title:"Descuentos y Notas", content:"Aplica descuentos por ítem o al total de la venta desde el carrito. Puedes ingresar descuento en porcentaje o valor fijo. Agrega notas internas a la orden (instrucciones de cocina, observaciones) que no aparecen en el recibo del cliente.", cases:[{t:"Descuento a empleados",d:"El dueño puede definir un código de descuento del 20% para ventas a colaboradores. El vendedor lo aplica en el carrito."},{t:"Nota para cocina",d:"Al agregar un plato, toca el ícono de nota y escribe 'Sin cebolla'. Esta nota aparece en el ticket de cocina pero no en la factura del cliente."}], video:"", quiz:{q:"¿Cómo se aplica un descuento en Bold POS?",a:["Solo llamando al dueño","Desde el carrito, por ítem o total","Después de generar la factura"],k:1} }
+      ]
+    },
+    {
+      id:"m5", title:"5. Pagos y Cobros", icon:"credit-card",
+      lessons:[
+        { id:"l12", role:"all", title:"Métodos de Pago", content:"Bold POS acepta: Efectivo, Tarjeta (Débito/Crédito), Nequi, Daviplata, Bancolombia y Crédito. Para pagos mixtos (ej. parte en efectivo y parte en Nequi), haz clic en <b>'Agregar método de pago'</b> y divide el monto.", cases:[{t:"Pago Mixto Efectivo + Nequi",d:"El cliente paga $30.000 en efectivo y $20.000 por Nequi. Ingresa $30.000 en Efectivo, agrega método Nequi e ingresa $20.000."},{t:"Venta con Tarjeta",d:"Selecciona 'Tarjeta', pasa la tarjeta por el dataphone Bold y confirma el pago. La transacción queda registrada automáticamente."}], video:"", quiz:{q:"¿Cómo se registra un pago mixto en Bold POS?",a:["No es posible","Con 'Agregar método de pago'","Haciendo dos ventas separadas"],k:1} },
+        { id:"l13", role:"all", title:"Addi y Sistecredito", content:"Para ventas con Addi o Sistecredito, el proceso es diferente al crédito bancario. Selecciona el método <b>'Crédito'</b> en Bold POS. El cliente solicita el crédito directamente en la app de Addi/Sistecredito y tú recibes el pago completo al instante.", cases:[{t:"Venta con Addi",d:"Cliente elige Addi. Tú registras la venta con método 'Crédito'. El cliente abre la app de Addi, aprueba el crédito y listo."},{t:"Venta con Sistecredito",d:"Mismo proceso que Addi. El cliente presenta su cupo en la app de Sistecredito y tú recibes el pago inmediato."}], video:"", quiz:{q:"¿Cómo se registra una venta con Addi en Bold POS?",a:["Con método Efectivo","Con método Crédito","No se puede registrar"],k:1} },
+        { id:"l14", role:"owner", title:"Listas de Precios", content:"Crea múltiples listas de precios para diferentes tipos de clientes: precio público, precio mayorista, precio empleados. Asigna una lista de precios a un cliente y Bold POS aplicará automáticamente esos precios al agregar productos.", cases:[{t:"Mayorista y minorista",d:"Lista 'Público': precio normal. Lista 'Mayoristas': 15% menos. Al vender a un cliente mayorista, el sistema aplica la lista automáticamente."},{t:"Precios por temporada",d:"Crea una lista 'Temporada Alta' con precios incrementados y actívala durante picos de demanda."}], video:"", quiz:{q:"¿Para qué sirven las Listas de Precios en Bold POS?",a:["Para controlar el inventario","Para aplicar precios diferenciados por tipo de cliente","Para desactivar productos"],k:1} }
+      ]
+    },
+    {
+      id:"m6", title:"6. Cierre de Caja", icon:"clock",
+      lessons:[
+        { id:"l15", role:"all", title:"Arqueo de Turno", content:"Al finalizar el turno, ve a Cierre de Caja > Nuevo Cierre. El sistema muestra el efectivo esperado en caja. Cuenta el dinero físico e ingresa el <b>efectivo contado</b>. Si hay diferencia, el sistema la marcará como sobrante o faltante.", cases:[{t:"Cierre sin faltantes",d:"Efectivo esperado: $500.000. Cuentas el cajón y son $500.000. Ingresas $500.000 en 'Efectivo contado'. Diferencia: $0."},{t:"Faltante en caja",d:"Esperado: $500.000. Contado: $490.000. Diferencia: -$10.000 (faltante). El sistema lo registra para auditoría."}], video:"", quiz:{q:"¿Qué valor se digita en el arqueo de caja?",a:["Efectivo esperado","Efectivo contado","Ventas totales del día"],k:1} },
+        { id:"l16", role:"owner", title:"Gastos y Egresos", content:"Registra gastos del día directamente en Bold POS desde Caja > Registrar Gasto. Ejemplos: pago de domiciliario, compra de insumos, pago de servicios. Estos gastos afectan el efectivo disponible y aparecen en el cierre.", cases:[{t:"Pago de domiciliario",d:"Domiciliario cobra $15.000 en efectivo. Registra un gasto de $15.000 con concepto 'Domicilio'. El sistema descuenta del efectivo esperado."},{t:"Compra urgente de insumos",d:"Compraste $30.000 en bolsas. Registra el gasto para que el cierre de caja cuadre correctamente."}], video:"", quiz:{q:"¿Desde dónde se registran los gastos en Bold POS?",a:["Inventario > Compras","Caja > Registrar Gasto","Reportes > Egresos"],k:1} }
+      ]
+    },
+    {
+      id:"m7", title:"7. Reportes y Estadísticas", icon:"bar-chart-2",
+      lessons:[
+        { id:"l17", role:"owner", title:"Resumen de Ventas", content:"En Reportes > Ventas puedes ver el resumen diario, semanal o mensual. Filtra por vendedor, método de pago o producto. Exporta en Excel o PDF para análisis externo. El dashboard muestra métricas clave: ticket promedio, producto más vendido y hora pico.", cases:[{t:"Reporte mensual para contador",d:"Exporta el reporte de ventas del mes en PDF. Incluye totales por método de pago, IVA cobrado y descuentos aplicados."},{t:"Análisis de hora pico",d:"Revisa el reporte por hora para identificar cuándo necesitas más personal. Si las 12-2pm son pico, refuerza tu equipo en esa franja."}], video:"", quiz:{q:"¿Cómo se puede ver el reporte de ventas en Bold POS?",a:["Solo en la app móvil","En Reportes > Ventas, filtrado por período","Solo el dueño puede solicitarlo por correo"],k:1} },
+        { id:"l18", role:"owner", title:"Reportes de Inventario", content:"Reportes > Inventario muestra el estado actual del stock, productos con bajo inventario y el costo promedio de cada ítem. Activa las <b>alertas de stock mínimo</b> para recibir notificación cuando un producto esté por agotarse.", cases:[{t:"Alerta de stock mínimo",d:"Configura que el producto 'Agua 500ml' alerte cuando queden menos de 24 unidades. Así nunca te quedarás sin stock."},{t:"Rotación de inventario",d:"El reporte de rotación te dice qué productos se venden más rápido. Úsalo para definir cantidades de compra óptimas."}], video:"", quiz:{q:"¿Qué son las alertas de stock mínimo?",a:["Notificaciones de precios altos","Avisos cuando un producto se está agotando","Alertas de ventas bajas"],k:1} }
+      ]
+    }
+  ];
+}
+
+// Module structure for analytics (IDs per module)
+const MODULE_LESSON_MAP = [
+  {title:"1. Inicio y Registro",    ids:["l1","l2"]},
+  {title:"2. Perfil y Legal",       ids:["l3","l4","l5"]},
+  {title:"3. Inventario y Prod.",   ids:["l6","l7","l8"]},
+  {title:"4. Punto de Venta",       ids:["l9","l10","l11"]},
+  {title:"5. Pagos y Cobros",       ids:["l12","l13","l14"]},
+  {title:"6. Cierre de Caja",       ids:["l15","l16"]},
+  {title:"7. Reportes",             ids:["l17","l18"]}
+];
+const TOTAL_LESSONS = 18;
+
+// ─── DATA ────────────────────────────────────────────────────────────────────
+let adminModules=[];
+
+function loadModules(){
+  const saved=localStorage.getItem('bold_admin_modules');
+  if(saved){try{adminModules=JSON.parse(saved);}catch(e){adminModules=getDefaultModules();}}
+  else{adminModules=getDefaultModules();}
+}
+
+function saveModules(){
+  localStorage.setItem('bold_admin_modules',JSON.stringify(adminModules));
+}
+
+// ─── SAVE TO APP ─────────────────────────────────────────────────────────────
+function saveToApp(){
+  saveModules();
+  document.getElementById('saveAlert').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('saveAlert').classList.add('hidden'),4000);
+  lucide.createIcons();
+  toast('¡Publicado! Recarga la academia.','success');
+}
+
+// ─── MODULE LIST ─────────────────────────────────────────────────────────────
+function renderModuleList(){
+  const el=document.getElementById('moduleList');
+  el.innerHTML='';
+  adminModules.forEach((mod,mIdx)=>{
+    const div=document.createElement('div');
+    div.className='card overflow-hidden';
+    div.innerHTML=`
+      <div class="flex items-center justify-between px-5 py-4 bg-slate-50 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <span class="drag-handle text-slate-300"><i data-lucide="grip-vertical" class="w-4 h-4"></i></span>
+          <input value="${escHtml(mod.title)}" onchange="adminModules[${mIdx}].title=this.value;saveModules();"
+            class="font-black text-sm bg-transparent border-none outline-none focus:bg-white focus:px-2 focus:py-1 focus:rounded-lg transition-all">
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[9px] font-bold text-slate-400 uppercase">${mod.lessons.length} lección${mod.lessons.length!==1?'es':''}</span>
+          <button onclick="addLesson(${mIdx})" class="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[9px] font-black uppercase hover:border-boldRed hover:text-boldRed transition-all">
+            <i data-lucide="plus" class="w-3 h-3"></i> Lección
+          </button>
+          <button onclick="deleteModule(${mIdx})" class="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 text-slate-400 transition-all">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+      <div class="divide-y divide-slate-50">
+        ${mod.lessons.map((l,lIdx)=>lessonRowHtml(mIdx,lIdx,l)).join('')}
+        ${mod.lessons.length===0?'<p class="text-center py-6 text-slate-400 text-xs">Sin lecciones. Agrega una.</p>':''}
+      </div>
+    `;
+    el.appendChild(div);
+  });
+  lucide.createIcons();
+}
+
+function lessonRowHtml(mIdx,lIdx,l){
+  const roleColor={'all':'bg-green-50 text-green-600','owner':'bg-yellow-50 text-yellow-700','seller':'bg-blue-50 text-blue-600'}[l.role]||'bg-slate-100 text-slate-500';
+  const roleLabel={'all':'Todos','owner':'Dueños','seller':'Vendedores'}[l.role]||l.role;
+  const hasVideo=l.video&&l.video.trim()!=='';
+  return `<div class="flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors group">
+    <div class="flex items-center gap-3 flex-1 min-w-0">
+      <span class="text-slate-300"><i data-lucide="circle-dot" class="w-3.5 h-3.5"></i></span>
+      <span class="text-sm font-semibold truncate">${escHtml(l.title)}</span>
+      <span class="tag ${roleColor} shrink-0">${escHtml(roleLabel)}</span>
+      ${hasVideo?`<span class="tag bg-blue-50 text-blue-600 shrink-0"><i data-lucide="video" class="w-2.5 h-2.5"></i> Video</span>`:''}
+    </div>
+    <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <button onclick="editLesson(${mIdx},${lIdx})" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
+      <button onclick="moveLesson(${mIdx},${lIdx},-1)" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400" title="Subir"><i data-lucide="chevron-up" class="w-3.5 h-3.5"></i></button>
+      <button onclick="moveLesson(${mIdx},${lIdx},1)" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400" title="Bajar"><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></button>
+      <button onclick="deleteLesson(${mIdx},${lIdx})" class="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+    </div>
+  </div>`;
+}
+
+function addModule(){
+  const id='m_'+Date.now();
+  adminModules.push({id,title:'Nuevo Módulo',icon:'book',lessons:[]});
+  saveModules(); renderModuleList();
+}
+
+function deleteModule(mIdx){
+  if(!confirm('¿Eliminar este módulo y todas sus lecciones?'))return;
+  adminModules.splice(mIdx,1);
+  saveModules(); renderModuleList();
+}
+
+function moveLesson(mIdx,lIdx,dir){
+  const lessons=adminModules[mIdx].lessons;
+  const newIdx=lIdx+dir;
+  if(newIdx<0||newIdx>=lessons.length)return;
+  [lessons[lIdx],lessons[newIdx]]=[lessons[newIdx],lessons[lIdx]];
+  saveModules(); renderModuleList();
+}
+
+function deleteLesson(mIdx,lIdx){
+  if(!confirm('¿Eliminar esta lección?'))return;
+  adminModules[mIdx].lessons.splice(lIdx,1);
+  saveModules(); renderModuleList();
+}
+
+// ─── LESSON MODAL ────────────────────────────────────────────────────────────
+let editingMIdx=-1, editingLIdx=-1;
+let quizOptions=[];
+
+function addLesson(mIdx){
+  editingMIdx=mIdx; editingLIdx=-1;
+  document.getElementById('lessonModalTitle').textContent='Nueva Lección';
+  document.getElementById('lTitle').value='';
+  document.getElementById('lRole').value='all';
+  document.getElementById('lContent').value='';
+  document.getElementById('lVideo').value='';
+  document.getElementById('videoPreview').classList.add('hidden');
+  quizOptions=[{text:'Opción A',correct:true},{text:'Opción B',correct:false}];
+  renderCases([]); renderQuizOptions();
+  document.getElementById('quizQ').value='';
+  document.getElementById('lessonModal').classList.remove('hidden');
+  updateLessonPreview();
+  lucide.createIcons();
+}
+
+function editLesson(mIdx,lIdx){
+  editingMIdx=mIdx; editingLIdx=lIdx;
+  const l=adminModules[mIdx].lessons[lIdx];
+  document.getElementById('lessonModalTitle').textContent='Editar Lección';
+  document.getElementById('lTitle').value=l.title||'';
+  document.getElementById('lRole').value=l.role||'all';
+  document.getElementById('lContent').value=l.content||'';
+  document.getElementById('lVideo').value=l.video||'';
+  updateVideoPreview();
+  document.getElementById('quizQ').value=l.quiz?.q||'';
+  quizOptions=(l.quiz?.a||[]).map((a,i)=>({text:a,correct:i===(l.quiz?.k||0)}));
+  renderCases(l.cases||[]);
+  renderQuizOptions();
+  document.getElementById('lessonModal').classList.remove('hidden');
+  updateLessonPreview();
+  lucide.createIcons();
+}
+
+function closeLessonModal(){
+  document.getElementById('lessonModal').classList.add('hidden');
+  editingMIdx=-1; editingLIdx=-1;
+}
+
+function saveLesson(){
+  const title=document.getElementById('lTitle').value.trim();
+  if(!title){toast('El título es obligatorio','error');return;}
+  const cases=[];
+  document.querySelectorAll('.case-row').forEach(r=>{
+    const t=r.querySelector('.case-t').value.trim();
+    const d=r.querySelector('.case-d').value.trim();
+    if(t)cases.push({t,d});
+  });
+  const quizQ=document.getElementById('quizQ').value.trim();
+  const correct=quizOptions.findIndex(o=>o.correct);
+  const lesson={
+    id: editingLIdx>=0 ? adminModules[editingMIdx].lessons[editingLIdx].id : 'l_'+Date.now(),
+    role: document.getElementById('lRole').value,
+    title, content: document.getElementById('lContent').value,
+    video: document.getElementById('lVideo').value.trim(),
+    cases,
+    quiz:{q:quizQ,a:quizOptions.map(o=>o.text),k:correct>=0?correct:0}
+  };
+  if(editingLIdx>=0) adminModules[editingMIdx].lessons[editingLIdx]=lesson;
+  else adminModules[editingMIdx].lessons.push(lesson);
+  saveModules(); renderModuleList(); closeLessonModal();
+  toast('Lección guardada','success');
+}
+
+let currentCases=[];
+function renderCases(cases){
+  currentCases=[...cases];
+  const c=document.getElementById('casesContainer');
+  c.innerHTML=currentCases.map((ca,i)=>`
+    <div class="case-row flex gap-2">
+      <div class="flex-1 space-y-1">
+        <input class="case-t w-full px-3 py-2 bg-slate-50 rounded-lg text-xs border-2 border-slate-100" placeholder="Nombre del caso (ej: Restaurante)" value="${escHtml(ca.t)}">
+        <textarea class="case-d w-full px-3 py-2 bg-slate-50 rounded-lg text-xs border-2 border-slate-100 resize-none" rows="2" placeholder="Descripción del caso...">${escHtml(ca.d)}</textarea>
+      </div>
+      <button onclick="removeCase(${i})" class="self-start p-2 text-slate-400 hover:text-red-500"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+    </div>`).join('');
+  lucide.createIcons();
+}
+
+function addCase(){
+  const cases=[];
+  document.querySelectorAll('.case-row').forEach(r=>{cases.push({t:r.querySelector('.case-t').value,d:r.querySelector('.case-d').value});});
+  cases.push({t:'',d:''});
+  renderCases(cases);
+}
+
+function removeCase(i){
+  const cases=[];
+  document.querySelectorAll('.case-row').forEach(r=>{cases.push({t:r.querySelector('.case-t').value,d:r.querySelector('.case-d').value});});
+  cases.splice(i,1); renderCases(cases);
+}
+
+function renderQuizOptions(){
+  const c=document.getElementById('quizAnswers');
+  c.innerHTML=quizOptions.map((o,i)=>`
+    <div class="flex items-center gap-2">
+      <input type="radio" name="correct_ans" ${o.correct?'checked':''} onchange="quizOptions.forEach((x,j)=>x.correct=j===${i})" class="accent-[#E92129] w-4 h-4 shrink-0">
+      <input class="flex-1 px-3 py-2 bg-white rounded-xl text-sm border-2 border-slate-100" placeholder="Opción ${i+1}" value="${escHtml(o.text)}" oninput="quizOptions[${i}].text=this.value">
+      <button onclick="removeQuizOption(${i})" class="text-slate-400 hover:text-red-500"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+    </div>`).join('');
+  lucide.createIcons();
+}
+
+function addQuizOption(){quizOptions.push({text:'',correct:false});renderQuizOptions();}
+function removeQuizOption(i){if(quizOptions.length<=2)return toast('Mínimo 2 opciones','error');quizOptions.splice(i,1);renderQuizOptions();}
+
+function updateVideoPreview(){
+  const url=document.getElementById('lVideo').value.trim();
+  const prev=document.getElementById('videoPreview');
+  if(url){prev.classList.remove('hidden');document.getElementById('videoFrame').src=url;}
+  else prev.classList.add('hidden');
+}
+document.getElementById('lVideo').addEventListener('input',updateVideoPreview);
+
+// ─── LIVE LESSON PREVIEW ─────────────────────────────────────────────────────
+function updateLessonPreview(){
+  const title = document.getElementById('lTitle').value || 'Título de la lección';
+  const role = document.getElementById('lRole').value || 'all';
+  const content = document.getElementById('lContent').value || 'El contenido de la lección aparecerá aquí...';
+  const video = document.getElementById('lVideo').value.trim();
+
+  // Badge
+  const badgeLabel = {all:'Todos',owner:'Dueños',seller:'Vendedores'}[role]||'Todos';
+  const badgeClass = {all:'preview-badge-all',owner:'preview-badge-owner',seller:'preview-badge-seller'}[role]||'preview-badge-all';
+  const badgeEl = document.getElementById('prev-badge');
+  if(badgeEl){
+    badgeEl.textContent = badgeLabel;
+    badgeEl.className = `px-2 py-0.5 rounded-lg text-[9px] font-black uppercase ${badgeClass}`;
+  }
+
+  const titleEl = document.getElementById('prev-title');
+  if(titleEl) titleEl.textContent = title;
+
+  const contentEl = document.getElementById('prev-content');
+  if(contentEl) contentEl.textContent = content;
+
+  const videoLabel = document.getElementById('prev-video-label');
+  if(videoLabel) videoLabel.textContent = video ? '✓ Con video' : '— Sin video';
+}
+
+// ─── ANALYTICS ───────────────────────────────────────────────────────────────
+function renderAnalytics(){
+  let done = [];
+  try { done = JSON.parse(localStorage.getItem('bold_d') || '[]'); } catch(e){}
+  const qc = parseInt(localStorage.getItem('bold_qc') || '0');
+  const streak = parseInt(localStorage.getItem('bold_streak') || '0');
+  const startDate = localStorage.getItem('bold_start');
+
+  const pct = Math.round((done.length / TOTAL_LESSONS) * 100);
+
+  // Count completed modules
+  const modsDone = MODULE_LESSON_MAP.filter(m => m.ids.every(id => done.includes(id))).length;
+
+  const el = document.getElementById('analyticsContent');
+  el.innerHTML = `
+    <!-- 3 metric cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div class="card p-5 flex flex-col gap-1">
+        <div class="w-9 h-9 bg-red-50 rounded-xl flex items-center justify-center mb-2">
+          <i data-lucide="book-open" class="w-4 h-4 text-[#E92129]"></i>
+        </div>
+        <p class="text-3xl font-black text-[#E92129]">${pct}%</p>
+        <p class="text-[9px] font-black uppercase text-slate-400">% Completado</p>
+        <p class="text-xs text-slate-400 mt-1">${done.length} de ${TOTAL_LESSONS} lecciones · ${modsDone} de ${MODULE_LESSON_MAP.length} módulos</p>
+      </div>
+      <div class="card p-5 flex flex-col gap-1">
+        <div class="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center mb-2">
+          <i data-lucide="check-circle-2" class="w-4 h-4 text-green-600"></i>
+        </div>
+        <p class="text-3xl font-black text-green-600">${qc}</p>
+        <p class="text-[9px] font-black uppercase text-slate-400">Quizzes Correctos</p>
+        <p class="text-xs text-slate-400 mt-1">${TOTAL_LESSONS > 0 ? Math.round(qc/TOTAL_LESSONS*100) : 0}% del total de lecciones</p>
+      </div>
+      <div class="card p-5 flex flex-col gap-1">
+        <div class="w-9 h-9 bg-orange-50 rounded-xl flex items-center justify-center mb-2">
+          <i data-lucide="flame" class="w-4 h-4 text-orange-500"></i>
+        </div>
+        <p class="text-3xl font-black text-orange-500">${streak}</p>
+        <p class="text-[9px] font-black uppercase text-slate-400">Racha de días</p>
+        <p class="text-xs text-slate-400 mt-1">${startDate ? 'Inicio: ' + new Date(startDate).toLocaleDateString('es-CO',{day:'numeric',month:'short',year:'numeric'}) : 'Sin datos de inicio'}</p>
+      </div>
+    </div>
+
+    <!-- Module bars -->
+    <div class="card p-6">
+      <h3 class="font-black text-xs uppercase text-slate-400 mb-4 flex items-center gap-2">
+        <i data-lucide="bar-chart-2" class="w-4 h-4 text-[#E92129]"></i> Progreso por Módulo
+      </h3>
+      <div class="space-y-3">
+        ${MODULE_LESSON_MAP.map(m => {
+          const doneCount = m.ids.filter(id => done.includes(id)).length;
+          const total = m.ids.length;
+          const mpct = total > 0 ? Math.round(doneCount / total * 100) : 0;
+          return `<div class="flex items-center gap-3">
+            <span class="text-xs font-semibold text-slate-600 w-44 shrink-0 truncate">${escHtml(m.title)}</span>
+            <div class="analytics-bar-outer">
+              <div class="analytics-bar-inner" style="width:${mpct}%"></div>
+            </div>
+            <span class="text-[10px] font-black text-slate-500 w-14 text-right shrink-0">${doneCount}/${total} (${mpct}%)</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <p class="text-[10px] text-slate-400 mt-4 text-center">
+      Los datos corresponden al dispositivo actual (almacenamiento local).
+    </p>
+  `;
+  lucide.createIcons();
+}
+
+// ─── CONTENT PANEL ───────────────────────────────────────────────────────────
+function showContentTab(tab){
+  ['glosario','recursos'].forEach(t => {
+    document.getElementById(`ctab-panel-${t}`).classList.toggle('hidden', t !== tab);
+    const btn = document.getElementById(`ctab-${t}`);
+    if(btn) btn.classList.toggle('active', t === tab);
+  });
+}
+
+function renderContentPanel(){
+  renderGlossaryAdmin();
+  renderResourcesAdmin();
+  renderChatQueriesAdmin();
+}
+
+// --- Glosario admin ---
+let glossaryData = [];
+
+function loadGlossaryData(){
+  try {
+    const adm = JSON.parse(localStorage.getItem('bold_admin_glossary'));
+    if(Array.isArray(adm)) { glossaryData = adm; return; }
+  } catch(e){}
+  glossaryData = [];
+}
+
+function renderGlossaryAdmin(){
+  loadGlossaryData();
+  const el = document.getElementById('glossaryList');
+  if(!el) return;
+  if(glossaryData.length === 0){
+    el.innerHTML = `<p class="text-slate-400 text-sm text-center py-8">Sin términos. Agrega el primero con "Agregar término".</p>`;
+    return;
+  }
+  el.innerHTML = glossaryData.map((g, i) => `
+    <div class="card p-4 flex gap-3 items-start glos-row" data-idx="${i}">
+      <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2">
+        <input class="glos-t px-3 py-2 bg-slate-50 rounded-xl text-sm border-2 border-slate-100 font-bold" placeholder="Término" value="${escHtml(g.t)}" oninput="glossaryData[${i}].t=this.value">
+        <input class="glos-d px-3 py-2 bg-slate-50 rounded-xl text-sm border-2 border-slate-100" placeholder="Definición" value="${escHtml(g.d)}" oninput="glossaryData[${i}].d=this.value">
+      </div>
+      <button onclick="deleteGlossaryItem(${i})" class="p-2 text-slate-400 hover:text-red-500 shrink-0 mt-1">
+        <i data-lucide="trash-2" class="w-4 h-4"></i>
+      </button>
+    </div>`).join('');
+  lucide.createIcons();
+}
+
+function addGlossaryItem(){
+  glossaryData.push({t:'',d:''});
+  renderGlossaryAdmin();
+  // Focus last input
+  const rows = document.querySelectorAll('.glos-row');
+  if(rows.length) rows[rows.length-1].querySelector('.glos-t').focus();
+}
+
+function deleteGlossaryItem(i){
+  glossaryData.splice(i, 1);
+  renderGlossaryAdmin();
+}
+
+function publishGlossary(){
+  // Collect from DOM (in case user typed without triggering oninput)
+  const rows = document.querySelectorAll('.glos-row');
+  rows.forEach((row, i) => {
+    if(glossaryData[i]){
+      glossaryData[i].t = row.querySelector('.glos-t').value;
+      glossaryData[i].d = row.querySelector('.glos-d').value;
+    }
+  });
+  glossaryData = glossaryData.filter(g => g.t.trim());
+  localStorage.setItem('bold_admin_glossary', JSON.stringify(glossaryData));
+  toast('Glosario publicado', 'success');
+  renderGlossaryAdmin();
+}
+
+// --- Recursos admin ---
+let resourcesData = [];
+
+function loadResourcesData(){
+  try {
+    const adm = JSON.parse(localStorage.getItem('bold_admin_resources'));
+    if(Array.isArray(adm)) { resourcesData = adm; return; }
+  } catch(e){}
+  resourcesData = [];
+}
+
+function renderResourcesAdmin(){
+  loadResourcesData();
+  const el = document.getElementById('resourcesList');
+  if(!el) return;
+  if(resourcesData.length === 0){
+    el.innerHTML = `<p class="text-slate-400 text-sm text-center py-8">Sin recursos. Agrega el primero con "Agregar recurso".</p>`;
+    return;
+  }
+  el.innerHTML = resourcesData.map((r, i) => `
+    <div class="card p-4 res-row" data-idx="${i}">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+        <input class="res-t px-3 py-2 bg-slate-50 rounded-xl text-sm border-2 border-slate-100 font-bold" placeholder="Nombre del recurso" value="${escHtml(r.t||'')}" oninput="resourcesData[${i}].t=this.value">
+        <input class="res-d px-3 py-2 bg-slate-50 rounded-xl text-sm border-2 border-slate-100" placeholder="Descripción" value="${escHtml(r.d||'')}" oninput="resourcesData[${i}].d=this.value">
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
+        <input class="res-href px-3 py-2 bg-slate-50 rounded-xl text-sm border-2 border-slate-100 col-span-1 md:col-span-2" placeholder="URL de descarga (https://...)" value="${escHtml(r.href||'')}" oninput="resourcesData[${i}].href=this.value">
+        <div class="flex gap-2 items-center">
+          <select class="res-type flex-1 px-3 py-2 bg-slate-50 rounded-xl text-sm border-2 border-slate-100" oninput="resourcesData[${i}].type=this.value">
+            <option value="Excel" ${r.type==='Excel'?'selected':''}>Excel</option>
+            <option value="PDF" ${r.type==='PDF'?'selected':''}>PDF</option>
+            <option value="Video" ${r.type==='Video'?'selected':''}>Video</option>
+          </select>
+          <button onclick="deleteResourceItem(${i})" class="p-2 text-slate-400 hover:text-red-500 shrink-0">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </div>`).join('');
+  lucide.createIcons();
+}
+
+function addResourceItem(){
+  resourcesData.push({t:'',d:'',icon:'file',type:'PDF',href:''});
+  renderResourcesAdmin();
+  const rows = document.querySelectorAll('.res-row');
+  if(rows.length) rows[rows.length-1].querySelector('.res-t').focus();
+}
+
+function deleteResourceItem(i){
+  resourcesData.splice(i, 1);
+  renderResourcesAdmin();
+}
+
+function publishResources(){
+  const rows = document.querySelectorAll('.res-row');
+  rows.forEach((row, i) => {
+    if(resourcesData[i]){
+      resourcesData[i].t = row.querySelector('.res-t').value;
+      resourcesData[i].d = row.querySelector('.res-d').value;
+      resourcesData[i].href = row.querySelector('.res-href').value;
+      resourcesData[i].type = row.querySelector('.res-type').value;
+    }
+  });
+  resourcesData = resourcesData.filter(r => r.t.trim());
+  localStorage.setItem('bold_admin_resources', JSON.stringify(resourcesData));
+  toast('Recursos publicados', 'success');
+  renderResourcesAdmin();
+}
+
+// --- Chat Queries admin ---
+let chatQueriesData = [];
+
+function loadChatQueriesData(){
+  try {
+    const adm = JSON.parse(localStorage.getItem('bold_admin_chat_queries'));
+    if(Array.isArray(adm)) { chatQueriesData = adm; return; }
+  } catch(e){}
+  chatQueriesData = ['¿Cómo cerrar caja?', 'Configurar impresora', 'Facturación electrónica'];
+}
+
+function renderChatQueriesAdmin(){
+  loadChatQueriesData();
+  const el = document.getElementById('chatQueriesList');
+  if(!el) return;
+  if(chatQueriesData.length === 0){
+    el.innerHTML = `<p class="text-slate-400 text-sm text-center py-8">Sin preguntas. Agrega la primera.</p>`;
+    return;
+  }
+  el.innerHTML = chatQueriesData.map((q, i) => `
+    <div class="flex gap-2 items-center chip-row">
+      <input class="chip-text flex-1 px-4 py-2.5 bg-slate-50 rounded-xl text-sm border-2 border-slate-100" placeholder="Texto del chip" value="${escHtml(q)}" oninput="chatQueriesData[${i}]=this.value">
+      <button onclick="deleteChatChip(${i})" class="p-2 text-slate-400 hover:text-red-500 shrink-0">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>`).join('');
+  lucide.createIcons();
+}
+
+function addChatChip(){
+  chatQueriesData.push('');
+  renderChatQueriesAdmin();
+  const rows = document.querySelectorAll('.chip-row');
+  if(rows.length) rows[rows.length-1].querySelector('.chip-text').focus();
+}
+
+function deleteChatChip(i){
+  chatQueriesData.splice(i, 1);
+  renderChatQueriesAdmin();
+}
+
+function saveChatQueries(){
+  const rows = document.querySelectorAll('.chip-row');
+  chatQueriesData = [];
+  rows.forEach(row => {
+    const v = row.querySelector('.chip-text').value.trim();
+    if(v) chatQueriesData.push(v);
+  });
+  localStorage.setItem('bold_admin_chat_queries', JSON.stringify(chatQueriesData));
+  toast('Preguntas rápidas guardadas', 'success');
+  renderChatQueriesAdmin();
+}
+
+// ─── CHATBOT PANEL ───────────────────────────────────────────────────────────
+function renderChatbotPanel(){
+  // Load greeting
+  const greeting = localStorage.getItem('bold_admin_chat_greeting') || '';
+  const greetingEl = document.getElementById('chatGreetingInput');
+  if(greetingEl) greetingEl.value = greeting;
+
+  // Load chatbot chips (shared with chat queries)
+  renderChatbotChipsList();
+
+  // Load toggles
+  const chatEnabled = localStorage.getItem('bold_admin_chat_enabled') !== 'false';
+  const chatHistory = localStorage.getItem('bold_admin_chat_history') !== 'false';
+  setToggle('toggle-chat-enabled', chatEnabled);
+  setToggle('toggle-chat-history', chatHistory);
+
+  lucide.createIcons();
+}
+
+function setToggle(id, value){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.classList.toggle('on', value);
+}
+
+function toggleChatEnabled(){
+  const current = localStorage.getItem('bold_admin_chat_enabled') !== 'false';
+  const newVal = !current;
+  localStorage.setItem('bold_admin_chat_enabled', String(newVal));
+  setToggle('toggle-chat-enabled', newVal);
+  toast(newVal ? 'Chatbot activado' : 'Chatbot desactivado', 'success');
+}
+
+function toggleChatHistory(){
+  const current = localStorage.getItem('bold_admin_chat_history') !== 'false';
+  const newVal = !current;
+  localStorage.setItem('bold_admin_chat_history', String(newVal));
+  setToggle('toggle-chat-history', newVal);
+  toast(newVal ? 'Historial activado' : 'Historial desactivado', 'success');
+}
+
+function saveChatGreeting(){
+  const val = document.getElementById('chatGreetingInput').value;
+  localStorage.setItem('bold_admin_chat_greeting', val);
+  toast('Saludo guardado', 'success');
+}
+
+// Chatbot panel chips — uses the same chatQueriesData array as Content > Chat Queries
+// to keep both panels in sync with no risk of divergence.
+
+function renderChatbotChipsList(){
+  loadChatQueriesData();
+  const el = document.getElementById('chatbotChipsList');
+  if(!el) return;
+  if(chatQueriesData.length === 0){
+    el.innerHTML = `<p class="text-slate-400 text-sm py-2">Sin preguntas. Agrega la primera.</p>`;
+    return;
+  }
+  el.innerHTML = chatQueriesData.map((q, i) => `
+    <div class="flex gap-2 items-center chatbot-chip-row">
+      <input class="chatbot-chip-text flex-1 px-4 py-2.5 bg-slate-50 rounded-xl text-sm border-2 border-slate-100" placeholder="Texto del chip" value="${escHtml(q)}" oninput="chatQueriesData[${i}]=this.value">
+      <button onclick="deleteChatbotChip(${i})" class="p-2 text-slate-400 hover:text-red-500 shrink-0">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>`).join('');
+  lucide.createIcons();
+}
+
+function addChatbotChip(){
+  chatQueriesData.push('');
+  renderChatbotChipsList();
+  const rows = document.querySelectorAll('.chatbot-chip-row');
+  if(rows.length) rows[rows.length-1].querySelector('.chatbot-chip-text').focus();
+}
+
+function deleteChatbotChip(i){
+  chatQueriesData.splice(i, 1);
+  renderChatbotChipsList();
+}
+
+function saveChatbotChips(){
+  const rows = document.querySelectorAll('.chatbot-chip-row');
+  chatQueriesData = [];
+  rows.forEach(row => {
+    const v = row.querySelector('.chatbot-chip-text').value.trim();
+    if(v) chatQueriesData.push(v);
+  });
+  localStorage.setItem('bold_admin_chat_queries', JSON.stringify(chatQueriesData));
+  toast('Preguntas rápidas guardadas', 'success');
+  renderChatbotChipsList();
+}
+
+async function testWebhook(){
+  const resultEl = document.getElementById('webhookTestResult');
+  resultEl.textContent = 'Probando...';
+  resultEl.className = 'text-xs font-bold text-slate-500';
+  resultEl.classList.remove('hidden');
+  try {
+    const res = await fetch('https://n8n.mplasesores.com/webhook/bold-pos-chat', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({message:'ping'})
+    });
+    if(res.ok){
+      let txt = '';
+      try { const data = await res.json(); txt = JSON.stringify(data).slice(0,60); } catch(e){ txt = 'OK'; }
+      resultEl.textContent = '✓ Conexión OK — ' + txt;
+      resultEl.className = 'text-xs font-bold text-green-600';
+    } else {
+      resultEl.textContent = '✗ Error HTTP ' + res.status;
+      resultEl.className = 'text-xs font-bold text-red-600';
+    }
+  } catch(e){
+    resultEl.textContent = '✗ Error de red: ' + e.message;
+    resultEl.className = 'text-xs font-bold text-red-600';
+  }
+}
+
+// ─── BACKUP ──────────────────────────────────────────────────────────────────
+function exportJson(){
+  const json=JSON.stringify(adminModules,null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`academia-bold-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  toast('JSON descargado','success');
+}
+
+function importJson(e){
+  const file=e.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(!Array.isArray(data))throw new Error('Formato inválido');
+      adminModules=data; saveModules(); renderModuleList();
+      toast(`${data.length} módulos importados`,'success');
+    }catch(err){toast('Error al leer el JSON','error');}
+  };
+  reader.readAsText(file);
+  e.target.value='';
+}
+
+function resetToDefault(){
+  if(!confirm('¿Restaurar el contenido original? Perderás todos los cambios del admin.'))return;
+  localStorage.removeItem('bold_admin_modules');
+  adminModules = getDefaultModules();
+  renderModuleList();
+  toast('Restaurado al contenido original','success');
+}
+
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+function toast(msg,type='success'){
+  const t=document.getElementById('toast2');
+  t.innerHTML=`<i data-lucide="${type==='success'?'check-circle':'x-circle'}" class="w-4 h-4"></i>${escHtml(msg)}`;
+  t.className=`fixed bottom-6 right-6 z-[500] px-5 py-3 rounded-2xl text-xs font-bold shadow-2xl flex items-center gap-2 ${type==='success'?'bg-slate-900 text-white':'bg-red-600 text-white'}`;
+  t.classList.remove('hidden');
+  setTimeout(()=>t.classList.add('hidden'),3500);
+  lucide.createIcons();
+}
+</script>
+</body>
+</html>
