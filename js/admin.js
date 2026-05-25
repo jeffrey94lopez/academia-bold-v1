@@ -1,5 +1,9 @@
 import { supabase } from './supabase.js'
 import { requireAuth, logout } from './auth.js'
+import { renderBlocks } from './block-renderer.js'
+
+let currentBlocks = []
+let sortableInstance = null
 
 async function init() {
   const ok = await requireAuth()
@@ -34,6 +38,7 @@ function switchPanel(panel) {
 }
 
 async function renderLessonsPanel() {
+  if (sortableInstance) { sortableInstance.destroy(); sortableInstance = null }
   const el = document.getElementById('panel-lessons')
   const { data } = await supabase.from('lecciones').select('*').order('orden')
 
@@ -63,23 +68,46 @@ async function renderLessonsPanel() {
       `).join('') || '<p class="text-slate-400 text-sm">No hay lecciones. Crea la primera.</p>'}
     </div>
     <div id="lessonFormModal" class="hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl w-full max-w-lg p-6">
-        <h3 id="lessonFormTitle" class="font-black text-base mb-4">Nueva lección</h3>
-        <form id="lessonForm" class="space-y-3">
-          <input type="hidden" id="lessonId">
-          <input id="lessonTitulo" placeholder="Título" required
-            class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
-          <input id="lessonDescripcion" placeholder="Descripción corta" required
-            class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
-          <textarea id="lessonContenido" placeholder="Contenido (HTML permitido)" rows="6" required
-            class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] resize-y"></textarea>
-          <input id="lessonOrden" type="number" placeholder="Orden (ej: 1)" required
-            class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
-          <div class="flex gap-2 pt-1">
-            <button type="button" id="cancelLessonForm" class="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-500">Cancelar</button>
-            <button type="submit" class="flex-1 py-2.5 rounded-xl bg-[#E92129] text-white text-sm font-bold">Guardar</button>
+      <div class="bg-white rounded-2xl w-full max-w-5xl flex flex-col" style="max-height:90vh">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
+          <h3 id="lessonFormTitle" class="font-black text-base">Nueva lección</h3>
+          <button id="cancelLessonForm" class="text-slate-400 hover:text-slate-700 text-lg leading-none px-1">&#x2715;</button>
+        </div>
+        <div class="flex-1 overflow-hidden grid" style="grid-template-columns:1fr 1fr;min-height:0">
+          <div class="overflow-y-auto p-5 border-r border-slate-100">
+            <input type="hidden" id="lessonId">
+            <div class="space-y-2 mb-4">
+              <input id="lessonTitulo" placeholder="Título" required
+                class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+              <input id="lessonDescripcion" placeholder="Descripción corta" required
+                class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+            </div>
+            <p class="text-[10px] font-black uppercase text-slate-400 tracking-wide mb-2">Contenido</p>
+            <div id="blockList" class="space-y-2 mb-3"></div>
+            <div class="flex flex-wrap gap-1.5 mb-4">
+              <button data-type="step" class="add-block bg-slate-100 text-slate-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-slate-200">+ Paso</button>
+              <button data-type="image" class="add-block bg-blue-50 text-blue-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-blue-100">+ Imagen</button>
+              <button data-type="video" class="add-block bg-purple-50 text-purple-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-purple-100">+ Video</button>
+              <button data-type="link" class="add-block bg-green-50 text-green-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-green-100">+ Link</button>
+            </div>
+            <div class="flex items-end gap-3 pt-3 border-t border-slate-100">
+              <div>
+                <p class="text-[10px] font-black uppercase text-slate-400 mb-1">Orden</p>
+                <input id="lessonOrden" type="number" placeholder="1" required
+                  class="w-16 px-2 py-1.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+              </div>
+              <button id="saveLessonBtn" class="flex-1 py-2.5 rounded-xl bg-[#E92129] text-white text-sm font-bold">Guardar lección</button>
+            </div>
           </div>
-        </form>
+          <div class="overflow-y-auto p-5 bg-slate-50">
+            <p class="text-[10px] font-black uppercase text-slate-400 tracking-wide mb-3">&#x1F441;&#xFE0F; Vista previa del estudiante</p>
+            <div class="bg-white rounded-xl p-4 shadow-sm">
+              <h3 id="previewTitle" class="font-black text-sm mb-1 text-slate-900"></h3>
+              <p id="previewDesc" class="text-xs text-slate-400 mb-4"></p>
+              <div id="lessonPreview"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   `
@@ -98,20 +126,47 @@ async function renderLessonsPanel() {
   document.getElementById('cancelLessonForm').addEventListener('click', () => {
     document.getElementById('lessonFormModal').classList.add('hidden')
   })
-  document.getElementById('lessonForm').addEventListener('submit', async e => {
-    e.preventDefault()
+
+  document.getElementById('lessonTitulo').addEventListener('input', e => {
+    document.getElementById('previewTitle').textContent = e.target.value
+  })
+  document.getElementById('lessonDescripcion').addEventListener('input', e => {
+    document.getElementById('previewDesc').textContent = e.target.value
+  })
+
+  document.querySelectorAll('.add-block').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.type
+      const defaults = {
+        step:  { type, text: '' },
+        image: { type, url: '', caption: '' },
+        video: { type, url: '', label: '' },
+        link:  { type, url: '', label: '' },
+      }
+      currentBlocks.push(defaults[type])
+      renderBlockList()
+      updatePreview()
+    })
+  })
+
+  document.getElementById('saveLessonBtn').addEventListener('click', async () => {
+    const titulo = document.getElementById('lessonTitulo').value.trim()
+    const orden = parseInt(document.getElementById('lessonOrden').value)
+    if (!titulo || isNaN(orden)) {
+      alert('Completa Título y Orden antes de guardar.')
+      return
+    }
     const id = document.getElementById('lessonId').value
     const payload = {
-      titulo: document.getElementById('lessonTitulo').value,
+      titulo,
       descripcion: document.getElementById('lessonDescripcion').value,
-      contenido: document.getElementById('lessonContenido').value,
-      orden: parseInt(document.getElementById('lessonOrden').value),
+      contenido: JSON.stringify(currentBlocks),
+      orden,
     }
-    if (id) {
-      await supabase.from('lecciones').update(payload).eq('id', id)
-    } else {
-      await supabase.from('lecciones').insert(payload)
-    }
+    const { error } = id
+      ? await supabase.from('lecciones').update(payload).eq('id', id)
+      : await supabase.from('lecciones').insert(payload)
+    if (error) { alert('Error al guardar: ' + error.message); return }
     document.getElementById('lessonFormModal').classList.add('hidden')
     renderLessonsPanel()
   })
@@ -122,9 +177,99 @@ function openLessonForm(lesson = null) {
   document.getElementById('lessonId').value = lesson?.id || ''
   document.getElementById('lessonTitulo').value = lesson?.titulo || ''
   document.getElementById('lessonDescripcion').value = lesson?.descripcion || ''
-  document.getElementById('lessonContenido').value = lesson?.contenido || ''
   document.getElementById('lessonOrden').value = lesson?.orden || ''
+  document.getElementById('previewTitle').textContent = lesson?.titulo || ''
+  document.getElementById('previewDesc').textContent = lesson?.descripcion || ''
+
+  try {
+    currentBlocks = lesson?.contenido ? JSON.parse(lesson.contenido) : []
+    if (!Array.isArray(currentBlocks)) currentBlocks = []
+  } catch (_) {
+    currentBlocks = []
+  }
+
+  renderBlockList()
+  updatePreview()
   document.getElementById('lessonFormModal').classList.remove('hidden')
+}
+
+function renderBlockList() {
+  const list = document.getElementById('blockList')
+  if (sortableInstance) { sortableInstance.destroy(); sortableInstance = null }
+
+  list.innerHTML = currentBlocks.map((b, i) => blockItemHtml(b, i)).join('')
+
+  list.querySelectorAll('input, textarea').forEach(input => {
+    input.addEventListener('input', () => {
+      const idx = parseInt(input.closest('[data-idx]').dataset.idx)
+      currentBlocks[idx][input.dataset.field] = input.value
+      updatePreview()
+    })
+  })
+
+  list.querySelectorAll('.del-block').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.closest('[data-idx]').dataset.idx)
+      currentBlocks.splice(idx, 1)
+      renderBlockList()
+      updatePreview()
+    })
+  })
+
+  sortableInstance = Sortable.create(list, {
+    handle: '.drag-handle',
+    animation: 150,
+    onEnd(evt) {
+      const moved = currentBlocks.splice(evt.oldIndex, 1)[0]
+      currentBlocks.splice(evt.newIndex, 0, moved)
+      renderBlockList()
+      updatePreview()
+    },
+  })
+}
+
+function blockItemHtml(block, i) {
+  const colors = { step: '#E92129', image: '#3b82f6', video: '#8b5cf6', link: '#16a34a' }
+  const labels = { step: '📝 Paso', image: '🖼️ Imagen', video: '▶️ Video YouTube', link: '🔗 Link' }
+  const color = colors[block.type] || '#94a3b8'
+  const label = labels[block.type] || escapeHtml(block.type)
+
+  let fields = ''
+  if (block.type === 'step') {
+    fields = `<textarea data-field="text" rows="2" placeholder="Texto del paso..."
+      class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129] resize-none">${escapeHtml(block.text || '')}</textarea>`
+  } else if (block.type === 'image') {
+    fields = `<input data-field="url" value="${escapeHtml(block.url || '')}" placeholder="URL de imagen"
+        class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129] mb-1.5">
+      <input data-field="caption" value="${escapeHtml(block.caption || '')}" placeholder="Pie de foto (opcional)"
+        class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129]">`
+  } else if (block.type === 'video') {
+    fields = `<input data-field="url" value="${escapeHtml(block.url || '')}" placeholder="URL de YouTube"
+        class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129] mb-1.5">
+      <input data-field="label" value="${escapeHtml(block.label || '')}" placeholder="Etiqueta del video"
+        class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129]">`
+  } else if (block.type === 'link') {
+    fields = `<input data-field="url" value="${escapeHtml(block.url || '')}" placeholder="URL del enlace"
+        class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129] mb-1.5">
+      <input data-field="label" value="${escapeHtml(block.label || '')}" placeholder="Texto del enlace"
+        class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129]">`
+  }
+
+  return `<div data-idx="${i}" class="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex items-start gap-2">
+    <div class="drag-handle text-slate-300 text-lg cursor-grab mt-0.5 select-none leading-none">⠿</div>
+    <div class="flex-1 min-w-0">
+      <div class="text-[9px] font-black uppercase mb-1.5" style="color:${color}">${label}</div>
+      ${fields}
+    </div>
+    <button class="del-block text-slate-300 hover:text-red-400 text-sm px-1 mt-0.5 shrink-0">✕</button>
+  </div>`
+}
+
+function updatePreview() {
+  const preview = document.getElementById('lessonPreview')
+  if (!preview) return
+  preview.innerHTML = ''
+  preview.appendChild(renderBlocks(currentBlocks))
 }
 
 async function renderGlossaryPanel() {

@@ -18,3 +18,6 @@ desktop.ini
 
 # Git worktrees
 .worktrees/
+
+# Superpowers brainstorming
+.superpowers/

@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js'
+import { renderBlocks } from './block-renderer.js'
 
 async function renderLessons() {
   const container = document.getElementById('section-lessons')
@@ -52,7 +53,15 @@ async function renderLessons() {
     btn.addEventListener('click', () => {
       const lesson = lessons.find(l => l.id === btn.dataset.id)
       document.getElementById('modalTitle').textContent = lesson.titulo
-      document.getElementById('modalContent').innerHTML = lesson.contenido
+      const contentEl = document.getElementById('modalContent')
+      contentEl.innerHTML = ''
+      let blocks
+      try { blocks = JSON.parse(lesson.contenido) } catch (_) { blocks = null }
+      if (Array.isArray(blocks)) {
+        contentEl.appendChild(renderBlocks(blocks))
+      } else {
+        contentEl.innerHTML = lesson.contenido
+      }
       document.getElementById('lessonModal').classList.remove('hidden')
     })
   })
