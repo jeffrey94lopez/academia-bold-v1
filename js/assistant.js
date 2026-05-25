@@ -136,7 +136,7 @@ async function sendMessage(text) {
 
   document.getElementById('quickQueries')?.classList.add('hidden')
 
-  appendBubble('user', escapeHtml(text))
+  appendBubble('user', text)
   history.push({ role: 'user', content: text })
 
   const typing = document.getElementById('typingIndicator')
@@ -169,7 +169,7 @@ function appendBubble(role, content) {
   const div = document.createElement('div')
   div.className = role === 'user' ? 'flex justify-end' : 'flex justify-start'
   div.innerHTML = role === 'user'
-    ? `<div class="msg-user text-sm">${content}</div>`
+    ? `<div class="msg-user text-sm">${escapeHtml(content)}</div>`
     : `<div class="msg-bot text-sm">${content}</div>`
   box.appendChild(div)
 }
