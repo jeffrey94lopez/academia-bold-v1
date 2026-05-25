@@ -1,6 +1,6 @@
 # Academia Bold POS
 
-Plataforma web oficial de capacitación para el sistema de pagos **Bold POS**. Acceso público, sin registro requerido.
+Plataforma oficial de Autogestion y Soporte para el sistema **Bold POS**. Acceso público, sin registro requerido.
 
 ## Características
 
