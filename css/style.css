@@ -64,3 +64,66 @@
 .custom-scroll::-webkit-scrollbar { width: 4px; }
 .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 .dark .custom-scroll::-webkit-scrollbar-thumb { background: #334155; }
+
+/* Bot bubble wide (para mensajes con imágenes o videos) */
+.msg-bot-wide {
+  max-width: 90%;
+}
+
+/* Imágenes dentro del chat */
+.msg-bot img, .msg-bot-wide img, .chat-img {
+  max-width: 100%;
+  border-radius: 12px;
+  cursor: zoom-in;
+  border: 1px solid #e2e8f0;
+  margin-top: 6px;
+  display: block;
+  transition: opacity 0.15s;
+}
+
+.chat-img:hover { opacity: 0.88; }
+
+.dark .msg-bot img, .dark .msg-bot-wide img {
+  border-color: #334155;
+}
+
+/* Videos YouTube dentro del chat */
+.chat-video-wrap {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.chat-video-wrap iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* Lightbox overlay */
+#chatImgLightbox {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0,0,0,0.85);
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+}
+
+#chatImgLightbox.open {
+  display: flex;
+}
+
+#chatImgLightbox img {
+  max-width: 90vw;
+  max-height: 90vh;
+  border-radius: 12px;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+}

@@ -83,13 +83,56 @@ function renderAssistant() {
 }
 
 function renderBubble(role, content) {
-  return role === 'user'
-    ? `<div class="flex justify-end"><div class="msg-user text-sm">${escapeHtml(content)}</div></div>`
-    : `<div class="flex justify-start"><div class="msg-bot text-sm">${content}</div></div>`
+  if (role === 'user') {
+    return `<div class="flex justify-end"><div class="msg-user text-sm">${escapeHtml(content)}</div></div>`
+  }
+  const wide = hasMedia(content)
+  return `<div class="flex justify-start"><div class="${wide ? 'msg-bot-wide' : 'msg-bot'} text-sm">${renderMarkdown(content)}</div></div>`
 }
 
 function escapeHtml(text) {
-  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  if (!text) return ''
+  return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+
+function hasMedia(text) {
+  return /!\[[^\]]*\]\(https?:/.test(text) ||
+    /\]\(https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\//.test(text)
+}
+
+function renderMarkdown(text) {
+  if (!text) return ''
+
+  // 1. Imágenes: ![alt](url)
+  text = text.replace(/!\[([^\]]*)\]\((https?:\/\/[^)]+)\)/g, (_, alt, url) => {
+    const safeAlt = escapeHtml(alt)
+    const safeUrl = escapeHtml(url)
+    return `<div class="my-2 text-center">
+      <img src="${safeUrl}" alt="${safeAlt}" class="chat-img" onclick="openLightbox('${safeUrl}')" title="Clic para ampliar">
+      ${safeAlt ? `<p class="text-[10px] text-slate-400 mt-1 italic">${safeAlt}</p>` : ''}
+    </div>`
+  })
+
+  // 2. Videos YouTube: [texto](youtube-url)
+  text = text.replace(
+    /\[([^\]]+)\]\((https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})[^)]*)\)/g,
+    (_, label, _url, videoId) => `<div class="my-2">
+      <p class="text-xs font-bold mb-1.5 flex items-center gap-1">▶ ${escapeHtml(label)}</p>
+      <div class="chat-video-wrap"><iframe src="https://www.youtube.com/embed/${videoId}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+    </div>`
+  )
+
+  // 3. Links regulares: [texto](url)
+  text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener" class="text-[#E92129] underline font-semibold hover:opacity-75">$1</a>')
+
+  // 4. Negritas: **texto**
+  text = text.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+
+  // 5. Saltos de línea
+  text = text.replace(/\n/g, '<br>')
+
+  return text
 }
 
 function scrollToBottom() {
@@ -168,10 +211,25 @@ function appendBubble(role, content) {
   const box = document.getElementById('chatMessages')
   const div = document.createElement('div')
   div.className = role === 'user' ? 'flex justify-end' : 'flex justify-start'
-  div.innerHTML = role === 'user'
-    ? `<div class="msg-user text-sm">${escapeHtml(content)}</div>`
-    : `<div class="msg-bot text-sm">${content}</div>`
+  if (role === 'user') {
+    div.innerHTML = `<div class="msg-user text-sm">${escapeHtml(content)}</div>`
+  } else {
+    const wide = hasMedia(content)
+    div.innerHTML = `<div class="${wide ? 'msg-bot-wide' : 'msg-bot'} text-sm">${renderMarkdown(content)}</div>`
+  }
   box.appendChild(div)
+}
+
+function openLightbox(url) {
+  let lb = document.getElementById('chatImgLightbox')
+  if (!lb) {
+    lb = document.createElement('div')
+    lb.id = 'chatImgLightbox'
+    lb.onclick = () => lb.classList.remove('open')
+    document.body.appendChild(lb)
+  }
+  lb.innerHTML = `<img src="${url}" alt="">`
+  lb.classList.add('open')
 }
 
 renderAssistant()
