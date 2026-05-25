@@ -38,6 +38,7 @@ function switchPanel(panel) {
 }
 
 async function renderLessonsPanel() {
+  if (sortableInstance) { sortableInstance.destroy(); sortableInstance = null }
   const el = document.getElementById('panel-lessons')
   const { data } = await supabase.from('lecciones').select('*').order('orden')
 
@@ -149,18 +150,23 @@ async function renderLessonsPanel() {
   })
 
   document.getElementById('saveLessonBtn').addEventListener('click', async () => {
+    const titulo = document.getElementById('lessonTitulo').value.trim()
+    const orden = parseInt(document.getElementById('lessonOrden').value)
+    if (!titulo || isNaN(orden)) {
+      alert('Completa Título y Orden antes de guardar.')
+      return
+    }
     const id = document.getElementById('lessonId').value
     const payload = {
-      titulo: document.getElementById('lessonTitulo').value,
+      titulo,
       descripcion: document.getElementById('lessonDescripcion').value,
       contenido: JSON.stringify(currentBlocks),
-      orden: parseInt(document.getElementById('lessonOrden').value),
+      orden,
     }
-    if (id) {
-      await supabase.from('lecciones').update(payload).eq('id', id)
-    } else {
-      await supabase.from('lecciones').insert(payload)
-    }
+    const { error } = id
+      ? await supabase.from('lecciones').update(payload).eq('id', id)
+      : await supabase.from('lecciones').insert(payload)
+    if (error) { alert('Error al guardar: ' + error.message); return }
     document.getElementById('lessonFormModal').classList.add('hidden')
     renderLessonsPanel()
   })
@@ -225,7 +231,7 @@ function blockItemHtml(block, i) {
   const colors = { step: '#E92129', image: '#3b82f6', video: '#8b5cf6', link: '#16a34a' }
   const labels = { step: '📝 Paso', image: '🖼️ Imagen', video: '▶️ Video YouTube', link: '🔗 Link' }
   const color = colors[block.type] || '#94a3b8'
-  const label = labels[block.type] || block.type
+  const label = labels[block.type] || escapeHtml(block.type)
 
   let fields = ''
   if (block.type === 'step') {
