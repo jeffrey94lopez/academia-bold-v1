@@ -30,6 +30,7 @@ function switchPanel(panel) {
   if (panel === 'lessons') renderLessonsPanel()
   if (panel === 'glossary') renderGlossaryPanel()
   if (panel === 'material') renderMaterialPanel()
+  if (panel === 'suggestions') renderSuggestionsPanel()
 }
 
 async function renderLessonsPanel() {
@@ -289,9 +290,130 @@ async function renderMaterialPanel() {
   })
 }
 
+async function renderSuggestionsPanel() {
+  const el = document.getElementById('panel-suggestions')
+  const { data } = await supabase.from('bot_sugerencias').select('*').order('orden')
+
+  el.innerHTML = `
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h2 class="text-lg font-black">Sugerencias Bot</h2>
+        <p class="text-xs text-slate-400 mt-0.5">Máximo 6 activas. Se muestran en el chat de Bodi.</p>
+      </div>
+      <button id="addSuggestion" class="bg-[#E92129] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:scale-105 transition-transform">
+        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nueva sugerencia
+      </button>
+    </div>
+    <div class="space-y-2">
+      ${(data || []).map(s => `
+        <div class="bg-white rounded-xl border border-slate-100 p-3 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="text-xs font-black text-slate-300 w-5 text-center">${escapeHtml(String(s.orden))}</span>
+            <p class="font-bold text-sm truncate">${escapeHtml(s.texto)}</p>
+            ${s.activo
+              ? '<span class="shrink-0 text-[10px] font-black bg-green-50 text-green-600 px-2 py-0.5 rounded-full">Activo</span>'
+              : '<span class="shrink-0 text-[10px] font-black bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full">Inactivo</span>'
+            }
+          </div>
+          <div class="flex gap-1 shrink-0">
+            <button data-id="${s.id}" data-texto="${escapeHtml(s.texto)}" data-orden="${escapeHtml(String(s.orden))}" data-activo="${escapeHtml(String(s.activo))}" class="edit-sug p-1.5 rounded-lg hover:bg-slate-100 text-slate-500">
+              <i data-lucide="edit-2" class="w-4 h-4"></i>
+            </button>
+            <button data-id="${s.id}" class="del-sug p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      `).join('') || '<p class="text-slate-400 text-sm">No hay sugerencias. Crea la primera.</p>'}
+    </div>
+    <div id="sugForm" class="hidden mt-4 bg-white rounded-2xl border border-slate-200 p-4 space-y-2">
+      <input type="hidden" id="sugId">
+      <input id="sugTexto" placeholder="Texto del chip (max 60 caracteres)" maxlength="60" required
+        class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+      <input id="sugOrden" type="number" placeholder="Orden (ej: 1)" required min="0"
+        class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input id="sugActivo" type="checkbox" checked class="w-4 h-4 accent-[#E92129]">
+        <span class="text-sm font-bold text-slate-700">Activo</span>
+      </label>
+      <p id="sugError" class="hidden text-red-500 text-xs"></p>
+      <div class="flex gap-2">
+        <button id="cancelSug" class="flex-1 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-500">Cancelar</button>
+        <button id="saveSug" class="flex-1 py-2 rounded-xl bg-[#E92129] text-white text-sm font-bold">Guardar</button>
+      </div>
+    </div>
+  `
+  lucide.createIcons()
+
+  document.getElementById('addSuggestion').addEventListener('click', () => {
+    document.getElementById('sugId').value = ''
+    document.getElementById('sugTexto').value = ''
+    document.getElementById('sugOrden').value = ''
+    document.getElementById('sugActivo').checked = true
+    document.getElementById('sugError').classList.add('hidden')
+    document.getElementById('sugForm').classList.remove('hidden')
+  })
+
+  document.querySelectorAll('.edit-sug').forEach(b => b.addEventListener('click', () => {
+    document.getElementById('sugId').value = b.dataset.id
+    document.getElementById('sugTexto').value = b.dataset.texto
+    document.getElementById('sugOrden').value = b.dataset.orden
+    document.getElementById('sugActivo').checked = b.dataset.activo === 'true'
+    document.getElementById('sugError').classList.add('hidden')
+    document.getElementById('sugForm').classList.remove('hidden')
+  }))
+
+  document.querySelectorAll('.del-sug').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('¿Eliminar esta sugerencia?')) return
+    await supabase.from('bot_sugerencias').delete().eq('id', b.dataset.id)
+    renderSuggestionsPanel()
+  }))
+
+  document.getElementById('cancelSug').addEventListener('click', () => {
+    document.getElementById('sugForm').classList.add('hidden')
+  })
+
+  document.getElementById('saveSug').addEventListener('click', async () => {
+    const id = document.getElementById('sugId').value
+    const texto = document.getElementById('sugTexto').value.trim()
+    const orden = parseInt(document.getElementById('sugOrden').value)
+    const activo = document.getElementById('sugActivo').checked
+    const errorEl = document.getElementById('sugError')
+
+    if (!texto || isNaN(orden)) {
+      errorEl.textContent = 'Completa todos los campos requeridos.'
+      errorEl.classList.remove('hidden')
+      return
+    }
+
+    if (activo) {
+      const { data: activos } = await supabase
+        .from('bot_sugerencias')
+        .select('id')
+        .eq('activo', true)
+      const otrasActivas = (activos || []).filter(s => s.id !== id)
+      if (otrasActivas.length >= 6) {
+        errorEl.textContent = 'Máximo 6 sugerencias activas. Desactiva una antes de agregar otra.'
+        errorEl.classList.remove('hidden')
+        return
+      }
+    }
+
+    errorEl.classList.add('hidden')
+    const payload = { texto, orden, activo }
+    if (id) {
+      await supabase.from('bot_sugerencias').update(payload).eq('id', id)
+    } else {
+      await supabase.from('bot_sugerencias').insert(payload)
+    }
+    document.getElementById('sugForm').classList.add('hidden')
+    renderSuggestionsPanel()
+  })
+}
+
 function escapeHtml(text) {
   if (!text) return ''
-  return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+  return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')
 }
 
 init()
