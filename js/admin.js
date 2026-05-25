@@ -308,7 +308,7 @@ async function renderSuggestionsPanel() {
       ${(data || []).map(s => `
         <div class="bg-white rounded-xl border border-slate-100 p-3 flex items-center justify-between gap-3">
           <div class="flex items-center gap-3 min-w-0">
-            <span class="text-xs font-black text-slate-300 w-5 text-center">${s.orden}</span>
+            <span class="text-xs font-black text-slate-300 w-5 text-center">${escapeHtml(String(s.orden))}</span>
             <p class="font-bold text-sm truncate">${escapeHtml(s.texto)}</p>
             ${s.activo
               ? '<span class="shrink-0 text-[10px] font-black bg-green-50 text-green-600 px-2 py-0.5 rounded-full">Activo</span>'
@@ -316,7 +316,7 @@ async function renderSuggestionsPanel() {
             }
           </div>
           <div class="flex gap-1 shrink-0">
-            <button data-id="${s.id}" data-texto="${escapeHtml(s.texto)}" data-orden="${s.orden}" data-activo="${s.activo}" class="edit-sug p-1.5 rounded-lg hover:bg-slate-100 text-slate-500">
+            <button data-id="${s.id}" data-texto="${escapeHtml(s.texto)}" data-orden="${escapeHtml(String(s.orden))}" data-activo="${escapeHtml(String(s.activo))}" class="edit-sug p-1.5 rounded-lg hover:bg-slate-100 text-slate-500">
               <i data-lucide="edit-2" class="w-4 h-4"></i>
             </button>
             <button data-id="${s.id}" class="del-sug p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500">
@@ -413,7 +413,7 @@ async function renderSuggestionsPanel() {
 
 function escapeHtml(text) {
   if (!text) return ''
-  return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+  return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')
 }
 
 init()
