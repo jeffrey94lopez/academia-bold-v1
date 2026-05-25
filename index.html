@@ -1,1064 +1,135 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Academia Bold POS - Onboarding & Certificación</title>
-    <meta name="description" content="Capacítate en Bold POS con la academia oficial. Módulos, quizzes, certificado y material de apoyo.">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#E92129">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
-        :root { --bold-red: #E92129; }
-        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
-        .bold-red { color: var(--bold-red); }
-        .bg-bold-red { background-color: var(--bold-red); }
-        .lesson-active { background-color: var(--bold-red) !important; color: white !important; }
-        .confetti { position: absolute; width: 10px; height: 10px; opacity: 0.8; border-radius: 50%; pointer-events: none; z-index: 1000; }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; }
-        .certificate-bg { background: linear-gradient(135deg,#fff 0%,#f9fafb 100%); border: 12px solid #111; }
-        .dark .certificate-bg { background: linear-gradient(135deg,#1e293b 0%,#0f172a 100%); border: 12px solid #E92129; }
-        .mod-progress-bar { transition: width 0.6s ease; }
-        .fade-in { animation: fadeIn 0.35s ease; }
-        @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-        .badge-all { background:#f0fdf4; color:#16a34a; } .badge-owner { background:#fef3c7; color:#d97706; } .badge-seller { background:#eff6ff; color:#2563eb; }
-        .dark .badge-all { background:#052e16; color:#4ade80; } .dark .badge-owner { background:#451a03; color:#fbbf24; } .dark .badge-seller { background:#1e3a5f; color:#60a5fa; }
-        .stat-card { transition: transform 0.2s; } .stat-card:hover { transform: translateY(-2px); }
-        .roadmap-line { background: linear-gradient(to bottom, #E92129, #E92129); }
-        .roadmap-node-done { background:#22c55e; } .roadmap-node-active { background:#E92129; } .roadmap-node-pending { background:#e2e8f0; }
-        .dark .roadmap-node-pending { background:#334155; }
-        .review-card { transition: all 0.2s; } .review-card:hover { border-color: #E92129; }
-        /* Sidebar collapsible */
-        .nav-btn { display:flex; align-items:center; gap:10px; width:100%; padding:10px 12px; border-radius:12px; font-size:12px; font-weight:700; color:#475569; transition:all .15s; text-align:left; }
-        .nav-btn:hover { background:#f8fafc; color:#E92129; }
-        .dark .nav-btn:hover { background:#1e293b; color:#E92129; }
-        .dark .nav-btn { color:#94a3b8; }
-        /* Chat FAB pulse */
-        @keyframes fabPulse { 0%,100%{box-shadow:0 0 0 0 rgba(233,33,41,0.5)} 50%{box-shadow:0 0 0 10px rgba(233,33,41,0)} }
-        #chatFab { animation: fabPulse 2.5s infinite; }
-        #chatFab:hover { animation: none; }
-    </style>
-    <script>tailwind.config = { darkMode:'class', theme:{ extend:{ colors:{ boldRed:'#E92129', darkCard:'#1e293b' } } } }</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Academia Bold POS</title>
+  <meta name="description" content="Plataforma oficial de capacitación Bold POS">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: { extend: { colors: { boldRed: '#E92129' } } }
+    }
+  </script>
 </head>
-<body class="bg-white dark:bg-[#0f172a] text-slate-900 dark:text-slate-100 overflow-hidden">
+<body class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 h-screen flex flex-col overflow-hidden">
 
-<div class="flex flex-col h-screen overflow-hidden">
-    <!-- Header -->
-    <header class="h-16 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between px-4 lg:px-6 bg-white dark:bg-darkCard z-50 shrink-0">
-        <div class="flex items-center gap-3">
-            <button id="mobileBtn" class="lg:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><i data-lucide="menu" class="w-5 h-5"></i></button>
-            <div class="w-9 h-9 bg-bold-red rounded-xl flex items-center justify-center text-white font-black italic shadow-lg text-lg">B</div>
-            <div class="flex flex-col leading-none">
-                <span class="font-black text-lg uppercase tracking-tighter">Bold <span class="bold-red text-sm">POS</span></span>
-                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Academia Oficial</span>
-            </div>
-        </div>
-        <div class="flex-1 max-w-sm mx-6 hidden md:block">
-            <div class="flex justify-between mb-1"><span class="text-[10px] font-black text-slate-400 uppercase">Progreso</span><span id="pText" class="text-[10px] font-black bold-red">0%</span></div>
-            <div class="w-full bg-slate-100 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
-                <div id="pBar" class="bg-bold-red h-full transition-all duration-700" style="width:0%"></div>
-            </div>
-        </div>
-        <div class="flex items-center gap-2">
-            <button id="themeToggle" class="p-2 bg-slate-100 dark:bg-slate-700 rounded-full hover:scale-110 transition-transform">
-                <i data-lucide="moon" id="moonIcon" class="w-4 h-4"></i><i data-lucide="sun" id="sunIcon" class="w-4 h-4 hidden"></i>
-            </button>
-            <a href="admin.html" target="_blank" class="p-2 bg-slate-100 dark:bg-slate-700 rounded-full hover:scale-110 transition-transform" title="Panel Admin">
-                <i data-lucide="settings" class="w-4 h-4 text-slate-500"></i>
-            </a>
-            <a href="https://wa.me/573171109500" target="_blank" class="bg-black text-white px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1.5 hover:scale-105 transition-transform">
-                <i data-lucide="message-circle" class="w-3.5 h-3.5 text-green-400"></i> Soporte
-            </a>
-        </div>
-    </header>
-
-    <div class="flex flex-1 overflow-hidden">
-        <!-- Sidebar -->
-        <aside id="sidebar" class="fixed lg:static inset-y-0 left-0 w-64 bg-white dark:bg-darkCard border-r border-slate-100 dark:border-slate-800 z-40 transition-transform -translate-x-full lg:translate-x-0 flex flex-col shadow-2xl lg:shadow-none">
-            <!-- Nav principal -->
-            <nav class="flex-1 p-3 space-y-0.5 overflow-y-auto pt-4 custom-scrollbar">
-                <!-- Curso + lecciones (acordeón) -->
-                <div>
-                    <button onclick="showView('course'); toggleCourseList()" class="nav-btn justify-between">
-                        <span class="flex items-center gap-2.5">
-                            <i data-lucide="book" class="w-4 h-4 shrink-0 text-[#E92129]"></i>Curso
-                        </span>
-                        <i data-lucide="chevron-down" id="courseChevron" class="w-3.5 h-3.5 shrink-0 text-slate-400 transition-transform"></i>
-                    </button>
-                    <div id="lessonList" class="ml-2 pl-3 border-l-2 border-slate-100 dark:border-slate-800 mt-0.5 space-y-0.5"></div>
-                </div>
-                <button onclick="showView('roadmap')"   class="nav-btn"><i data-lucide="map"         class="w-4 h-4 shrink-0"></i>Ruta de aprendizaje</button>
-                <button onclick="showView('stats')"     class="nav-btn"><i data-lucide="bar-chart-2" class="w-4 h-4 shrink-0"></i>Estadísticas</button>
-                <button onclick="showView('review')"    class="nav-btn"><i data-lucide="refresh-cw"  class="w-4 h-4 shrink-0"></i>Modo repaso</button>
-                <button onclick="showView('glossary')"  class="nav-btn"><i data-lucide="languages"   class="w-4 h-4 shrink-0"></i>Glosario</button>
-                <button onclick="showView('resources')" class="nav-btn"><i data-lucide="download"    class="w-4 h-4 shrink-0"></i>Material de apoyo</button>
-                <!-- Asistente IA — fondo negro, ícono rojo, siempre visible -->
-                <div id="chatNavBtn" class="pt-2">
-                    <button onclick="showView('chat')" class="nav-btn bg-black dark:bg-slate-950 !text-white hover:!bg-slate-800 rounded-xl py-3 font-black">
-                        <i data-lucide="message-circle" class="w-4 h-4 shrink-0 text-[#E92129]"></i>Asistente IA
-                    </button>
-                </div>
-            </nav>
-            <!-- Acciones secundarias -->
-            <div class="p-3 border-t border-slate-100 dark:border-slate-800 space-y-0.5">
-                <button onclick="goToCertificate()" class="nav-btn text-[#E92129] hover:bg-[#E92129]/10 hover:!text-[#E92129]">
-                    <i data-lucide="award" class="w-4 h-4 shrink-0"></i>Mi Certificado
-                </button>
-                <button onclick="resetProgress()" class="nav-btn !text-slate-400 hover:!text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">
-                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 shrink-0"></i>Resetear progreso
-                </button>
-            </div>
-        </aside>
-        <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden"></div>
-
-        <!-- Main -->
-        <main id="mainContent" class="flex-1 overflow-y-auto bg-[#F9FAFB] dark:bg-[#0f172a] lg:p-8 p-4 custom-scrollbar">
-            <div id="courseView" class="max-w-3xl mx-auto space-y-6"></div>
-            <div id="glossaryView" class="max-w-3xl mx-auto hidden space-y-6 pt-2">
-                <h2 class="text-2xl font-black uppercase flex items-center gap-3"><i data-lucide="languages" class="bold-red w-7 h-7"></i> Glosario Bold POS</h2>
-                <div id="glossaryGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
-            </div>
-            <div id="resourcesView" class="max-w-3xl mx-auto hidden space-y-4 py-6">
-                <h2 class="text-2xl font-black uppercase flex items-center gap-3"><i data-lucide="download-cloud" class="bold-red w-7 h-7"></i> Material de Apoyo</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="resGrid"></div>
-            </div>
-            <div id="certificateView" class="max-w-3xl mx-auto hidden space-y-6 py-6 text-center">
-                <div class="certificate-bg p-10 rounded-[32px] shadow-2xl relative overflow-hidden">
-                    <div class="absolute top-0 right-0 w-28 h-28 bg-boldRed/10 rounded-bl-full"></div>
-                    <div class="absolute bottom-0 left-0 w-20 h-20 bg-boldRed/5 rounded-tr-full"></div>
-                    <p class="text-boldRed font-black uppercase tracking-[0.3em] text-xs mb-4">Certificado de Finalización</p>
-                    <h2 class="text-4xl font-black mb-2 dark:text-white uppercase tracking-tighter">Experto en Bold POS</h2>
-                    <p class="text-slate-400 text-sm mb-3">Este documento certifica que</p>
-                    <p id="certName" class="text-3xl font-black text-boldRed mb-3">—</p>
-                    <p class="text-slate-500 text-sm mb-6">completó satisfactoriamente todos los módulos de capacitación y operación del sistema Bold POS.</p>
-                    <div class="flex justify-center gap-4 mb-4 text-[9px] font-bold text-slate-400 uppercase">
-                        <span id="certDate"></span>
-                        <span>·</span>
-                        <span id="certId"></span>
-                    </div>
-                    <div class="flex justify-center gap-16 mb-8">
-                        <div class="text-center"><div class="w-28 h-px bg-slate-300 mb-1"></div><p class="text-[9px] font-bold uppercase text-slate-400">Firma Academia Bold</p></div>
-                        <div class="text-center"><div class="w-28 h-px bg-slate-300 mb-1"></div><p class="text-[9px] font-bold uppercase text-slate-400">Sello de Calidad</p></div>
-                    </div>
-                    <div class="w-16 h-16 bg-boldRed rounded-full mx-auto flex items-center justify-center text-white font-black italic text-3xl shadow-xl">B</div>
-                </div>
-                <div class="flex gap-3 justify-center">
-                    <button onclick="downloadCertificate()" class="flex items-center gap-2 bg-bold-red text-white px-6 py-3 rounded-2xl font-black uppercase text-xs hover:scale-105 transition-all shadow-lg"><i data-lucide="download" class="w-4 h-4"></i> Descargar PNG</button>
-                    <button onclick="shareCertificate()" class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-white px-6 py-3 rounded-2xl font-black uppercase text-xs hover:scale-105 transition-all"><i data-lucide="share-2" class="w-4 h-4"></i> Compartir</button>
-                </div>
-                <div class="bg-white dark:bg-darkCard p-6 rounded-[24px] border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
-                    <h3 class="text-xl font-black uppercase">¿Necesitas asesoría personalizada?</h3>
-                    <p class="text-slate-500 text-sm">Agenda una sesión directamente con un experto de Bold POS.</p>
-                    <button onclick="showCalendly()" class="bg-black text-white dark:bg-white dark:text-black px-8 py-4 rounded-2xl font-black uppercase text-xs hover:scale-105 transition-all shadow-lg">Agendar Asesoría</button>
-                </div>
-            </div>
-            <div id="calendlyView" class="max-w-3xl mx-auto hidden pt-2">
-                <div class="flex items-center justify-between mb-4">
-                    <button onclick="showView('certificate')" class="flex items-center gap-2 text-slate-400 font-black uppercase text-xs hover:text-boldRed transition-colors"><i data-lucide="chevron-left" class="w-4 h-4"></i> Volver</button>
-                    <h2 class="text-lg font-black uppercase">Agendar Sesión</h2>
-                </div>
-                <div class="calendly-inline-widget rounded-3xl overflow-hidden shadow-2xl border border-slate-100" data-url="https://calendly.com/jeffrey-martinez-boldpos/30min" style="min-width:320px;height:700px;"></div>
-                <script type="text/javascript" src="https://assets.calendly.com/assets/external/widget.js" async></script>
-            </div>
-            <!-- Roadmap View -->
-            <div id="roadmapView" class="max-w-3xl mx-auto hidden space-y-4 py-4 fade-in">
-                <h2 class="text-2xl font-black uppercase flex items-center gap-3"><i data-lucide="map" class="bold-red w-7 h-7"></i> Ruta de Aprendizaje</h2>
-                <div id="roadmapContent" class="relative"></div>
-            </div>
-            <!-- Stats View -->
-            <div id="statsView" class="max-w-3xl mx-auto hidden space-y-6 py-4 fade-in">
-                <h2 class="text-2xl font-black uppercase flex items-center gap-3"><i data-lucide="bar-chart-2" class="bold-red w-7 h-7"></i> Mis Estadísticas</h2>
-                <div id="statsContent"></div>
-            </div>
-            <!-- Review View -->
-            <div id="reviewView" class="max-w-3xl mx-auto hidden space-y-4 py-4 fade-in">
-                <h2 class="text-2xl font-black uppercase flex items-center gap-3"><i data-lucide="refresh-cw" class="bold-red w-7 h-7"></i> Modo Repaso</h2>
-                <p class="text-slate-500 text-sm">Revisa el contenido de las lecciones que ya completaste, sin presión de quiz.</p>
-                <div id="reviewContent" class="space-y-4"></div>
-            </div>
-            <!-- Chat View -->
-            <div id="chatView" class="max-w-3xl mx-auto hidden flex flex-col fade-in" style="height:calc(100vh - 9rem);">
-                <div class="bg-white dark:bg-darkCard rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col h-full overflow-hidden">
-                    <!-- Chat Header -->
-                    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
-                        <div class="flex items-center gap-3">
-                            <div class="w-9 h-9 bg-[#E92129] rounded-xl flex items-center justify-center text-white font-black italic text-lg shadow-md">B</div>
-                            <div>
-                                <h2 class="font-black text-sm uppercase tracking-tight">Asistente Bold POS</h2>
-                                <div class="flex items-center gap-1.5 mt-0.5">
-                                    <span class="w-2 h-2 bg-green-500 rounded-full inline-block"></span>
-                                    <span class="text-[9px] font-bold text-green-600 uppercase">En línea</span>
-                                </div>
-                            </div>
-                        </div>
-                        <button id="chatNewBtn" onclick="chatNewConversation()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-[#E92129]/10 hover:text-[#E92129] transition-all text-[9px] font-black uppercase">
-                            <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Nueva conversación
-                        </button>
-                    </div>
-                    <!-- Messages Area -->
-                    <div id="chatMessages" class="flex-1 overflow-y-auto px-5 py-4 space-y-4 custom-scrollbar"></div>
-                    <!-- Typing Indicator -->
-                    <div id="chatTyping" class="hidden px-5 pb-2 shrink-0">
-                        <div class="flex items-center gap-2">
-                            <div class="w-7 h-7 bg-[#E92129] rounded-full flex items-center justify-center text-white font-black italic text-xs shrink-0">B</div>
-                            <div class="bg-slate-100 dark:bg-slate-800 rounded-2xl px-4 py-2 flex items-center gap-1">
-                                <span class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay:0ms"></span>
-                                <span class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay:150ms"></span>
-                                <span class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay:300ms"></span>
-                                <span class="text-[10px] text-slate-400 font-medium ml-1">Escribiendo...</span>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Quick Chips -->
-                    <div id="chatChips" class="px-5 pb-2 shrink-0 flex flex-wrap gap-2"></div>
-                    <!-- Input Area -->
-                    <div class="px-4 py-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
-                        <div class="flex items-center gap-2">
-                            <input id="chatInput" type="text" placeholder="Escribe tu pregunta sobre Bold POS..."
-                                class="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-800 rounded-2xl text-sm border border-slate-200 dark:border-slate-700 focus:border-[#E92129] focus:ring-0 outline-none font-medium">
-                            <button id="chatSendBtn" onclick="chatSend()" class="w-10 h-10 bg-[#E92129] hover:bg-[#c41920] text-white rounded-2xl flex items-center justify-center shadow-md hover:scale-105 transition-all shrink-0">
-                                <i data-lucide="send" class="w-4 h-4"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
+  <!-- Header -->
+  <header class="h-14 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between px-4 shrink-0 bg-white dark:bg-slate-900 z-10">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 bg-[#E92129] rounded-xl flex items-center justify-center text-white font-black italic text-base shadow">B</div>
+      <div class="leading-none">
+        <p class="font-black text-base uppercase tracking-tighter">Bold <span class="text-[#E92129] text-sm">POS</span></p>
+        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Academia Oficial</p>
+      </div>
     </div>
-</div>
-
-<!-- Name Modal (first visit) -->
-<div id="nameModal" class="fixed inset-0 bg-black/70 backdrop-blur-md z-[300] flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-darkCard w-full max-w-md rounded-[32px] p-8 shadow-2xl">
-        <div class="text-center mb-6">
-            <div class="w-16 h-16 bg-bold-red rounded-2xl flex items-center justify-center text-white font-black italic text-3xl shadow-lg mx-auto mb-4">B</div>
-            <h2 class="text-2xl font-black uppercase tracking-tighter">¡Bienvenido a la Academia!</h2>
-            <p class="text-slate-500 text-sm mt-2">Ingresa tu nombre para personalizar tu certificado.</p>
-        </div>
-        <input id="nameInput" type="text" placeholder="Tu nombre completo" maxlength="60"
-            class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-2xl text-sm font-medium border-2 border-slate-100 dark:border-slate-700 focus:border-boldRed focus:ring-0 outline-none mb-4">
-        <button onclick="saveName()" class="w-full bg-bold-red text-white py-3 rounded-2xl font-black uppercase text-sm hover:scale-[1.02] transition-transform shadow-lg">Comenzar Curso</button>
-    </div>
-</div>
-
-<!-- Quiz Modal -->
-<div id="modal" class="fixed inset-0 bg-black/70 backdrop-blur-md z-[200] hidden flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-darkCard w-full max-w-lg rounded-[32px] p-8 shadow-2xl max-h-[85vh] overflow-y-auto custom-scrollbar relative">
-        <button onclick="closeModal()" class="absolute top-5 right-5 text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
-        <div id="modalContent"></div>
-    </div>
-</div>
-
-<!-- Case Modal -->
-<div id="caseModal" class="fixed inset-0 bg-black/70 backdrop-blur-md z-[200] hidden flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-darkCard w-full max-w-lg rounded-[32px] p-8 shadow-2xl relative">
-        <button onclick="closeCaseModal()" class="absolute top-5 right-5 text-slate-400 hover:text-slate-700 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
-        <div id="caseContent"></div>
-    </div>
-</div>
-
-<div id="toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-[400] px-5 py-2.5 rounded-full text-xs font-bold hidden shadow-2xl flex items-center gap-2"></div>
-
-<script>
-const modules = [
-    {
-        id:"m1", title:"1. Inicio y Registro", icon:"play-circle",
-        lessons:[
-            { id:"l1", role:"all", title:"Bienvenida y Registro", content:"Bold POS es la plataforma todo-en-uno para gestionar tu negocio. El primer paso es registrarte en <b>pos.bold.co/#/signup</b> con tu correo electrónico. La sesión de onboarding queda grabada para auditoría interna.", cases:[{t:"Registro para Restaurante",d:"Selecciona el tipo de negocio 'Restaurante' para habilitar la funcionalidad de Órdenes/Mesas desde el inicio."},{t:"Registro para Tienda",d:"Para tiendas, elige 'Retail'. Podrás configurar variantes de productos (talla, color) desde el primer día."}], quiz:{q:"¿Cuál es el link oficial de registro de Bold POS?",a:["bold.com.co","pos.bold.co","pagos.bold.co"],k:1} },
-            { id:"l2", role:"all", title:"Activación y Primer Acceso", content:"Tras registrarte recibirás un correo de verificación. Confirma tu cuenta y accede con tus credenciales. En el primer acceso verás el asistente de configuración rápida que te guía por los ajustes esenciales.", cases:[{t:"Correo no llega",d:"Revisa la carpeta de spam. Si tampoco está, usa la opción 'Reenviar verificación' en la pantalla de login."},{t:"Error de contraseña",d:"Usa 'Olvidé mi contraseña' en la pantalla de login para restablecerla vía correo electrónico."}], quiz:{q:"¿Qué aparece en el primer acceso a Bold POS?",a:["Lista de ventas","Asistente de configuración","Panel de reportes"],k:1} }
-        ]
-    },
-    {
-        id:"m2", title:"2. Perfil y Legal", icon:"user-check",
-        lessons:[
-            { id:"l3", role:"owner", title:"Configuración de RUT", content:"Ingresa los datos exactos de tu RUT: razón social, NIT y actividad económica. Es fundamental definir si tus productos son <b>Gravados</b> (IVA 19%), <b>Excluidos</b> (sin IVA) o <b>Exentos</b> (IVA 0%). Esto afecta directamente la facturación electrónica.", cases:[{t:"Ferretería con IVA mixto",d:"Los tornillos son gravados al 19%, pero herramientas agrícolas pueden ser excluidas. Configura cada categoría por separado."},{t:"Restaurante",d:"Los alimentos preparados para consumo en el sitio están gravados al 8%. Las bebidas y licores al 19%."}], quiz:{q:"¿Qué IVA tienen los productos Exentos?",a:["Sin IVA","IVA del 0%","IVA 19%"],k:1} },
-            { id:"l4", role:"owner", title:"Sucursales e Impresión", content:"Si tienes varias tiendas, crea cada sucursal en Ajustes > Sucursales. En ajustes de impresión selecciona siempre <b>'Todos los Formatos'</b> para que el sistema detecte automáticamente la impresora térmica conectada.", cases:[{t:"Configurar térmica 58mm",d:"Conecta la impresora por USB, ve a Ajustes > Impresión y selecciona 'Todos los formatos'. El sistema hará la detección automática."},{t:"Dos sucursales",d:"Crea cada sucursal por separado. Los inventarios y cajas se gestionan de forma independiente por sucursal."}], quiz:{q:"¿Qué opción de impresión se recomienda para todas las impresoras?",a:["80mm","Media Carta","Todos los Formatos"],k:2} },
-            { id:"l5", role:"owner", title:"Facturación Electrónica (DIAN)", content:"Para habilitar FE: ve a Ajustes > Facturación Electrónica y sube tu certificado digital. Configura el prefijo y numeración aprobada por la DIAN. Cada venta con cliente registrado generará automáticamente la factura electrónica.", cases:[{t:"Habilitación inicial DIAN",d:"Solicita la resolución de facturación en el portal DIAN. Súbela en Bold POS junto con tu certificado .p12 y la clave."},{t:"Factura sin cliente",d:"Si no ingresas datos del cliente, Bold POS emite un ticket simple (no FE). Para FE es obligatorio NIT o cédula del cliente."}], quiz:{q:"¿Qué documento se sube para habilitar FE en Bold POS?",a:["Cámara de comercio","Certificado digital DIAN","Cédula del dueño"],k:1} }
-        ]
-    },
-    {
-        id:"m3", title:"3. Inventario y Productos", icon:"package",
-        lessons:[
-            { id:"l6", role:"all", title:"Crear y Buscar Productos", content:"Agrega productos desde Inventario > Nuevo Producto. Define nombre, código de barras, precio de venta y costo. Activa <b>'Ítem con existencia'</b> si necesitas control de stock. Busca por nombre o código desde el punto de venta.", cases:[{t:"Tienda de Ropa",d:"Crea el producto 'Camiseta' con variantes: Talla (S, M, L, XL) y Color (Blanco, Negro). Cada combinación tiene su propio stock."},{t:"Ferretería",d:"Usa códigos de barras del proveedor para facilitar el escaneo en caja. Activa existencia para controlar tu inventario."}], quiz:{q:"¿Qué opción se habilita para controlar stock de un producto?",a:["Ítem con existencia","Ítem de servicio","Ítem sin código"],k:0} },
-            { id:"l7", role:"owner", title:"Carga Masiva de Inventario", content:"Para negocios con muchos productos, usa la <b>plantilla Excel</b> de carga masiva en Inventario > Importar. Descarga la plantilla, completa los campos (nombre, precio, costo, código) y súbela. El sistema valida errores antes de importar.", cases:[{t:"Supermercado 500+ productos",d:"Descarga la plantilla, pide el listado de precios al proveedor y usa BUSCARV en Excel para cruzar precios. Importa por categorías."},{t:"Actualización masiva de precios",d:"Exporta tu inventario actual, ajusta los precios en Excel y reimporta. El sistema actualizará solo los campos modificados."}], quiz:{q:"¿Dónde se encuentra la opción de importar productos masivamente?",a:["Ajustes > Impresión","Inventario > Importar","Reportes > Exportar"],k:1} },
-            { id:"l8", role:"owner", title:"Variantes y Categorías", content:"Las variantes permiten manejar un solo producto base con múltiples versiones (Talla, Color, Sabor). Las <b>categorías</b> agrupan productos para reportes más claros y navegación rápida en el POS. Crea categorías en Inventario > Categorías.", cases:[{t:"Heladería",d:"Producto: 'Helado Copa'. Variantes: Sabor (Vainilla, Fresa, Chocolate) y Tamaño (Pequeño, Grande). Cada variante con su precio."},{t:"Papelería",d:"Categorías: Útiles Escolares, Papelería Básica, Artes. Facilita la búsqueda del vendedor en caja."}], quiz:{q:"¿Qué son las variantes en Bold POS?",a:["Descuentos especiales","Versiones de un producto (talla, color)","Sucursales diferentes"],k:1} }
-        ]
-    },
-    {
-        id:"m4", title:"4. Punto de Venta", icon:"shopping-cart",
-        lessons:[
-            { id:"l9", role:"all", title:"Proceso de Venta", content:"En el POS selecciona productos por búsqueda, categoría o código de barras. Agrega al carrito, revisa totales y procede al cobro. Si el cliente requiere factura electrónica, ingresa su NIT o cédula <b>antes</b> de cobrar.", cases:[{t:"Venta rápida en Papelería",d:"Usa el lector de código de barras. Escanea el producto, ajusta la cantidad y cobra en efectivo. Proceso en menos de 30 segundos."},{t:"Venta en Restaurante con mesa",d:"Crea una Orden, asígnala a la mesa, agrega platos y cierra la orden cuando el cliente pague."}], quiz:{q:"¿Cuándo se ingresa el NIT del cliente en Bold POS?",a:["Después de cobrar","Antes de cobrar (si necesita FE)","Solo en la primera venta"],k:1} },
-            { id:"l10", role:"all", title:"Órdenes y Mesas", content:"Las <b>Órdenes</b> son comandas abiertas (perfectas para restaurantes y bares). Crea una orden, nómbrala (Mesa 1, Mesa Terraza) y ve agregando productos durante el servicio. Las órdenes no se eliminan hasta que se cierran con un pago.", cases:[{t:"Restaurante con terraza",d:"Crea órdenes 'Mesa 1' hasta 'Mesa 10'. El mesero agrega platos desde su dispositivo. El cajero cierra la orden al final."},{t:"Peluquería con citas",d:"Usa órdenes para cada cliente del día. Agrega servicios según avanza la atención y cobra al finalizar."}], quiz:{q:"¿Las órdenes en Bold POS se pueden eliminar sin pagar?",a:["Sí, siempre","No, deben cerrarse con un pago","Solo si son del mismo día"],k:1} },
-            { id:"l11", role:"seller", title:"Descuentos y Notas", content:"Aplica descuentos por ítem o al total de la venta desde el carrito. Puedes ingresar descuento en porcentaje o valor fijo. Agrega notas internas a la orden (instrucciones de cocina, observaciones) que no aparecen en el recibo del cliente.", cases:[{t:"Descuento a empleados",d:"El dueño puede definir un código de descuento del 20% para ventas a colaboradores. El vendedor lo aplica en el carrito."},{t:"Nota para cocina",d:"Al agregar un plato, toca el ícono de nota y escribe 'Sin cebolla'. Esta nota aparece en el ticket de cocina pero no en la factura del cliente."}], quiz:{q:"¿Cómo se aplica un descuento en Bold POS?",a:["Solo llamando al dueño","Desde el carrito, por ítem o total","Después de generar la factura"],k:1} }
-        ]
-    },
-    {
-        id:"m5", title:"5. Pagos y Cobros", icon:"credit-card",
-        lessons:[
-            { id:"l12", role:"all", title:"Métodos de Pago", content:"Bold POS acepta: Efectivo, Tarjeta (Débito/Crédito), Nequi, Daviplata, Bancolombia y Crédito. Para pagos mixtos (ej. parte en efectivo y parte en Nequi), haz clic en <b>'Agregar método de pago'</b> y divide el monto.", cases:[{t:"Pago Mixto Efectivo + Nequi",d:"El cliente paga $30.000 en efectivo y $20.000 por Nequi. Ingresa $30.000 en Efectivo, agrega método Nequi e ingresa $20.000."},{t:"Venta con Tarjeta",d:"Selecciona 'Tarjeta', pasa la tarjeta por el dataphone Bold y confirma el pago. La transacción queda registrada automáticamente."}], quiz:{q:"¿Cómo se registra un pago mixto en Bold POS?",a:["No es posible","Con 'Agregar método de pago'","Haciendo dos ventas separadas"],k:1} },
-            { id:"l13", role:"all", title:"Addi y Sistecredito", content:"Para ventas con Addi o Sistecredito, el proceso es diferente al crédito bancario. Selecciona el método <b>'Crédito'</b> en Bold POS. El cliente solicita el crédito directamente en la app de Addi/Sistecredito y tú recibes el pago completo al instante.", cases:[{t:"Venta con Addi",d:"Cliente elige Addi. Tú registras la venta con método 'Crédito'. El cliente abre la app de Addi, aprueba el crédito y listo."},{t:"Venta con Sistecredito",d:"Mismo proceso que Addi. El cliente presenta su cupo en la app de Sistecredito y tú recibes el pago inmediato."}], quiz:{q:"¿Cómo se registra una venta con Addi en Bold POS?",a:["Con método Efectivo","Con método Crédito","No se puede registrar"],k:1} },
-            { id:"l14", role:"owner", title:"Listas de Precios", content:"Crea múltiples listas de precios para diferentes tipos de clientes: precio público, precio mayorista, precio empleados. Asigna una lista de precios a un cliente y Bold POS aplicará automáticamente esos precios al agregar productos.", cases:[{t:"Mayorista y minorista",d:"Lista 'Público': precio normal. Lista 'Mayoristas': 15% menos. Al vender a un cliente mayorista, el sistema aplica la lista automáticamente."},{t:"Precios por temporada",d:"Crea una lista 'Temporada Alta' con precios incrementados y actívala durante picos de demanda."}], quiz:{q:"¿Para qué sirven las Listas de Precios en Bold POS?",a:["Para controlar el inventario","Para aplicar precios diferenciados por tipo de cliente","Para desactivar productos"],k:1} }
-        ]
-    },
-    {
-        id:"m6", title:"6. Cierre de Caja", icon:"clock",
-        lessons:[
-            { id:"l15", role:"all", title:"Arqueo de Turno", content:"Al finalizar el turno, ve a Cierre de Caja > Nuevo Cierre. El sistema muestra el efectivo esperado en caja. Cuenta el dinero físico e ingresa el <b>efectivo contado</b>. Si hay diferencia, el sistema la marcará como sobrante o faltante.", cases:[{t:"Cierre sin faltantes",d:"Efectivo esperado: $500.000. Cuentas el cajón y son $500.000. Ingresas $500.000 en 'Efectivo contado'. Diferencia: $0."},{t:"Faltante en caja",d:"Esperado: $500.000. Contado: $490.000. Diferencia: -$10.000 (faltante). El sistema lo registra para auditoría."}], quiz:{q:"¿Qué valor se digita en el arqueo de caja?",a:["Efectivo esperado","Efectivo contado","Ventas totales del día"],k:1} },
-            { id:"l16", role:"owner", title:"Gastos y Egresos", content:"Registra gastos del día directamente en Bold POS desde Caja > Registrar Gasto. Ejemplos: pago de domiciliario, compra de insumos, pago de servicios. Estos gastos afectan el efectivo disponible y aparecen en el cierre.", cases:[{t:"Pago de domiciliario",d:"Domiciliario cobra $15.000 en efectivo. Registra un gasto de $15.000 con concepto 'Domicilio'. El sistema descuenta del efectivo esperado."},{t:"Compra urgente de insumos",d:"Compraste $30.000 en bolsas. Registra el gasto para que el cierre de caja cuadre correctamente."}], quiz:{q:"¿Desde dónde se registran los gastos en Bold POS?",a:["Inventario > Compras","Caja > Registrar Gasto","Reportes > Egresos"],k:1} }
-        ]
-    },
-    {
-        id:"m7", title:"7. Reportes y Estadísticas", icon:"bar-chart-2",
-        lessons:[
-            { id:"l17", role:"owner", title:"Resumen de Ventas", content:"En Reportes > Ventas puedes ver el resumen diario, semanal o mensual. Filtra por vendedor, método de pago o producto. Exporta en Excel o PDF para análisis externo. El dashboard muestra métricas clave: ticket promedio, producto más vendido y hora pico.", cases:[{t:"Reporte mensual para contador",d:"Exporta el reporte de ventas del mes en PDF. Incluye totales por método de pago, IVA cobrado y descuentos aplicados."},{t:"Análisis de hora pico",d:"Revisa el reporte por hora para identificar cuándo necesitas más personal. Si las 12-2pm son pico, refuerza tu equipo en esa franja."}], quiz:{q:"¿Cómo se puede ver el reporte de ventas en Bold POS?",a:["Solo en la app móvil","En Reportes > Ventas, filtrado por período","Solo el dueño puede solicitarlo por correo"],k:1} },
-            { id:"l18", role:"owner", title:"Reportes de Inventario", content:"Reportes > Inventario muestra el estado actual del stock, productos con bajo inventario y el costo promedio de cada ítem. Activa las <b>alertas de stock mínimo</b> para recibir notificación cuando un producto esté por agotarse.", cases:[{t:"Alerta de stock mínimo",d:"Configura que el producto 'Agua 500ml' alerte cuando queden menos de 24 unidades. Así nunca te quedarás sin stock."},{t:"Rotación de inventario",d:"El reporte de rotación te dice qué productos se venden más rápido. Úsalo para definir cantidades de compra óptimas."}], quiz:{q:"¿Qué son las alertas de stock mínimo?",a:["Notificaciones de precios altos","Avisos cuando un producto se está agotando","Alertas de ventas bajas"],k:1} }
-        ]
-    }
-];
-
-const glosario = [
-    {t:"Arqueo",d:"Conteo físico del dinero en caja vs. lo registrado en el sistema."},
-    {t:"FE",d:"Facturación Electrónica — obligatoria por la DIAN para negocios en Colombia."},
-    {t:"Costo Promedio",d:"Promedio ponderado del valor de compra de un producto para calcular utilidad."},
-    {t:"Variante",d:"Versiones de un mismo producto con características distintas (Talla, Color, Sabor)."},
-    {t:"Addi / Sistecredito",d:"Plataformas de crédito para clientes. Se registran como método 'Crédito' en Bold POS."},
-    {t:"Órdenes",d:"Comandas o mesas abiertas que agrupan productos antes de ser cobrados."},
-    {t:"DIAN",d:"Dirección de Impuestos y Aduanas Nacionales — ente regulador de facturación electrónica en Colombia."},
-    {t:"IVA 19%",d:"Impuesto al Valor Agregado estándar para productos gravados."},
-    {t:"IVA 0%",d:"Tasa de IVA para productos exentos (cero tasa, pero se declara ante la DIAN)."},
-    {t:"Excluido de IVA",d:"Productos que no causan IVA y no se incluyen en la declaración (ej. ciertos alimentos)."},
-    {t:"Pago Mixto",d:"Venta cobrada con más de un método de pago simultáneamente."},
-    {t:"NIT",d:"Número de Identificación Tributaria — requerido para emitir facturas electrónicas."},
-    {t:"Ticket Promedio",d:"Valor promedio de cada venta. Se calcula: Total ventas ÷ Número de transacciones."},
-    {t:"Dataphone Bold",d:"Terminal de pago físico de Bold para cobros con tarjeta débito y crédito."},
-    {t:"Lista de Precios",d:"Conjunto de precios personalizados para un grupo de clientes (ej. mayoristas)."},
-    {t:"Stock Mínimo",d:"Cantidad mínima definida de un producto antes de emitir una alerta de reabastecimiento."}
-];
-
-const resources = [
-    {t:"Plantilla Inventario Excel",d:"Para carga masiva de productos",icon:"file-spreadsheet",type:"Excel",href:"#"},
-    {t:"Checklist de Cierre de Caja",d:"Pasos para un arqueo perfecto",icon:"check-square",type:"PDF",href:"#"},
-    {t:"Guía Facturación Electrónica",d:"Habilitación DIAN paso a paso",icon:"file-text",type:"PDF",href:"#"},
-    {t:"Manual de Órdenes/Mesas",d:"Configuración para restaurantes",icon:"book-open",type:"PDF",href:"#"},
-    {t:"Video: Primer Cierre de Caja",d:"Tutorial grabado con ejemplos reales",icon:"video",type:"Video",href:"#"},
-    {t:"Plantilla Gastos Diarios",d:"Excel para control de egresos",icon:"file-spreadsheet",type:"Excel",href:"#"}
-];
-
-// Admin override: if admin saved custom modules, use them
-(function(){ try { const adm=JSON.parse(localStorage.getItem('bold_admin_modules')); if(adm&&adm.length) { modules.length=0; adm.forEach(m=>modules.push(m)); } } catch(e){} })();
-
-
-let state = {
-    mIdx:0, lIdx:0, role:'all', search:'',
-    done: JSON.parse(localStorage.getItem('bold_d')||'[]'),
-    dark: localStorage.getItem('bold_dk')==='true',
-    name: localStorage.getItem('bold_name')||'',
-    correctCount: parseInt(localStorage.getItem('bold_qc')||'0'),
-    streak: parseInt(localStorage.getItem('bold_streak')||'0')
-};
-
-window.onload = () => {
-    if(state.dark) document.documentElement.classList.add('dark');
-    updateIcons();
-    if(state.name) { document.getElementById('nameModal').style.display='none'; initApp(); }
-    else { document.getElementById('nameInput').focus(); }
-    document.getElementById('themeToggle').onclick = () => {
-        state.dark=!state.dark; document.documentElement.classList.toggle('dark');
-        localStorage.setItem('bold_dk',state.dark); updateIcons();
-    };
-    document.getElementById('search').oninput = e => { state.search=e.target.value.toLowerCase(); renderSidebar(); };
-    document.getElementById('mobileBtn').onclick = () => {
-        document.getElementById('sidebar').classList.remove('-translate-x-full');
-        document.getElementById('sidebarOverlay').classList.remove('hidden');
-    };
-    document.getElementById('sidebarOverlay').onclick = () => {
-        document.getElementById('sidebar').classList.add('-translate-x-full');
-        document.getElementById('sidebarOverlay').classList.add('hidden');
-    };
-    document.getElementById('nameInput').addEventListener('keydown', e => { if(e.key==='Enter') saveName(); });
-};
-
-function saveName() {
-    const v = document.getElementById('nameInput').value.trim();
-    if(!v) { document.getElementById('nameInput').classList.add('border-red-400'); return; }
-    state.name = v; localStorage.setItem('bold_name', v);
-    document.getElementById('nameModal').style.display='none';
-    initApp();
-}
-
-function initApp() { updateStreak(); updateUI(); applyChatNavVisibility(); applyCourseList(); }
-
-let courseListOpen = localStorage.getItem('bold_course_open') !== 'false';
-
-function toggleCourseList() {
-    courseListOpen = !courseListOpen;
-    localStorage.setItem('bold_course_open', courseListOpen);
-    applyCourseList();
-}
-
-function applyCourseList() {
-    const list = document.getElementById('lessonList');
-    const chevron = document.getElementById('courseChevron');
-    if(!list) return;
-    list.classList.toggle('hidden', !courseListOpen);
-    if(chevron) {
-        chevron.style.transform = courseListOpen ? 'rotate(0deg)' : 'rotate(-90deg)';
-    }
-}
-
-function applyChatNavVisibility() {
-    const chatNavBtn = document.getElementById('chatNavBtn');
-    if(chatNavBtn) chatNavBtn.style.display = chatEnabled() ? '' : 'none';
-}
-
-function updateStreak() {
-    const today = new Date().toDateString();
-    const last = localStorage.getItem('bold_last');
-    if(last === today) return;
-    const yesterday = new Date(Date.now()-86400000).toDateString();
-    let s = last===yesterday ? state.streak+1 : 1;
-    if(!localStorage.getItem('bold_start')) localStorage.setItem('bold_start', today);
-    localStorage.setItem('bold_last', today);
-    localStorage.setItem('bold_streak', s);
-    state.streak = s;
-}
-
-function updateIcons() {
-    document.getElementById('moonIcon').style.display = state.dark?'none':'block';
-    document.getElementById('sunIcon').style.display = state.dark?'block':'none';
-}
-
-function setRole(r) {
-    state.role=r;
-    ['all','owner','seller'].forEach(btn => {
-        const el=document.getElementById(`role-${btn}`);
-        el.classList.toggle('bg-white',btn===r); el.classList.toggle('dark:bg-slate-700',btn===r); el.classList.toggle('shadow-sm',btn===r); el.classList.toggle('text-slate-400',btn!==r);
-    });
-    updateUI();
-}
-
-function showView(v) {
-    ['course','glossary','resources','certificate','calendly','roadmap','stats','review','chat'].forEach(view => {
-        const el=document.getElementById(`${view}View`);
-        if(el) el.classList.toggle('hidden',v!==view);
-    });
-    if(v==='roadmap') renderRoadmap();
-    if(v==='stats') renderStats();
-    if(v==='review') renderReview();
-    if(v==='chat') initChatView();
-    if(window.innerWidth<1024) {
-        document.getElementById('sidebar').classList.add('-translate-x-full');
-        document.getElementById('sidebarOverlay').classList.add('hidden');
-    }
-}
-
-function showCalendly() { showView('calendly'); }
-
-function updateUI() { renderSidebar(); renderLesson(); renderGlossary(); renderResources(); updateProgress(); lucide.createIcons(); }
-
-function getModuleDone(mod) { return mod.lessons.filter(l=>state.done.includes(l.id)).length; }
-
-function renderSidebar() {
-    const list=document.getElementById('lessonList');
-    if(!list) return;
-    list.innerHTML='';
-    modules.forEach((mod,mIdx) => {
-        const lessons=mod.lessons.filter(l=>(state.role==='all'||l.role==='all'||l.role===state.role));
-        if(!lessons.length) return;
-        const done=getModuleDone(mod), total=mod.lessons.length, pct=Math.round(done/total*100);
-        // Módulo header
-        const head=document.createElement('div');
-        head.className='pt-2 pb-0.5';
-        head.innerHTML=`
-          <div class="flex items-center justify-between px-1 mb-1">
-            <span class="text-[9px] font-black uppercase text-slate-400 tracking-widest leading-tight">${mod.title}</span>
-            <span class="text-[9px] font-bold text-slate-400">${done}/${total}</span>
-          </div>
-          <div class="w-full bg-slate-100 dark:bg-slate-800 h-0.5 rounded-full overflow-hidden mb-1">
-            <div class="mod-progress-bar bg-bold-red h-full" style="width:${pct}%"></div>
-          </div>`;
-        list.appendChild(head);
-        lessons.forEach(l => {
-            const lIdx=mod.lessons.indexOf(l);
-            const active=state.mIdx===mIdx&&state.lIdx===lIdx;
-            const d=state.done.includes(l.id);
-            const btn=document.createElement('button');
-            btn.className=`w-full flex items-center gap-2 px-2 py-2 rounded-lg transition-all text-left ${active?'lesson-active shadow-sm':'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'}`;
-            btn.onclick=()=>{ state.mIdx=mIdx; state.lIdx=lIdx; showView('course'); updateUI(); };
-            btn.innerHTML=`<i data-lucide="${d?'check-circle-2':'circle'}" class="w-3 h-3 shrink-0 ${d&&!active?'text-green-500':''}"></i><span class="text-[11px] font-semibold leading-tight">${l.title}</span>`;
-            list.appendChild(btn);
-        });
-    });
-    lucide.createIcons();
-}
-
-function renderLesson() {
-    const lesson=modules[state.mIdx].lessons[state.lIdx];
-    const area=document.getElementById('courseView');
-    const isDone=state.done.includes(lesson.id);
-    const badgeClass={'all':'badge-all','owner':'badge-owner','seller':'badge-seller'}[lesson.role]||'badge-all';
-    const badgeLabel={'all':'Todos','owner':'Dueños','seller':'Vendedores'}[lesson.role]||lesson.role;
-    const totalLessons=modules.reduce((a,m)=>a+m.lessons.length,0);
-    const lessonNum=modules.slice(0,state.mIdx).reduce((a,m)=>a+m.lessons.length,0)+state.lIdx+1;
-    area.innerHTML=`
-        <div class="bg-white dark:bg-darkCard rounded-[32px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm fade-in">
-            ${lesson.video ? `<iframe src="${lesson.video}" class="w-full aspect-video" allowfullscreen allow="autoplay; encrypted-media" style="display:block;border:none;"></iframe>` : `<div class="aspect-video bg-[#111] flex flex-col items-center justify-center relative group cursor-pointer"><div class="w-16 h-16 bg-bold-red rounded-full flex items-center justify-center shadow-2xl transition-all group-hover:scale-110"><i data-lucide="play" class="text-white fill-white w-7 h-7 ml-0.5"></i></div><p class="text-slate-500 text-xs mt-4 font-medium">Video de esta lección</p></div>`}
-            <div class="p-6 md:p-10">
-                <div class="flex justify-between items-start mb-3 gap-4">
-                    <div>
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="text-boldRed font-black text-[10px] uppercase">Lección ${lessonNum} de ${totalLessons}</span>
-                            <span class="px-2 py-0.5 rounded-lg text-[9px] font-black uppercase ${badgeClass}">${badgeLabel}</span>
-                        </div>
-                        <h1 class="text-3xl font-black tracking-tighter">${lesson.title}</h1>
-                    </div>
-                    ${isDone?'<div class="shrink-0 flex items-center gap-1 text-green-600 bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded-full text-xs font-black"><i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Completada</div>':''}
-                </div>
-                <div class="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-[24px] mb-8 border border-slate-100 dark:border-slate-800">
-                    <p class="text-base text-slate-600 dark:text-slate-300 leading-relaxed font-medium">${lesson.content}</p>
-                </div>
-                <div class="space-y-4">
-                    <h3 class="font-black text-xs uppercase text-slate-400 flex items-center gap-2"><i data-lucide="tv-2" class="w-4 h-4"></i> Casos de Aplicación por Rubro</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        ${lesson.cases.map((c,i)=>`<button onclick="showCase(${state.mIdx},${state.lIdx},${i})" class="w-full text-left p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between group hover:border-boldRed transition-all shadow-sm"><span class="text-sm font-semibold text-slate-600 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-white transition-colors">${c.t}</span><i data-lucide="play-circle" class="w-5 h-5 text-slate-300 group-hover:text-boldRed shrink-0 transition-colors"></i></button>`).join('')}
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="flex flex-col md:flex-row items-center justify-between gap-4 pb-16 pt-2">
-            <button onclick="checkQuiz('${lesson.id}')" class="w-full md:w-auto px-10 py-4 rounded-2xl font-black transition-all text-sm ${isDone?'bg-green-100 dark:bg-green-900/30 text-green-600':'bg-black dark:bg-white dark:text-black text-white shadow-xl hover:scale-105'}">
-                ${isDone?'<span class="flex items-center gap-2"><i data-lucide="check-circle-2" class="w-4 h-4"></i>Lección Completada</span>':'Responder Quiz y Avanzar'}
-            </button>
-            <div class="flex items-center gap-3">
-                <button onclick="nav(-1)" class="px-5 py-3 text-slate-400 font-black uppercase text-xs hover:text-slate-700 dark:hover:text-white transition-colors">← Anterior</button>
-                <button onclick="nav(1)" class="px-6 py-3 bg-bold-red text-white font-black rounded-2xl shadow-lg uppercase text-xs hover:scale-105 transition-transform">Siguiente →</button>
-            </div>
-        </div>
-    `;
-    lucide.createIcons();
-    const mc=document.getElementById('mainContent'); if(mc) mc.scrollTo({top:0,behavior:'smooth'});
-}
-
-function showCase(mIdx,lIdx,ci) {
-    const c=modules[mIdx].lessons[lIdx].cases[ci];
-    document.getElementById('caseContent').innerHTML=`
-        <div class="flex items-center gap-3 mb-4"><div class="w-10 h-10 bg-boldRed/10 rounded-xl flex items-center justify-center"><i data-lucide="tv-2" class="w-5 h-5 text-boldRed"></i></div><h3 class="text-xl font-black">${c.t}</h3></div>
-        <p class="text-slate-600 dark:text-slate-300 leading-relaxed font-medium">${c.d}</p>
-    `;
-    document.getElementById('caseModal').classList.remove('hidden');
-    lucide.createIcons();
-}
-function closeCaseModal() { document.getElementById('caseModal').classList.add('hidden'); }
-
-function checkQuiz(id) {
-    if(state.done.includes(id)) return;
-    const lesson=modules[state.mIdx].lessons[state.lIdx];
-    const content=document.getElementById('modalContent');
-    content.innerHTML=`
-        <div class="text-center mb-6"><h2 class="text-2xl font-black uppercase tracking-tighter">Evaluación Rápida</h2><p class="text-slate-400 mt-1 text-sm">Responde correctamente para avanzar.</p></div>
-        <div class="space-y-4"><p class="font-black text-lg leading-snug">${lesson.quiz.q}</p>
-        <div class="grid gap-2">${lesson.quiz.a.map((opt,i)=>`<button onclick="ans(${i},${lesson.quiz.k},'${lesson.id}')" class="text-left p-4 rounded-2xl border-2 border-slate-100 dark:border-slate-800 hover:border-boldRed transition-all font-semibold text-sm" id="opt${i}">${opt}</button>`).join('')}</div></div>
-    `;
-    document.getElementById('modal').classList.remove('hidden');
-    lucide.createIcons();
-}
-
-function ans(i,k,id) {
-    document.querySelectorAll('[id^="opt"]').forEach(b=>{ b.className="text-left p-4 rounded-2xl border-2 border-slate-100 dark:border-slate-800 opacity-50 pointer-events-none font-semibold text-sm"; });
-    const btn=document.getElementById(`opt${i}`);
-    if(i===k) {
-        btn.className="text-left p-4 rounded-2xl border-2 border-green-500 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-black text-sm";
-        showToast("¡Correcto! 🎉","success");
-        state.done.push(id); localStorage.setItem('bold_d',JSON.stringify(state.done));
-        state.correctCount++; localStorage.setItem('bold_qc', state.correctCount);
-        setTimeout(()=>{ document.getElementById('modal').classList.add('hidden'); updateUI(); celebrate(); nav(1); },1400);
-    } else {
-        btn.className="text-left p-4 rounded-2xl border-2 border-red-500 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 font-black text-sm";
-        showToast("Respuesta incorrecta","error");
-        setTimeout(()=>{ document.getElementById('modal').classList.add('hidden'); },1400);
-    }
-}
-
-function nav(d) {
-    const mod=modules[state.mIdx];
-    if(d===1) {
-        if(state.lIdx<mod.lessons.length-1) state.lIdx++;
-        else if(state.mIdx<modules.length-1) { state.mIdx++; state.lIdx=0; }
-        else { showCertificate(true); return; }
-    } else {
-        if(state.lIdx>0) state.lIdx--;
-        else if(state.mIdx>0) { state.mIdx--; state.lIdx=modules[state.mIdx].lessons.length-1; }
-    }
-    updateUI();
-}
-
-function showCertificate(withCelebration) {
-    showView('certificate');
-    document.getElementById('certName').textContent=state.name||'Participante';
-    if(!localStorage.getItem('bold_cid')) localStorage.setItem('bold_cid','BOLD-'+Math.random().toString(36).substr(2,8).toUpperCase());
-    document.getElementById('certDate').textContent='Emitido: '+new Date().toLocaleDateString('es-CO',{year:'numeric',month:'long',day:'numeric'});
-    document.getElementById('certId').textContent=localStorage.getItem('bold_cid');
-    if(withCelebration) celebrate();
-}
-
-function goToCertificate() { showCertificate(false); }
-
-function updateProgress() {
-    const total=modules.reduce((a,m)=>a+m.lessons.length,0);
-    const p=Math.round((state.done.length/total)*100);
-    document.getElementById('pBar').style.width=p+'%';
-    document.getElementById('pText').innerText=p+'%';
-}
-
-function renderGlossary() {
-    let data = glosario;
-    try { const adm=JSON.parse(localStorage.getItem('bold_admin_glossary')); if(Array.isArray(adm)&&adm.length) data=adm; } catch(e){}
-    document.getElementById('glossaryGrid').innerHTML=data.map(g=>`
-        <div class="bg-white dark:bg-darkCard p-5 rounded-[24px] border border-slate-100 dark:border-slate-800 shadow-sm hover:border-boldRed transition-colors">
-            <h4 class="font-black text-boldRed text-[10px] mb-1 uppercase tracking-widest">${g.t}</h4>
-            <p class="text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed">${g.d}</p>
-        </div>`).join('');
-}
-
-function renderResources() {
-    let data = resources;
-    try { const adm=JSON.parse(localStorage.getItem('bold_admin_resources')); if(Array.isArray(adm)&&adm.length) data=adm; } catch(e){}
-    const typeColor={'Excel':'text-green-600 bg-green-50 dark:bg-green-900/20','PDF':'text-red-600 bg-red-50 dark:bg-red-900/20','Video':'text-blue-600 bg-blue-50 dark:bg-blue-900/20'};
-    document.getElementById('resGrid').innerHTML=data.map(r=>`
-        <a href="${r.href}" class="block p-4 bg-white dark:bg-darkCard rounded-[20px] border border-slate-100 dark:border-slate-800 flex justify-between items-center group hover:border-boldRed transition-all cursor-pointer shadow-sm">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-boldRed transition-colors shrink-0">
-                    <i data-lucide="${r.icon}" class="w-5 h-5"></i>
-                </div>
-                <div><h4 class="font-black text-xs">${r.t}</h4><p class="text-[9px] text-slate-400 mt-0.5">${r.d}</p></div>
-            </div>
-            <span class="text-[8px] font-black uppercase px-2 py-1 rounded-lg shrink-0 ${typeColor[r.type]||'text-slate-500 bg-slate-100'}">${r.type}</span>
-        </a>`).join('');
-    lucide.createIcons();
-}
-
-function closeModal() { document.getElementById('modal').classList.add('hidden'); }
-
-function resetProgress() {
-    if(!confirm('¿Seguro que quieres resetear todo el progreso?')) return;
-    state.done=[]; localStorage.removeItem('bold_d');
-    state.mIdx=0; state.lIdx=0;
-    updateUI(); showToast('Progreso reseteado','error');
-}
-
-function showToast(m,type='success') {
-    const t=document.getElementById('toast');
-    t.innerHTML=`<i data-lucide="${type==='success'?'check-circle':'x-circle'}" class="w-3.5 h-3.5"></i> ${m}`;
-    t.className=`fixed bottom-20 left-1/2 -translate-x-1/2 z-[400] px-5 py-2.5 rounded-full text-xs font-bold shadow-2xl flex items-center gap-2 ${type==='success'?'bg-black text-white':'bg-red-600 text-white'}`;
-    t.classList.remove('hidden');
-    setTimeout(()=>t.classList.add('hidden'),3000);
-    lucide.createIcons();
-}
-
-function celebrate() {
-    for(let i=0;i<70;i++) {
-        const c=document.createElement('div'); c.className='confetti';
-        c.style.left=Math.random()*100+'vw'; c.style.top='-20px';
-        c.style.backgroundColor=['#E92129','#111111','#FFD700','#22c55e'][Math.floor(Math.random()*4)];
-        document.body.appendChild(c);
-        c.animate([{transform:'translate(0,0)',opacity:1},{transform:`translate(${Math.random()*200-100}px,${window.innerHeight+50}px)`,opacity:0}],{duration:2000+Math.random()*2000}).onfinish=()=>c.remove();
-    }
-}
-
-/* ===== ROADMAP ===== */
-function renderRoadmap() {
-    const total = modules.reduce((a,m)=>a+m.lessons.length,0);
-    document.getElementById('roadmapContent').innerHTML = `
-        <div class="relative pl-8">
-            <div class="absolute left-3 top-4 bottom-4 w-0.5 bg-gradient-to-b from-boldRed to-slate-200 dark:to-slate-700"></div>
-            ${modules.map((mod,mIdx)=>{
-                const done=getModuleDone(mod), tot=mod.lessons.length, pct=Math.round(done/tot*100);
-                const allDone=done===tot, isCur=mIdx===state.mIdx;
-                const nodeClass=allDone?'roadmap-node-done':(isCur?'roadmap-node-active':'roadmap-node-pending');
-                return `<div class="relative mb-6">
-                    <div class="absolute -left-5 top-4 w-6 h-6 rounded-full ${nodeClass} flex items-center justify-center text-white text-[9px] font-black shadow-md border-2 border-white dark:border-slate-900">${allDone?'✓':(mIdx+1)}</div>
-                    <div class="bg-white dark:bg-darkCard rounded-2xl border-2 ${isCur?'border-boldRed':'border-slate-100 dark:border-slate-800'} p-5 shadow-sm ml-2">
-                        <div class="flex items-center justify-between mb-3">
-                            <h3 class="font-black text-sm">${mod.title}</h3>
-                            <span class="text-[9px] font-bold px-2 py-1 rounded-full ${allDone?'bg-green-100 dark:bg-green-900/30 text-green-600':'bg-slate-100 dark:bg-slate-800 text-slate-500'}">${pct}% completo</span>
-                        </div>
-                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden mb-3">
-                            <div class="h-full rounded-full transition-all ${allDone?'bg-green-500':'bg-boldRed'}" style="width:${pct}%"></div>
-                        </div>
-                        <div class="space-y-1">${mod.lessons.map(l=>{
-                            const ld=state.done.includes(l.id);
-                            return `<div class="flex items-center gap-2 text-xs ${ld?'text-green-600 dark:text-green-400':'text-slate-400'}">
-                                <i data-lucide="${ld?'check-circle-2':'circle'}" class="w-3 h-3 shrink-0"></i>${l.title}
-                            </div>`;
-                        }).join('')}</div>
-                        <button onclick="goToModule(${mIdx})" class="mt-3 text-[9px] font-black uppercase px-3 py-1.5 rounded-lg ${isCur?'bg-boldRed text-white':'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-boldRed hover:text-white'} transition-all">
-                            ${isCur?'Continuar aquí':'Ir al módulo'}
-                        </button>
-                    </div>
-                </div>`;
-            }).join('')}
-        </div>`;
-    lucide.createIcons();
-}
-
-function goToModule(mIdx) {
-    state.mIdx=mIdx;
-    const mod=modules[mIdx];
-    const firstUndone=mod.lessons.findIndex(l=>!state.done.includes(l.id));
-    state.lIdx=firstUndone>=0?firstUndone:0;
-    showView('course'); updateUI();
-}
-
-/* ===== STATS ===== */
-function renderStats() {
-    const total=modules.reduce((a,m)=>a+m.lessons.length,0);
-    const done=state.done.length, pct=Math.round(done/total*100);
-    const modsDone=modules.filter(m=>m.lessons.every(l=>state.done.includes(l.id))).length;
-    const startDate=localStorage.getItem('bold_start');
-    const circumference=2*Math.PI*38;
-    const dash=Math.round((pct/100)*circumference);
-    document.getElementById('statsContent').innerHTML=`
-        <div class="flex flex-col items-center mb-8">
-            <div class="relative w-36 h-36">
-                <svg viewBox="0 0 100 100" class="w-full h-full -rotate-90">
-                    <circle cx="50" cy="50" r="38" fill="none" stroke="#f1f5f9" stroke-width="10"/>
-                    <circle cx="50" cy="50" r="38" fill="none" stroke="#E92129" stroke-width="10"
-                        stroke-dasharray="${dash} ${circumference}" stroke-linecap="round" class="transition-all duration-700"/>
-                </svg>
-                <div class="absolute inset-0 flex flex-col items-center justify-center">
-                    <span class="text-3xl font-black text-boldRed">${pct}%</span>
-                    <span class="text-[9px] font-bold text-slate-400 uppercase">completado</span>
-                </div>
-            </div>
-        </div>
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-            ${ [
-                {icon:'book-open',label:'Lecciones',val:`${done} / ${total}`,color:'text-blue-600',bg:'bg-blue-50 dark:bg-blue-900/20'},
-                {icon:'layers',label:'Módulos',val:`${modsDone} / ${modules.length}`,color:'text-purple-600',bg:'bg-purple-50 dark:bg-purple-900/20'},
-                {icon:'flame',label:'Racha',val:`${state.streak} días`,color:'text-orange-500',bg:'bg-orange-50 dark:bg-orange-900/20'},
-                {icon:'check-circle-2',label:'Quizzes OK',val:state.correctCount,color:'text-green-600',bg:'bg-green-50 dark:bg-green-900/20'},
-                {icon:'award',label:'Estado',val:pct===100?'¡Experto!':pct>50?'En camino':'Iniciando',color:'text-boldRed',bg:'bg-red-50 dark:bg-red-900/20'},
-                {icon:'calendar',label:'Inicio',val:startDate?new Date(startDate).toLocaleDateString('es-CO',{day:'numeric',month:'short'}):'—',color:'text-slate-600',bg:'bg-slate-100 dark:bg-slate-800'}
-            ].map(s=>`
-            <div class="stat-card bg-white dark:bg-darkCard rounded-2xl border border-slate-100 dark:border-slate-800 p-4 shadow-sm">
-                <div class="w-9 h-9 ${s.bg} rounded-xl flex items-center justify-center mb-3">
-                    <i data-lucide="${s.icon}" class="w-4 h-4 ${s.color}"></i>
-                </div>
-                <p class="text-xl font-black ${s.color}">${s.val}</p>
-                <p class="text-[9px] font-bold text-slate-400 uppercase mt-0.5">${s.label}</p>
-            </div>`).join('')}
-        </div>`;
-    lucide.createIcons();
-}
-
-/* ===== REVIEW ===== */
-function renderReview() {
-    const completed=[];
-    modules.forEach(mod=>mod.lessons.forEach(l=>{ if(state.done.includes(l.id)) completed.push({...l,modTitle:mod.title}); }));
-    const el=document.getElementById('reviewContent');
-    if(!completed.length) {
-        el.innerHTML=`<div class="text-center py-16"><i data-lucide="book-open" class="w-12 h-12 mx-auto text-slate-300 mb-4"></i><p class="font-black text-slate-400 uppercase text-sm">Aún no has completado ninguna lección</p><p class="text-xs text-slate-400 mt-1">Completa quizzes para desbloquear el modo repaso.</p></div>`;
-    } else {
-        el.innerHTML=completed.map(l=>`
-            <div class="review-card bg-white dark:bg-darkCard rounded-2xl border-2 border-slate-100 dark:border-slate-800 p-5 shadow-sm">
-                <p class="text-[9px] font-black uppercase text-boldRed tracking-widest mb-1">${l.modTitle}</p>
-                <h3 class="font-black text-base mb-3">${l.title}</h3>
-                <div class="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-4 mb-3">
-                    <p class="text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed">${l.content}</p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="flex items-center gap-1 text-[9px] font-bold text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-full"><i data-lucide="check-circle-2" class="w-3 h-3"></i> Completada</span>
-                </div>
-            </div>`).join('');
-    }
-    lucide.createIcons();
-}
-
-/* ===== CERTIFICATE DOWNLOAD ===== */
-async function downloadCertificate() {
-    showToast('Generando imagen...','success');
-    const el=document.querySelector('.certificate-bg');
-    try {
-        const canvas=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:null});
-        const link=document.createElement('a');
-        link.download=`certificado-boldpos-${(state.name||'participante').replace(/\s+/g,'-').toLowerCase()}.png`;
-        link.href=canvas.toDataURL('image/png');
-        link.click();
-        showToast('¡Certificado descargado!','success');
-    } catch(e) { showToast('Error al generar la imagen','error'); }
-}
-
-async function shareCertificate() {
-    if(navigator.share) {
-        navigator.share({title:'Mi Certificado Bold POS',text:`${state.name} completó la Academia Bold POS. ¡Ahora soy experto en Bold POS!`}).catch(()=>{});
-    } else {
-        const text=`${state.name} completó la Academia Bold POS 🏆`;
-        navigator.clipboard.writeText(text).then(()=>showToast('Texto copiado al portapapeles','success'));
-    }
-}
-
-/* ===== CHAT ASSISTANT ===== */
-const CHAT_WEBHOOK = 'https://n8n.mplasesores.com/webhook/bold-pos-chat';
-const CHAT_HISTORY_KEY = 'bold_chat_history';
-const CHAT_MAX = 20;
-
-function chatEnabled() {
-    return localStorage.getItem('bold_admin_chat_enabled') !== 'false';
-}
-
-function chatPersistHistory() {
-    return localStorage.getItem('bold_admin_chat_history') !== 'false';
-}
-
-function chatGetHistory() {
-    if(!chatPersistHistory()) return [];
-    try {
-        const h = JSON.parse(localStorage.getItem(CHAT_HISTORY_KEY)||'[]');
-        return h.map(m => m.role === 'bot' ? {...m, role:'assistant'} : m);
-    } catch(e) { return []; }
-}
-
-function chatSaveHistory(history) {
-    if(!chatPersistHistory()) return;
-    const trimmed = history.slice(-CHAT_MAX*2);
-    localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(trimmed));
-}
-
-function chatGetGreeting() {
-    const custom = localStorage.getItem('bold_admin_chat_greeting');
-    const name = state.name || 'amigo';
-    if(custom) return custom.replace('{nombre}', name);
-    return `¡Hola ${name}! Soy el experto en Bold POS. ¿Qué duda tienes?`;
-}
-
-function chatGetChips() {
-    try {
-        const adm = JSON.parse(localStorage.getItem('bold_admin_chat_queries'));
-        if(Array.isArray(adm) && adm.length) return adm;
-    } catch(e){}
-    return ['¿Cómo cerrar caja?', 'Configurar impresora', 'Facturación electrónica'];
-}
-
-let chatInitialized = false;
-
-function initChatView() {
-    // Show/hide chat nav button based on admin setting
-    const chatNavBtn = document.getElementById('chatNavBtn');
-    if(chatNavBtn) chatNavBtn.style.display = chatEnabled() ? '' : 'none';
-
-    renderChatChips();
-    if(!chatInitialized) {
-        document.getElementById('chatInput').addEventListener('keydown', e => {
-            if(e.key === 'Enter') chatSend();
-        });
-        chatInitialized = true;
-    }
-    const history = chatGetHistory();
-    const messagesEl = document.getElementById('chatMessages');
-    messagesEl.innerHTML = '';
-    if(history.length === 0) {
-        chatAppendMessage('assistant', chatGetGreeting());
-    } else {
-        history.forEach(msg => chatAppendMessage(msg.role === 'bot' ? 'assistant' : msg.role, msg.content, true));
-    }
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-    lucide.createIcons();
-}
-
-function renderChatChips() {
-    const chips = chatGetChips();
-    const el = document.getElementById('chatChips');
-    el.innerHTML = chips.map(c =>
-        `<button data-chip="${escHtml(c)}" onclick="chatSendChip(this)" class="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-[#E92129]/10 hover:text-[#E92129] text-slate-600 dark:text-slate-300 rounded-full text-[11px] font-bold transition-all border border-transparent hover:border-[#E92129]/30 active:scale-95">${escHtml(c)}</button>`
-    ).join('');
-}
-
-function chatSendChip(btn) {
-    const text = btn.dataset.chip;
-    document.getElementById('chatInput').value = text;
-    chatSend();
-}
-
-function chatAppendMessage(role, content, noSave) {
-    const el = document.getElementById('chatMessages');
-    const wrap = document.createElement('div');
-    if(role === 'user') {
-        wrap.className = 'flex justify-end';
-        wrap.innerHTML = `<div class="max-w-[80%] bg-[#E92129] text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm font-medium shadow-sm">${escHtml(content)}</div>`;
-    } else {
-        wrap.className = 'flex justify-start items-end gap-2';
-        wrap.innerHTML = `<div class="w-7 h-7 bg-[#E92129] rounded-full flex items-center justify-center text-white font-black italic text-xs shrink-0 self-start mt-1">B</div><div class="max-w-[88%] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-2xl rounded-tl-sm px-4 py-3 text-sm font-medium shadow-sm leading-relaxed">${chatMd(content)}</div>`;
-    }
-    el.appendChild(wrap);
-    el.scrollTop = el.scrollHeight;
-    if(!noSave) {
-        const history = chatGetHistory();
-        history.push({role, content});
-        chatSaveHistory(history);
-    }
-}
-
-function escHtml(t) {
-    return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-/* ── Markdown renderer for chat bot messages ── */
-function chatMd(text) {
-    const lines = text.split('\n');
-    let html = '', inOl = false, inUl = false;
-    const closeList = () => { if(inOl){html+='</ol>';inOl=false;} if(inUl){html+='</ul>';inUl=false;} };
-    lines.forEach((line, i) => {
-        const m3=line.match(/^### (.+)/), m2=line.match(/^## (.+)/), m1=line.match(/^# (.+)/);
-        const ol=line.match(/^\d+\. ([\s\S]+)/), ul=line.match(/^[-*] ([\s\S]+)/);
-        if(m3){closeList();html+=`<p class="font-black text-sm mt-2 mb-0.5">${chatMdInline(m3[1])}</p>`;}
-        else if(m2){closeList();html+=`<p class="font-black text-base mt-2 mb-1">${chatMdInline(m2[1])}</p>`;}
-        else if(m1){closeList();html+=`<p class="font-black text-lg mt-2 mb-1">${chatMdInline(m1[1])}</p>`;}
-        else if(ol){if(inUl){html+='</ul>';inUl=false;}if(!inOl){html+='<ol class="list-decimal ml-5 space-y-0.5 my-1.5">';inOl=true;}html+=`<li>${chatMdInline(ol[1])}</li>`;}
-        else if(ul){if(inOl){html+='</ol>';inOl=false;}if(!inUl){html+='<ul class="list-disc ml-5 space-y-0.5 my-1.5">';inUl=true;}html+=`<li>${chatMdInline(ul[1])}</li>`;}
-        else if(line.trim()===''){closeList();if(i<lines.length-1)html+='<br>';}
-        else{closeList();html+=`<span class="block">${chatMdInline(line)}</span>`;}
-    });
-    closeList();
-    return html;
-}
-
-function ytId(url) {
-    const m = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    return m ? m[1] : null;
-}
-
-function chatMdInline(text) {
-    const blocks = [];
-    /* images: ![alt](url) */
-    text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => {
-        const i=blocks.length, su=escHtml(url), sa=escHtml(alt);
-        blocks.push(`<img src="${su}" alt="${sa}" class="rounded-xl mt-2 mb-1 cursor-zoom-in hover:opacity-90 transition-opacity shadow-md" style="max-height:240px;max-width:100%;" onclick="chatImgModal('${su}','${sa}')" title="Clic para ampliar">`);
-        return `\x00${i}\x00`;
-    });
-    /* markdown links [text](url) */
-    text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (_, title, url) => {
-        const vid = ytId(url);
-        const i = blocks.length;
-        if(vid) {
-            blocks.push(`<div class="mt-2 mb-1 rounded-xl overflow-hidden shadow-md"><p class="text-[10px] font-bold text-slate-500 dark:text-slate-400 px-1 pb-1">${escHtml(title)}</p><iframe src="https://www.youtube.com/embed/${escHtml(vid)}" style="width:100%;aspect-ratio:16/9;max-height:220px;display:block;" allowfullscreen allow="autoplay; encrypted-media"></iframe></div>`);
-        } else {
-            blocks.push(`<a href="${escHtml(url)}" target="_blank" rel="noopener" class="text-[#E92129] underline font-semibold">${escHtml(title)}</a>`);
-        }
-        return `\x00${i}\x00`;
-    });
-    /* bare YouTube URLs */
-    text = text.replace(/https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/\S+/g, url => {
-        const vid = ytId(url);
-        if(!vid) return url;
-        const i = blocks.length;
-        blocks.push(`<div class="mt-2 mb-1 rounded-xl overflow-hidden shadow-md"><iframe src="https://www.youtube.com/embed/${escHtml(vid)}" style="width:100%;aspect-ratio:16/9;max-height:220px;display:block;" allowfullscreen allow="autoplay; encrypted-media"></iframe></div>`);
-        return `\x00${i}\x00`;
-    });
-    /* escape remaining text */
-    text = escHtml(text);
-    /* bold **text** */
-    text = text.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
-    /* italic *text* */
-    text = text.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g,'<em>$1</em>');
-    /* inline code `code` */
-    text = text.replace(/`([^`]+)`/g,'<code class="bg-black/10 dark:bg-white/10 px-1.5 py-0.5 rounded text-xs font-mono">$1</code>');
-    /* restore blocks */
-    text = text.replace(/\x00(\d+)\x00/g, (_,i) => blocks[+i]);
-    return text;
-}
-
-function chatImgModal(url, alt) {
-    const m=document.getElementById('chatImgModal');
-    document.getElementById('chatImgSrc').src=url;
-    document.getElementById('chatImgSrc').alt=alt||'';
-    document.getElementById('chatImgDl').href=url;
-    document.getElementById('chatImgDl').setAttribute('download', (alt||'imagen-bold-pos').replace(/\s+/g,'-'));
-    m.classList.remove('hidden'); m.classList.add('flex');
-    lucide.createIcons();
-}
-function chatImgModalClose(e) {
-    if(!e||e.target===document.getElementById('chatImgModal')) {
-        const m=document.getElementById('chatImgModal');
-        m.classList.add('hidden'); m.classList.remove('flex');
-    }
-}
-
-async function chatSend() {
-    const input = document.getElementById('chatInput');
-    const msg = input.value.trim();
-    if(!msg) return;
-    input.value = '';
-
-    const historySnapshot = chatGetHistory();
-
-    chatAppendMessage('user', msg);
-    // Show typing
-    document.getElementById('chatTyping').classList.remove('hidden');
-    document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
-    document.getElementById('chatSendBtn').disabled = true;
-    input.disabled = true;
-
-    try {
-        const res = await fetch(CHAT_WEBHOOK, {
-            method: 'POST',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({message: msg, history: historySnapshot.slice(-CHAT_MAX*2)})
-        });
-        document.getElementById('chatTyping').classList.add('hidden');
-        if(!res.ok) throw new Error('HTTP '+res.status);
-        const data = await res.json();
-        const reply = (data && (data.reply || data.response || data.message || data.text)) || 'Lo siento, no pude obtener una respuesta. Por favor intenta de nuevo.';
-        chatAppendMessage('assistant', reply);
-    } catch(e) {
-        document.getElementById('chatTyping').classList.add('hidden');
-        chatAppendMessage('assistant', 'Hubo un problema al contactar al asistente. Por favor revisa tu conexión e intenta de nuevo.');
-    } finally {
-        document.getElementById('chatSendBtn').disabled = false;
-        input.disabled = false;
-        input.focus();
-    }
-}
-
-function chatNewConversation() {
-    localStorage.removeItem(CHAT_HISTORY_KEY);
-    const messagesEl = document.getElementById('chatMessages');
-    messagesEl.innerHTML = '';
-    chatAppendMessage('assistant', chatGetGreeting());
-    document.getElementById('chatInput').value = '';
-}
-
-</script>
-<!-- Mobile FAB: Asistente IA (always visible on mobile) -->
-<button id="chatFab" onclick="showView('chat'); document.getElementById('sidebar').classList.add('-translate-x-full'); document.getElementById('sidebarOverlay').classList.add('hidden');"
-  class="fixed bottom-6 right-4 z-[350] lg:hidden w-14 h-14 bg-[#E92129] rounded-full shadow-2xl flex items-center justify-center text-white active:scale-90 transition-transform"
-  title="Asistente IA">
-  <i data-lucide="message-circle" class="w-6 h-6"></i>
-</button>
-
-<!-- Chat Image Modal -->
-<div id="chatImgModal" class="fixed inset-0 bg-black/90 backdrop-blur-sm z-[600] hidden items-center justify-center p-4" onclick="chatImgModalClose(event)">
-  <div class="relative flex flex-col items-center max-w-5xl w-full">
-    <img id="chatImgSrc" src="" alt="" class="max-h-[80vh] max-w-full rounded-2xl shadow-2xl object-contain">
-    <div class="flex gap-3 mt-5">
-      <a id="chatImgDl" href="" target="_blank" rel="noopener" class="flex items-center gap-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm rounded-2xl text-white text-sm font-black uppercase hover:bg-white/35 transition-colors">
-        <i data-lucide="download" class="w-4 h-4"></i> Descargar
+    <button id="themeToggle" class="p-2 rounded-full bg-slate-100 dark:bg-slate-800 hover:scale-110 transition-transform">
+      <i data-lucide="moon" id="iconMoon" class="w-4 h-4"></i>
+      <i data-lucide="sun" id="iconSun" class="w-4 h-4 hidden"></i>
+    </button>
+  </header>
+
+  <!-- Main content -->
+  <main class="flex-1 overflow-hidden relative">
+    <div id="section-assistant" class="absolute inset-0 section-enter"></div>
+    <div id="section-lessons" class="absolute inset-0 section-enter hidden"></div>
+    <div id="section-resources" class="absolute inset-0 section-enter hidden"></div>
+  </main>
+
+  <!-- Bottom nav (móvil) -->
+  <nav class="h-16 border-t border-slate-100 dark:border-slate-800 flex items-center justify-around bg-white dark:bg-slate-900 shrink-0 md:hidden">
+    <button data-tab="assistant" class="nav-tab flex flex-col items-center gap-1 text-[10px] font-bold text-[#E92129]">
+      <i data-lucide="bot" class="w-5 h-5"></i>
+      <span>Asistente</span>
+    </button>
+    <button data-tab="lessons" class="nav-tab flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400">
+      <i data-lucide="book-open" class="w-5 h-5"></i>
+      <span>Lecciones</span>
+    </button>
+    <button data-tab="resources" class="nav-tab flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400">
+      <i data-lucide="library" class="w-5 h-5"></i>
+      <span>Recursos</span>
+    </button>
+  </nav>
+
+  <!-- Desktop sidebar -->
+  <div class="hidden md:flex md:fixed md:left-0 md:top-14 md:h-[calc(100vh-3.5rem)] md:w-56 md:border-r md:border-slate-100 md:dark:border-slate-800 md:bg-white md:dark:bg-slate-900 md:flex-col md:p-3 md:gap-1 md:z-10">
+    <button data-tab="assistant" class="nav-tab-desk flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-[#E92129] bg-red-50 dark:bg-red-950/30">
+      <i data-lucide="bot" class="w-4 h-4"></i> Asistente IA
+    </button>
+    <button data-tab="lessons" class="nav-tab-desk flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">
+      <i data-lucide="book-open" class="w-4 h-4"></i> Lecciones
+    </button>
+    <button data-tab="resources" class="nav-tab-desk flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">
+      <i data-lucide="library" class="w-4 h-4"></i> Recursos
+    </button>
+    <div class="mt-auto pt-3 border-t border-slate-100 dark:border-slate-800">
+      <a href="admin.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800">
+        <i data-lucide="settings" class="w-4 h-4"></i> Admin
       </a>
-      <button onclick="chatImgModalClose()" class="flex items-center gap-2 px-5 py-2.5 bg-white/20 backdrop-blur-sm rounded-2xl text-white text-sm font-black uppercase hover:bg-white/35 transition-colors">
-        <i data-lucide="x" class="w-4 h-4"></i> Cerrar
-      </button>
     </div>
   </div>
-</div>
 
-<script>
-if('serviceWorker' in navigator) {
-    window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').then(()=>console.log('SW registrado')).catch(()=>{}));
-}
-</script>
+  <!-- Desktop content offset -->
+  <style>
+    @media (min-width: 768px) {
+      main { margin-left: 14rem; }
+    }
+  </style>
+
+  <script type="module">
+    import './js/assistant.js'
+    import './js/lessons.js'
+    import './js/resources.js'
+
+    // Theme toggle
+    const html = document.documentElement
+    const toggle = document.getElementById('themeToggle')
+    const moon = document.getElementById('iconMoon')
+    const sun = document.getElementById('iconSun')
+
+    if (localStorage.theme === 'dark') {
+      html.classList.add('dark')
+      moon.classList.add('hidden')
+      sun.classList.remove('hidden')
+    }
+
+    toggle.addEventListener('click', () => {
+      html.classList.toggle('dark')
+      const isDark = html.classList.contains('dark')
+      localStorage.theme = isDark ? 'dark' : 'light'
+      moon.classList.toggle('hidden', isDark)
+      sun.classList.toggle('hidden', !isDark)
+    })
+
+    // Tab navigation
+    function switchTab(tab) {
+      document.querySelectorAll('[id^="section-"]').forEach(s => s.classList.add('hidden'))
+      document.getElementById(`section-${tab}`).classList.remove('hidden')
+
+      document.querySelectorAll('.nav-tab').forEach(b => {
+        const active = b.dataset.tab === tab
+        b.classList.toggle('text-[#E92129]', active)
+        b.classList.toggle('text-slate-400', !active)
+      })
+
+      document.querySelectorAll('.nav-tab-desk').forEach(b => {
+        const active = b.dataset.tab === tab
+        b.classList.toggle('text-[#E92129]', active)
+        b.classList.toggle('bg-red-50', active)
+        b.classList.toggle('dark:bg-red-950/30', active)
+        b.classList.toggle('text-slate-500', !active)
+      })
+    }
+
+    document.querySelectorAll('[data-tab]').forEach(btn => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab))
+    })
+
+    lucide.createIcons()
+  </script>
 </body>
 </html>
