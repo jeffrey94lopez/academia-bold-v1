@@ -222,6 +222,7 @@ function renderBlockList() {
     onEnd(evt) {
       const moved = currentBlocks.splice(evt.oldIndex, 1)[0]
       currentBlocks.splice(evt.newIndex, 0, moved)
+      renderBlockList()
       updatePreview()
     },
   })
