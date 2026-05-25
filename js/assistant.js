@@ -1,15 +1,32 @@
+import { supabase } from './supabase.js'
+
 const N8N_URL = 'https://n8n.mplasesores.com/webhook/bold-pos-chat'
 
-const QUICK_QUERIES = [
+const FALLBACK_CHIPS = [
   '¿Cómo proceso un pago?',
   '¿Qué es el datafono Bold?',
   '¿Cómo hago un reembolso?',
   '¿Cómo configuro mi cuenta?',
 ]
 
+async function loadChips() {
+  try {
+    const { data, error } = await supabase
+      .from('bot_sugerencias')
+      .select('texto')
+      .eq('activo', true)
+      .order('orden')
+    if (error || !data?.length) return FALLBACK_CHIPS
+    return data.map(r => r.texto)
+  } catch {
+    return FALLBACK_CHIPS
+  }
+}
+
 let history = JSON.parse(localStorage.getItem('bold_chat_history') || '[]')
 
-function renderAssistant() {
+async function renderAssistant() {
+  const chips = await loadChips()
   const container = document.getElementById('section-assistant')
   container.innerHTML = `
     <div class="flex flex-col h-full">
@@ -20,10 +37,11 @@ function renderAssistant() {
             <i data-lucide="bot" class="w-5 h-5 text-white"></i>
           </div>
           <div>
-            <p class="text-sm font-black">Asistente Bold POS</p>
-            <p class="text-[10px] text-green-500 font-bold flex items-center gap-1">
-              <span class="w-1.5 h-1.5 bg-green-500 rounded-full inline-block"></span> En línea
-            </p>
+            <div class="flex items-center gap-1.5">
+              <p class="text-sm font-black">Bodi</p>
+              <span class="text-[9px] font-black bg-slate-100 dark:bg-slate-700 text-slate-500 px-1.5 py-0.5 rounded-full tracking-wide">IA</span>
+            </div>
+            <p class="text-[10px] text-slate-400 dark:text-slate-500">Asistente Bold POS · IA</p>
           </div>
         </div>
         <button id="clearChat" class="text-xs text-slate-400 hover:text-[#E92129] font-bold flex items-center gap-1">
@@ -34,12 +52,8 @@ function renderAssistant() {
       <!-- Messages -->
       <div id="chatMessages" class="flex-1 overflow-y-auto custom-scroll p-4 flex flex-col gap-3">
         ${history.length === 0 ? `
-          <div class="text-center mt-8">
-            <div class="w-16 h-16 bg-red-50 dark:bg-red-950/30 rounded-full flex items-center justify-center mx-auto mb-3">
-              <i data-lucide="bot" class="w-8 h-8 text-[#E92129]"></i>
-            </div>
-            <p class="font-bold text-slate-700 dark:text-slate-300 text-sm">¡Hola! Soy tu asistente Bold POS</p>
-            <p class="text-slate-400 text-xs mt-1">Pregúntame cualquier cosa sobre el sistema</p>
+          <div class="flex justify-start">
+            <div class="msg-bot text-sm">¡Hola! Soy Bodi, el asistente virtual de Bold POS 👋 Estoy aquí para ayudarte con cualquier duda sobre la plataforma. ¿En qué te puedo ayudar hoy?</div>
           </div>
         ` : history.map(m => renderBubble(m.role, m.content)).join('')}
       </div>
@@ -55,7 +69,7 @@ function renderAssistant() {
 
       <!-- Quick queries -->
       <div id="quickQueries" class="px-4 pb-2 flex gap-2 overflow-x-auto shrink-0 ${history.length > 0 ? 'hidden' : ''}">
-        ${QUICK_QUERIES.map(q => `
+        ${chips.map(q => `
           <button class="quick-query shrink-0 text-xs font-bold px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 hover:border-[#E92129] hover:text-[#E92129] transition-colors whitespace-nowrap">${q}</button>
         `).join('')}
       </div>
