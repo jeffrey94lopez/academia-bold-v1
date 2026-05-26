@@ -1,6 +1,7 @@
 import { supabase } from './supabase.js'
 import { requireAuth, logout } from './auth.js'
 import { renderBlocks } from './block-renderer.js'
+import { applyFormat } from './step-formatter.js'
 
 let currentBlocks = []
 let sortableInstance = null
@@ -81,6 +82,15 @@ async function renderLessonsPanel() {
                 class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
               <input id="lessonDescripcion" placeholder="Descripción corta" required
                 class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+              <select id="lessonCategoria"
+                class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] bg-white">
+                <option>Ventas</option>
+                <option>Inventario</option>
+                <option>Ingresos</option>
+                <option>Egresos</option>
+                <option>Contactos</option>
+                <option>Configuración</option>
+              </select>
             </div>
             <p class="text-[10px] font-black uppercase text-slate-400 tracking-wide mb-2">Contenido</p>
             <div id="blockList" class="space-y-2 mb-3"></div>
@@ -89,6 +99,11 @@ async function renderLessonsPanel() {
               <button data-type="image" class="add-block bg-blue-50 text-blue-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-blue-100">+ Imagen</button>
               <button data-type="video" class="add-block bg-purple-50 text-purple-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-purple-100">+ Video</button>
               <button data-type="link" class="add-block bg-green-50 text-green-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-green-100">+ Link</button>
+            </div>
+            <div class="mb-4">
+              <p class="text-[10px] font-black uppercase text-slate-400 tracking-wide mb-1">Notas</p>
+              <textarea id="lessonNotas" placeholder="Notas adicionales para el estudiante (opcional)..." rows="3"
+                class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-[#E92129] resize-none"></textarea>
             </div>
             <div class="flex items-end gap-3 pt-3 border-t border-slate-100">
               <div>
@@ -162,6 +177,8 @@ async function renderLessonsPanel() {
       descripcion: document.getElementById('lessonDescripcion').value,
       contenido: JSON.stringify(currentBlocks),
       orden,
+      categoria: document.getElementById('lessonCategoria').value,
+      notas: document.getElementById('lessonNotas').value.trim() || null,
     }
     const { error } = id
       ? await supabase.from('lecciones').update(payload).eq('id', id)
@@ -177,6 +194,8 @@ function openLessonForm(lesson = null) {
   document.getElementById('lessonId').value = lesson?.id || ''
   document.getElementById('lessonTitulo').value = lesson?.titulo || ''
   document.getElementById('lessonDescripcion').value = lesson?.descripcion || ''
+  document.getElementById('lessonCategoria').value = lesson?.categoria || 'Ventas'
+  document.getElementById('lessonNotas').value = lesson?.notas || ''
   document.getElementById('lessonOrden').value = lesson?.orden || ''
   document.getElementById('previewTitle').textContent = lesson?.titulo || ''
   document.getElementById('previewDesc').textContent = lesson?.descripcion || ''
@@ -216,6 +235,13 @@ function renderBlockList() {
     })
   })
 
+  list.querySelectorAll('.fmt-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const textarea = btn.closest('[data-idx]').querySelector('textarea[data-field="text"]')
+      applyFormat(textarea, btn.dataset.marker)
+    })
+  })
+
   sortableInstance = Sortable.create(list, {
     handle: '.drag-handle',
     animation: 150,
@@ -236,8 +262,14 @@ function blockItemHtml(block, i) {
 
   let fields = ''
   if (block.type === 'step') {
-    fields = `<textarea data-field="text" rows="2" placeholder="Texto del paso..."
-      class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129] resize-none">${escapeHtml(block.text || '')}</textarea>`
+    fields = `
+      <div class="flex gap-1 mb-1.5">
+        <button type="button" class="fmt-btn px-2 py-0.5 rounded text-[10px] font-black bg-slate-200 hover:bg-slate-300 text-slate-700 leading-none" data-marker="**" title="Negrita"><strong>B</strong></button>
+        <button type="button" class="fmt-btn px-2 py-0.5 rounded text-[10px] font-black bg-slate-200 hover:bg-slate-300 text-slate-700 leading-none" data-marker="*" title="Cursiva"><em>I</em></button>
+        <button type="button" class="fmt-btn px-2 py-0.5 rounded text-[10px] font-black bg-slate-200 hover:bg-slate-300 text-slate-700 leading-none" data-marker="__" title="Subrayado"><u>U</u></button>
+      </div>
+      <textarea data-field="text" rows="2" placeholder="Texto del paso..."
+        class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129] resize-none">${escapeHtml(block.text || '')}</textarea>`
   } else if (block.type === 'image') {
     fields = `<input data-field="url" value="${escapeHtml(block.url || '')}" placeholder="URL de imagen"
         class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129] mb-1.5">
