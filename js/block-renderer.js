@@ -1,3 +1,5 @@
+import { renderStepText } from './step-formatter.js'
+
 export function renderBlocks(blocks) {
   if (!Array.isArray(blocks)) return document.createDocumentFragment()
   const frag = document.createDocumentFragment()
@@ -13,7 +15,7 @@ export function renderBlocks(blocks) {
       circle.textContent = stepCount
       const p = document.createElement('p')
       p.style.cssText = 'font-size:13px;color:#334155;margin:3px 0 0;line-height:1.6'
-      p.textContent = block.text != null ? String(block.text) : ''
+      p.appendChild(renderStepText(block.text != null ? String(block.text) : ''))
       wrap.append(circle, p)
       frag.append(wrap)
 
@@ -38,32 +40,33 @@ export function renderBlocks(blocks) {
       frag.append(wrap)
 
     } else if (block.type === 'video') {
-      let validUrl = false
-      try { new URL(block.url); validUrl = true } catch (_) {}
-      if (validUrl && !/^https?:\/\//i.test(block.url)) validUrl = false
-      if (!validUrl) continue
-      const a = document.createElement('a')
-      a.href = block.url
-      a.target = '_blank'
-      a.rel = 'noopener noreferrer'
-      a.style.cssText = 'display:block;margin-bottom:14px;text-decoration:none'
-      const top = document.createElement('div')
-      top.style.cssText = 'background:#1e293b;border-radius:10px 10px 0 0;height:80px;display:flex;align-items:center;justify-content:center'
-      const playBtn = document.createElement('div')
-      playBtn.style.cssText = 'width:36px;height:36px;background:#E92129;border-radius:50%;display:flex;align-items:center;justify-content:center'
-      const playIcon = document.createElement('span')
-      playIcon.style.cssText = 'color:white;font-size:16px;margin-left:3px'
-      playIcon.textContent = '▶'
-      playBtn.append(playIcon)
-      top.append(playBtn)
-      const bottom = document.createElement('div')
-      bottom.style.cssText = 'background:#fff;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 10px 10px;padding:10px 12px'
-      const labelEl = document.createElement('p')
-      labelEl.style.cssText = 'font-size:12px;font-weight:700;color:#1e293b;margin:0'
-      labelEl.textContent = block.label || 'Ver video'
-      bottom.append(labelEl)
-      a.append(top, bottom)
-      frag.append(a)
+      let videoId = null
+      try {
+        const u = new URL(block.url)
+        if (u.hostname.includes('youtube.com')) videoId = u.searchParams.get('v')
+        else if (u.hostname === 'youtu.be') videoId = u.pathname.slice(1)
+      } catch (_) {}
+      if (!videoId) continue
+
+      const wrap = document.createElement('div')
+      wrap.style.cssText = 'margin-bottom:14px'
+
+      const iframe = document.createElement('iframe')
+      iframe.src = `https://www.youtube.com/embed/${videoId}`
+      iframe.setAttribute('allowfullscreen', '')
+      iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture')
+      iframe.setAttribute('loading', 'lazy')
+      iframe.style.cssText = 'width:100%;aspect-ratio:16/9;border:0;border-radius:10px;display:block'
+      wrap.append(iframe)
+
+      if (block.label) {
+        const cap = document.createElement('p')
+        cap.style.cssText = 'font-size:11px;color:#94a3b8;margin:6px 0 0'
+        cap.textContent = block.label
+        wrap.append(cap)
+      }
+
+      frag.append(wrap)
 
     } else if (block.type === 'link') {
       let validUrl = false
