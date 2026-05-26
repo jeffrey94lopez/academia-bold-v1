@@ -197,7 +197,7 @@ async function renderLessons() {
 
     accordion.querySelectorAll('.acc-lesson').forEach(btn => {
       btn.addEventListener('click', () => {
-        activeLesson = lessons.find(l => l.id === btn.dataset.id) || null
+        activeLesson = lessons.find(l => String(l.id) === btn.dataset.id) || null
         renderAccordion()
         renderDeskContent()
       })
