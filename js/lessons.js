@@ -12,7 +12,11 @@ const CATEGORIES = [
 
 function escapeHtml(text) {
   if (text == null) return ''
-  return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
 }
 
 async function renderLessons() {
@@ -24,6 +28,7 @@ async function renderLessons() {
     .select('*')
     .order('orden')
 
+  if (error) console.error('[lessons] Supabase error:', error)
   if (error || !lessons?.length) {
     container.innerHTML = '<p class="text-slate-400 text-sm text-center pt-16">No hay lecciones disponibles.</p>'
     return
@@ -93,11 +98,12 @@ async function renderLessons() {
     </div>
   `
 
-  // ── Shared: render lesson content into any container ──────────────────────
-  function renderLessonContent(container, lesson) {
-    container.innerHTML = ''
+  // ── Shared: render lesson content into any panel ───────────────────────────
+  function renderLessonContent(panel, lesson) {
+    panel.innerHTML = ''
     const catLessons = grouped[lesson.categoria || 'Ventas'] || []
-    const lessonIdx = catLessons.findIndex(l => l.id === lesson.id) + 1
+    const idx = catLessons.findIndex(l => l.id === lesson.id)
+    const lessonIdx = idx >= 0 ? idx + 1 : '?'
 
     let blocks = []
     let isLegacy = false
@@ -107,12 +113,11 @@ async function renderLessons() {
       else isLegacy = true
     } catch (_) { isLegacy = true }
 
-    // If first block is a video, promote it above the title
-    const firstVideoIdx = blocks.findIndex(b => b.type === 'video')
+    // First video block is promoted above the title; remaining blocks follow below
     let topVideo = null, restBlocks = blocks
-    if (firstVideoIdx === 0) { topVideo = blocks[0]; restBlocks = blocks.slice(1) }
+    if (blocks[0]?.type === 'video') { topVideo = blocks[0]; restBlocks = blocks.slice(1) }
 
-    if (topVideo) container.appendChild(renderBlocks([topVideo]))
+    if (topVideo) panel.appendChild(renderBlocks([topVideo]))
 
     const titleEl = document.createElement('h2')
     titleEl.className = 'font-black text-base text-slate-900 mb-0.5'
@@ -122,15 +127,15 @@ async function renderLessons() {
     metaEl.className = 'text-xs text-slate-400 mb-4'
     metaEl.textContent = `${lesson.categoria || 'Ventas'} · Lección ${lessonIdx}`
 
-    container.append(titleEl, metaEl)
+    panel.append(titleEl, metaEl)
 
     if (restBlocks.length > 0) {
-      container.appendChild(renderBlocks(restBlocks))
+      panel.appendChild(renderBlocks(restBlocks))
     } else if (isLegacy && lesson.contenido) {
       // Legacy HTML fallback for lessons saved before block editor
       const div = document.createElement('div')
       div.innerHTML = lesson.contenido
-      container.append(div)
+      panel.append(div)
     }
 
     if (lesson.notas) {
@@ -143,7 +148,7 @@ async function renderLessons() {
       notasText.style.cssText = 'font-size:12px;color:#713f12;line-height:1.5'
       notasText.textContent = lesson.notas
       notasWrap.append(notasTitle, notasText)
-      container.append(notasWrap)
+      panel.append(notasWrap)
     }
   }
 
@@ -238,6 +243,7 @@ async function renderLessons() {
 
   function renderMobileCatList() {
     const list = document.getElementById('ls-cat-list')
+    if (!list) return
     list.innerHTML = ''
     CATEGORIES.filter(c => grouped[c.key].length > 0).forEach(cat => {
       const btn = document.createElement('button')
@@ -256,6 +262,9 @@ async function renderLessons() {
   }
 
   function renderMobileLessonList() {
+    const list = document.getElementById('ls-lesson-list')
+    if (!list) return
+
     const catObj = CATEGORIES.find(c => c.key === activeCategory)
     const titleEl = document.getElementById('ls-mob-cat-title')
     if (titleEl) titleEl.textContent = `${catObj?.emoji || ''} ${activeCategory}`
@@ -264,7 +273,6 @@ async function renderLessons() {
     const filtered = (grouped[activeCategory] || []).filter(l =>
       !q || l.titulo.toLowerCase().includes(q) || (l.descripcion || '').toLowerCase().includes(q))
 
-    const list = document.getElementById('ls-lesson-list')
     list.innerHTML = ''
     filtered.forEach(l => {
       const isActive = activeLesson?.id === l.id
@@ -277,7 +285,8 @@ async function renderLessons() {
       btn.addEventListener('click', () => {
         activeLesson = l
         renderMobileLessonList()
-        document.getElementById('ls-mob-lesson-title').textContent = l.titulo
+        const titleSpan = document.getElementById('ls-mob-lesson-title')
+        if (titleSpan) titleSpan.textContent = l.titulo
         renderLessonContent(document.getElementById('ls-mob-content'), l)
         showScreen('content')
       })
