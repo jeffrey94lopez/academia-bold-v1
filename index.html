@@ -118,10 +118,17 @@
 
       document.querySelectorAll('.nav-tab-desk').forEach(b => {
         const active = b.dataset.tab === tab
-        b.classList.toggle('text-[#E92129]', active)
-        b.classList.toggle('bg-red-50', active)
-        b.classList.toggle('dark:bg-red-950/30', active)
-        b.classList.toggle('text-slate-500', !active)
+        if (b.dataset.tab === 'assistant') {
+          b.classList.toggle('bg-[#111]', active)
+          b.classList.toggle('dark:bg-[#111]', active)
+          b.classList.toggle('text-white', active)
+          b.classList.toggle('text-slate-500', !active)
+        } else {
+          b.classList.toggle('text-[#E92129]', active)
+          b.classList.toggle('bg-red-50', active)
+          b.classList.toggle('dark:bg-red-950/30', active)
+          b.classList.toggle('text-slate-500', !active)
+        }
       })
     }
 
