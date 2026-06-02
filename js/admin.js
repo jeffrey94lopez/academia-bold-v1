@@ -244,6 +244,8 @@ function renderBlockList() {
     })
   })
 
+  list.querySelectorAll('.upload-zone').forEach(zone => setupUploadZone(zone))
+
   sortableInstance = Sortable.create(list, {
     handle: '.drag-handle',
     animation: 150,
@@ -273,8 +275,27 @@ function blockItemHtml(block, i) {
       <textarea data-field="text" rows="2" placeholder="Texto del paso..."
         class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129] resize-none">${escapeHtml(block.text || '')}</textarea>`
   } else if (block.type === 'image') {
-    fields = `<input data-field="url" value="${escapeHtml(block.url || '')}" placeholder="URL de imagen"
-        class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129] mb-1.5">
+    fields = `
+      <input data-field="url" value="${escapeHtml(block.url || '')}" class="hidden">
+      <div class="upload-zone border-2 border-dashed border-slate-200 rounded-lg p-3 text-center mb-1.5 transition-colors">
+        ${block.url ? `
+          <div class="flex items-center gap-2 bg-slate-50 rounded-lg p-2">
+            <img src="${escapeHtml(block.url)}" class="w-10 h-10 object-cover rounded shrink-0" onerror="this.style.display='none'">
+            <span class="text-xs text-slate-600 truncate flex-1">${escapeHtml(block.url.split('/').pop())}</span>
+            <button type="button" class="clear-upload text-slate-300 hover:text-red-400 text-sm px-1">✕</button>
+          </div>
+        ` : `
+          <p class="text-slate-400 text-xs mb-2">🖼️ Arrastra una imagen aquí o</p>
+          <div class="flex gap-1.5 justify-center">
+            <button type="button" class="pick-file px-3 py-1.5 bg-[#E92129] text-white text-xs rounded-lg">📁 Buscar</button>
+            <button type="button" class="pick-library px-3 py-1.5 bg-slate-100 text-slate-600 text-xs rounded-lg border border-slate-200">🗂️ Biblioteca</button>
+          </div>
+        `}
+        <div class="upload-progress hidden mt-2">
+          <div class="h-1 bg-slate-200 rounded-full overflow-hidden"><div class="upload-bar h-full bg-[#E92129] transition-all" style="width:0%"></div></div>
+          <p class="text-xs text-slate-400 mt-1">Subiendo...</p>
+        </div>
+      </div>
       <input data-field="caption" value="${escapeHtml(block.caption || '')}" placeholder="Pie de foto (opcional)"
         class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129]">`
   } else if (block.type === 'video') {
@@ -588,6 +609,74 @@ async function renderSuggestionsPanel() {
     document.getElementById('sugForm').classList.add('hidden')
     renderSuggestionsPanel()
   })
+}
+
+function setupUploadZone(zone) {
+  const urlInput = zone.closest('[data-idx]').querySelector('input[data-field="url"]')
+  const progressDiv = zone.querySelector('.upload-progress')
+  const progressBar = zone.querySelector('.upload-bar')
+
+  const doUpload = async (file) => {
+    progressDiv.classList.remove('hidden')
+    progressBar.style.width = '0%'
+    try {
+      const { url } = await uploadFile(file, pct => { progressBar.style.width = pct + '%' })
+      urlInput.value = url
+      urlInput.dispatchEvent(new Event('input'))
+      renderBlockList()
+    } catch (e) {
+      showToast(e.message || 'Error al subir archivo', 'error')
+      progressDiv.classList.add('hidden')
+    }
+  }
+
+  zone.addEventListener('dragover', e => {
+    e.preventDefault()
+    e.stopPropagation()
+    zone.classList.add('border-[#E92129]', 'bg-red-50')
+  })
+  zone.addEventListener('dragleave', () => {
+    zone.classList.remove('border-[#E92129]', 'bg-red-50')
+  })
+  zone.addEventListener('drop', e => {
+    e.preventDefault()
+    e.stopPropagation()
+    zone.classList.remove('border-[#E92129]', 'bg-red-50')
+    if (e.dataTransfer.files[0]) doUpload(e.dataTransfer.files[0])
+  })
+
+  const pickBtn = zone.querySelector('.pick-file')
+  if (pickBtn) {
+    pickBtn.addEventListener('click', e => {
+      e.stopPropagation()
+      const fi = document.createElement('input')
+      fi.type = 'file'
+      fi.onchange = () => fi.files[0] && doUpload(fi.files[0])
+      fi.click()
+    })
+  }
+
+  const libBtn = zone.querySelector('.pick-library')
+  if (libBtn) {
+    libBtn.addEventListener('click', e => {
+      e.stopPropagation()
+      openMediaLibrary(url => {
+        urlInput.value = url
+        urlInput.dispatchEvent(new Event('input'))
+        renderBlockList()
+      })
+    })
+  }
+
+  const clearBtn = zone.querySelector('.clear-upload')
+  if (clearBtn) {
+    clearBtn.addEventListener('click', e => {
+      e.stopPropagation()
+      urlInput.value = ''
+      urlInput.dispatchEvent(new Event('input'))
+      renderBlockList()
+    })
+  }
 }
 
 function fileIcon(type) {
