@@ -6,6 +6,8 @@ import { applyFormat } from './step-formatter.js'
 
 let currentBlocks = []
 let sortableInstance = null
+let currentQuestions = []
+let questionsSortable = null
 
 async function init() {
   const ok = await requireAuth()
@@ -38,6 +40,7 @@ function switchPanel(panel) {
   if (panel === 'glossary') renderGlossaryPanel()
   if (panel === 'material') renderMaterialPanel()
   if (panel === 'suggestions') renderSuggestionsPanel()
+  if (panel === 'results') renderResultsPanel()
 }
 
 async function renderLessonsPanel() {
@@ -106,6 +109,13 @@ async function renderLessonsPanel() {
               <p class="text-[10px] font-black uppercase text-slate-400 tracking-wide mb-1">Notas</p>
               <textarea id="lessonNotas" placeholder="Notas adicionales para el estudiante (opcional)..." rows="3"
                 class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-[#E92129] resize-none"></textarea>
+            </div>
+            <div class="mb-4">
+              <div class="flex items-center justify-between mb-2">
+                <p class="text-[10px] font-black uppercase text-slate-400 tracking-wide">Examen</p>
+                <button type="button" id="addQuestion" class="text-[10px] font-bold text-[#E92129] hover:underline">+ Agregar pregunta</button>
+              </div>
+              <div id="questionList" class="space-y-3"></div>
             </div>
             <div class="flex items-end gap-3 pt-3 border-t border-slate-100">
               <div>
@@ -181,6 +191,7 @@ async function renderLessonsPanel() {
       orden,
       categoria: document.getElementById('lessonCategoria').value,
       notas: document.getElementById('lessonNotas').value.trim() || null,
+      examen: currentQuestions.length ? { preguntas: currentQuestions } : null,
     }
     const { error } = id
       ? await supabase.from('lecciones').update(payload).eq('id', id)
@@ -209,7 +220,16 @@ function openLessonForm(lesson = null) {
     currentBlocks = []
   }
 
+  try {
+    const examData = lesson?.examen
+      ? (typeof lesson.examen === 'string' ? JSON.parse(lesson.examen) : lesson.examen)
+      : null
+    currentQuestions = Array.isArray(examData?.preguntas) ? examData.preguntas : []
+  } catch (_) {
+    currentQuestions = []
+  }
   renderBlockList()
+  renderQuestionList()
   updatePreview()
   document.getElementById('lessonFormModal').classList.remove('hidden')
 }
@@ -318,6 +338,75 @@ function blockItemHtml(block, i) {
     </div>
     <button class="del-block text-slate-300 hover:text-red-400 text-sm px-1 mt-0.5 shrink-0">✕</button>
   </div>`
+}
+
+function renderQuestionList() {
+  const list = document.getElementById('questionList')
+  if (!list) return
+  if (questionsSortable) { questionsSortable.destroy(); questionsSortable = null }
+
+  list.innerHTML = currentQuestions.map((q, qi) => `
+    <div data-qi="${qi}" class="bg-white border border-slate-200 rounded-xl p-3">
+      <div class="flex items-start gap-2 mb-2">
+        <div class="drag-handle-q text-slate-300 text-lg cursor-grab select-none leading-none mt-0.5">⠿</div>
+        <input data-qi="${qi}" class="q-text flex-1 px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129]"
+          placeholder="Pregunta" value="${escapeHtml(q.pregunta || '')}">
+        <button data-qi="${qi}" class="del-q text-slate-300 hover:text-red-400 text-sm px-1 shrink-0 mt-1">✕</button>
+      </div>
+      <div class="space-y-1.5 ml-6">
+        ${(q.opciones || []).map((op, oi) => `
+          <div class="flex items-center gap-2">
+            <input type="radio" name="correct-${qi}" data-qi="${qi}" data-oi="${oi}" class="correct-radio shrink-0" ${q.correcta === oi ? 'checked' : ''}>
+            <input data-qi="${qi}" data-oi="${oi}" class="opt-text flex-1 px-2 py-1 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129]"
+              placeholder="Opción ${oi + 1}" value="${escapeHtml(op || '')}">
+            ${q.opciones.length > 2 ? `<button data-qi="${qi}" data-oi="${oi}" class="del-opt text-slate-300 hover:text-red-400 text-xs px-1">✕</button>` : ''}
+          </div>
+        `).join('')}
+        ${q.opciones.length < 4 ? `<button data-qi="${qi}" class="add-opt text-[10px] font-bold text-slate-400 hover:text-slate-700 mt-1">+ Opción</button>` : ''}
+      </div>
+    </div>
+  `).join('')
+
+  list.querySelectorAll('.q-text').forEach(input => {
+    input.addEventListener('input', () => { currentQuestions[+input.dataset.qi].pregunta = input.value })
+  })
+  list.querySelectorAll('.opt-text').forEach(input => {
+    input.addEventListener('input', () => { currentQuestions[+input.dataset.qi].opciones[+input.dataset.oi] = input.value })
+  })
+  list.querySelectorAll('.correct-radio').forEach(radio => {
+    radio.addEventListener('change', () => { if (radio.checked) currentQuestions[+radio.dataset.qi].correcta = +radio.dataset.oi })
+  })
+  list.querySelectorAll('.del-q').forEach(btn => {
+    btn.addEventListener('click', () => { currentQuestions.splice(+btn.dataset.qi, 1); renderQuestionList() })
+  })
+  list.querySelectorAll('.del-opt').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const q = currentQuestions[+btn.dataset.qi]
+      q.opciones.splice(+btn.dataset.oi, 1)
+      if (q.correcta >= q.opciones.length) q.correcta = 0
+      renderQuestionList()
+    })
+  })
+  list.querySelectorAll('.add-opt').forEach(btn => {
+    btn.addEventListener('click', () => { currentQuestions[+btn.dataset.qi].opciones.push(''); renderQuestionList() })
+  })
+
+  if (list.children.length > 0) {
+    questionsSortable = Sortable.create(list, {
+      handle: '.drag-handle-q',
+      animation: 150,
+      onEnd(evt) {
+        const moved = currentQuestions.splice(evt.oldIndex, 1)[0]
+        currentQuestions.splice(evt.newIndex, 0, moved)
+        renderQuestionList()
+      },
+    })
+  }
+
+  document.getElementById('addQuestion')?.addEventListener('click', () => {
+    currentQuestions.push({ pregunta: '', opciones: ['', ''], correcta: 0 })
+    renderQuestionList()
+  })
 }
 
 function updatePreview() {
@@ -851,6 +940,60 @@ function initMediaLibraryModal() {
 function escapeHtml(text) {
   if (!text) return ''
   return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')
+}
+
+async function renderResultsPanel() {
+  const el = document.getElementById('panel-results')
+  if (!el) return
+  el.innerHTML = '<p class="text-slate-400 text-sm">Cargando resultados...</p>'
+
+  const [{ data: students, error }, { data: lessons }] = await Promise.all([
+    supabase.from('progreso_estudiantes').select('*').order('created_at', { ascending: false }),
+    supabase.from('lecciones').select('id'),
+  ])
+
+  const totalLessons = lessons?.length || 0
+  if (error) { el.innerHTML = '<p class="text-red-400 text-sm">Error al cargar resultados.</p>'; return }
+
+  const completados = (students || []).filter(s => s.completado).length
+
+  el.innerHTML = `
+    <div class="mb-4">
+      <h2 class="text-lg font-black">Resultados del curso</h2>
+      <p class="text-xs text-slate-400 mt-0.5">${completados} estudiante${completados !== 1 ? 's' : ''} completaron el curso</p>
+    </div>
+    <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-100">
+            <th class="text-left px-4 py-3 text-xs font-black text-slate-400 uppercase tracking-wide">Nombre</th>
+            <th class="text-left px-4 py-3 text-xs font-black text-slate-400 uppercase tracking-wide">Progreso</th>
+            <th class="text-left px-4 py-3 text-xs font-black text-slate-400 uppercase tracking-wide">Promedio</th>
+            <th class="text-left px-4 py-3 text-xs font-black text-slate-400 uppercase tracking-wide">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${(students || []).map(s => {
+            const entries = Object.values(s.progreso || {}).filter(v => v?.completado)
+            const done = entries.length
+            const avg = entries.length ? Math.round(entries.reduce((sum, v) => sum + (v.puntaje || 0), 0) / entries.length) : 0
+            const badge = s.completado
+              ? '<span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] font-bold">Completado</span>'
+              : '<span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold">En curso</span>'
+            return `<tr class="border-b border-slate-50 last:border-0">
+              <td class="px-4 py-3">
+                <p class="font-bold">${escapeHtml(s.nombre)} ${escapeHtml(s.apellido)}</p>
+                <p class="text-xs text-slate-400">${new Date(s.created_at).toLocaleDateString('es-HN')}</p>
+              </td>
+              <td class="px-4 py-3 text-xs text-slate-600">${done}/${totalLessons}</td>
+              <td class="px-4 py-3 text-xs font-bold ${avg >= 70 ? 'text-green-600' : 'text-slate-500'}">${entries.length ? avg + '%' : '—'}</td>
+              <td class="px-4 py-3">${badge}</td>
+            </tr>`
+          }).join('') || '<tr><td colspan="4" class="px-4 py-6 text-center text-slate-400 text-sm">Ningún estudiante registrado aún.</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  `
 }
 
 window.renderMaterialPanel = renderMaterialPanel
