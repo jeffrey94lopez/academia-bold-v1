@@ -1,5 +1,9 @@
 import { supabase } from './supabase.js'
 import { renderBlocks } from './block-renderer.js'
+import { loadSession, renderModeSelection, setExploreMode, markLessonComplete, checkAndMarkCourseComplete, showExamModal } from './course.js'
+import { renderCertificate } from './certificate.js'
+
+let courseStudent = null
 
 const CATEGORIES = [
   { key: 'Ventas',        emoji: '📊' },
@@ -19,8 +23,30 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;')
 }
 
+function progressIcon(lessonId) {
+  if (!courseStudent) return ''
+  const entry = courseStudent.progreso?.[String(lessonId)]
+  if (entry?.completado) return '<span class="text-green-500 text-xs ml-1 shrink-0">✅</span>'
+  return '<span class="text-slate-300 text-xs ml-1 shrink-0">⭕</span>'
+}
+
 async function renderLessons() {
   const container = document.getElementById('section-lessons')
+
+  if (!courseStudent) {
+    const session = await loadSession()
+    if (session) courseStudent = session
+  }
+
+  const exploreMode = localStorage.getItem('bold_mode') === 'explore'
+  if (!courseStudent && !exploreMode) {
+    renderModeSelection(container, {
+      onCourse(student) { courseStudent = student; renderLessons() },
+      onExplore() { renderLessons() },
+    })
+    return
+  }
+
   container.innerHTML = '<div class="flex items-center justify-center h-full text-slate-400 text-sm">Cargando lecciones...</div>'
 
   const { data: lessons, error } = await supabase
@@ -150,12 +176,74 @@ async function renderLessons() {
       notasWrap.append(notasTitle, notasText)
       panel.append(notasWrap)
     }
+
+    if (courseStudent) {
+      const allIds = lessons.map(l => String(l.id))
+      const alreadyDone = courseStudent.progreso?.[String(lesson.id)]?.completado
+      if (alreadyDone) {
+        const doneTag = document.createElement('div')
+        doneTag.className = 'mt-5 py-3 rounded-xl bg-green-50 border border-green-200 text-center text-sm font-bold text-green-700'
+        doneTag.textContent = '✅ Lección completada'
+        panel.append(doneTag)
+      } else {
+        const hasExam = Array.isArray(lesson.examen?.preguntas) && lesson.examen.preguntas.length > 0
+        const examBtn = document.createElement('button')
+        examBtn.className = 'mt-5 w-full py-3 rounded-xl bg-[#E92129] text-white text-sm font-bold hover:scale-[1.02] transition-transform'
+        examBtn.textContent = hasExam ? 'Ir al examen →' : 'Marcar lección como completada ✓'
+        examBtn.addEventListener('click', () => {
+          if (hasExam) {
+            showExamModal(lesson, courseStudent, allIds, {
+              onPass(_puntaje, courseComplete) {
+                renderAccordion()
+                renderDeskContent()
+                renderMobileLessonList()
+                if (courseComplete) setTimeout(() => renderCertificate(courseStudent), 500)
+              },
+              onDismiss() {},
+            })
+          } else {
+            markLessonComplete(courseStudent, String(lesson.id), 100).then(() =>
+              checkAndMarkCourseComplete(courseStudent, allIds).then(done => {
+                renderAccordion()
+                renderDeskContent()
+                renderMobileLessonList()
+                if (done) setTimeout(() => renderCertificate(courseStudent), 500)
+              })
+            )
+          }
+        })
+        panel.append(examBtn)
+      }
+    }
   }
 
   // ── Desktop: accordion ────────────────────────────────────────────────────
   function renderAccordion() {
     const accordion = document.getElementById('ls-accordion')
-    accordion.innerHTML = CATEGORIES
+
+    let topBar = ''
+    if (courseStudent) {
+      const total = lessons.length
+      const done = Object.values(courseStudent.progreso || {}).filter(v => v?.completado).length
+      topBar = `
+        <div class="px-3 py-2.5 border-b border-slate-100 bg-slate-50">
+          <p class="text-[10px] font-black text-slate-700 truncate">${escapeHtml(courseStudent.nombre)} ${escapeHtml(courseStudent.apellido)}</p>
+          <div class="flex items-center gap-2 mt-1">
+            <div class="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+              <div class="h-full bg-[#E92129] transition-all" style="width:${total ? Math.round(done / total * 100) : 0}%"></div>
+            </div>
+            <span class="text-[10px] text-slate-400 shrink-0">${done}/${total}</span>
+          </div>
+          ${courseStudent.completado ? `<button id="cert-btn" class="mt-2 w-full py-1.5 rounded-lg bg-[#E92129] text-white text-[10px] font-black">🏆 Ver mi certificado</button>` : ''}
+        </div>`
+    } else {
+      topBar = `
+        <div class="px-3 py-2 border-b border-slate-100">
+          <button id="start-course-btn" class="w-full py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 hover:bg-slate-50 transition-colors">📋 Iniciar curso</button>
+        </div>`
+    }
+
+    accordion.innerHTML = topBar + CATEGORIES
       .filter(c => grouped[c.key].length > 0)
       .map(cat => {
         const isOpen = cat.key === activeCategory
@@ -174,7 +262,10 @@ async function renderLessons() {
               return `<button
                 class="acc-lesson w-full text-left px-4 py-2.5 text-xs border-b border-slate-100/60 hover:bg-red-50 transition-colors ${isActive ? 'bg-red-50 border-l-2 border-l-[#E92129]' : ''}"
                 data-id="${l.id}">
-                <span class="${isActive ? 'font-bold text-[#E92129]' : 'text-slate-600'}">${escapeHtml(l.titulo)}</span>
+                <span class="flex items-center justify-between">
+                  <span class="${isActive ? 'font-bold text-[#E92129]' : 'text-slate-600'}">${escapeHtml(l.titulo)}</span>
+                  ${progressIcon(l.id)}
+                </span>
               </button>`
             }).join('')}
             ${filtered.length === 0 && q ? '<p class="text-xs text-slate-400 px-4 py-2">Sin resultados</p>' : ''}
@@ -205,6 +296,17 @@ async function renderLessons() {
         activeLesson = lessons.find(l => String(l.id) === btn.dataset.id) || null
         renderAccordion()
         renderDeskContent()
+      })
+    })
+
+    accordion.querySelector('#cert-btn')?.addEventListener('click', () => renderCertificate(courseStudent))
+
+    accordion.querySelector('#start-course-btn')?.addEventListener('click', () => {
+      localStorage.removeItem('bold_mode')
+      courseStudent = null
+      renderModeSelection(container, {
+        onCourse(student) { courseStudent = student; renderLessons() },
+        onExplore() { renderLessons() },
       })
     })
   }
@@ -278,10 +380,14 @@ async function renderLessons() {
       const isActive = activeLesson?.id === l.id
       const btn = document.createElement('button')
       btn.className = `w-full text-left px-4 py-3.5 border-b border-slate-100 hover:bg-slate-50 transition-colors ${isActive ? 'border-l-2 border-l-[#E92129] bg-red-50/40' : ''}`
+      const row = document.createElement('div')
+      row.className = 'flex items-center justify-between'
       const title = document.createElement('p')
       title.className = `text-sm ${isActive ? 'font-bold text-[#E92129]' : 'font-medium text-slate-700'}`
       title.textContent = l.titulo
-      btn.append(title)
+      row.append(title)
+      if (courseStudent) row.insertAdjacentHTML('beforeend', progressIcon(l.id))
+      btn.append(row)
       btn.addEventListener('click', () => {
         activeLesson = l
         renderMobileLessonList()
