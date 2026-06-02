@@ -947,13 +947,13 @@ async function renderResultsPanel() {
   if (!el) return
   el.innerHTML = '<p class="text-slate-400 text-sm">Cargando resultados...</p>'
 
-  const [{ data: students, error }, { data: lessons }] = await Promise.all([
+  const [{ data: students, error: studentsError }, { data: lessons }] = await Promise.all([
     supabase.from('progreso_estudiantes').select('*').order('created_at', { ascending: false }),
     supabase.from('lecciones').select('id'),
   ])
 
   const totalLessons = lessons?.length || 0
-  if (error) { el.innerHTML = '<p class="text-red-400 text-sm">Error al cargar resultados.</p>'; return }
+  if (studentsError) { el.innerHTML = '<p class="text-red-400 text-sm">Error al cargar resultados.</p>'; return }
 
   const completados = (students || []).filter(s => s.completado).length
 
