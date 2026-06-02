@@ -405,88 +405,143 @@ async function renderGlossaryPanel() {
 
 async function renderMaterialPanel() {
   const el = document.getElementById('panel-material')
-  const { data } = await supabase.from('material_apoyo').select('*')
-
   el.innerHTML = `
-    <div class="flex items-center justify-between mb-4">
-      <h2 class="text-lg font-black">Material de apoyo</h2>
-      <button id="addMaterial" class="bg-[#E92129] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:scale-105 transition-transform">
-        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Agregar
-      </button>
-    </div>
-    <div class="space-y-2">
-      ${(data || []).map(m => `
-        <div class="bg-white rounded-xl border border-slate-100 p-3 flex items-center justify-between gap-3">
-          <div class="flex items-center gap-2.5 min-w-0">
-            <span class="text-xs font-black uppercase text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full shrink-0">${escapeHtml(m.tipo)}</span>
-            <p class="font-bold text-sm truncate">${escapeHtml(m.titulo)}</p>
+    <div class="max-w-4xl mx-auto">
+      <h2 class="text-lg font-black mb-4">Biblioteca de archivos</h2>
+
+      <div id="materialDropzone" class="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center mb-6 hover:border-[#E92129] transition-colors cursor-pointer">
+        <div class="text-4xl mb-3">📁</div>
+        <p class="text-slate-400 text-sm mb-3">Arrastra archivos aquí o</p>
+        <button id="materialPickFile" class="px-4 py-2 bg-[#E92129] text-white text-sm rounded-lg font-bold">📁 Buscar archivo</button>
+        <p class="text-xs text-slate-400 mt-2">Cualquier tipo · Máx. 50MB</p>
+        <div id="materialProgress" class="hidden mt-4">
+          <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden max-w-xs mx-auto">
+            <div id="materialProgressBar" class="h-full bg-[#E92129] transition-all" style="width:0%"></div>
           </div>
-          <div class="flex gap-1 shrink-0">
-            <button data-id="${m.id}" data-titulo="${escapeHtml(m.titulo)}" data-tipo="${escapeHtml(m.tipo)}" data-url="${escapeHtml(m.url)}" class="edit-mat p-1.5 rounded-lg hover:bg-slate-100 text-slate-500">
-              <i data-lucide="edit-2" class="w-4 h-4"></i>
-            </button>
-            <button data-id="${m.id}" class="del-mat p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500">
-              <i data-lucide="trash-2" class="w-4 h-4"></i>
-            </button>
-          </div>
+          <p class="text-xs text-slate-400 mt-1">Subiendo...</p>
         </div>
-      `).join('') || '<p class="text-slate-400 text-sm">No hay material aún.</p>'}
-    </div>
-    <div id="matForm" class="hidden mt-4 bg-white rounded-2xl border border-slate-200 p-4 space-y-2">
-      <input type="hidden" id="matId">
-      <input id="matTitulo" placeholder="Título del recurso" required
-        class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
-      <select id="matTipo" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] bg-white">
-        <option value="pdf">PDF</option>
-        <option value="link">Link</option>
-        <option value="video">Video</option>
-      </select>
-      <input id="matUrl" placeholder="URL del recurso" required
-        class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
-      <p class="text-xs text-slate-400">Para subir un archivo: ve a Supabase → Storage → bucket "material" → Upload, luego pega la URL pública aquí.</p>
-      <div class="flex gap-2">
-        <button id="cancelMat" class="flex-1 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-500">Cancelar</button>
-        <button id="saveMat" class="flex-1 py-2 rounded-xl bg-[#E92129] text-white text-sm font-bold">Guardar</button>
+      </div>
+
+      <div class="flex items-center gap-3 mb-4">
+        <input id="materialSearch" type="text" placeholder="🔍 Buscar archivos..."
+          class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-[#E92129]">
+        <span id="materialFileCount" class="text-xs text-slate-400 shrink-0"></span>
+      </div>
+
+      <div id="materialGrid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+        <p class="col-span-5 text-center text-slate-400 text-sm py-12">Cargando archivos...</p>
       </div>
     </div>
   `
-  lucide.createIcons()
 
-  document.getElementById('addMaterial').addEventListener('click', () => {
-    document.getElementById('matId').value = ''
-    document.getElementById('matTitulo').value = ''
-    document.getElementById('matTipo').value = 'pdf'
-    document.getElementById('matUrl').value = ''
-    document.getElementById('matForm').classList.remove('hidden')
-  })
-  document.querySelectorAll('.edit-mat').forEach(b => b.addEventListener('click', () => {
-    document.getElementById('matId').value = b.dataset.id
-    document.getElementById('matTitulo').value = b.dataset.titulo
-    document.getElementById('matTipo').value = b.dataset.tipo
-    document.getElementById('matUrl').value = b.dataset.url
-    document.getElementById('matForm').classList.remove('hidden')
-  }))
-  document.querySelectorAll('.del-mat').forEach(b => b.addEventListener('click', async () => {
-    if (!confirm('¿Eliminar este material?')) return
-    await supabase.from('material_apoyo').delete().eq('id', b.dataset.id)
-    renderMaterialPanel()
-  }))
-  document.getElementById('cancelMat').addEventListener('click', () => {
-    document.getElementById('matForm').classList.add('hidden')
-  })
-  document.getElementById('saveMat').addEventListener('click', async () => {
-    const id = document.getElementById('matId').value
-    const payload = {
-      titulo: document.getElementById('matTitulo').value,
-      tipo: document.getElementById('matTipo').value,
-      url: document.getElementById('matUrl').value,
+  let files = []
+
+  const loadFiles = async () => {
+    const grid = document.getElementById('materialGrid')
+    if (!grid) return
+    grid.innerHTML = '<p class="col-span-5 text-center text-slate-400 text-sm py-12">Cargando...</p>'
+    try {
+      files = await listFiles()
+      renderMaterialGrid(files)
+    } catch {
+      grid.innerHTML = `<p class="col-span-5 text-center text-red-400 text-sm py-12">Error al cargar. <button onclick="renderMaterialPanel()" class="underline">Reintentar</button></p>`
     }
-    if (id) {
-      await supabase.from('material_apoyo').update(payload).eq('id', id)
-    } else {
-      await supabase.from('material_apoyo').insert(payload)
+  }
+
+  await loadFiles()
+
+  document.getElementById('materialSearch').addEventListener('input', e => {
+    const q = e.target.value.toLowerCase()
+    renderMaterialGrid(files.filter(f => f.name.toLowerCase().includes(q)))
+  })
+
+  const dropzone = document.getElementById('materialDropzone')
+  const progressDiv = document.getElementById('materialProgress')
+  const progressBar = document.getElementById('materialProgressBar')
+
+  const doUpload = async (file) => {
+    progressDiv.classList.remove('hidden')
+    progressBar.style.width = '0%'
+    try {
+      await uploadFile(file, pct => { progressBar.style.width = pct + '%' })
+      showToast('Archivo subido correctamente')
+      await loadFiles()
+    } catch (e) {
+      showToast(e.message || 'Error al subir archivo', 'error')
+    } finally {
+      progressDiv.classList.add('hidden')
     }
-    renderMaterialPanel()
+  }
+
+  dropzone.addEventListener('dragover', e => {
+    e.preventDefault()
+    dropzone.classList.add('border-[#E92129]', 'bg-red-50')
+  })
+  dropzone.addEventListener('dragleave', () => {
+    dropzone.classList.remove('border-[#E92129]', 'bg-red-50')
+  })
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault()
+    dropzone.classList.remove('border-[#E92129]', 'bg-red-50')
+    if (e.dataTransfer.files[0]) doUpload(e.dataTransfer.files[0])
+  })
+
+  document.getElementById('materialPickFile').addEventListener('click', e => {
+    e.stopPropagation()
+    const fi = document.createElement('input')
+    fi.type = 'file'
+    fi.onchange = () => fi.files[0] && doUpload(fi.files[0])
+    fi.click()
+  })
+}
+
+function renderMaterialGrid(files) {
+  const grid = document.getElementById('materialGrid')
+  const count = document.getElementById('materialFileCount')
+  if (!grid) return
+  if (count) count.textContent = `${files.length} archivos`
+
+  if (!files.length) {
+    grid.innerHTML = '<p class="col-span-5 text-center text-slate-400 text-sm py-12">No hay archivos subidos aún</p>'
+    return
+  }
+
+  grid.innerHTML = files.map(f => `
+    <div class="group relative bg-white border border-slate-100 rounded-xl p-3 text-center shadow-sm hover:shadow-md transition-shadow">
+      <div class="text-3xl mb-2">${fileIcon(f.type)}</div>
+      <p class="text-xs text-slate-700 truncate font-medium" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</p>
+      <p class="text-xs text-slate-400">${formatBytes(f.size)}</p>
+      <div class="absolute inset-0 bg-black/60 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+        <button class="copy-url bg-blue-500 text-white rounded-lg px-2 py-1 text-xs font-bold"
+          data-url="${escapeHtml(f.url)}" data-name="${escapeHtml(f.name)}">📋 URL</button>
+        <button class="delete-file bg-red-500 text-white rounded-lg px-2 py-1 text-xs font-bold"
+          data-path="${escapeHtml(f.name)}">🗑️</button>
+      </div>
+    </div>
+  `).join('')
+
+  grid.querySelectorAll('.copy-url').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation()
+      navigator.clipboard.writeText(btn.dataset.url)
+        .then(() => showToast(`URL de "${btn.dataset.name}" copiada`))
+        .catch(() => showToast('No se pudo copiar al portapapeles', 'error'))
+    })
+  })
+
+  grid.querySelectorAll('.delete-file').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation()
+      if (!confirm(`¿Eliminar "${btn.dataset.path}"?`)) return
+      try {
+        await deleteFile(btn.dataset.path)
+        showToast('Archivo eliminado')
+        const updated = await listFiles()
+        renderMaterialGrid(updated)
+      } catch {
+        showToast('Error al eliminar el archivo', 'error')
+      }
+    })
   })
 }
 
@@ -797,5 +852,7 @@ function escapeHtml(text) {
   if (!text) return ''
   return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')
 }
+
+window.renderMaterialPanel = renderMaterialPanel
 
 init()
