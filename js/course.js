@@ -1,5 +1,14 @@
 import { supabase } from './supabase.js'
 
+function escHtml(t) {
+  if (t == null) return ''
+  return String(t)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
 // ── Session management ─────────────────────────────────────────────────────
 
 export async function registerStudent(nombre, apellido) {
@@ -152,11 +161,11 @@ export function renderModeSelection(container, { onCourse, onExplore }) {
   `
 
   // ── Handlers ──────────────────────────────────────────────────────────────
-  document.getElementById('cm-start').addEventListener('click', async () => {
-    const nombre   = document.getElementById('cm-nombre').value.trim()
-    const apellido = document.getElementById('cm-apellido').value.trim()
-    const errEl    = document.getElementById('cm-error')
-    const btn      = document.getElementById('cm-start')
+  container.querySelector('#cm-start').addEventListener('click', async () => {
+    const nombre   = container.querySelector('#cm-nombre').value.trim()
+    const apellido = container.querySelector('#cm-apellido').value.trim()
+    const errEl    = container.querySelector('#cm-error')
+    const btn      = container.querySelector('#cm-start')
 
     errEl.classList.add('hidden')
     errEl.textContent = ''
@@ -183,7 +192,7 @@ export function renderModeSelection(container, { onCourse, onExplore }) {
     }
   })
 
-  document.getElementById('cm-explore').addEventListener('click', () => {
+  container.querySelector('#cm-explore').addEventListener('click', () => {
     setExploreMode()
     onExplore()
   })
@@ -192,17 +201,9 @@ export function renderModeSelection(container, { onCourse, onExplore }) {
 // ── Exam modal ─────────────────────────────────────────────────────────────
 
 export function showExamModal(lesson, student, allLessonIds, { onPass, onDismiss } = {}) {
-  function escHtml(t) {
-    if (t == null) return ''
-    return String(t)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-  }
-
   const preguntas = lesson?.examen?.preguntas ?? []
   const total = preguntas.length
+  if (!total) { onDismiss?.(); return }
 
   // Overlay root
   const overlay = document.createElement('div')
@@ -308,7 +309,7 @@ export function showExamModal(lesson, student, allLessonIds, { onPass, onDismiss
           // Mark complete in Supabase (fire-and-forget optimistically but await result)
           let courseComplete = false
           try {
-            await markLessonComplete(student, lesson.id, puntaje)
+            await markLessonComplete(student, String(lesson.id), puntaje)
             courseComplete = await checkAndMarkCourseComplete(student, allLessonIds)
           } catch (err) {
             console.error('[course] markLessonComplete error:', err)
