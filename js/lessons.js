@@ -1,6 +1,6 @@
 import { supabase } from './supabase.js'
 import { renderBlocks } from './block-renderer.js'
-import { loadSession, renderModeSelection, setExploreMode, markLessonComplete, checkAndMarkCourseComplete, showExamModal } from './course.js'
+import { loadSession, renderModeSelection, markLessonComplete, checkAndMarkCourseComplete, showExamModal } from './course.js'
 import { renderCertificate } from './certificate.js'
 
 let courseStudent = null
