@@ -209,7 +209,7 @@ async function renderLessons() {
                 renderMobileLessonList()
                 if (done) setTimeout(() => renderCertificate(courseStudent), 500)
               })
-            )
+            ).catch(err => console.error('[lessons] markLessonComplete error:', err))
           }
         })
         panel.append(examBtn)
