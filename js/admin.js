@@ -176,6 +176,11 @@ async function renderLessonsPanel() {
     })
   })
 
+  document.getElementById('addQuestion').addEventListener('click', () => {
+    currentQuestions.push({ pregunta: '', opciones: ['', ''], correcta: 0 })
+    renderQuestionList()
+  })
+
   document.getElementById('saveLessonBtn').addEventListener('click', async () => {
     const titulo = document.getElementById('lessonTitulo').value.trim()
     const orden = parseInt(document.getElementById('lessonOrden').value)
@@ -403,10 +408,6 @@ function renderQuestionList() {
     })
   }
 
-  document.getElementById('addQuestion')?.addEventListener('click', () => {
-    currentQuestions.push({ pregunta: '', opciones: ['', ''], correcta: 0 })
-    renderQuestionList()
-  })
 }
 
 function updatePreview() {
@@ -947,13 +948,13 @@ async function renderResultsPanel() {
   if (!el) return
   el.innerHTML = '<p class="text-slate-400 text-sm">Cargando resultados...</p>'
 
-  const [{ data: students, error: studentsError }, { data: lessons }] = await Promise.all([
+  const [{ data: students, error: studentsError }, { data: lessons, error: lessonsError }] = await Promise.all([
     supabase.from('progreso_estudiantes').select('*').order('created_at', { ascending: false }),
     supabase.from('lecciones').select('id'),
   ])
 
+  if (studentsError || lessonsError) { el.innerHTML = '<p class="text-red-400 text-sm">Error al cargar resultados.</p>'; return }
   const totalLessons = lessons?.length || 0
-  if (studentsError) { el.innerHTML = '<p class="text-red-400 text-sm">Error al cargar resultados.</p>'; return }
 
   const completados = (students || []).filter(s => s.completado).length
 
