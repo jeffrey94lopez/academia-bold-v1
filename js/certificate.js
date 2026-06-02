@@ -32,7 +32,7 @@ function escHtml(t) {
 
 // ---------------------------------------------------------------------------
 // renderCertificate(student)
-// student: { nombre, apellido, progreso, fecha_fin, ... }
+// student: { nombre, apellido, progreso, fecha_completado, completado, ... }
 // ---------------------------------------------------------------------------
 
 export function renderCertificate(student) {
