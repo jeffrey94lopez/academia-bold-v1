@@ -1,5 +1,6 @@
 import { supabase } from './supabase.js'
 import { requireAuth, logout } from './auth.js'
+import { uploadFile, listFiles, deleteFile } from './upload.js'
 import { renderBlocks } from './block-renderer.js'
 import { applyFormat } from './step-formatter.js'
 
@@ -16,6 +17,7 @@ async function init() {
 
   await renderLessonsPanel()
   lucide.createIcons()
+  initMediaLibraryModal()
 
   document.querySelectorAll('.admin-nav').forEach(btn => {
     btn.addEventListener('click', () => switchPanel(btn.dataset.panel))
@@ -585,6 +587,120 @@ async function renderSuggestionsPanel() {
     }
     document.getElementById('sugForm').classList.add('hidden')
     renderSuggestionsPanel()
+  })
+}
+
+function fileIcon(type) {
+  if (!type) return '📁'
+  if (type.startsWith('image/')) return '🖼️'
+  if (type === 'application/pdf') return '📄'
+  if (type.startsWith('video/')) return '🎬'
+  if (type.startsWith('audio/')) return '🎵'
+  return '📁'
+}
+
+function formatBytes(bytes) {
+  if (!bytes) return ''
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function showToast(msg, type = 'success') {
+  const t = document.createElement('div')
+  t.className = `fixed bottom-4 right-4 z-[100] px-4 py-3 rounded-xl text-sm font-medium shadow-lg text-white ${
+    type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
+  }`
+  t.textContent = msg
+  document.body.appendChild(t)
+  setTimeout(() => t.remove(), 3000)
+}
+
+let _mediaCallback = null
+let _selectedUrl = null
+
+async function openMediaLibrary(onSelect) {
+  _mediaCallback = onSelect
+  _selectedUrl = null
+
+  const modal = document.getElementById('mediaLibraryModal')
+  const grid = document.getElementById('mediaGrid')
+  const selectBtn = document.getElementById('mediaSelectBtn')
+  const search = document.getElementById('mediaSearch')
+
+  modal.classList.remove('hidden')
+  modal.classList.add('flex')
+  selectBtn.disabled = true
+  selectBtn.textContent = '✓ Usar archivo'
+  search.value = ''
+  grid.innerHTML = '<p class="col-span-4 text-center text-slate-400 text-sm py-8">Cargando...</p>'
+
+  let files = []
+  try {
+    files = await listFiles()
+    renderMediaGrid(files)
+  } catch {
+    grid.innerHTML = '<p class="col-span-4 text-center text-red-400 text-sm py-8">Error al cargar archivos</p>'
+  }
+
+  search.oninput = () => {
+    const q = search.value.toLowerCase()
+    renderMediaGrid(files.filter(f => f.name.toLowerCase().includes(q)))
+  }
+}
+
+function renderMediaGrid(files) {
+  const grid = document.getElementById('mediaGrid')
+  const count = document.getElementById('mediaCount')
+  if (!grid) return
+  count.textContent = `${files.length} archivos`
+
+  if (!files.length) {
+    grid.innerHTML = '<p class="col-span-4 text-center text-slate-400 text-sm py-8">No hay archivos subidos</p>'
+    return
+  }
+
+  grid.innerHTML = files.map(f => `
+    <div class="media-item cursor-pointer border-2 border-transparent rounded-xl p-2 text-center hover:border-[#E92129] transition-colors"
+         data-url="${escapeHtml(f.url)}" data-name="${escapeHtml(f.name)}">
+      <div class="text-3xl mb-1">${fileIcon(f.type)}</div>
+      <p class="text-xs text-slate-700 truncate" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</p>
+      <p class="text-xs text-slate-400">${formatBytes(f.size)}</p>
+    </div>
+  `).join('')
+
+  grid.querySelectorAll('.media-item').forEach(item => {
+    item.addEventListener('click', () => {
+      grid.querySelectorAll('.media-item').forEach(i => {
+        i.classList.remove('border-[#E92129]', 'bg-red-50')
+      })
+      item.classList.add('border-[#E92129]', 'bg-red-50')
+      _selectedUrl = item.dataset.url
+      const btn = document.getElementById('mediaSelectBtn')
+      btn.disabled = false
+      const short = item.dataset.name.length > 20
+        ? item.dataset.name.substring(0, 20) + '…'
+        : item.dataset.name
+      btn.textContent = `✓ Usar ${short}`
+    })
+  })
+}
+
+function initMediaLibraryModal() {
+  document.getElementById('mediaSelectBtn').addEventListener('click', () => {
+    if (_selectedUrl && _mediaCallback) _mediaCallback(_selectedUrl)
+    document.getElementById('mediaLibraryModal').classList.add('hidden')
+    document.getElementById('mediaLibraryModal').classList.remove('flex')
+  })
+  document.getElementById('mediaCancelBtn').addEventListener('click', () => {
+    document.getElementById('mediaLibraryModal').classList.add('hidden')
+    document.getElementById('mediaLibraryModal').classList.remove('flex')
+  })
+  document.getElementById('mediaLibraryModal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) {
+      e.currentTarget.classList.add('hidden')
+      e.currentTarget.classList.remove('flex')
+    }
   })
 }
 
