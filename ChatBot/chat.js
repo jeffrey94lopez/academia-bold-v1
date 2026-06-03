@@ -24,7 +24,7 @@ async function sendMessage(text = null) {
     try {
         const response = await fetch(N8N_WEBHOOK_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-api-key': 'BoldBodi-2026-K9xMvP7q' },
             body: JSON.stringify({ message, history })
         });
 
