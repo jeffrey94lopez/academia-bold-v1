@@ -998,6 +998,146 @@ async function renderResultsPanel() {
   `
 }
 
+async function renderAnalyticsPanel(from = null, to = null) {
+  const now = new Date()
+  if (!from) { from = new Date(now); from.setHours(0, 0, 0, 0) }
+  if (!to)   { to   = new Date(now); to.setHours(23, 59, 59, 999) }
+
+  const el = document.getElementById('panel-analytics')
+  if (!el) return
+  el.innerHTML = '<p class="text-slate-400 text-sm">Cargando analytics...</p>'
+
+  const duration = to - from
+  const prevFrom = new Date(from - duration)
+  const prevTo   = new Date(from - 1)
+
+  const [{ data: events, error }, { data: prevEvents }] = await Promise.all([
+    supabase.from('analytics_events').select('*')
+      .gte('created_at', from.toISOString()).lte('created_at', to.toISOString()),
+    supabase.from('analytics_events').select('event_type,created_at')
+      .gte('created_at', prevFrom.toISOString()).lte('created_at', prevTo.toISOString()),
+  ])
+
+  if (error) { el.innerHTML = '<p class="text-red-400 text-sm">Error al cargar analytics.</p>'; return }
+
+  const ev = events || []
+  const prev = prevEvents || []
+
+  function count(arr, type) { return arr.filter(e => e.event_type === type).length }
+  function delta(cur, prv) {
+    if (!prv) return ''
+    const d = cur - prv
+    if (d === 0) return '<span class="text-slate-400">sin cambio</span>'
+    const sign = d > 0 ? '↑' : '↓'
+    const color = d > 0 ? 'text-green-600' : 'text-red-500'
+    return `<span class="${color} font-bold">${sign} ${Math.abs(d)}</span>`
+  }
+
+  const visits       = count(ev, 'page_view')
+  const prevVisits   = count(prev, 'page_view')
+  const newStudents  = count(ev, 'mode_selected')
+  const prevStudents = count(prev, 'mode_selected')
+  const passes       = ev.filter(e => e.event_type === 'exam_pass')
+  const avgScore     = passes.length
+    ? Math.round(passes.reduce((s, e) => s + (e.payload?.score || 0), 0) / passes.length)
+    : 0
+  const certViews  = count(ev, 'certificate_view')
+  const certPrints = count(ev, 'certificate_print')
+
+  function preset(label, f, t) {
+    return `<button class="analytics-preset px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200"
+      data-from="${f.toISOString()}" data-to="${t.toISOString()}">${label}</button>`
+  }
+  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0)
+  const todayEnd   = new Date(now); todayEnd.setHours(23, 59, 59, 999)
+  function daysAgo(n) { const d = new Date(todayStart); d.setDate(d.getDate() - n); return d }
+  function monthStart() { return new Date(now.getFullYear(), now.getMonth(), 1) }
+  function yearStart()  { return new Date(now.getFullYear(), 0, 1) }
+  const fmtDate = d => d.toISOString().split('T')[0]
+
+  el.innerHTML = `
+    <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
+      <h2 class="text-lg font-black">Analytics</h2>
+      <div class="flex items-center gap-2 flex-wrap">
+        ${preset('Hoy', todayStart, todayEnd)}
+        ${preset('7 días', daysAgo(6), todayEnd)}
+        ${preset('30 días', daysAgo(29), todayEnd)}
+        ${preset('Este mes', monthStart(), todayEnd)}
+        ${preset('Este año', yearStart(), todayEnd)}
+        <div class="relative">
+          <button id="analytics-cal-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 text-slate-600 hover:border-slate-300">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Personalizado
+          </button>
+          <div id="analytics-cal-dropdown" class="hidden absolute right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl p-4 z-20 flex gap-3 items-end" style="min-width:280px">
+            <div class="flex flex-col gap-2 flex-1">
+              <label class="text-xs font-bold text-slate-500">Desde</label>
+              <input id="analytics-from-input" type="date" value="${fmtDate(from)}"
+                class="px-2 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-[#E92129]">
+              <label class="text-xs font-bold text-slate-500">Hasta</label>
+              <input id="analytics-to-input" type="date" value="${fmtDate(to)}"
+                class="px-2 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-[#E92129]">
+            </div>
+            <button id="analytics-apply-btn" class="px-3 py-1.5 bg-[#E92129] text-white text-xs font-bold rounded-lg">Aplicar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-4 gap-4 mb-5">
+      <div class="bg-white rounded-2xl border border-slate-100 p-4">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Visitas</p>
+        <p class="text-2xl font-black text-slate-900">${visits}</p>
+        <p class="text-xs mt-1">${delta(visits, prevVisits)}</p>
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-100 p-4">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Nuevos estudiantes</p>
+        <p class="text-2xl font-black text-slate-900">${newStudents}</p>
+        <p class="text-xs mt-1">${delta(newStudents, prevStudents)}</p>
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-100 p-4">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Puntaje promedio</p>
+        <p class="text-2xl font-black text-slate-900">${passes.length ? avgScore + '%' : '—'}</p>
+        <p class="text-xs text-slate-400 mt-1">En exámenes</p>
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-100 p-4">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Certificados</p>
+        <p class="text-2xl font-black text-slate-900">${certViews}</p>
+        <p class="text-xs text-slate-400 mt-1">${certPrints} impresos</p>
+      </div>
+    </div>
+
+    <div id="analytics-body"></div>
+  `
+
+  el.querySelectorAll('.analytics-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      renderAnalyticsPanel(new Date(btn.dataset.from), new Date(btn.dataset.to))
+    })
+  })
+
+  const calBtn = el.querySelector('#analytics-cal-btn')
+  const calDrop = el.querySelector('#analytics-cal-dropdown')
+  calBtn.addEventListener('click', e => {
+    e.stopPropagation()
+    calDrop.classList.toggle('hidden')
+  })
+  document.addEventListener('click', () => calDrop.classList.add('hidden'))
+  el.querySelector('#analytics-apply-btn').addEventListener('click', () => {
+    const f = new Date(el.querySelector('#analytics-from-input').value)
+    const t = new Date(el.querySelector('#analytics-to-input').value)
+    t.setHours(23, 59, 59, 999)
+    if (isNaN(f) || isNaN(t) || f > t) return
+    renderAnalyticsPanel(f, t)
+  })
+
+  renderAnalyticsBody(el.querySelector('#analytics-body'), ev, from, to)
+}
+
+function renderAnalyticsBody(container, ev, from, to) {
+  container.innerHTML = '<p class="text-slate-400 text-sm">Secciones próximamente...</p>'
+}
+
 window.renderMaterialPanel = renderMaterialPanel
 
 init()
