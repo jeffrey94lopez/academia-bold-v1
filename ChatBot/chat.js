@@ -70,6 +70,7 @@ async function resolveConversation(resolved, btnsEl) {
         ended_at: new Date().toISOString()
     });
     conversationId = null;
+    sessionMessages = [];
 }
 
 async function sendMessage(text = null) {

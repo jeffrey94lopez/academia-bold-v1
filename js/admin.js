@@ -1151,7 +1151,7 @@ async function renderAnalyticsPanel(from = null, to = null) {
       { label: 'Puntaje',           getValue: r => r.payload?.score ?? '' },
       { label: 'Término búsqueda',  getValue: r => r.payload?.term || '' },
       { label: 'Resultados',        getValue: r => r.payload?.results_count ?? '' },
-      { label: 'Modo',              getValue: r => r.mode || '' },
+      { label: 'Modo',              getValue: r => r.payload?.mode || '' },
       { label: 'Session ID',        getValue: r => r.session_id || '' }
     ])
   })
@@ -1452,12 +1452,6 @@ async function renderBodiAnalytics(from = null, to = null) {
   if (error) { el.innerHTML = '<p class="text-red-400 text-sm p-6">Error al cargar datos de Bodi.</p>'; return }
 
   const rows = convs || []
-  if (rows.length >= 1000) {
-    const warn = document.createElement('div');
-    warn.style.cssText = 'background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#856404;';
-    warn.textContent = `Mostrando los primeros ${rows.length} registros. Usa filtros de fecha para ver rangos más específicos.`;
-    el.insertBefore(warn, el.firstChild);
-  }
   const total = rows.length
   const withAnswer = rows.filter(r => r.resolved !== null)
   const resolved = rows.filter(r => r.resolved === true).length
@@ -1507,6 +1501,7 @@ async function renderBodiAnalytics(from = null, to = null) {
   }
 
   el.innerHTML = `
+    ${rows.length >= 1000 ? `<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#856404;">Mostrando los primeros ${rows.length} registros. Usa filtros de fecha para ver rangos más específicos.</div>` : ''}
     <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
       <div class="flex items-center gap-3">
         <h2 class="text-lg font-black">Analytics</h2>
