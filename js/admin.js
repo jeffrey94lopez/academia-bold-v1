@@ -105,6 +105,13 @@ async function renderLessonsPanel() {
               <button data-type="image" class="add-block bg-blue-50 text-blue-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-blue-100">+ Imagen</button>
               <button data-type="video" class="add-block bg-purple-50 text-purple-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-purple-100">+ Video</button>
               <button data-type="link" class="add-block bg-green-50 text-green-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-green-100">+ Link</button>
+              <div class="w-full border-t border-dashed border-amber-200 my-1"></div>
+              <p class="w-full text-[9px] font-black uppercase text-amber-500 tracking-widest">🤖 Solo para Bodi</p>
+              <button data-type="bot_nota" class="add-block bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100">💡 Nota</button>
+              <button data-type="bot_advertencia" class="add-block bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100">⚠️ Advertencia</button>
+              <button data-type="bot_pasos" class="add-block bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100">📋 Pasos internos</button>
+              <button data-type="bot_relacionado" class="add-block bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100">🔗 Relacionado</button>
+              <button data-type="bot_faq" class="add-block bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100">❓ Preguntas frecuentes</button>
             </div>
             <div class="mb-4">
               <p class="text-[10px] font-black uppercase text-slate-400 tracking-wide mb-1">Notas</p>
@@ -166,10 +173,15 @@ async function renderLessonsPanel() {
     btn.addEventListener('click', () => {
       const type = btn.dataset.type
       const defaults = {
-        step:  { type, text: '' },
-        image: { type, url: '', caption: '' },
-        video: { type, url: '', label: '' },
-        link:  { type, url: '', label: '' },
+        step:            { type, text: '' },
+        image:           { type, url: '', caption: '' },
+        video:           { type, url: '', label: '' },
+        link:            { type, url: '', label: '' },
+        bot_nota:        { type, content: '' },
+        bot_advertencia: { type, content: '' },
+        bot_pasos:       { type, content: '' },
+        bot_relacionado: { type, content: '' },
+        bot_faq:         { type, content: '' },
       }
       currentBlocks.push(defaults[type])
       renderBlockList()
@@ -285,12 +297,27 @@ function renderBlockList() {
 }
 
 function blockItemHtml(block, i) {
-  const colors = { step: '#E92129', image: '#3b82f6', video: '#8b5cf6', link: '#16a34a' }
-  const labels = { step: '📝 Paso', image: '🖼️ Imagen', video: '▶️ Video YouTube', link: '🔗 Link' }
+  const colors = { step: '#E92129', image: '#3b82f6', video: '#8b5cf6', link: '#16a34a',
+    bot_nota: '#d97706', bot_advertencia: '#d97706', bot_pasos: '#d97706', bot_relacionado: '#d97706', bot_faq: '#d97706' }
+  const labels = { step: '📝 Paso', image: '🖼️ Imagen', video: '▶️ Video YouTube', link: '🔗 Link',
+    bot_nota: '💡 Nota — Solo Bodi', bot_advertencia: '⚠️ Advertencia — Solo Bodi',
+    bot_pasos: '📋 Pasos internos — Solo Bodi', bot_relacionado: '🔗 Relacionado — Solo Bodi', bot_faq: '❓ Preg. frecuente — Solo Bodi' }
   const color = colors[block.type] || '#94a3b8'
   const label = labels[block.type] || escapeHtml(block.type)
+  const isBotBlock = block.type.startsWith('bot_')
 
   let fields = ''
+  if (isBotBlock) {
+    const placeholders = {
+      bot_nota: 'Contexto adicional o aclaración para Bodi...',
+      bot_advertencia: 'Error común o restricción importante que Bodi debe mencionar...',
+      bot_pasos: 'Secuencia de pasos internos que Bodi debe guiar...',
+      bot_relacionado: 'Módulos o temas relacionados que Bodi puede mencionar...',
+      bot_faq: 'Pregunta frecuente y respuesta que Bodi debe saber...',
+    }
+    fields = `<textarea data-field="content" rows="2" placeholder="${placeholders[block.type] || ''}"
+      class="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-xs outline-none focus:border-amber-400 resize-none">${escapeHtml(block.content || '')}</textarea>`
+  }
   if (block.type === 'step') {
     fields = `
       <div class="flex gap-1 mb-1.5">
@@ -336,7 +363,8 @@ function blockItemHtml(block, i) {
         class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129]">`
   }
 
-  return `<div data-idx="${i}" class="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex items-start gap-2">
+  const cardBg = isBotBlock ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'
+  return `<div data-idx="${i}" class="${cardBg} border rounded-xl p-2.5 flex items-start gap-2">
     <div class="drag-handle text-slate-300 text-lg cursor-grab mt-0.5 select-none leading-none">⠿</div>
     <div class="flex-1 min-w-0">
       <div class="text-[9px] font-black uppercase mb-1.5" style="color:${color}">${label}</div>

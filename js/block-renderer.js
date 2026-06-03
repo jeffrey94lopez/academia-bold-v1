@@ -6,6 +6,8 @@ export function renderBlocks(blocks) {
   let stepCount = 0
 
   for (const block of blocks) {
+    if (block.type?.startsWith('bot_')) continue  // invisible to students
+
     if (block.type === 'step') {
       stepCount++
       const wrap = document.createElement('div')
