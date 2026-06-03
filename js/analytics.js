@@ -11,4 +11,5 @@ export function track(eventType, payload = {}) {
     .then(({ error }) => {
       if (error) console.error('[analytics] track error:', error)
     })
+    .catch(err => console.error('[analytics] track error:', err))
 }
