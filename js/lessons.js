@@ -2,6 +2,7 @@ import { supabase } from './supabase.js'
 import { renderBlocks } from './block-renderer.js'
 import { loadSession, renderModeSelection, markLessonComplete, checkAndMarkCourseComplete, showExamModal } from './course.js'
 import { renderCertificate } from './certificate.js'
+import { track } from './analytics.js'
 
 let courseStudent = null
 
@@ -124,9 +125,12 @@ async function renderLessons() {
     </div>
   `
 
+  track('page_view', { page: 'lessons' })
+
   // ── Shared: render lesson content into any panel ───────────────────────────
   function renderLessonContent(panel, lesson) {
     panel.innerHTML = ''
+    track('lesson_open', { lesson_id: lesson.id, lesson_title: lesson.titulo, category: lesson.categoria || 'Ventas' })
     const catLessons = grouped[lesson.categoria || 'Ventas'] || []
     const idx = catLessons.findIndex(l => l.id === lesson.id)
     const lessonIdx = idx >= 0 ? idx + 1 : '?'
@@ -202,6 +206,7 @@ async function renderLessons() {
               onDismiss() {},
             })
           } else {
+            track('lesson_complete', { lesson_id: lesson.id, lesson_title: lesson.titulo })
             markLessonComplete(courseStudent, String(lesson.id), 100).then(() =>
               checkAndMarkCourseComplete(courseStudent, allIds).then(done => {
                 renderAccordion()
@@ -322,9 +327,19 @@ async function renderLessons() {
   }
 
   // Desktop search
+  let searchDebounce = null
   document.getElementById('ls-desk-search')?.addEventListener('input', e => {
     searchQuery = e.target.value
     renderAccordion()
+    clearTimeout(searchDebounce)
+    if (searchQuery.trim()) {
+      searchDebounce = setTimeout(() => {
+        const filtered = Object.values(grouped).flat().filter(l =>
+          l.titulo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (l.descripcion || '').toLowerCase().includes(searchQuery.toLowerCase()))
+        track('lesson_search', { term: searchQuery.trim(), results_count: filtered.length })
+      }, 600)
+    }
   })
 
   // ── Mobile: screens ───────────────────────────────────────────────────────
@@ -412,7 +427,20 @@ async function renderLessons() {
   document.getElementById('ls-back-lessons')?.addEventListener('click', () => showScreen('lessons'))
 
   // Mobile search
-  document.getElementById('ls-mob-search')?.addEventListener('input', () => renderMobileLessonList())
+  let mobSearchDebounce = null
+  document.getElementById('ls-mob-search')?.addEventListener('input', e => {
+    renderMobileLessonList()
+    clearTimeout(mobSearchDebounce)
+    const q = e.target.value.trim()
+    if (q) {
+      mobSearchDebounce = setTimeout(() => {
+        const filtered = (grouped[activeCategory] || []).filter(l =>
+          l.titulo.toLowerCase().includes(q.toLowerCase()) ||
+          (l.descripcion || '').toLowerCase().includes(q.toLowerCase()))
+        track('lesson_search', { term: q, results_count: filtered.length })
+      }, 600)
+    }
+  })
 
   // ── Initialize ────────────────────────────────────────────────────────────
   renderMobileCatList()
