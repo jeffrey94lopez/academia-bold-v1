@@ -1057,13 +1057,23 @@ async function renderAnalyticsPanel(from = null, to = null) {
 
   el.innerHTML = `
     <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
-      <h2 class="text-lg font-black">Analytics</h2>
+      <div class="flex items-center gap-3">
+        <h2 class="text-lg font-black">Analytics</h2>
+        <div class="flex text-xs font-bold border border-slate-200 rounded-xl overflow-hidden">
+          <button id="analytics-tab-lecciones" class="px-3 py-1.5 bg-[#E92129] text-white">Lecciones</button>
+          <button id="analytics-tab-bodi" class="px-3 py-1.5 text-slate-500 hover:bg-slate-50">Bodi</button>
+        </div>
+      </div>
       <div class="flex items-center gap-2 flex-wrap">
         ${preset('Hoy', todayStart, todayEnd)}
         ${preset('7 días', daysAgo(6), todayEnd)}
         ${preset('30 días', daysAgo(29), todayEnd)}
         ${preset('Este mes', monthStart(), todayEnd)}
         ${preset('Este año', yearStart(), todayEnd)}
+        <button id="analytics-export-csv" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 text-slate-600 hover:border-slate-300">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          CSV
+        </button>
         <div class="relative">
           <button id="analytics-cal-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 text-slate-600 hover:border-slate-300">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -1129,6 +1139,29 @@ async function renderAnalyticsPanel(from = null, to = null) {
     t.setHours(23, 59, 59, 999)
     if (isNaN(f) || isNaN(t) || f > t) return
     renderAnalyticsPanel(f, t)
+  })
+
+  el.querySelector('#analytics-export-csv')?.addEventListener('click', () => {
+    exportCSV(ev, `lecciones-analytics-${fmtDate(from)}-${fmtDate(to)}.csv`, [
+      { label: 'Fecha',             getValue: r => new Date(r.created_at).toLocaleString('es-CO') },
+      { label: 'Tipo de evento',    getValue: r => r.event_type },
+      { label: 'ID lección',        getValue: r => r.payload?.lesson_id || '' },
+      { label: 'Título lección',    getValue: r => r.payload?.lesson_title || '' },
+      { label: 'Categoría',         getValue: r => r.payload?.category || '' },
+      { label: 'Puntaje',           getValue: r => r.payload?.score ?? '' },
+      { label: 'Término búsqueda',  getValue: r => r.payload?.term || '' },
+      { label: 'Resultados',        getValue: r => r.payload?.results_count ?? '' },
+      { label: 'Modo',              getValue: r => r.mode || '' },
+      { label: 'Session ID',        getValue: r => r.session_id || '' }
+    ])
+  })
+
+  el.querySelector('#analytics-tab-bodi')?.addEventListener('click', () => {
+    renderBodiAnalytics(from, to)
+  })
+
+  el.querySelector('#analytics-tab-lecciones')?.addEventListener('click', () => {
+    renderAnalyticsPanel(from, to)
   })
 
   renderAnalyticsBody(el.querySelector('#analytics-body'), ev, from, to)
@@ -1398,3 +1431,21 @@ function renderExamsSection(container, ev) {
 window.renderMaterialPanel = renderMaterialPanel
 
 init()
+
+function exportCSV(rows, filename, columns) {
+  const header = columns.map(c => c.label).join(',')
+  const body = rows.map(row =>
+    columns.map(c => {
+      const v = c.getValue(row)
+      const s = String(v ?? '')
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"` : s
+    }).join(',')
+  ).join('\n')
+  const blob = new Blob(['﻿' + header + '\n' + body], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
