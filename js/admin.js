@@ -1232,7 +1232,111 @@ function renderAnalyticsBody(container, ev, from, to) {
 }
 
 function renderSearchesSection(container, ev) {
-  container.innerHTML = '<p class="text-slate-400 text-xs">Cargando búsquedas...</p>'
+  const searches = ev.filter(e => e.event_type === 'lesson_search')
+  const byTerm = {}
+  searches.forEach(e => {
+    const term = (e.payload?.term || '').toLowerCase().trim()
+    if (!term) return
+    if (!byTerm[term]) byTerm[term] = { count: 0, zeroCount: 0, lastAt: e.created_at, totalResults: 0 }
+    byTerm[term].count++
+    byTerm[term].totalResults += (e.payload?.results_count || 0)
+    if ((e.payload?.results_count || 0) === 0) byTerm[term].zeroCount++
+    if (e.created_at > byTerm[term].lastAt) byTerm[term].lastAt = e.created_at
+  })
+
+  let allTerms = Object.entries(byTerm)
+    .map(([term, d]) => ({ term, ...d, avgResults: Math.round(d.totalResults / d.count), noResults: d.zeroCount === d.count }))
+    .sort((a, b) => b.count - a.count)
+
+  const PAGE = 20
+  let page = 0
+  let filterText = ''
+  let filterNoResults = false
+
+  function fmtRelTime(iso) {
+    if (!iso) return '—'
+    const diff = Date.now() - new Date(iso).getTime()
+    const m = Math.floor(diff / 60000)
+    if (m < 1) return 'ahora'
+    if (m < 60) return `hace ${m}m`
+    const h = Math.floor(m / 60)
+    if (h < 24) return `hace ${h}h`
+    return `hace ${Math.floor(h / 24)}d`
+  }
+
+  function renderTable() {
+    let filtered = allTerms
+    if (filterNoResults) filtered = filtered.filter(t => t.noResults)
+    if (filterText) filtered = filtered.filter(t => t.term.includes(filterText.toLowerCase()))
+
+    const total = filtered.length
+    const noResultsCount = allTerms.filter(t => t.noResults).length
+    const paged = filtered.slice(page * PAGE, (page + 1) * PAGE)
+
+    container.innerHTML = `
+      <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 flex-wrap gap-2">
+          <p class="text-xs font-bold text-slate-800">Todas las búsquedas</p>
+          <div class="flex items-center gap-2">
+            <label class="flex items-center gap-1.5 text-[10px] font-bold text-[#E92129] bg-red-50 px-2.5 py-1 rounded-lg cursor-pointer">
+              <input id="srch-no-results" type="checkbox" class="accent-[#E92129]" ${filterNoResults ? 'checked' : ''}> Solo sin resultados
+            </label>
+            <input id="srch-filter" type="text" placeholder="🔍 Filtrar término..."
+              value="${escapeHtml(filterText)}"
+              class="px-2.5 py-1 border border-slate-200 rounded-lg text-xs outline-none focus:border-[#E92129] w-40">
+          </div>
+        </div>
+        ${paged.length === 0 ? `<p class="text-slate-400 text-xs p-4">Sin búsquedas en este período</p>` : `
+        <table class="w-full border-collapse text-xs">
+          <thead>
+            <tr class="bg-slate-50">
+              <th class="text-left px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Término</th>
+              <th class="text-center px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Búsquedas</th>
+              <th class="text-center px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Resultados prom.</th>
+              <th class="text-center px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Última vez</th>
+              <th class="text-center px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${paged.map(t => `
+              <tr class="border-t border-slate-50 ${t.noResults ? 'bg-red-50/40' : ''}">
+                <td class="px-4 py-2.5 font-semibold ${t.noResults ? 'text-[#E92129]' : 'text-slate-700'}">${escapeHtml(t.term)}</td>
+                <td class="px-4 py-2.5 text-center text-slate-600">${t.count}</td>
+                <td class="px-4 py-2.5 text-center font-bold ${t.noResults ? 'text-[#E92129]' : 'text-slate-700'}">${t.avgResults}</td>
+                <td class="px-4 py-2.5 text-center text-slate-400">${fmtRelTime(t.lastAt)}</td>
+                <td class="px-4 py-2.5 text-center">
+                  ${t.noResults
+                    ? '<span class="bg-red-100 text-[#E92129] text-[10px] font-bold px-2 py-0.5 rounded-full">⚠ Sin resultados</span>'
+                    : '<span class="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full">Con resultados</span>'}
+                </td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+        <div class="flex items-center justify-between px-4 py-2.5 border-t border-slate-100">
+          <span class="text-[10px] text-slate-400">${total} términos · <span class="text-[#E92129] font-bold">${noResultsCount} sin resultados</span></span>
+          <div class="flex gap-1">
+            <button class="srch-prev px-2.5 py-1 border border-slate-200 rounded-lg text-[10px] text-slate-500 ${page === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-50'}">‹ Anterior</button>
+            <button class="srch-next px-2.5 py-1 border border-slate-200 rounded-lg text-[10px] text-slate-500 ${(page + 1) * PAGE >= total ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-50'}">Siguiente ›</button>
+          </div>
+        </div>`}
+      </div>
+    `
+
+    container.querySelector('#srch-no-results')?.addEventListener('change', e => {
+      filterNoResults = e.target.checked; page = 0; renderTable()
+    })
+    container.querySelector('#srch-filter')?.addEventListener('input', e => {
+      filterText = e.target.value; page = 0; renderTable()
+    })
+    container.querySelector('.srch-prev')?.addEventListener('click', () => {
+      if (page > 0) { page--; renderTable() }
+    })
+    container.querySelector('.srch-next')?.addEventListener('click', () => {
+      if ((page + 1) * PAGE < total) { page++; renderTable() }
+    })
+  }
+
+  renderTable()
 }
 
 function renderExamsSection(container, ev) {
