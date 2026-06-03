@@ -25,6 +25,7 @@ async function createConversation() {
     _creatingConversation = true;
     const sessionId = localStorage.getItem('bold_session_id') || crypto.randomUUID();
     localStorage.setItem('bold_session_id', sessionId);
+    const id = crypto.randomUUID();
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/bodi_conversations`, {
             method: 'POST',
@@ -32,13 +33,12 @@ async function createConversation() {
                 'Content-Type': 'application/json',
                 'apikey': SUPABASE_ANON_KEY,
                 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                'Prefer': 'return=representation'
+                'Prefer': 'return=minimal'
             },
-            body: JSON.stringify({ session_id: sessionId, messages: [], status: 'active' })
+            body: JSON.stringify({ id, session_id: sessionId, messages: [], status: 'active' })
         });
         if (!res.ok) throw new Error(`Supabase POST failed: ${res.status}`);
-        const [row] = await res.json();
-        conversationId = row?.id || null;
+        conversationId = id;
     } catch (e) {
         console.warn('createConversation failed:', e.message);
         conversationId = null;
