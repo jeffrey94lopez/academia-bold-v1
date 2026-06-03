@@ -5,7 +5,12 @@ const newChatBtn = document.getElementById('new-chat');
 const typingIndicator = document.getElementById('typing');
 
 const N8N_WEBHOOK_URL = 'https://n8n.mplasesores.com/webhook/bold-pos-chat';
+const SUPABASE_URL = 'https://tczcngfhuendmldafbrc.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjemNuZ2ZodWVuZG1sZGFmYnJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MzQ0OTIsImV4cCI6MjA5NTMxMDQ5Mn0.YuKwq-ooL9noU6FXDDPzJbaj-h7rhZli1s4Zji-uCXQ';
+const ABANDON_URL = 'https://n8n.mplasesores.com/webhook/bodi-abandon';
+
 let history = JSON.parse(localStorage.getItem('bold_history')) || [];
+let conversationId = null;
 
 window.onload = () => {
     if (history.length > 0) {
@@ -13,9 +18,55 @@ window.onload = () => {
     }
 };
 
+async function createConversation() {
+    const sessionId = localStorage.getItem('bold_session_id') || crypto.randomUUID();
+    localStorage.setItem('bold_session_id', sessionId);
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/bodi_conversations`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify({ session_id: sessionId, messages: [], status: 'active' })
+        });
+        const [row] = await res.json();
+        conversationId = row?.id || null;
+    } catch (_) { conversationId = null; }
+}
+
+async function upsertConversation(patch) {
+    if (!conversationId) return;
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/bodi_conversations?id=eq.${conversationId}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify(patch)
+        });
+    } catch (_) {}
+}
+
+async function resolveConversation(resolved, btnsEl) {
+    btnsEl.remove();
+    await upsertConversation({
+        resolved,
+        status: 'completed',
+        ended_at: new Date().toISOString()
+    });
+    conversationId = null;
+}
+
 async function sendMessage(text = null) {
     const message = text || userInput.value.trim();
     if (!message) return;
+
+    if (!conversationId) await createConversation();
 
     appendMsg('user', message);
     userInput.value = '';
@@ -32,25 +83,58 @@ async function sendMessage(text = null) {
         typingIndicator.style.display = 'none';
 
         const reply = data.response || 'No pude procesar tu pregunta. Intenta de nuevo.';
-        appendMsg('bot', reply);
+        appendMsg('bot', reply, true);
         history.push({ role: 'user', content: message });
         history.push({ role: 'assistant', content: reply });
         localStorage.setItem('bold_history', JSON.stringify(history.slice(-20)));
+
+        await upsertConversation({
+            messages: history,
+            topic: data.topic || null,
+            sentiment: data.sentiment || 'neutro',
+            support_redirected: data.support_redirected || false
+        });
     } catch (error) {
         typingIndicator.style.display = 'none';
         appendMsg('bot', 'Error de conexión con el servidor.');
     }
 }
 
-function appendMsg(type, text) {
+function appendMsg(type, text, showResolution = false) {
     const div = document.createElement('div');
     div.className = `msg ${type}`;
     div.innerText = text;
     chatBox.appendChild(div);
+
+    if (type === 'bot' && showResolution) {
+        const btns = document.createElement('div');
+        btns.className = 'resolution-btns';
+        btns.innerHTML = `
+            <span class="resolution-label">¿Logré resolver tu duda?</span>
+            <button class="res-btn res-yes">✓ Sí</button>
+            <button class="res-btn res-no">✗ No</button>
+        `;
+        btns.querySelector('.res-yes').onclick = () => resolveConversation(true, btns);
+        btns.querySelector('.res-no').onclick  = () => resolveConversation(false, btns);
+        chatBox.appendChild(btns);
+    }
+
     chatBox.scrollTop = chatBox.scrollHeight;
 }
+
+window.addEventListener('beforeunload', () => {
+    if (!conversationId) return;
+    navigator.sendBeacon(
+        ABANDON_URL,
+        new Blob([JSON.stringify({ conversationId })], { type: 'application/json' })
+    );
+});
 
 function quickQuery(q) { sendMessage(q); }
 sendBtn.onclick = () => sendMessage();
 userInput.onkeypress = (e) => { if (e.key === 'Enter') sendMessage(); };
-newChatBtn.onclick = () => { localStorage.removeItem('bold_history'); location.reload(); };
+newChatBtn.onclick = () => {
+    localStorage.removeItem('bold_history');
+    conversationId = null;
+    location.reload();
+};
