@@ -1035,8 +1035,8 @@ async function renderAnalyticsPanel(from = null, to = null) {
 
   const visits       = count(ev, 'page_view')
   const prevVisits   = count(prev, 'page_view')
-  const newStudents  = count(ev, 'mode_selected')
-  const prevStudents = count(prev, 'mode_selected')
+  const newStudents  = ev.filter(e => e.event_type === 'mode_selected' && e.payload?.mode === 'course').length
+  const prevStudents = prev.filter(e => e.event_type === 'mode_selected' && e.payload?.mode === 'course').length
   const passes       = ev.filter(e => e.event_type === 'exam_pass')
   const avgScore     = passes.length
     ? Math.round(passes.reduce((s, e) => s + (e.payload?.score || 0), 0) / passes.length)
@@ -1122,7 +1122,7 @@ async function renderAnalyticsPanel(from = null, to = null) {
     e.stopPropagation()
     calDrop.classList.toggle('hidden')
   })
-  document.addEventListener('click', () => calDrop.classList.add('hidden'))
+  document.addEventListener('click', () => calDrop.classList.add('hidden'), { once: true })
   el.querySelector('#analytics-apply-btn').addEventListener('click', () => {
     const f = new Date(el.querySelector('#analytics-from-input').value)
     const t = new Date(el.querySelector('#analytics-to-input').value)
@@ -1286,8 +1286,9 @@ function renderSearchesSection(container, ev) {
               class="px-2.5 py-1 border border-slate-200 rounded-lg text-xs outline-none focus:border-[#E92129] w-40">
           </div>
         </div>
-        ${paged.length === 0 ? `<p class="text-slate-400 text-xs p-4">Sin búsquedas en este período</p>` : `
-        <table class="w-full border-collapse text-xs">
+        ${paged.length === 0
+          ? `<p class="text-slate-400 text-xs p-4">Sin resultados para este filtro</p>`
+          : `<table class="w-full border-collapse text-xs">
           <thead>
             <tr class="bg-slate-50">
               <th class="text-left px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Término</th>
@@ -1311,14 +1312,14 @@ function renderSearchesSection(container, ev) {
                 </td>
               </tr>`).join('')}
           </tbody>
-        </table>
+        </table>`}
         <div class="flex items-center justify-between px-4 py-2.5 border-t border-slate-100">
           <span class="text-[10px] text-slate-400">${total} términos · <span class="text-[#E92129] font-bold">${noResultsCount} sin resultados</span></span>
           <div class="flex gap-1">
             <button class="srch-prev px-2.5 py-1 border border-slate-200 rounded-lg text-[10px] text-slate-500 ${page === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-50'}">‹ Anterior</button>
             <button class="srch-next px-2.5 py-1 border border-slate-200 rounded-lg text-[10px] text-slate-500 ${(page + 1) * PAGE >= total ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-50'}">Siguiente ›</button>
           </div>
-        </div>`}
+        </div>
       </div>
     `
 

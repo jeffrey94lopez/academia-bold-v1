@@ -153,8 +153,8 @@ export function printCertificate(student) {
   const dateStr  = escHtml(formatDate(student.fecha_completado)) || '—'
 
   const win = window.open('', '_blank')
-  track('certificate_print', {})
   if (!win) return // blocked by popup blocker
+  track('certificate_print', {})
 
   win.document.write(`<!DOCTYPE html>
 <html lang="es">
