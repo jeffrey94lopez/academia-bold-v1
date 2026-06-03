@@ -1340,7 +1340,58 @@ function renderSearchesSection(container, ev) {
 }
 
 function renderExamsSection(container, ev) {
-  container.innerHTML = '<p class="text-slate-400 text-xs">Cargando exámenes...</p>'
+  const examEvents = ev.filter(e => e.event_type === 'exam_pass' || e.event_type === 'exam_fail')
+  if (examEvents.length === 0) { container.innerHTML = ''; return }
+
+  const byLesson = {}
+  examEvents.forEach(e => {
+    const key = e.payload?.lesson_title || e.payload?.lesson_id || 'Sin título'
+    if (!byLesson[key]) byLesson[key] = { passes: 0, fails: 0, totalScore: 0, scoreCount: 0 }
+    if (e.event_type === 'exam_pass') {
+      byLesson[key].passes++
+      byLesson[key].totalScore += (e.payload?.score || 0)
+      byLesson[key].scoreCount++
+    } else {
+      byLesson[key].fails++
+    }
+  })
+
+  const rows = Object.entries(byLesson)
+    .map(([title, d]) => {
+      const total = d.passes + d.fails
+      const passPct = Math.round(d.passes / total * 100)
+      const avgScore = d.scoreCount ? Math.round(d.totalScore / d.scoreCount) : 0
+      const pctColor = passPct >= 80 ? 'text-green-600' : passPct >= 60 ? 'text-amber-500' : 'text-[#E92129]'
+      return { title, total, passPct, avgScore, pctColor }
+    })
+    .sort((a, b) => b.total - a.total)
+
+  container.innerHTML = `
+    <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+      <div class="px-4 py-3 border-b border-slate-100">
+        <p class="text-xs font-bold text-slate-800">Resultados de exámenes por lección</p>
+      </div>
+      <table class="w-full border-collapse text-xs">
+        <thead>
+          <tr class="bg-slate-50">
+            <th class="text-left px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Lección</th>
+            <th class="text-center px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Intentos</th>
+            <th class="text-center px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Aprobaron</th>
+            <th class="text-center px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Puntaje prom.</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr class="border-t border-slate-50">
+              <td class="px-4 py-2.5 text-slate-700">${escapeHtml(r.title)}</td>
+              <td class="px-4 py-2.5 text-center text-slate-600">${r.total}</td>
+              <td class="px-4 py-2.5 text-center font-bold ${r.pctColor}">${r.passPct}%</td>
+              <td class="px-4 py-2.5 text-center font-bold text-slate-800">${r.avgScore}%</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  `
 }
 
 window.renderMaterialPanel = renderMaterialPanel
