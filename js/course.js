@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js'
+import { track } from './analytics.js'
 
 function escHtml(t) {
   if (t == null) return ''
@@ -182,6 +183,7 @@ export function renderModeSelection(container, { onCourse, onExplore }) {
     try {
       const id = await registerStudent(nombre, apellido)
       const student = { id, nombre, apellido, progreso: {}, completado: false }
+      track('mode_selected', { mode: 'course' })
       onCourse(student)
     } catch (err) {
       console.error('[course] registerStudent error:', err)
@@ -194,6 +196,7 @@ export function renderModeSelection(container, { onCourse, onExplore }) {
 
   container.querySelector('#cm-explore').addEventListener('click', () => {
     setExploreMode()
+    track('mode_selected', { mode: 'explore' })
     onExplore()
   })
 }
@@ -327,6 +330,7 @@ export function showExamModal(lesson, student, allLessonIds, { onPass, onDismiss
   // ── Success view ─────────────────────────────────────────────────────────
   function renderSuccess(state) {
     const { puntaje, courseComplete } = state
+    track('exam_pass', { lesson_id: String(lesson.id), lesson_title: lesson.titulo || '', score: puntaje })
 
     const card = document.createElement('div')
     card.className = 'bg-white rounded-2xl shadow-2xl w-full max-w-md text-center p-8'
@@ -355,6 +359,7 @@ export function showExamModal(lesson, student, allLessonIds, { onPass, onDismiss
   // ── Failure view ─────────────────────────────────────────────────────────
   function renderFailure(state) {
     const { puntaje, wrongTexts } = state
+    track('exam_fail', { lesson_id: String(lesson.id), lesson_title: lesson.titulo || '', score: puntaje })
 
     const card = document.createElement('div')
     card.className = 'bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 max-h-[90vh] overflow-y-auto'

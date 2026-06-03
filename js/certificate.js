@@ -1,3 +1,4 @@
+import { track } from './analytics.js'
 // certificate.js — diploma rendering and print for Bold POS Academy
 
 // ---------------------------------------------------------------------------
@@ -131,6 +132,7 @@ export function renderCertificate(student) {
   card.appendChild(footer)
   overlay.appendChild(card)
   document.body.appendChild(overlay)
+  track('certificate_view', {})
 
   // ── Events ────────────────────────────────────────────────────────────────
   document.getElementById('certCloseBtn').addEventListener('click', () => overlay.remove())
@@ -152,6 +154,7 @@ export function printCertificate(student) {
 
   const win = window.open('', '_blank')
   if (!win) return // blocked by popup blocker
+  track('certificate_print', {})
 
   win.document.write(`<!DOCTYPE html>
 <html lang="es">
