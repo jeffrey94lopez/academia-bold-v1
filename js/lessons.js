@@ -130,7 +130,7 @@ async function renderLessons() {
   // ── Shared: render lesson content into any panel ───────────────────────────
   function renderLessonContent(panel, lesson) {
     panel.innerHTML = ''
-    track('lesson_open', { lesson_id: lesson.id, lesson_title: lesson.titulo, category: lesson.categoria || 'Ventas' })
+    track('lesson_open', { lesson_id: lesson.id, lesson_title: lesson.titulo || '', category: lesson.categoria || 'Ventas' })
     const catLessons = grouped[lesson.categoria || 'Ventas'] || []
     const idx = catLessons.findIndex(l => l.id === lesson.id)
     const lessonIdx = idx >= 0 ? idx + 1 : '?'
@@ -206,7 +206,7 @@ async function renderLessons() {
               onDismiss() {},
             })
           } else {
-            track('lesson_complete', { lesson_id: lesson.id, lesson_title: lesson.titulo })
+            track('lesson_complete', { lesson_id: lesson.id, lesson_title: lesson.titulo || '' })
             markLessonComplete(courseStudent, String(lesson.id), 100).then(() =>
               checkAndMarkCourseComplete(courseStudent, allIds).then(done => {
                 renderAccordion()
@@ -329,15 +329,16 @@ async function renderLessons() {
   // Desktop search
   let searchDebounce = null
   document.getElementById('ls-desk-search')?.addEventListener('input', e => {
+    clearTimeout(searchDebounce)
     searchQuery = e.target.value
     renderAccordion()
-    clearTimeout(searchDebounce)
-    if (searchQuery.trim()) {
+    const term = searchQuery.trim()
+    if (term) {
       searchDebounce = setTimeout(() => {
         const filtered = Object.values(grouped).flat().filter(l =>
-          l.titulo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (l.descripcion || '').toLowerCase().includes(searchQuery.toLowerCase()))
-        track('lesson_search', { term: searchQuery.trim(), results_count: filtered.length })
+          l.titulo.toLowerCase().includes(term.toLowerCase()) ||
+          (l.descripcion || '').toLowerCase().includes(term.toLowerCase()))
+        track('lesson_search', { term, results_count: filtered.length })
       }, 600)
     }
   })
