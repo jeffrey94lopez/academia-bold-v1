@@ -11,6 +11,8 @@ const ABANDON_URL = 'https://n8n.mplasesores.com/webhook/bodi-abandon';
 
 let history = JSON.parse(localStorage.getItem('bold_history')) || [];
 let conversationId = null;
+let _creatingConversation = false;
+let sessionMessages = [];
 
 window.onload = () => {
     if (history.length > 0) {
@@ -19,6 +21,8 @@ window.onload = () => {
 };
 
 async function createConversation() {
+    if (_creatingConversation) return;
+    _creatingConversation = true;
     const sessionId = localStorage.getItem('bold_session_id') || crypto.randomUUID();
     localStorage.setItem('bold_session_id', sessionId);
     try {
@@ -32,9 +36,15 @@ async function createConversation() {
             },
             body: JSON.stringify({ session_id: sessionId, messages: [], status: 'active' })
         });
+        if (!res.ok) throw new Error(`Supabase POST failed: ${res.status}`);
         const [row] = await res.json();
         conversationId = row?.id || null;
-    } catch (_) { conversationId = null; }
+    } catch (e) {
+        console.warn('createConversation failed:', e.message);
+        conversationId = null;
+    } finally {
+        _creatingConversation = false;
+    }
 }
 
 async function upsertConversation(patch) {
@@ -87,11 +97,13 @@ async function sendMessage(text = null) {
         history.push({ role: 'user', content: message });
         history.push({ role: 'assistant', content: reply });
         localStorage.setItem('bold_history', JSON.stringify(history.slice(-20)));
+        sessionMessages.push({ role: 'user', content: message });
+        sessionMessages.push({ role: 'assistant', content: reply });
 
         await upsertConversation({
-            messages: history,
+            messages: sessionMessages,
             topic: data.topic || null,
-            sentiment: data.sentiment || 'neutro',
+            sentiment: data.sentiment ?? 'neutro',
             support_redirected: data.support_redirected || false
         });
     } catch (error) {
@@ -107,6 +119,7 @@ function appendMsg(type, text, showResolution = false) {
     chatBox.appendChild(div);
 
     if (type === 'bot' && showResolution) {
+        document.querySelectorAll('.resolution-btns').forEach(el => el.remove());
         const btns = document.createElement('div');
         btns.className = 'resolution-btns';
         btns.innerHTML = `
@@ -136,5 +149,6 @@ userInput.onkeypress = (e) => { if (e.key === 'Enter') sendMessage(); };
 newChatBtn.onclick = () => {
     localStorage.removeItem('bold_history');
     conversationId = null;
+    sessionMessages = [];
     location.reload();
 };
