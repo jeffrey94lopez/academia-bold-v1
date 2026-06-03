@@ -31,12 +31,11 @@ async function sendMessage(text = null) {
         const data = await response.json();
         typingIndicator.style.display = 'none';
 
-        if (data.response) {
-            appendMsg('bot', data.response);
-            history.push({ role: 'user', content: message });
-            history.push({ role: 'assistant', content: data.response });
-            localStorage.setItem('bold_history', JSON.stringify(history.slice(-20)));
-        }
+        const reply = data.response || 'No pude procesar tu pregunta. Intenta de nuevo.';
+        appendMsg('bot', reply);
+        history.push({ role: 'user', content: message });
+        history.push({ role: 'assistant', content: reply });
+        localStorage.setItem('bold_history', JSON.stringify(history.slice(-20)));
     } catch (error) {
         typingIndicator.style.display = 'none';
         appendMsg('bot', 'Error de conexión con el servidor.');
