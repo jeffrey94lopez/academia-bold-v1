@@ -41,6 +41,7 @@ function switchPanel(panel) {
   if (panel === 'material') renderMaterialPanel()
   if (panel === 'suggestions') renderSuggestionsPanel()
   if (panel === 'results') renderResultsPanel()
+  if (panel === 'analytics') renderAnalyticsPanel()
 }
 
 async function renderLessonsPanel() {
