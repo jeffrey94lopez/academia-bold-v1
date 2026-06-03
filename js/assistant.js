@@ -203,7 +203,7 @@ async function sendMessage(text) {
   try {
     const res = await fetch(N8N_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-api-key': 'BoldBodi-2026-K9xMvP7q' },
       body: JSON.stringify({ message: text, history })
     })
     const data = await res.json()

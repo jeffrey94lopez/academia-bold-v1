@@ -158,6 +158,32 @@
             padding: 0 24px 10px;
             display: none;
         }
+        .resolution-btns {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 0 0 4px;
+            flex-wrap: wrap;
+        }
+
+        .resolution-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .res-btn {
+            background: #252525;
+            border: 1px solid #555;
+            color: var(--text-main);
+            padding: 5px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: background 0.15s;
+        }
+
+        .res-yes:hover { background: #1a3a1a; border-color: #4a9a4a; color: #7dd87d; }
+        .res-no:hover  { background: #3a1a1a; border-color: #9a4a4a; color: #d87d7d; }
     </style>
 </head>
 <body>

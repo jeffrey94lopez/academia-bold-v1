@@ -1057,13 +1057,23 @@ async function renderAnalyticsPanel(from = null, to = null) {
 
   el.innerHTML = `
     <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
-      <h2 class="text-lg font-black">Analytics</h2>
+      <div class="flex items-center gap-3">
+        <h2 class="text-lg font-black">Analytics</h2>
+        <div class="flex text-xs font-bold border border-slate-200 rounded-xl overflow-hidden">
+          <button id="analytics-tab-lecciones" class="px-3 py-1.5 bg-[#E92129] text-white">Lecciones</button>
+          <button id="analytics-tab-bodi" class="px-3 py-1.5 text-slate-500 hover:bg-slate-50">Bodi</button>
+        </div>
+      </div>
       <div class="flex items-center gap-2 flex-wrap">
         ${preset('Hoy', todayStart, todayEnd)}
         ${preset('7 días', daysAgo(6), todayEnd)}
         ${preset('30 días', daysAgo(29), todayEnd)}
         ${preset('Este mes', monthStart(), todayEnd)}
         ${preset('Este año', yearStart(), todayEnd)}
+        <button id="analytics-export-csv" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 text-slate-600 hover:border-slate-300">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          CSV
+        </button>
         <div class="relative">
           <button id="analytics-cal-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 text-slate-600 hover:border-slate-300">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -1129,6 +1139,29 @@ async function renderAnalyticsPanel(from = null, to = null) {
     t.setHours(23, 59, 59, 999)
     if (isNaN(f) || isNaN(t) || f > t) return
     renderAnalyticsPanel(f, t)
+  })
+
+  el.querySelector('#analytics-export-csv')?.addEventListener('click', () => {
+    exportCSV(ev, `lecciones-analytics-${fmtDate(from)}-${fmtDate(to)}.csv`, [
+      { label: 'Fecha',             getValue: r => new Date(r.created_at).toLocaleString('es-CO') },
+      { label: 'Tipo de evento',    getValue: r => r.event_type },
+      { label: 'ID lección',        getValue: r => r.payload?.lesson_id || '' },
+      { label: 'Título lección',    getValue: r => r.payload?.lesson_title || '' },
+      { label: 'Categoría',         getValue: r => r.payload?.category || '' },
+      { label: 'Puntaje',           getValue: r => r.payload?.score ?? '' },
+      { label: 'Término búsqueda',  getValue: r => r.payload?.term || '' },
+      { label: 'Resultados',        getValue: r => r.payload?.results_count ?? '' },
+      { label: 'Modo',              getValue: r => r.payload?.mode || '' },
+      { label: 'Session ID',        getValue: r => r.session_id || '' }
+    ])
+  })
+
+  el.querySelector('#analytics-tab-bodi')?.addEventListener('click', () => {
+    renderBodiAnalytics(from, to)
+  })
+
+  el.querySelector('#analytics-tab-lecciones')?.addEventListener('click', () => {
+    renderAnalyticsPanel(from, to)
   })
 
   renderAnalyticsBody(el.querySelector('#analytics-body'), ev, from, to)
@@ -1398,3 +1431,257 @@ function renderExamsSection(container, ev) {
 window.renderMaterialPanel = renderMaterialPanel
 
 init()
+
+async function renderBodiAnalytics(from = null, to = null) {
+  const now = new Date()
+  if (!from) { from = new Date(now); from.setHours(0, 0, 0, 0) }
+  if (!to)   { to   = new Date(now); to.setHours(23, 59, 59, 999) }
+
+  const el = document.getElementById('panel-analytics')
+  if (!el) return
+  el.innerHTML = '<p class="text-slate-400 text-sm p-6">Cargando analytics de Bodi...</p>'
+
+  const { data: convs, error } = await supabase
+    .from('bodi_conversations')
+    .select('*')
+    .gte('started_at', from.toISOString())
+    .lte('started_at', to.toISOString())
+    .limit(2000)
+    .order('started_at', { ascending: false })
+
+  if (error) { el.innerHTML = '<p class="text-red-400 text-sm p-6">Error al cargar datos de Bodi.</p>'; return }
+
+  const rows = convs || []
+  const total = rows.length
+  const withAnswer = rows.filter(r => r.resolved !== null)
+  const resolved = rows.filter(r => r.resolved === true).length
+  const unresolved = rows.filter(r => r.resolved === false)
+  const abandoned = rows.filter(r => r.status === 'abandoned').length
+  const support = rows.filter(r => r.support_redirected).length
+  const resolvedPct = withAnswer.length ? Math.round(resolved / withAnswer.length * 100) : 0
+  const abandonedPct = total ? Math.round(abandoned / total * 100) : 0
+
+  const topicCounts = {}
+  rows.forEach(r => { const t = r.topic || 'desconocido'; topicCounts[t] = (topicCounts[t] || 0) + 1 })
+  const topicEntries = Object.entries(topicCounts).sort((a, b) => b[1] - a[1])
+  const maxTopic = Math.max(...topicEntries.map(e => e[1]), 1)
+
+  const sentMap = { positivo: 0, neutro: 0, negativo: 0 }
+  rows.forEach(r => { if (r.sentiment && sentMap[r.sentiment] !== undefined) sentMap[r.sentiment]++ })
+  const sentimentTotal = sentMap.positivo + sentMap.neutro + sentMap.negativo || 1
+
+  const heat = Array.from({ length: 7 }, () => new Array(24).fill(0))
+  rows.forEach(r => {
+    const d = new Date(r.started_at)
+    const dayMon = (d.getDay() + 6) % 7
+    const hour = d.getHours()
+    heat[dayMon][hour]++
+  })
+  const maxHeat = Math.max(...heat.flat(), 1)
+  const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+
+  let heatCells = dayNames.map(d =>
+    `<div class="text-[9px] text-slate-500 text-center font-bold pb-0.5">${d}</div>`
+  ).join('')
+  for (let h = 0; h < 24; h++) {
+    for (let d = 0; d < 7; d++) {
+      const count = heat[d][h]
+      const opacity = count ? (0.12 + 0.88 * count / maxHeat).toFixed(2) : '0'
+      heatCells += `<div style="background:rgba(233,33,41,${opacity});border-radius:2px;min-height:10px" title="${dayNames[d]} ${String(h).padStart(2,'0')}:00 — ${count} conv."></div>`
+    }
+  }
+
+  const fmtDate = d => d.toISOString().split('T')[0]
+  const todayStart = new Date(now); todayStart.setHours(0,0,0,0)
+  const todayEnd   = new Date(now); todayEnd.setHours(23,59,59,999)
+  function daysAgo(n) { const d = new Date(todayStart); d.setDate(d.getDate()-n); return d }
+  function preset(label, f, t) {
+    return `<button class="bodi-preset px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200"
+      data-from="${f.toISOString()}" data-to="${t.toISOString()}">${label}</button>`
+  }
+
+  el.innerHTML = `
+    ${rows.length >= 1000 ? `<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#856404;">Mostrando los primeros ${rows.length} registros. Usa filtros de fecha para ver rangos más específicos.</div>` : ''}
+    <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
+      <div class="flex items-center gap-3">
+        <h2 class="text-lg font-black">Analytics</h2>
+        <div class="flex text-xs font-bold border border-slate-200 rounded-xl overflow-hidden">
+          <button id="bodi-tab-lecciones" class="px-3 py-1.5 text-slate-500 hover:bg-slate-50">Lecciones</button>
+          <button id="bodi-tab-bodi" class="px-3 py-1.5 bg-[#E92129] text-white">Bodi</button>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        ${preset('Hoy', todayStart, todayEnd)}
+        ${preset('7 días', daysAgo(6), todayEnd)}
+        ${preset('30 días', daysAgo(29), todayEnd)}
+        <button id="bodi-export-csv" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 text-slate-600 hover:border-slate-300">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          CSV
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-5 gap-3 mb-5">
+      ${[
+        ['Total conv.', total],
+        ['Resueltas', resolvedPct + '%'],
+        ['Abandonadas', abandonedPct + '%'],
+        ['A soporte', support],
+        ['Sin resolver', unresolved.length]
+      ].map(([label, val]) => `
+        <div class="bg-white rounded-2xl border border-slate-100 p-4">
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">${label}</p>
+          <p class="text-2xl font-black text-slate-900">${val}</p>
+        </div>`).join('')}
+    </div>
+
+    <div class="grid gap-4 mb-5" style="grid-template-columns:2fr 1fr">
+      <div class="bg-white rounded-2xl border border-slate-100 p-4">
+        <p class="text-xs font-bold text-slate-800 mb-3">Conversaciones por módulo</p>
+        ${topicEntries.length === 0
+          ? '<p class="text-slate-400 text-xs">Sin datos en el período</p>'
+          : topicEntries.map(([t, c]) => `
+            <div class="mb-2">
+              <div class="flex justify-between mb-0.5">
+                <span class="text-xs text-slate-700">${escapeHtml(t)}</span>
+                <span class="text-xs font-bold text-[#E92129]">${c}</span>
+              </div>
+              <div class="h-1.5 bg-slate-100 rounded-full">
+                <div class="h-1.5 bg-[#E92129] rounded-full" style="width:${Math.round(c/maxTopic*100)}%"></div>
+              </div>
+            </div>`).join('')}
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-100 p-4">
+        <p class="text-xs font-bold text-slate-800 mb-3">Sentimiento</p>
+        ${[['Positivo','positivo','#22c55e'],['Neutro','neutro','#94a3b8'],['Negativo','negativo','#ef4444']].map(([label, key, color]) => {
+          const cnt = sentMap[key]
+          const pct = Math.round(cnt / sentimentTotal * 100)
+          return `<div class="mb-2.5">
+            <div class="flex justify-between mb-0.5">
+              <span class="text-xs text-slate-700">${label}</span>
+              <span class="text-xs font-bold" style="color:${color}">${pct}%</span>
+            </div>
+            <div class="h-1.5 bg-slate-100 rounded-full">
+              <div class="h-1.5 rounded-full" style="width:${pct}%;background:${color}"></div>
+            </div>
+          </div>`
+        }).join('')}
+        ${total === 0 ? '<p class="text-[10px] text-slate-400 mt-2">Sin datos</p>' : ''}
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl border border-slate-100 p-4 mb-5">
+      <p class="text-xs font-bold text-slate-800 mb-3">Mapa de calor — hora × día de la semana</p>
+      <div class="overflow-x-auto">
+        <div class="grid gap-0.5" style="grid-template-columns:repeat(7,minmax(28px,1fr));min-width:200px;max-width:400px">
+          ${heatCells}
+        </div>
+      </div>
+      <p class="text-[10px] text-slate-400 mt-2">Más rojo = más conversaciones. Cada celda = una hora del día.</p>
+    </div>
+
+    <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden mb-5">
+      <div class="px-4 py-3 border-b border-slate-100">
+        <p class="text-xs font-bold text-slate-800">Conversaciones sin resolver (${unresolved.length})</p>
+      </div>
+      ${unresolved.length === 0
+        ? '<p class="text-slate-400 text-xs p-4">Ninguna — ¡todo resuelto!</p>'
+        : unresolved.slice(0, 20).map(r => `
+          <div class="border-b border-slate-50 last:border-0">
+            <button class="bodi-expand w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center justify-between gap-2" data-id="${escapeHtml(r.id)}">
+              <div class="flex items-center gap-3 min-w-0">
+                <span class="text-xs text-slate-500 shrink-0">${new Date(r.started_at).toLocaleDateString('es-CO')}</span>
+                <span class="text-xs font-bold text-slate-700 truncate">${escapeHtml(r.topic || '—')}</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full ${r.sentiment === 'negativo' ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'}">${escapeHtml(r.sentiment || '—')}</span>
+              </div>
+              <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="bodi-messages hidden px-4 pb-3 space-y-1.5" data-id="${escapeHtml(r.id)}">
+              ${(r.messages || []).map(m => `
+                <div class="text-xs ${m.role === 'user' ? 'text-blue-700 bg-blue-50' : 'text-slate-700 bg-slate-50'} rounded-lg px-3 py-1.5">
+                  <span class="font-bold">${m.role === 'user' ? 'Usuario' : 'Bodi'}:</span> ${escapeHtml(m.content || '')}
+                </div>`).join('')}
+            </div>
+          </div>`).join('')}
+    </div>
+
+    <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+      <div class="px-4 py-3 border-b border-slate-100">
+        <p class="text-xs font-bold text-slate-800">Conversaciones recientes</p>
+      </div>
+      ${rows.length === 0
+        ? '<p class="text-slate-400 text-xs p-4">Sin conversaciones en el período</p>'
+        : `<div class="overflow-x-auto"><table class="w-full border-collapse text-xs">
+          <thead><tr class="border-b border-slate-100">
+            <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase">Fecha</th>
+            <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase">Módulo</th>
+            <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase">Sentimiento</th>
+            <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase">Estado</th>
+            <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase">Resuelto</th>
+          </tr></thead>
+          <tbody>
+            ${rows.slice(0, 50).map(r => `<tr class="border-b border-slate-50 last:border-0 hover:bg-slate-50">
+                <td class="px-4 py-2 text-slate-600">${new Date(r.started_at).toLocaleString('es-CO', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })}</td>
+                <td class="px-4 py-2 font-medium text-slate-700">${escapeHtml(r.topic || '—')}</td>
+                <td class="px-4 py-2 text-slate-500">${escapeHtml(r.sentiment || '—')}</td>
+                <td class="px-4 py-2">
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'completed' ? 'bg-green-50 text-green-700' : r.status === 'abandoned' ? 'bg-orange-50 text-orange-700' : 'bg-slate-100 text-slate-500'}">${escapeHtml(r.status || '')}</span>
+                </td>
+                <td class="px-4 py-2 font-bold ${r.resolved === true ? 'text-green-600' : r.resolved === false ? 'text-red-500' : 'text-slate-400'}">
+                  ${r.resolved === true ? 'Sí' : r.resolved === false ? 'No' : '—'}
+                </td>
+              </tr>`).join('')}
+          </tbody>
+        </table></div>`}
+    </div>
+  `
+
+  el.querySelectorAll('.bodi-preset').forEach(btn => {
+    btn.addEventListener('click', () => renderBodiAnalytics(new Date(btn.dataset.from), new Date(btn.dataset.to)))
+  })
+
+  el.querySelector('#bodi-export-csv')?.addEventListener('click', () => {
+    exportCSV(rows, `bodi-conversaciones-${fmtDate(from)}-${fmtDate(to)}.csv`, [
+      { label: 'ID',                getValue: r => r.id },
+      { label: 'Session ID',        getValue: r => r.session_id },
+      { label: 'Fecha inicio',      getValue: r => new Date(r.started_at).toLocaleString('es-CO') },
+      { label: 'Fecha fin',         getValue: r => r.ended_at ? new Date(r.ended_at).toLocaleString('es-CO') : '' },
+      { label: 'Duración (min)',     getValue: r => r.ended_at ? Math.round((new Date(r.ended_at) - new Date(r.started_at)) / 60000) : '' },
+      { label: 'Módulo',            getValue: r => r.topic || '' },
+      { label: 'Sentimiento',       getValue: r => r.sentiment || '' },
+      { label: 'Resuelto',          getValue: r => r.resolved === true ? 'Sí' : r.resolved === false ? 'No' : 'Sin respuesta' },
+      { label: 'Estado',            getValue: r => r.status || '' },
+      { label: 'Soporte',           getValue: r => r.support_redirected ? 'Sí' : 'No' },
+      { label: 'Mensajes (JSON)',    getValue: r => JSON.stringify(r.messages || []) }
+    ])
+  })
+
+  el.querySelector('#bodi-tab-lecciones')?.addEventListener('click', () => renderAnalyticsPanel(from, to))
+  el.querySelector('#bodi-tab-bodi')?.addEventListener('click', () => renderBodiAnalytics(from, to))
+
+  el.querySelectorAll('.bodi-expand').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id
+      const msgs = el.querySelector(`.bodi-messages[data-id="${CSS.escape(id)}"]`)
+      if (msgs) msgs.classList.toggle('hidden')
+    })
+  })
+}
+
+function exportCSV(rows, filename, columns) {
+  const header = columns.map(c => c.label).join(',')
+  const body = rows.map(row =>
+    columns.map(c => {
+      const v = c.getValue(row)
+      const s = String(v ?? '')
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"` : s
+    }).join(',')
+  ).join('\n')
+  const blob = new Blob(['﻿' + header + '\n' + body], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
