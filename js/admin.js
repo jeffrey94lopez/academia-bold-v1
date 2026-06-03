@@ -3,6 +3,7 @@ import { requireAuth, logout } from './auth.js'
 import { uploadFile, listFiles, deleteFile } from './upload.js'
 import { renderBlocks } from './block-renderer.js'
 import { applyFormat } from './step-formatter.js'
+import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 
 let currentBlocks = []
 let sortableInstance = null
@@ -64,6 +65,9 @@ async function renderLessonsPanel() {
             <p class="text-xs text-slate-500 mt-0.5 line-clamp-1">${escapeHtml(l.descripcion)}</p>
           </div>
           <div class="flex gap-2 shrink-0">
+            <button data-id="${l.id}" class="copy-whatsapp p-1.5 rounded-lg hover:bg-green-50 text-slate-500 hover:text-green-600" title="Copiar para WhatsApp">
+              <i data-lucide="share-2" class="w-4 h-4"></i>
+            </button>
             <button data-id="${l.id}" class="edit-lesson p-1.5 rounded-lg hover:bg-slate-100 text-slate-500">
               <i data-lucide="edit-2" class="w-4 h-4"></i>
             </button>
@@ -157,6 +161,16 @@ async function renderLessonsPanel() {
     if (!confirm('¿Eliminar esta lección?')) return
     await supabase.from('lecciones').delete().eq('id', b.dataset.id)
     renderLessonsPanel()
+  }))
+  document.querySelectorAll('.copy-whatsapp').forEach(b => b.addEventListener('click', async () => {
+    const { data } = await supabase.from('lecciones').select('*').eq('id', b.dataset.id).single()
+    if (!data) return
+    const icon = b.querySelector('i')
+    const origTitle = b.title
+    b.title = '¡Copiado!'
+    if (icon) { icon.setAttribute('data-lucide', 'check'); lucide.createIcons() }
+    setTimeout(() => { b.title = origTitle; if (icon) { icon.setAttribute('data-lucide', 'share-2'); lucide.createIcons() } }, 2000)
+    copyLessonToWhatsApp(data)
   }))
   document.getElementById('cancelLessonForm').addEventListener('click', () => {
     document.getElementById('lessonFormModal').classList.add('hidden')
