@@ -1135,7 +1135,108 @@ async function renderAnalyticsPanel(from = null, to = null) {
 }
 
 function renderAnalyticsBody(container, ev, from, to) {
-  container.innerHTML = '<p class="text-slate-400 text-sm">Secciones próximamente...</p>'
+  const days = []
+  const cursor = new Date(from); cursor.setHours(0, 0, 0, 0)
+  const end = new Date(to); end.setHours(23, 59, 59, 999)
+  while (cursor <= end) { days.push(new Date(cursor)); cursor.setDate(cursor.getDate() + 1) }
+
+  const pageViews = ev.filter(e => e.event_type === 'page_view')
+  const dayCounts = days.map(d => {
+    const next = new Date(d); next.setDate(next.getDate() + 1)
+    return pageViews.filter(e => { const t = new Date(e.created_at); return t >= d && t < next }).length
+  })
+  const maxCount = Math.max(...dayCounts, 1)
+  const barWidth = Math.max(8, Math.min(32, Math.floor(480 / days.length) - 4))
+  const dayLabels = ['D', 'L', 'M', 'M', 'J', 'V', 'S']
+  const fmtDay = d => days.length <= 14
+    ? dayLabels[d.getDay()]
+    : (d.getDate() === 1 || d.getDate() % 5 === 0 ? d.getDate() : '')
+
+  const barsHtml = dayCounts.map((c, i) => {
+    const h = Math.round((c / maxCount) * 64)
+    return `<div class="flex flex-col items-center gap-1" title="${days[i].toLocaleDateString('es-HN')}: ${c} visitas">
+      <div style="height:${h}px;width:${barWidth}px;background:${c === maxCount ? '#E92129' : '#fca5a5'};border-radius:3px 3px 0 0;min-height:2px"></div>
+      <span class="text-[9px] text-slate-400">${fmtDay(days[i])}</span>
+    </div>`
+  }).join('')
+
+  const modeEvents = ev.filter(e => e.event_type === 'mode_selected')
+  const courseCount = modeEvents.filter(e => e.payload?.mode === 'course').length
+  const exploreCount = modeEvents.filter(e => e.payload?.mode === 'explore').length
+  const modeTotal = courseCount + exploreCount || 1
+  const coursePct = Math.round(courseCount / modeTotal * 100)
+  const explorePct = 100 - coursePct
+
+  const lessonOpens = ev.filter(e => e.event_type === 'lesson_open')
+  const lessonCounts = {}
+  lessonOpens.forEach(e => {
+    const key = e.payload?.lesson_title || e.payload?.lesson_id || 'Sin título'
+    lessonCounts[key] = (lessonCounts[key] || 0) + 1
+  })
+  const topLessons = Object.entries(lessonCounts).sort((a, b) => b[1] - a[1]).slice(0, 10)
+
+  container.innerHTML = `
+    <div class="grid gap-4 mb-5" style="grid-template-columns:2fr 1fr">
+      <div class="bg-white rounded-2xl border border-slate-100 p-4">
+        <p class="text-xs font-bold text-slate-800 mb-3">Visitas por día</p>
+        ${days.length === 0 ? '<p class="text-slate-400 text-xs">Sin datos en el período</p>' : `
+        <div class="flex items-end gap-1 overflow-x-auto" style="height:80px">
+          ${barsHtml}
+        </div>`}
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-100 p-4">
+        <p class="text-xs font-bold text-slate-800 mb-3">Modo de entrada</p>
+        <div class="space-y-2.5">
+          <div>
+            <div class="flex justify-between mb-1">
+              <span class="text-xs font-bold text-slate-700">Curso</span>
+              <span class="text-xs font-bold text-[#E92129]">${coursePct}%</span>
+            </div>
+            <div class="h-1.5 bg-slate-100 rounded-full">
+              <div class="h-1.5 bg-[#E92129] rounded-full" style="width:${coursePct}%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between mb-1">
+              <span class="text-xs font-bold text-slate-700">Solo explorar</span>
+              <span class="text-xs font-bold text-slate-400">${explorePct}%</span>
+            </div>
+            <div class="h-1.5 bg-slate-100 rounded-full">
+              <div class="h-1.5 bg-slate-300 rounded-full" style="width:${explorePct}%"></div>
+            </div>
+          </div>
+        </div>
+        ${modeTotal === 1 ? '<p class="text-[10px] text-slate-400 mt-3">Sin datos en el período</p>' : ''}
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden mb-5">
+      <div class="px-4 py-3 border-b border-slate-100">
+        <p class="text-xs font-bold text-slate-800">Lecciones más vistas</p>
+      </div>
+      ${topLessons.length === 0
+        ? '<p class="text-slate-400 text-xs p-4">Sin datos en el período</p>'
+        : topLessons.map(([title, cnt]) => `
+          <div class="flex items-center justify-between px-4 py-2.5 border-b border-slate-50 last:border-0">
+            <span class="text-xs text-slate-700">${escapeHtml(title)}</span>
+            <span class="text-xs font-bold text-[#E92129]">${cnt}</span>
+          </div>`).join('')}
+    </div>
+
+    <div id="analytics-searches"></div>
+    <div id="analytics-exams" class="mt-5"></div>
+  `
+
+  renderSearchesSection(container.querySelector('#analytics-searches'), ev)
+  renderExamsSection(container.querySelector('#analytics-exams'), ev)
+}
+
+function renderSearchesSection(container, ev) {
+  container.innerHTML = '<p class="text-slate-400 text-xs">Cargando búsquedas...</p>'
+}
+
+function renderExamsSection(container, ev) {
+  container.innerHTML = '<p class="text-slate-400 text-xs">Cargando exámenes...</p>'
 }
 
 window.renderMaterialPanel = renderMaterialPanel
