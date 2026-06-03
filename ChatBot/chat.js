@@ -95,6 +95,7 @@ async function sendMessage(text = null) {
 
         const reply = data.response || 'No pude procesar tu pregunta. Intenta de nuevo.';
         appendMsg('bot', reply, true);
+        if (data.media && data.media.length) appendMedia(data.media);
         history.push({ role: 'user', content: message });
         history.push({ role: 'assistant', content: reply });
         localStorage.setItem('bold_history', JSON.stringify(history.slice(-20)));
@@ -134,6 +135,116 @@ function appendMsg(type, text, showResolution = false) {
     }
 
     chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function appendMedia(mediaItems) {
+    if (!mediaItems || !mediaItems.length) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'chat-media';
+
+    mediaItems.forEach(function(item) {
+        if (item.type === 'image' && item.url) {
+            const imgWrap = document.createElement('div');
+            imgWrap.className = 'chat-img-wrap';
+            const img = document.createElement('img');
+            img.src = item.url;
+            img.alt = item.caption || '';
+            img.onclick = () => openLightbox(item.url, item.caption || '');
+            imgWrap.appendChild(img);
+            if (item.caption) {
+                const cap = document.createElement('p');
+                cap.className = 'chat-media-caption';
+                cap.textContent = item.caption;
+                imgWrap.appendChild(cap);
+            }
+            wrap.appendChild(imgWrap);
+
+        } else if (item.type === 'video' && item.url) {
+            let embedUrl = null;
+            try {
+                const u = new URL(item.url);
+                if (u.hostname.includes('youtube.com') && u.searchParams.get('v')) {
+                    embedUrl = 'https://www.youtube.com/embed/' + u.searchParams.get('v');
+                } else if (u.hostname === 'youtu.be') {
+                    embedUrl = 'https://www.youtube.com/embed/' + u.pathname.slice(1);
+                } else if (u.hostname.includes('youtube.com') && u.pathname.startsWith('/embed/')) {
+                    embedUrl = item.url;
+                }
+            } catch(_) {}
+            if (!embedUrl) return;
+            const vidWrap = document.createElement('div');
+            vidWrap.className = 'chat-video-wrap';
+            const iframe = document.createElement('iframe');
+            iframe.src = embedUrl;
+            iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+            iframe.allowFullscreen = true;
+            vidWrap.appendChild(iframe);
+            if (item.label) {
+                const lbl = document.createElement('p');
+                lbl.className = 'chat-media-caption';
+                lbl.textContent = item.label;
+                vidWrap.appendChild(lbl);
+            }
+            wrap.appendChild(vidWrap);
+        }
+    });
+
+    if (wrap.children.length) {
+        chatBox.appendChild(wrap);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+}
+
+function openLightbox(url, caption) {
+    let lb = document.getElementById('bodi-lightbox');
+    if (!lb) {
+        lb = document.createElement('div');
+        lb.id = 'bodi-lightbox';
+        lb.innerHTML = `
+            <div id="bodi-lb-backdrop"></div>
+            <div id="bodi-lb-content">
+                <img id="bodi-lb-img" src="" alt="">
+                <p id="bodi-lb-caption"></p>
+                <div id="bodi-lb-actions">
+                    <button id="bodi-lb-download" title="Descargar">⬇ Descargar</button>
+                    <button id="bodi-lb-close" title="Cerrar">✕ Cerrar</button>
+                </div>
+            </div>`;
+        document.body.appendChild(lb);
+        lb.querySelector('#bodi-lb-backdrop').onclick = closeLightbox;
+        lb.querySelector('#bodi-lb-close').onclick = closeLightbox;
+        lb.querySelector('#bodi-lb-download').onclick = () => downloadImage(
+            lb.querySelector('#bodi-lb-img').src,
+            lb.querySelector('#bodi-lb-img').alt || 'imagen'
+        );
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+    }
+    lb.querySelector('#bodi-lb-img').src = url;
+    lb.querySelector('#bodi-lb-img').alt = caption;
+    lb.querySelector('#bodi-lb-caption').textContent = caption;
+    lb.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+    const lb = document.getElementById('bodi-lightbox');
+    if (lb) lb.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+async function downloadImage(url, name) {
+    try {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const ext = blob.type.split('/')[1] || 'jpg';
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = name.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.' + ext;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    } catch(_) {
+        window.open(url, '_blank');
+    }
 }
 
 window.addEventListener('beforeunload', () => {
