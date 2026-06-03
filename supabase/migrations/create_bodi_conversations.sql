@@ -1,5 +1,5 @@
 -- bodi_conversations: stores each Bodi chatbot conversation for analytics
-CREATE TABLE bodi_conversations (
+CREATE TABLE IF NOT EXISTS bodi_conversations (
   id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id        text NOT NULL,
   started_at        timestamptz DEFAULT now(),
@@ -9,12 +9,12 @@ CREATE TABLE bodi_conversations (
   sentiment         text CHECK (sentiment IN ('positivo', 'neutro', 'negativo')),
   support_redirected boolean DEFAULT false,
   resolved          boolean,
-  status            text DEFAULT 'active' CHECK (status IN ('active', 'completed', 'abandoned'))
+  status            text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'abandoned'))
 );
 
-CREATE INDEX idx_bodi_conv_status ON bodi_conversations (status, started_at DESC);
-CREATE INDEX idx_bodi_conv_topic  ON bodi_conversations (topic, started_at DESC);
-CREATE INDEX idx_bodi_conv_date   ON bodi_conversations (started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_bodi_conv_status ON bodi_conversations (status, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_bodi_conv_topic  ON bodi_conversations (topic, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_bodi_conv_date   ON bodi_conversations (started_at DESC);
 
 ALTER TABLE bodi_conversations ENABLE ROW LEVEL SECURITY;
 
@@ -22,8 +22,10 @@ ALTER TABLE bodi_conversations ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "anon_insert" ON bodi_conversations
   FOR INSERT TO anon WITH CHECK (true);
 
+-- anon_update: session_id restriction not possible with anon key (no JWT sub claim available).
+-- This is acceptable because the data is analytics-only with no PII account impact.
 CREATE POLICY "anon_update" ON bodi_conversations
-  FOR UPDATE TO anon USING (true);
+  FOR UPDATE TO anon USING (true) WITH CHECK (true);
 
 -- only authenticated (admin) can read
 CREATE POLICY "auth_select" ON bodi_conversations
