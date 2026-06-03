@@ -1446,11 +1446,18 @@ async function renderBodiAnalytics(from = null, to = null) {
     .select('*')
     .gte('started_at', from.toISOString())
     .lte('started_at', to.toISOString())
+    .limit(2000)
     .order('started_at', { ascending: false })
 
   if (error) { el.innerHTML = '<p class="text-red-400 text-sm p-6">Error al cargar datos de Bodi.</p>'; return }
 
   const rows = convs || []
+  if (rows.length >= 1000) {
+    const warn = document.createElement('div');
+    warn.style.cssText = 'background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#856404;';
+    warn.textContent = `Mostrando los primeros ${rows.length} registros. Usa filtros de fecha para ver rangos más específicos.`;
+    el.insertBefore(warn, el.firstChild);
+  }
   const total = rows.length
   const withAnswer = rows.filter(r => r.resolved !== null)
   const resolved = rows.filter(r => r.resolved === true).length
@@ -1467,6 +1474,7 @@ async function renderBodiAnalytics(from = null, to = null) {
 
   const sentMap = { positivo: 0, neutro: 0, negativo: 0 }
   rows.forEach(r => { if (r.sentiment && sentMap[r.sentiment] !== undefined) sentMap[r.sentiment]++ })
+  const sentimentTotal = sentMap.positivo + sentMap.neutro + sentMap.negativo || 1
 
   const heat = Array.from({ length: 7 }, () => new Array(24).fill(0))
   rows.forEach(r => {
@@ -1552,7 +1560,7 @@ async function renderBodiAnalytics(from = null, to = null) {
         <p class="text-xs font-bold text-slate-800 mb-3">Sentimiento</p>
         ${[['Positivo','positivo','#22c55e'],['Neutro','neutro','#94a3b8'],['Negativo','negativo','#ef4444']].map(([label, key, color]) => {
           const cnt = sentMap[key]
-          const pct = total ? Math.round(cnt / total * 100) : 0
+          const pct = Math.round(cnt / sentimentTotal * 100)
           return `<div class="mb-2.5">
             <div class="flex justify-between mb-0.5">
               <span class="text-xs text-slate-700">${label}</span>
@@ -1659,7 +1667,7 @@ async function renderBodiAnalytics(from = null, to = null) {
   el.querySelectorAll('.bodi-expand').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.id
-      const msgs = el.querySelector(`.bodi-messages[data-id="${id}"]`)
+      const msgs = el.querySelector(`.bodi-messages[data-id="${CSS.escape(id)}"]`)
       if (msgs) msgs.classList.toggle('hidden')
     })
   })
