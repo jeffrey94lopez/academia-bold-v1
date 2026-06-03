@@ -90,9 +90,9 @@ Modal overlay que se añade al final de `admin.html` y se controla con JS puro.
 - Footer del modal: botón "Cancelar" y botón "Usar [nombre]" (activo solo cuando hay selección)
 - Botón de eliminar en cada tarjeta (hover) con confirmación inline
 
-**Modos de apertura:**
-- Desde bloque de imagen → al confirmar, inyecta URL en el bloque y cierra el modal
-- Desde panel Material → actúa como gestor completo; el botón de confirmación copia URL al portapapeles
+**Modo de apertura:**
+- Exclusivamente desde el bloque de imagen del editor de lecciones. Al confirmar la selección, inyecta el URL en el bloque y cierra el modal.
+- El panel Material tiene su propia galería integrada (no usa este modal).
 
 ---
 
