@@ -44,8 +44,9 @@ async function createConversation() {
       .insert({ id, session_id: sessionId, messages: [], status: 'active' })
     if (error) throw new Error(error.message)
     conversationId = id
+    console.log('[Bodi] conversación creada:', id)
   } catch (e) {
-    console.warn('[Bodi] createConversation:', e.message)
+    console.warn('[Bodi] createConversation FAILED:', e.message)
     conversationId = null
   } finally {
     _creating = false
@@ -53,10 +54,12 @@ async function createConversation() {
 }
 
 async function upsertConversation(patch) {
+  console.log('[Bodi] upsertConversation - conversationId:', conversationId, 'keys:', Object.keys(patch))
   if (!conversationId) return
   try {
     const { error } = await supabase.from('bodi_conversations').update(patch).eq('id', conversationId)
     if (error) console.warn('[Bodi] upsertConversation error:', error.code, error.message)
+    else console.log('[Bodi] upsertConversation OK')
   } catch (e) {
     console.warn('[Bodi] upsertConversation catch:', e.message)
   }
@@ -406,6 +409,7 @@ async function sendMessage(text) {
     })
     const data = await res.json()
     typing.classList.add('hidden')
+    console.log('[Bodi] n8n response:', { segments: data.segments?.length ?? 'none', topic: data.topic, sentiment: data.sentiment, hasResponse: !!data.response })
 
     const reply = data.response || 'No pude procesar tu pregunta. Intenta de nuevo.'
     if (data.segments?.length) {
