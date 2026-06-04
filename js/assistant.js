@@ -30,8 +30,6 @@ let conversationId  = null
 let _creating       = false
 let sessionMessages = []
 
-// ── Supabase logging ──────────────────────────────────────────────────────────
-
 async function createConversation() {
   if (_creating) return
   _creating = true
@@ -44,9 +42,8 @@ async function createConversation() {
       .insert({ id, session_id: sessionId, messages: [], status: 'active' })
     if (error) throw new Error(error.message)
     conversationId = id
-    console.log('[Bodi] conversación creada:', id)
   } catch (e) {
-    console.warn('[Bodi] createConversation FAILED:', e.message)
+    console.warn('[Bodi] createConversation failed:', e.message)
     conversationId = null
   } finally {
     _creating = false
@@ -54,10 +51,9 @@ async function createConversation() {
 }
 
 async function upsertConversation(patch) {
-  console.log('[Bodi] upsertConversation - conversationId:', conversationId)
   if (!conversationId) return
   try {
-    const res = await fetch(
+    await fetch(
       `${SUPABASE_URL}/rest/v1/bodi_conversations?id=eq.${conversationId}`,
       {
         method: 'PATCH',
@@ -70,11 +66,7 @@ async function upsertConversation(patch) {
         body: JSON.stringify(patch)
       }
     )
-    const body = await res.text()
-    console.log('[Bodi] upsertConversation HTTP:', res.status, body || '(empty)')
-  } catch (e) {
-    console.warn('[Bodi] upsertConversation catch:', e.message)
-  }
+  } catch (_) {}
 }
 
 async function resolveConversation(resolved, btnsEl) {
@@ -434,8 +426,6 @@ async function sendMessage(text) {
     })
     const data = await res.json()
     typing.classList.add('hidden')
-    console.log('[Bodi] n8n response:', { segments: data.segments?.length ?? 'none', topic: data.topic, sentiment: data.sentiment, hasResponse: !!data.response })
-    if (data.segments?.length) console.log('[Bodi] segment types:', data.segments.map(s => s.type))
 
     const reply = data.response || 'No pude procesar tu pregunta. Intenta de nuevo.'
     if (data.segments?.length) {
