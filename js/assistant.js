@@ -244,9 +244,22 @@ function appendMedia(mediaItems) {
   }
 }
 
+function normalizeSegments(segments) {
+  const out = []
+  for (const seg of segments) {
+    const prev = out[out.length - 1]
+    const isMedia = seg.type === 'image' || seg.type === 'video'
+    const prevIsMedia = prev && (prev.type === 'image' || prev.type === 'video')
+    if (isMedia && prevIsMedia) continue  // drop consecutive media (LLM grouping artifact)
+    out.push(seg)
+  }
+  return out
+}
+
 function appendSegments(segments) {
   const box = document.getElementById('chatMessages')
   if (!box || !Array.isArray(segments)) return
+  segments = normalizeSegments(segments)
   let textBuffer = []
   let hadText = false  // never render media before the first text segment
 

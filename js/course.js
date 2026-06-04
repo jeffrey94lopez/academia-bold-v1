@@ -32,7 +32,7 @@ export async function loadSession() {
     .from('progreso_estudiantes')
     .select('*')
     .eq('id', id)
-    .single()
+    .maybeSingle()
 
   if (error || !data) {
     localStorage.removeItem('bold_session_id')
