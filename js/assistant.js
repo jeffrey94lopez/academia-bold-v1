@@ -1,4 +1,4 @@
-import { supabase } from './supabase.js'
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js'
 import { escapeHtml } from './utils.js'
 
 const N8N_URL     = 'https://n8n.mplasesores.com/webhook/bold-pos-chat'
@@ -54,12 +54,24 @@ async function createConversation() {
 }
 
 async function upsertConversation(patch) {
-  console.log('[Bodi] upsertConversation - conversationId:', conversationId, 'keys:', Object.keys(patch))
+  console.log('[Bodi] upsertConversation - conversationId:', conversationId)
   if (!conversationId) return
   try {
-    const { error } = await supabase.from('bodi_conversations').update(patch).eq('id', conversationId)
-    if (error) console.warn('[Bodi] upsertConversation error:', error.code, error.message)
-    else console.log('[Bodi] upsertConversation OK')
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/bodi_conversations?id=eq.${conversationId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(patch)
+      }
+    )
+    const body = await res.text()
+    console.log('[Bodi] upsertConversation HTTP:', res.status, body || '(empty)')
   } catch (e) {
     console.warn('[Bodi] upsertConversation catch:', e.message)
   }
