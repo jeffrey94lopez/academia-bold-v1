@@ -55,8 +55,11 @@ async function createConversation() {
 async function upsertConversation(patch) {
   if (!conversationId) return
   try {
-    await supabase.from('bodi_conversations').update(patch).eq('id', conversationId)
-  } catch (_) {}
+    const { error } = await supabase.from('bodi_conversations').update(patch).eq('id', conversationId)
+    if (error) console.warn('[Bodi] upsertConversation error:', error.code, error.message)
+  } catch (e) {
+    console.warn('[Bodi] upsertConversation catch:', e.message)
+  }
 }
 
 async function resolveConversation(resolved, btnsEl) {
