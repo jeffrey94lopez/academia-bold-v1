@@ -72,7 +72,8 @@
 
 /* Imágenes dentro del chat */
 .msg-bot img, .msg-bot-wide img, .chat-img {
-  max-width: 100%;
+  max-width: 320px;
+  width: 100%;
   border-radius: 12px;
   cursor: zoom-in;
   border: 1px solid #e2e8f0;
