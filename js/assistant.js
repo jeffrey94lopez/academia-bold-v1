@@ -251,6 +251,7 @@ function appendSegments(segments) {
   const box = document.getElementById('chatMessages')
   if (!box || !Array.isArray(segments)) return
   let textBuffer = []
+  let hadText = false  // never render media before the first text segment
 
   function flushText() {
     if (!textBuffer.length) return
@@ -265,8 +266,10 @@ function appendSegments(segments) {
 
   for (const seg of segments) {
     if (seg.type === 'text' && seg.content) {
+      hadText = true
       textBuffer.push(seg.content)
     } else if (seg.type === 'image' && seg.url) {
+      if (!hadText) continue
       flushText()
       const safeUrl = escapeHtml(seg.url)
       const safeAlt = escapeHtml(seg.caption || '')
@@ -277,6 +280,7 @@ function appendSegments(segments) {
       box.appendChild(d)
       scrollToBottom()
     } else if (seg.type === 'video' && seg.url) {
+      if (!hadText) continue
       flushText()
       let videoId = null
       try {
