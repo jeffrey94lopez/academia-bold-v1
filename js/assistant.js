@@ -410,6 +410,7 @@ async function sendMessage(text) {
     const data = await res.json()
     typing.classList.add('hidden')
     console.log('[Bodi] n8n response:', { segments: data.segments?.length ?? 'none', topic: data.topic, sentiment: data.sentiment, hasResponse: !!data.response })
+    if (data.segments?.length) console.log('[Bodi] segment types:', data.segments.map(s => s.type))
 
     const reply = data.response || 'No pude procesar tu pregunta. Intenta de nuevo.'
     if (data.segments?.length) {
