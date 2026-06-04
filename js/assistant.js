@@ -71,6 +71,9 @@ async function upsertConversation(patch) {
 
 async function resolveConversation(resolved, btnsEl) {
   btnsEl.remove()
+  appendBubble('bot', resolved
+    ? '¡Me alegra haber podido ayudarte! Escríbeme cuando tengas otra duda.'
+    : 'Entendido. Para una ayuda más detallada puedes contactar a [Soporte Bold POS](https://api.whatsapp.com/send?phone=573171109500&text=Hola%20,%20necesito%20su%20ayuda%20en%20Bold%20POS.).')
   await upsertConversation({ resolved, status: 'completed', ended_at: new Date().toISOString() })
   conversationId  = null
   sessionMessages = []
@@ -445,7 +448,8 @@ async function sendMessage(text) {
       messages: sessionMessages,
       topic: data.topic || null,
       sentiment: data.sentiment ?? 'neutro',
-      support_redirected: data.support_redirected || false
+      support_redirected: data.support_redirected || false,
+      lessons_used: data.lessons_used || []
     })
   } catch {
     typing.classList.add('hidden')

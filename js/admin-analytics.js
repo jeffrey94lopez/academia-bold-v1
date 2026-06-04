@@ -661,29 +661,51 @@ async function renderBodiAnalytics(from = null, to = null) {
     <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
       <div class="px-4 py-3 border-b border-slate-100">
         <p class="text-xs font-bold text-slate-800">Conversaciones recientes</p>
+        <p class="text-[10px] text-slate-400 mt-0.5">Clic en una fila para ver el detalle</p>
       </div>
       ${rows.length === 0
         ? '<p class="text-slate-400 text-xs p-4">Sin conversaciones en el período</p>'
         : `<div class="overflow-x-auto"><table class="w-full border-collapse text-xs">
           <thead><tr class="border-b border-slate-100">
             <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase">Fecha</th>
+            <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase">Primera pregunta</th>
             <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase">Módulo</th>
             <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase">Sentimiento</th>
             <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase">Estado</th>
             <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase">Resuelto</th>
           </tr></thead>
           <tbody>
-            ${rows.slice(0, 50).map(r => `<tr class="border-b border-slate-50 last:border-0 hover:bg-slate-50">
-                <td class="px-4 py-2 text-slate-600">${new Date(r.started_at).toLocaleString('es-CO', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })}</td>
-                <td class="px-4 py-2 font-medium text-slate-700">${escapeHtml(r.topic || '—')}</td>
-                <td class="px-4 py-2 text-slate-500">${escapeHtml(r.sentiment || '—')}</td>
-                <td class="px-4 py-2">
+            ${rows.slice(0, 50).map(r => {
+              const firstQ = (r.messages || []).find(m => m.role === 'user')
+              const preview = firstQ ? (firstQ.content.length > 65 ? firstQ.content.slice(0, 65) + '…' : firstQ.content) : '—'
+              const msgRows = (r.messages || []).map(m => `
+                <div class="text-xs ${m.role === 'user' ? 'text-blue-700 bg-blue-50' : 'text-slate-700 bg-slate-50'} rounded-lg px-3 py-1.5 mb-1">
+                  <span class="font-bold mr-1">${m.role === 'user' ? 'Usuario:' : 'Bodi:'}</span>${escapeHtml(m.content || '')}
+                </div>`).join('')
+              return `
+              <tr class="border-b border-slate-50 hover:bg-slate-50 cursor-pointer bodi-conv-row" data-id="${escapeHtml(r.id)}">
+                <td class="px-4 py-2 text-slate-500 shrink-0 whitespace-nowrap">${new Date(r.started_at).toLocaleString('es-CO', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })}</td>
+                <td class="px-4 py-2 text-slate-600 max-w-[220px]"><span class="line-clamp-1">${escapeHtml(preview)}</span></td>
+                <td class="px-4 py-2 font-medium text-slate-700 whitespace-nowrap">${escapeHtml(r.topic || '—')}</td>
+                <td class="px-4 py-2 text-slate-500 whitespace-nowrap">${escapeHtml(r.sentiment || '—')}</td>
+                <td class="px-4 py-2 whitespace-nowrap">
                   <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'completed' ? 'bg-green-50 text-green-700' : r.status === 'abandoned' ? 'bg-orange-50 text-orange-700' : 'bg-slate-100 text-slate-500'}">${escapeHtml(r.status || '')}</span>
                 </td>
-                <td class="px-4 py-2 font-bold ${r.resolved === true ? 'text-green-600' : r.resolved === false ? 'text-red-500' : 'text-slate-400'}">
+                <td class="px-4 py-2 font-bold whitespace-nowrap ${r.resolved === true ? 'text-green-600' : r.resolved === false ? 'text-red-500' : 'text-slate-400'}">
                   ${r.resolved === true ? 'Sí' : r.resolved === false ? 'No' : '—'}
                 </td>
-              </tr>`).join('')}
+              </tr>
+              <tr class="bodi-conv-detail hidden" data-id="${escapeHtml(r.id)}">
+                <td colspan="6" class="px-4 py-3 bg-slate-50 border-b border-slate-100">
+                  ${(r.lessons_used && r.lessons_used.length) ? `
+                    <p class="text-[10px] font-bold text-slate-400 uppercase mb-1.5">Lecciones consultadas</p>
+                    <div class="flex flex-wrap gap-1 mb-3">
+                      ${r.lessons_used.map(l => `<span class="text-[10px] bg-red-50 text-red-700 px-2 py-0.5 rounded-full font-medium">${escapeHtml(l)}</span>`).join('')}
+                    </div>` : ''}
+                  ${msgRows ? `<p class="text-[10px] font-bold text-slate-400 uppercase mb-1.5">Conversación</p>${msgRows}` : '<p class="text-xs text-slate-400">Sin mensajes registrados</p>'}
+                </td>
+              </tr>`
+            }).join('')}
           </tbody>
         </table></div>`}
     </div>
@@ -691,6 +713,14 @@ async function renderBodiAnalytics(from = null, to = null) {
 
   el.querySelectorAll('.bodi-preset').forEach(btn => {
     btn.addEventListener('click', () => renderBodiAnalytics(new Date(btn.dataset.from), new Date(btn.dataset.to)))
+  })
+
+  el.querySelectorAll('.bodi-conv-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const detail = el.querySelector(`.bodi-conv-detail[data-id="${row.dataset.id}"]`)
+      detail?.classList.toggle('hidden')
+      row.classList.toggle('bg-slate-100')
+    })
   })
 
   el.querySelector('#bodi-export-csv')?.addEventListener('click', () => {
