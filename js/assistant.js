@@ -1,9 +1,8 @@
 import { supabase } from './supabase.js'
+import { escapeHtml } from './utils.js'
 
-const N8N_URL        = 'https://n8n.mplasesores.com/webhook/bold-pos-chat'
-const SUPABASE_URL   = 'https://tczcngfhuendmldafbrc.supabase.co'
-const SUPABASE_KEY   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjemNuZ2ZodWVuZG1sZGFmYnJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MzQ0OTIsImV4cCI6MjA5NTMxMDQ5Mn0.YuKwq-ooL9noU6FXDDPzJbaj-h7rhZli1s4Zji-uCXQ'
-const ABANDON_URL    = 'https://n8n.mplasesores.com/webhook/bodi-abandon'
+const N8N_URL     = 'https://n8n.mplasesores.com/webhook/bold-pos-chat'
+const ABANDON_URL = 'https://n8n.mplasesores.com/webhook/bodi-abandon'
 
 const FALLBACK_CHIPS = [
   '¿Cómo proceso un pago?',
@@ -40,17 +39,10 @@ async function createConversation() {
   localStorage.setItem('bold_session_id', sessionId)
   const id = crypto.randomUUID()
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/bodi_conversations`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Prefer': 'return=minimal'
-      },
-      body: JSON.stringify({ id, session_id: sessionId, messages: [], status: 'active' })
-    })
-    if (!res.ok) throw new Error(`POST ${res.status}`)
+    const { error } = await supabase
+      .from('bodi_conversations')
+      .insert({ id, session_id: sessionId, messages: [], status: 'active' })
+    if (error) throw new Error(error.message)
     conversationId = id
   } catch (e) {
     console.warn('[Bodi] createConversation:', e.message)
@@ -63,15 +55,7 @@ async function createConversation() {
 async function upsertConversation(patch) {
   if (!conversationId) return
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/bodi_conversations?id=eq.${conversationId}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`
-      },
-      body: JSON.stringify(patch)
-    })
+    await supabase.from('bodi_conversations').update(patch).eq('id', conversationId)
   } catch (_) {}
 }
 
@@ -161,11 +145,6 @@ function renderBubble(role, content) {
   }
   const wide = hasMedia(content)
   return `<div class="flex justify-start"><div class="${wide ? 'msg-bot-wide' : 'msg-bot'} text-sm">${renderMarkdown(content)}</div></div>`
-}
-
-function escapeHtml(text) {
-  if (!text) return ''
-  return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 }
 
 function hasMedia(text) {

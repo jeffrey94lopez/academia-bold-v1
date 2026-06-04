@@ -4,6 +4,7 @@ import { loadSession, renderModeSelection, markLessonComplete, checkAndMarkCours
 import { renderCertificate } from './certificate.js'
 import { track } from './analytics.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
+import { escapeHtml } from './utils.js'
 
 let courseStudent = null
 
@@ -15,15 +16,6 @@ const CATEGORIES = [
   { key: 'Contactos',     emoji: '👥' },
   { key: 'Configuración', emoji: '⚙️' },
 ]
-
-function escapeHtml(text) {
-  if (text == null) return ''
-  return String(text)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
 
 function progressIcon(lessonId) {
   if (!courseStudent) return ''

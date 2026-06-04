@@ -94,8 +94,13 @@ async function sendMessage(text = null) {
         typingIndicator.style.display = 'none';
 
         const reply = data.response || 'No pude procesar tu pregunta. Intenta de nuevo.';
-        appendMsg('bot', reply, true);
-        if (data.media && data.media.length) appendMedia(data.media);
+        if (data.segments && data.segments.length) {
+            appendSegments(data.segments);
+            appendResolutionBtns();
+        } else {
+            appendMsg('bot', reply, true);
+            if (data.media && data.media.length) appendMedia(data.media);
+        }
         history.push({ role: 'user', content: message });
         history.push({ role: 'assistant', content: reply });
         localStorage.setItem('bold_history', JSON.stringify(history.slice(-20)));
@@ -135,6 +140,88 @@ function appendMsg(type, text, showResolution = false) {
     }
 
     chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function appendResolutionBtns() {
+    document.querySelectorAll('.resolution-btns').forEach(el => el.remove());
+    const btns = document.createElement('div');
+    btns.className = 'resolution-btns';
+    btns.innerHTML = `
+        <span class="resolution-label">¿Logré resolver tu duda?</span>
+        <button class="res-btn res-yes">✓ Sí</button>
+        <button class="res-btn res-no">✗ No</button>
+    `;
+    btns.querySelector('.res-yes').onclick = () => resolveConversation(true, btns);
+    btns.querySelector('.res-no').onclick  = () => resolveConversation(false, btns);
+    chatBox.appendChild(btns);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function appendSegments(segments) {
+    let textBuffer = [];
+    let hadText = false;
+
+    function flushText() {
+        if (!textBuffer.length) return;
+        const div = document.createElement('div');
+        div.className = 'msg bot';
+        div.textContent = textBuffer.join('\n\n');
+        chatBox.appendChild(div);
+        textBuffer = [];
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    for (const seg of segments) {
+        if (seg.type === 'text' && seg.content) {
+            hadText = true;
+            textBuffer.push(seg.content);
+        } else if (seg.type === 'image' && seg.url && hadText) {
+            flushText();
+            const wrap = document.createElement('div');
+            wrap.className = 'chat-img-wrap';
+            const img = document.createElement('img');
+            img.src = escapeHtml(seg.url);
+            img.alt = seg.caption || '';
+            img.onclick = () => openLightbox(seg.url, seg.caption || '');
+            wrap.appendChild(img);
+            if (seg.caption) {
+                const cap = document.createElement('p');
+                cap.className = 'chat-media-caption';
+                cap.textContent = seg.caption;
+                wrap.appendChild(cap);
+            }
+            chatBox.appendChild(wrap);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        } else if (seg.type === 'video' && seg.url && hadText) {
+            flushText();
+            let embedUrl = null;
+            try {
+                const u = new URL(seg.url);
+                if (u.hostname.includes('youtube.com') && u.searchParams.get('v')) {
+                    embedUrl = 'https://www.youtube.com/embed/' + u.searchParams.get('v');
+                } else if (u.hostname === 'youtu.be') {
+                    embedUrl = 'https://www.youtube.com/embed/' + u.pathname.slice(1);
+                }
+            } catch(_) {}
+            if (embedUrl) {
+                const vidWrap = document.createElement('div');
+                vidWrap.className = 'chat-video-wrap';
+                const iframe = document.createElement('iframe');
+                iframe.src = embedUrl;
+                iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+                iframe.allowFullscreen = true;
+                vidWrap.appendChild(iframe);
+                chatBox.appendChild(vidWrap);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        }
+    }
+    flushText();
 }
 
 function appendMedia(mediaItems) {
