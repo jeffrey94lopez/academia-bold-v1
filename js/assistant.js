@@ -53,7 +53,7 @@ async function createConversation() {
 async function upsertConversation(patch) {
   if (!conversationId) return
   try {
-    const _r = await fetch(
+    await fetch(
       `${SUPABASE_URL}/rest/v1/bodi_conversations?id=eq.${conversationId}`,
       {
         method: 'PATCH',
@@ -61,14 +61,12 @@ async function upsertConversation(patch) {
           'Content-Type': 'application/json',
           'apikey': SUPABASE_ANON_KEY,
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'Prefer': 'return=representation'
+          'Prefer': 'return=minimal'
         },
         body: JSON.stringify(patch)
       }
     )
-    const _body = await _r.json().catch(() => null)
-    console.log('[Bodi] upsert HTTP:', _r.status, 'rows:', Array.isArray(_body) ? _body.length : _body)
-  } catch (e) { console.warn('[Bodi] upsert error:', e.message) }
+  } catch (_) {}
 }
 
 async function resolveConversation(resolved, btnsEl) {
