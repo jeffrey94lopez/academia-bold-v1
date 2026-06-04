@@ -21,3 +21,6 @@ desktop.ini
 
 # Superpowers brainstorming
 .superpowers/
+
+# CodeGraph index
+.codegraph/
