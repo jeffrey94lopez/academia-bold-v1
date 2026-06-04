@@ -247,6 +247,57 @@ function appendMedia(mediaItems) {
   }
 }
 
+function appendSegments(segments) {
+  const box = document.getElementById('chatMessages')
+  if (!box || !Array.isArray(segments)) return
+  let textBuffer = []
+
+  function flushText() {
+    if (!textBuffer.length) return
+    const content = textBuffer.join('\n\n')
+    const div = document.createElement('div')
+    div.className = 'flex justify-start'
+    div.innerHTML = `<div class="msg-bot text-sm">${renderMarkdown(content)}</div>`
+    box.appendChild(div)
+    textBuffer = []
+    scrollToBottom()
+  }
+
+  for (const seg of segments) {
+    if (seg.type === 'text' && seg.content) {
+      textBuffer.push(seg.content)
+    } else if (seg.type === 'image' && seg.url) {
+      flushText()
+      const safeUrl = escapeHtml(seg.url)
+      const safeAlt = escapeHtml(seg.caption || '')
+      const d = document.createElement('div')
+      d.className = 'chat-media-block'
+      d.innerHTML = `<img src="${safeUrl}" alt="${safeAlt}" class="chat-img" onclick="openLightbox('${safeUrl}', '${safeAlt}')" title="Clic para ampliar">
+        ${safeAlt ? `<p class="text-[10px] text-slate-400 mt-1 italic">${safeAlt}</p>` : ''}`
+      box.appendChild(d)
+      scrollToBottom()
+    } else if (seg.type === 'video' && seg.url) {
+      flushText()
+      let videoId = null
+      try {
+        const u = new URL(seg.url)
+        if (u.hostname.includes('youtube.com') && u.searchParams.get('v')) videoId = u.searchParams.get('v')
+        else if (u.hostname === 'youtu.be') videoId = u.pathname.slice(1)
+      } catch (_) {}
+      if (videoId) {
+        const safeLabel = escapeHtml(seg.label || '')
+        const d = document.createElement('div')
+        d.className = 'chat-media-block'
+        d.innerHTML = `${safeLabel ? `<p class="text-xs font-bold mb-1.5">▶ ${safeLabel}</p>` : ''}
+          <div class="chat-video-wrap"><iframe src="https://www.youtube.com/embed/${videoId}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`
+        box.appendChild(d)
+        scrollToBottom()
+      }
+    }
+  }
+  flushText()
+}
+
 function appendResolutionButtons() {
   const box = document.getElementById('chatMessages')
   if (!box) return
@@ -371,8 +422,12 @@ async function sendMessage(text) {
     typing.classList.add('hidden')
 
     const reply = data.response || 'No pude procesar tu pregunta. Intenta de nuevo.'
-    appendBubble('bot', reply)
-    if (data.media?.length) appendMedia(data.media)
+    if (data.segments?.length) {
+      appendSegments(data.segments)
+    } else {
+      appendBubble('bot', reply)
+      if (data.media?.length) appendMedia(data.media)
+    }
     appendResolutionButtons()
 
     history.push({ role: 'assistant', content: reply })
