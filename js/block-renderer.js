@@ -15,15 +15,15 @@ export function renderBlocks(blocks) {
       const circle = document.createElement('div')
       circle.style.cssText = 'width:24px;height:24px;background:#E92129;border-radius:50%;color:white;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px'
       circle.textContent = stepCount
-      const p = document.createElement('p')
-      p.style.cssText = 'font-size:13px;color:#334155;margin:3px 0 0;line-height:1.6'
       const raw = block.text != null ? String(block.text) : ''
+      const textEl = document.createElement(/<(ol|ul|li|div|h[1-6])/i.test(raw) ? 'div' : 'p')
+      textEl.style.cssText = 'font-size:13px;color:#334155;margin:3px 0 0;line-height:1.6'
       if (/<[a-z]/i.test(raw)) {
-        p.innerHTML = raw
+        textEl.innerHTML = raw
       } else {
-        p.appendChild(renderStepText(raw))
+        textEl.appendChild(renderStepText(raw))
       }
-      wrap.append(circle, p)
+      wrap.append(circle, textEl)
       frag.append(wrap)
 
     } else if (block.type === 'image') {

@@ -91,6 +91,18 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Listas dentro de bloques de paso (vista previa y vista estudiante) */
+.step-content ol, .step-content ul,
+#lessonPreview ol, #lessonPreview ul,
+#ls-desk-content ol, #ls-desk-content ul,
+#ls-mob-content ol, #ls-mob-content ul {
+  padding-left: 1.25rem;
+  margin: 4px 0;
+}
+#lessonPreview ol, #ls-desk-content ol, #ls-mob-content ol { list-style-type: decimal; }
+#lessonPreview ul, #ls-desk-content ul, #ls-mob-content ul { list-style-type: disc; }
+#lessonPreview li, #ls-desk-content li, #ls-mob-content li { margin: 2px 0; }
+
 /* Lesson card hover */
 .lesson-card {
   transition: border-color 0.15s, transform 0.15s;
