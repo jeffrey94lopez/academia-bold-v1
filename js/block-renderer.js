@@ -17,7 +17,12 @@ export function renderBlocks(blocks) {
       circle.textContent = stepCount
       const p = document.createElement('p')
       p.style.cssText = 'font-size:13px;color:#334155;margin:3px 0 0;line-height:1.6'
-      p.appendChild(renderStepText(block.text != null ? String(block.text) : ''))
+      const raw = block.text != null ? String(block.text) : ''
+      if (/<[a-z]/i.test(raw)) {
+        p.innerHTML = raw
+      } else {
+        p.appendChild(renderStepText(raw))
+      }
       wrap.append(circle, p)
       frag.append(wrap)
 

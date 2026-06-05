@@ -8,15 +8,6 @@ import { escapeHtml } from './utils.js'
 
 let courseStudent = null
 
-const CATEGORIES = [
-  { key: 'Ventas',        emoji: '📊' },
-  { key: 'Inventario',    emoji: '📦' },
-  { key: 'Ingresos',      emoji: '💰' },
-  { key: 'Egresos',       emoji: '💸' },
-  { key: 'Contactos',     emoji: '👥' },
-  { key: 'Configuración', emoji: '⚙️' },
-]
-
 function progressIcon(lessonId) {
   if (!courseStudent) return ''
   const entry = courseStudent.progreso?.[String(lessonId)]
@@ -43,10 +34,11 @@ async function renderLessons() {
 
   container.innerHTML = '<div class="flex items-center justify-center h-full text-slate-400 text-sm">Cargando lecciones...</div>'
 
-  const { data: lessons, error } = await supabase
-    .from('lecciones')
-    .select('*')
-    .order('orden')
+  const [{ data: lessons, error }, { data: cats }] = await Promise.all([
+    supabase.from('lecciones').select('*').order('orden'),
+    supabase.from('categorias').select('*').order('orden'),
+  ])
+  const CATEGORIES = (cats || []).map(c => ({ key: c.nombre, emoji: c.emoji }))
 
   if (error) console.error('[lessons] Supabase error:', error)
   if (error || !lessons?.length) {

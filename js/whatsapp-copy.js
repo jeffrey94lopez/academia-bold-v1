@@ -1,3 +1,36 @@
+function htmlToWhatsApp(node) {
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent
+
+  const tag = node.tagName?.toLowerCase()
+  const children = () => Array.from(node.childNodes).map(htmlToWhatsApp).join('')
+
+  if (tag === 'strong' || tag === 'b') return `*${children()}*`
+  if (tag === 'em'     || tag === 'i') return `_${children()}_`
+  if (tag === 'u') return children()
+  if (tag === 'br') return '\n'
+  if (tag === 'p') {
+    const inner = children()
+    return inner === '' ? '' : inner + '\n'
+  }
+  if (tag === 'ul') {
+    return Array.from(node.querySelectorAll(':scope > li'))
+      .map(li => '• ' + Array.from(li.childNodes).map(htmlToWhatsApp).join('') + '\n')
+      .join('')
+  }
+  if (tag === 'ol') {
+    return Array.from(node.querySelectorAll(':scope > li'))
+      .map((li, i) => `${i + 1}. ` + Array.from(li.childNodes).map(htmlToWhatsApp).join('') + '\n')
+      .join('')
+  }
+  return children()
+}
+
+function htmlStepToWhatsApp(html) {
+  const div = document.createElement('div')
+  div.innerHTML = html
+  return htmlToWhatsApp(div).replace(/\n+$/, '')
+}
+
 export function lessonToWhatsApp(lesson) {
   const lines = []
   lines.push(`*${lesson.titulo}*`)
@@ -15,7 +48,9 @@ export function lessonToWhatsApp(lesson) {
     if (!b.type || b.type.startsWith('bot_')) continue
     if (b.type === 'step' && b.text) {
       stepNum++
-      lines.push(`${stepNum}. ${b.text}`)
+      const isHtml = /<[a-z]/i.test(b.text)
+      const text = isHtml ? htmlStepToWhatsApp(b.text) : b.text
+      lines.push(`${stepNum}. ${text}`)
     } else if (b.type === 'video' && b.url) {
       const label = b.label ? `${b.label}: ` : ''
       lines.push(`▶ ${label}${b.url}`)

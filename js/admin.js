@@ -2,7 +2,6 @@ import { supabase } from './supabase.js'
 import { requireAuth, logout } from './auth.js'
 import { uploadFile, listFiles, deleteFile } from './upload.js'
 import { renderBlocks } from './block-renderer.js'
-import { applyFormat } from './step-formatter.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml } from './utils.js'
 import { renderResultsPanel, renderAnalyticsPanel } from './admin-analytics.js'
@@ -11,6 +10,8 @@ let currentBlocks = []
 let sortableInstance = null
 let currentQuestions = []
 let questionsSortable = null
+let quillInstances = {}
+let currentCategories = []
 
 async function init() {
   const ok = await requireAuth()
@@ -49,37 +50,71 @@ function switchPanel(panel) {
 
 async function renderLessonsPanel() {
   if (sortableInstance) { sortableInstance.destroy(); sortableInstance = null }
+  quillInstances = {}
   const el = document.getElementById('panel-lessons')
-  const { data } = await supabase.from('lecciones').select('*').order('orden')
+
+  const [{ data: cats }, { data: lessons }] = await Promise.all([
+    supabase.from('categorias').select('*').order('orden'),
+    supabase.from('lecciones').select('*').order('orden'),
+  ])
+  currentCategories = cats || []
+  const allLessons = lessons || []
 
   el.innerHTML = `
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-lg font-black">Lecciones</h2>
-      <button id="addLesson" class="bg-[#E92129] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:scale-105 transition-transform">
-        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nueva lección
-      </button>
+      <div class="flex gap-2">
+        <button id="manageCatsBtn" class="px-3 py-2 rounded-xl text-xs font-bold text-slate-500 border border-slate-200 hover:bg-slate-50 flex items-center gap-1.5">
+          <i data-lucide="tag" class="w-3.5 h-3.5"></i> Categorías
+        </button>
+        <button id="addLesson" class="bg-[#E92129] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:scale-105 transition-transform">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nueva lección
+        </button>
+      </div>
     </div>
-    <div id="lessonsList" class="space-y-3">
-      ${(data || []).map(l => `
-        <div class="bg-white rounded-2xl border border-slate-100 p-4 flex items-start justify-between gap-4">
-          <div class="min-w-0">
-            <p class="font-bold text-sm">${escapeHtml(l.titulo)}</p>
-            <p class="text-xs text-slate-500 mt-0.5 line-clamp-1">${escapeHtml(l.descripcion)}</p>
+
+    <div class="relative mb-4">
+      <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"></i>
+      <input id="lessonSearch" type="text" placeholder="Buscar lección..."
+        class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] bg-white">
+    </div>
+
+    <div id="catManager" class="hidden mb-4 bg-white rounded-2xl border border-slate-200 p-4">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-[10px] font-black uppercase text-slate-400 tracking-wide">Categorías</p>
+        <button id="addCatBtn" class="text-[10px] font-bold text-[#E92129] hover:underline">+ Nueva</button>
+      </div>
+      <div id="catList" class="space-y-1.5 mb-2">
+        ${currentCategories.map(c => `
+          <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-slate-50">
+            <span>${escapeHtml(c.emoji)}</span>
+            <span class="flex-1 text-sm font-medium text-slate-700">${escapeHtml(c.nombre)}</span>
+            <button class="edit-cat text-slate-300 hover:text-slate-600 p-1" data-id="${c.id}" data-nombre="${escapeHtml(c.nombre)}" data-emoji="${escapeHtml(c.emoji)}" title="Editar">
+              <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+            </button>
+            <button class="del-cat text-slate-300 hover:text-red-500 p-1" data-id="${c.id}" data-nombre="${escapeHtml(c.nombre)}" title="Eliminar">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
           </div>
-          <div class="flex gap-2 shrink-0">
-            <button data-id="${l.id}" class="copy-whatsapp p-1.5 rounded-lg hover:bg-green-50 text-slate-500 hover:text-green-600" title="Copiar para WhatsApp">
-              <i data-lucide="share-2" class="w-4 h-4"></i>
-            </button>
-            <button data-id="${l.id}" class="edit-lesson p-1.5 rounded-lg hover:bg-slate-100 text-slate-500">
-              <i data-lucide="edit-2" class="w-4 h-4"></i>
-            </button>
-            <button data-id="${l.id}" class="del-lesson p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500">
-              <i data-lucide="trash-2" class="w-4 h-4"></i>
-            </button>
-          </div>
+        `).join('')}
+      </div>
+      <div id="catInlineForm" class="hidden border-t border-slate-100 pt-3">
+        <input type="hidden" id="catFormId">
+        <div class="flex gap-2 mb-2">
+          <input id="catFormEmoji" maxlength="2" placeholder="📁"
+            class="w-12 px-2 py-1.5 rounded-lg border border-slate-200 text-sm text-center outline-none focus:border-[#E92129]">
+          <input id="catFormNombre" placeholder="Nombre de categoría"
+            class="flex-1 px-2 py-1.5 rounded-lg border border-slate-200 text-sm outline-none focus:border-[#E92129]">
         </div>
-      `).join('') || '<p class="text-slate-400 text-sm">No hay lecciones. Crea la primera.</p>'}
+        <div class="flex gap-2">
+          <button id="cancelCatForm" class="flex-1 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-500">Cancelar</button>
+          <button id="saveCatForm" class="flex-1 py-1.5 rounded-lg bg-[#E92129] text-white text-xs font-bold">Guardar</button>
+        </div>
+      </div>
     </div>
+
+    <div id="lessonsList"></div>
+
     <div id="lessonFormModal" class="hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl w-full max-w-5xl flex flex-col" style="max-height:90vh">
         <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
@@ -96,12 +131,6 @@ async function renderLessonsPanel() {
                 class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
               <select id="lessonCategoria"
                 class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] bg-white">
-                <option>Ventas</option>
-                <option>Inventario</option>
-                <option>Ingresos</option>
-                <option>Egresos</option>
-                <option>Contactos</option>
-                <option>Configuración</option>
               </select>
             </div>
             <p class="text-[10px] font-black uppercase text-slate-400 tracking-wide mb-2">Contenido</p>
@@ -152,28 +181,67 @@ async function renderLessonsPanel() {
       </div>
     </div>
   `
-  lucide.createIcons()
 
-  document.getElementById('addLesson').addEventListener('click', () => openLessonForm())
-  document.querySelectorAll('.edit-lesson').forEach(b => b.addEventListener('click', async () => {
-    const { data } = await supabase.from('lecciones').select('*').eq('id', b.dataset.id).single()
-    openLessonForm(data)
+  lucide.createIcons()
+  renderGroupedLessons(allLessons, '')
+
+  document.getElementById('lessonSearch').addEventListener('input', e => {
+    renderGroupedLessons(allLessons, e.target.value)
+  })
+
+  document.getElementById('manageCatsBtn').addEventListener('click', () => {
+    document.getElementById('catManager').classList.toggle('hidden')
+  })
+
+  document.getElementById('addCatBtn').addEventListener('click', () => {
+    document.getElementById('catFormId').value = ''
+    document.getElementById('catFormEmoji').value = ''
+    document.getElementById('catFormNombre').value = ''
+    document.getElementById('catInlineForm').classList.remove('hidden')
+    document.getElementById('catFormNombre').focus()
+  })
+
+  document.getElementById('cancelCatForm').addEventListener('click', () => {
+    document.getElementById('catInlineForm').classList.add('hidden')
+  })
+
+  document.getElementById('saveCatForm').addEventListener('click', async () => {
+    const id = document.getElementById('catFormId').value
+    const nombre = document.getElementById('catFormNombre').value.trim()
+    const emoji = document.getElementById('catFormEmoji').value.trim() || '📁'
+    if (!nombre) return
+    if (id) {
+      await supabase.from('categorias').update({ nombre, emoji }).eq('id', id)
+    } else {
+      const maxOrden = currentCategories.reduce((m, c) => Math.max(m, c.orden), 0)
+      await supabase.from('categorias').insert({ nombre, emoji, orden: maxOrden + 1 })
+    }
+    renderLessonsPanel()
+  })
+
+  document.querySelectorAll('.edit-cat').forEach(b => b.addEventListener('click', () => {
+    document.getElementById('catFormId').value = b.dataset.id
+    document.getElementById('catFormEmoji').value = b.dataset.emoji
+    document.getElementById('catFormNombre').value = b.dataset.nombre
+    document.getElementById('catInlineForm').classList.remove('hidden')
+    document.getElementById('catFormNombre').focus()
   }))
-  document.querySelectorAll('.del-lesson').forEach(b => b.addEventListener('click', async () => {
-    if (!confirm('¿Eliminar esta lección?')) return
-    await supabase.from('lecciones').delete().eq('id', b.dataset.id)
+
+  document.querySelectorAll('.del-cat').forEach(b => b.addEventListener('click', async () => {
+    const nombre = b.dataset.nombre
+    const { count } = await supabase
+      .from('lecciones').select('id', { count: 'exact', head: true }).eq('categoria', nombre)
+    if (count > 0) {
+      alert(`No se puede eliminar "${nombre}" porque tiene ${count} lección(es). Reasígnalas primero.`)
+      return
+    }
+    if (!confirm(`¿Eliminar la categoría "${nombre}"?`)) return
+    await supabase.from('categorias').delete().eq('id', b.dataset.id)
     renderLessonsPanel()
   }))
-  document.querySelectorAll('.copy-whatsapp').forEach(b => b.addEventListener('click', async () => {
-    const { data } = await supabase.from('lecciones').select('*').eq('id', b.dataset.id).single()
-    if (!data) return
-    const icon = b.querySelector('i')
-    const origTitle = b.title
-    b.title = '¡Copiado!'
-    if (icon) { icon.setAttribute('data-lucide', 'check'); lucide.createIcons() }
-    setTimeout(() => { b.title = origTitle; if (icon) { icon.setAttribute('data-lucide', 'share-2'); lucide.createIcons() } }, 2000)
-    copyLessonToWhatsApp(data)
-  }))
+
+  document.getElementById('addLesson').addEventListener('click', () => openLessonForm())
+
   document.getElementById('cancelLessonForm').addEventListener('click', () => {
     document.getElementById('lessonFormModal').classList.add('hidden')
   })
@@ -236,16 +304,134 @@ async function renderLessonsPanel() {
   })
 }
 
+function renderGroupedLessons(allLessons, searchQuery) {
+  const list = document.getElementById('lessonsList')
+  if (!list) return
+  const q = searchQuery.toLowerCase().trim()
+  const filtered = q
+    ? allLessons.filter(l =>
+        l.titulo.toLowerCase().includes(q) || (l.descripcion || '').toLowerCase().includes(q))
+    : allLessons
+
+  if (!filtered.length) {
+    list.innerHTML = '<p class="text-slate-400 text-sm text-center py-8">No se encontraron lecciones.</p>'
+    return
+  }
+
+  if (q) {
+    list.innerHTML = filtered.map(l => lessonCardHtml(l)).join('')
+  } else {
+    const byCategory = {}
+    const uncategorized = []
+    for (const l of filtered) {
+      if (l.categoria) {
+        if (!byCategory[l.categoria]) byCategory[l.categoria] = []
+        byCategory[l.categoria].push(l)
+      } else {
+        uncategorized.push(l)
+      }
+    }
+    let html = ''
+    for (const cat of currentCategories) {
+      const catLessons = byCategory[cat.nombre] || []
+      html += `<div class="mb-6">
+        <div class="flex items-center gap-2 mb-2 pb-1.5 border-b border-slate-100">
+          <span>${escapeHtml(cat.emoji)}</span>
+          <span class="font-black text-sm text-slate-700">${escapeHtml(cat.nombre)}</span>
+          <span class="text-xs text-slate-400 ml-1">${catLessons.length}</span>
+        </div>
+        ${catLessons.length
+          ? catLessons.map(l => lessonCardHtml(l)).join('')
+          : '<p class="text-xs text-slate-400 pl-1 pb-2">Sin lecciones.</p>'}
+      </div>`
+    }
+    if (uncategorized.length) {
+      html += `<div class="mb-6">
+        <div class="flex items-center gap-2 mb-2 pb-1.5 border-b border-slate-100">
+          <span>📁</span>
+          <span class="font-black text-sm text-slate-700">Sin categoría</span>
+          <span class="text-xs text-slate-400 ml-1">${uncategorized.length}</span>
+        </div>
+        ${uncategorized.map(l => lessonCardHtml(l)).join('')}
+      </div>`
+    }
+    list.innerHTML = html || '<p class="text-slate-400 text-sm text-center py-8">No hay lecciones aún.</p>'
+  }
+
+  lucide.createIcons()
+  wireLessonCards()
+}
+
+function lessonCardHtml(l) {
+  return `
+    <div class="lesson-card bg-white rounded-xl border border-slate-100 p-3.5 flex items-center gap-3 mb-2 cursor-pointer hover:border-[#E92129] hover:shadow-sm transition-all" data-id="${l.id}">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <p class="font-bold text-sm text-slate-800 truncate">${escapeHtml(l.titulo)}</p>
+          <span class="shrink-0 text-[10px] text-slate-400">#${escapeHtml(String(l.orden))}</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-0.5 line-clamp-1">${escapeHtml(l.descripcion || '')}</p>
+      </div>
+      <div class="flex gap-1 shrink-0">
+        <button data-id="${l.id}" class="copy-whatsapp p-1.5 rounded-lg hover:bg-green-50 text-slate-400 hover:text-green-600" title="Copiar para WhatsApp">
+          <i data-lucide="share-2" class="w-4 h-4"></i>
+        </button>
+        <button data-id="${l.id}" class="del-lesson p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500" title="Eliminar">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>`
+}
+
+function wireLessonCards() {
+  const list = document.getElementById('lessonsList')
+  if (!list) return
+
+  list.querySelectorAll('.lesson-card').forEach(card => {
+    card.addEventListener('click', async e => {
+      if (e.target.closest('.del-lesson') || e.target.closest('.copy-whatsapp')) return
+      const { data } = await supabase.from('lecciones').select('*').eq('id', card.dataset.id).single()
+      if (data) openLessonForm(data)
+    })
+  })
+
+  list.querySelectorAll('.copy-whatsapp').forEach(b => b.addEventListener('click', async e => {
+    e.stopPropagation()
+    const { data } = await supabase.from('lecciones').select('*').eq('id', b.dataset.id).single()
+    if (!data) return
+    const icon = b.querySelector('i')
+    b.title = '¡Copiado!'
+    if (icon) { icon.setAttribute('data-lucide', 'check'); lucide.createIcons() }
+    setTimeout(() => {
+      b.title = 'Copiar para WhatsApp'
+      if (icon) { icon.setAttribute('data-lucide', 'share-2'); lucide.createIcons() }
+    }, 2000)
+    copyLessonToWhatsApp(data)
+  }))
+
+  list.querySelectorAll('.del-lesson').forEach(b => b.addEventListener('click', async e => {
+    e.stopPropagation()
+    if (!confirm('¿Eliminar esta lección?')) return
+    await supabase.from('lecciones').delete().eq('id', b.dataset.id)
+    renderLessonsPanel()
+  }))
+}
+
 function openLessonForm(lesson = null) {
   document.getElementById('lessonFormTitle').textContent = lesson ? 'Editar lección' : 'Nueva lección'
   document.getElementById('lessonId').value = lesson?.id || ''
   document.getElementById('lessonTitulo').value = lesson?.titulo || ''
   document.getElementById('lessonDescripcion').value = lesson?.descripcion || ''
-  document.getElementById('lessonCategoria').value = lesson?.categoria || 'Ventas'
   document.getElementById('lessonNotas').value = lesson?.notas || ''
   document.getElementById('lessonOrden').value = lesson?.orden || ''
   document.getElementById('previewTitle').textContent = lesson?.titulo || ''
   document.getElementById('previewDesc').textContent = lesson?.descripcion || ''
+
+  const catSelect = document.getElementById('lessonCategoria')
+  catSelect.innerHTML = currentCategories.map(c =>
+    `<option value="${escapeHtml(c.nombre)}">${escapeHtml(c.emoji)} ${escapeHtml(c.nombre)}</option>`
+  ).join('')
+  catSelect.value = lesson?.categoria || (currentCategories[0]?.nombre || '')
 
   try {
     currentBlocks = lesson?.contenido ? JSON.parse(lesson.contenido) : []
@@ -262,24 +448,61 @@ function openLessonForm(lesson = null) {
   } catch (_) {
     currentQuestions = []
   }
+
+  document.getElementById('lessonFormModal').classList.remove('hidden')
   renderBlockList()
   renderQuestionList()
   updatePreview()
-  document.getElementById('lessonFormModal').classList.remove('hidden')
+}
+
+function markdownToHtml(text) {
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  text = text.replace(/\*(.+?)\*/g, '<em>$1</em>')
+  text = text.replace(/__(.+?)__/g, '<u>$1</u>')
+  return text
 }
 
 function renderBlockList() {
   const list = document.getElementById('blockList')
+  if (!list) return
   if (sortableInstance) { sortableInstance.destroy(); sortableInstance = null }
+  quillInstances = {}
 
   list.innerHTML = currentBlocks.map((b, i) => blockItemHtml(b, i)).join('')
 
-  list.querySelectorAll('input, textarea').forEach(input => {
+  list.querySelectorAll('input[data-field], textarea[data-field]').forEach(input => {
     input.addEventListener('input', () => {
       const idx = parseInt(input.closest('[data-idx]').dataset.idx)
       currentBlocks[idx][input.dataset.field] = input.value
       updatePreview()
     })
+  })
+
+  list.querySelectorAll('.quill-step-editor').forEach(wrapper => {
+    const idx = parseInt(wrapper.closest('[data-idx]').dataset.idx)
+    const raw = currentBlocks[idx]?.text != null ? String(currentBlocks[idx].text) : ''
+    const html = /<[a-z]/i.test(raw) ? raw : markdownToHtml(raw)
+
+    const quill = new Quill(wrapper, {
+      theme: 'snow',
+      placeholder: 'Texto del paso...',
+      modules: {
+        toolbar: [
+          ['bold', 'italic', 'underline'],
+          [{ list: 'ordered' }, { list: 'bullet' }],
+        ],
+      },
+    })
+
+    if (html) quill.root.innerHTML = html
+
+    quill.on('text-change', () => {
+      const content = quill.root.innerHTML
+      currentBlocks[idx].text = content === '<p><br></p>' ? '' : content
+      updatePreview()
+    })
+
+    quillInstances[idx] = quill
   })
 
   list.querySelectorAll('.del-block').forEach(btn => {
@@ -288,13 +511,6 @@ function renderBlockList() {
       currentBlocks.splice(idx, 1)
       renderBlockList()
       updatePreview()
-    })
-  })
-
-  list.querySelectorAll('.fmt-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const textarea = btn.closest('[data-idx]').querySelector('textarea[data-field="text"]')
-      applyFormat(textarea, btn.dataset.marker)
     })
   })
 
@@ -333,16 +549,8 @@ function blockItemHtml(block, i) {
     }
     fields = `<textarea data-field="content" rows="2" placeholder="${placeholders[block.type] || ''}"
       class="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-xs outline-none focus:border-amber-400 resize-none">${escapeHtml(block.content || '')}</textarea>`
-  }
-  if (block.type === 'step') {
-    fields = `
-      <div class="flex gap-1 mb-1.5">
-        <button type="button" class="fmt-btn px-2 py-0.5 rounded text-[10px] font-black bg-slate-200 hover:bg-slate-300 text-slate-700 leading-none" data-marker="**" title="Negrita"><strong>B</strong></button>
-        <button type="button" class="fmt-btn px-2 py-0.5 rounded text-[10px] font-black bg-slate-200 hover:bg-slate-300 text-slate-700 leading-none" data-marker="*" title="Cursiva"><em>I</em></button>
-        <button type="button" class="fmt-btn px-2 py-0.5 rounded text-[10px] font-black bg-slate-200 hover:bg-slate-300 text-slate-700 leading-none" data-marker="__" title="Subrayado"><u>U</u></button>
-      </div>
-      <textarea data-field="text" rows="2" placeholder="Texto del paso..."
-        class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129] resize-none">${escapeHtml(block.text || '')}</textarea>`
+  } else if (block.type === 'step') {
+    fields = `<div class="quill-step-editor"></div>`
   } else if (block.type === 'image') {
     fields = `
       <input data-field="url" value="${escapeHtml(block.url || '')}" class="hidden">
@@ -452,7 +660,6 @@ function renderQuestionList() {
       },
     })
   }
-
 }
 
 function updatePreview() {
@@ -982,7 +1189,6 @@ function initMediaLibraryModal() {
     }
   })
 }
-
 
 window.renderMaterialPanel = renderMaterialPanel
 

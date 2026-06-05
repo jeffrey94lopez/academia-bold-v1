@@ -1,3 +1,38 @@
+/* Quill step editor */
+.quill-step-editor .ql-toolbar {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px 8px 0 0;
+  padding: 3px 6px;
+  background: #f8fafc;
+}
+.quill-step-editor .ql-container {
+  border: 1px solid #e2e8f0;
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  font-size: 12px;
+  font-family: inherit;
+}
+.quill-step-editor .ql-editor {
+  min-height: 56px;
+  padding: 7px 10px;
+  line-height: 1.55;
+  color: #334155;
+}
+.quill-step-editor .ql-editor.ql-blank::before {
+  font-style: normal;
+  color: #94a3b8;
+  font-size: 12px;
+}
+.quill-step-editor .ql-toolbar button { width: 24px; height: 22px; padding: 2px; }
+.quill-step-editor .ql-toolbar .ql-formats { margin-right: 4px; }
+.quill-step-editor .ql-toolbar .ql-stroke { stroke: #64748b; }
+.quill-step-editor .ql-toolbar .ql-fill   { fill: #64748b; }
+.quill-step-editor .ql-toolbar button:hover .ql-stroke,
+.quill-step-editor .ql-toolbar button.ql-active .ql-stroke { stroke: #E92129; }
+.quill-step-editor .ql-toolbar button:hover .ql-fill,
+.quill-step-editor .ql-toolbar button.ql-active .ql-fill   { fill: #E92129; }
+.quill-step-editor .ql-snow .ql-picker { color: #64748b; font-size: 11px; }
+
 /* Desktop layout offset */
 @media (min-width: 768px) {
   main { margin-left: 14rem; }
