@@ -7,7 +7,7 @@ export async function renderResultsPanel() {
   el.innerHTML = '<p class="text-slate-400 text-sm">Cargando resultados...</p>'
 
   const [{ data: students, error: studentsError }, { data: lessons, error: lessonsError }] = await Promise.all([
-    supabase.from('progreso_estudiantes').select('*').order('created_at', { ascending: false }),
+    supabase.from('progreso_estudiantes').select('*').order('created_at', { ascending: false }).limit(500),
     supabase.from('lecciones').select('id'),
   ])
 
@@ -70,9 +70,9 @@ export async function renderAnalyticsPanel(from = null, to = null) {
 
   const [{ data: events, error }, { data: prevEvents }] = await Promise.all([
     supabase.from('analytics_events').select('*')
-      .gte('created_at', from.toISOString()).lte('created_at', to.toISOString()),
+      .gte('created_at', from.toISOString()).lte('created_at', to.toISOString()).limit(5000),
     supabase.from('analytics_events').select('event_type,created_at')
-      .gte('created_at', prevFrom.toISOString()).lte('created_at', prevTo.toISOString()),
+      .gte('created_at', prevFrom.toISOString()).lte('created_at', prevTo.toISOString()).limit(5000),
   ])
 
   if (error) { el.innerHTML = '<p class="text-red-400 text-sm">Error al cargar analytics.</p>'; return }

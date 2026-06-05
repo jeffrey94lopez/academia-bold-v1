@@ -466,6 +466,7 @@ function renderBlockList() {
   const list = document.getElementById('blockList')
   if (!list) return
   if (sortableInstance) { sortableInstance.destroy(); sortableInstance = null }
+  Object.values(quillInstances).forEach(q => { try { q.enable(false) } catch (_) {} })
   quillInstances = {}
 
   list.innerHTML = currentBlocks.map((b, i) => blockItemHtml(b, i)).join('')

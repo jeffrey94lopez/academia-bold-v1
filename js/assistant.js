@@ -1,7 +1,7 @@
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js'
 import { escapeHtml } from './utils.js'
 
-const N8N_URL     = 'https://n8n.mplasesores.com/webhook/bold-pos-chat'
+const N8N_URL     = '/api/chat'
 const ABANDON_URL = 'https://n8n.mplasesores.com/webhook/bodi-abandon'
 
 const FALLBACK_CHIPS = [
@@ -424,7 +424,7 @@ async function sendMessage(text) {
   try {
     const res  = await fetch(N8N_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': 'BoldBodi-2026-K9xMvP7q' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: text, history })
     })
     const data = await res.json()
