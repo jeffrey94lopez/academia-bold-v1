@@ -1,3 +1,8 @@
+/* Desktop layout offset */
+@media (min-width: 768px) {
+  main { margin-left: 14rem; }
+}
+
 /* Chat bubbles */
 .msg-user {
   background: #E92129;

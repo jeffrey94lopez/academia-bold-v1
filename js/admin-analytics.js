@@ -697,11 +697,14 @@ async function renderBodiAnalytics(from = null, to = null) {
               </tr>
               <tr class="bodi-conv-detail hidden" data-id="${escapeHtml(r.id)}">
                 <td colspan="6" class="px-4 py-3 bg-slate-50 border-b border-slate-100">
-                  ${(r.lessons_used && r.lessons_used.length) ? `
-                    <p class="text-[10px] font-bold text-slate-400 uppercase mb-1.5">Lecciones consultadas</p>
-                    <div class="flex flex-wrap gap-1 mb-3">
-                      ${r.lessons_used.map(l => `<span class="text-[10px] bg-red-50 text-red-700 px-2 py-0.5 rounded-full font-medium">${escapeHtml(l)}</span>`).join('')}
-                    </div>` : ''}
+                  ${(r.lessons_used && r.lessons_used.length)
+                    ? `<p class="text-[10px] font-bold text-slate-400 uppercase mb-1.5">Lecciones consultadas</p>
+                       <div class="flex flex-wrap gap-1 mb-3">
+                         ${r.lessons_used.map(l => `<span class="text-[10px] bg-red-50 text-red-700 px-2 py-0.5 rounded-full font-medium">${escapeHtml(l)}</span>`).join('')}
+                       </div>`
+                    : r.topic
+                      ? `<div class="bodi-lessons-container" data-topic="${escapeHtml(r.topic)}" data-loaded="false"></div>`
+                      : ''}
                   ${msgRows ? `<p class="text-[10px] font-bold text-slate-400 uppercase mb-1.5">Conversación</p>${msgRows}` : '<p class="text-xs text-slate-400">Sin mensajes registrados</p>'}
                 </td>
               </tr>`
@@ -716,10 +719,32 @@ async function renderBodiAnalytics(from = null, to = null) {
   })
 
   el.querySelectorAll('.bodi-conv-row').forEach(row => {
-    row.addEventListener('click', () => {
+    row.addEventListener('click', async () => {
       const detail = el.querySelector(`.bodi-conv-detail[data-id="${row.dataset.id}"]`)
-      detail?.classList.toggle('hidden')
+      if (!detail) return
+      detail.classList.toggle('hidden')
       row.classList.toggle('bg-slate-100')
+
+      if (detail.classList.contains('hidden')) return
+
+      const container = detail.querySelector('.bodi-lessons-container')
+      if (!container || container.dataset.loaded !== 'false') return
+
+      container.dataset.loaded = 'loading'
+      const topic = container.dataset.topic
+      if (!topic) { container.dataset.loaded = 'true'; return }
+
+      const { data: topicLessons } = await supabase
+        .from('lecciones').select('titulo').eq('categoria', topic).order('orden')
+
+      container.dataset.loaded = 'true'
+      if (!topicLessons?.length) return
+
+      container.innerHTML = `
+        <p class="text-[10px] font-bold text-slate-400 uppercase mb-1.5">Lecciones del módulo "${escapeHtml(topic)}"</p>
+        <div class="flex flex-wrap gap-1 mb-3">
+          ${topicLessons.map(l => `<span class="text-[10px] bg-red-50 text-red-700 px-2 py-0.5 rounded-full font-medium">${escapeHtml(l.titulo)}</span>`).join('')}
+        </div>`
     })
   })
 
