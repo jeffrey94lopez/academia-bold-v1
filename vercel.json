@@ -28,7 +28,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' https://cdn.tailwindcss.com https://unpkg.com https://cdn.jsdelivr.net https://cdn.quilljs.com; style-src 'self' 'unsafe-inline' https://cdn.quilljs.com; connect-src 'self' https://tczcngfhuendmldafbrc.supabase.co wss://tczcngfhuendmldafbrc.supabase.co https://n8n.mplasesores.com; img-src 'self' data: https:; frame-src https:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';"
+          "value": "default-src 'self'; script-src 'self' https://cdn.tailwindcss.com https://unpkg.com https://cdn.jsdelivr.net https://cdn.quilljs.com; style-src 'self' 'unsafe-inline' https://cdn.quilljs.com https://cdn.jsdelivr.net; connect-src 'self' https://tczcngfhuendmldafbrc.supabase.co wss://tczcngfhuendmldafbrc.supabase.co https://n8n.mplasesores.com; img-src 'self' data: https:; frame-src https:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';"
         }
       ]
     }
