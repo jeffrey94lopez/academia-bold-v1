@@ -7,7 +7,9 @@ export async function uploadFile(file, onProgress) {
   if (file.size > MAX_BYTES) throw new Error('El archivo supera el límite de 50MB')
 
   const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const path = `${Date.now()}-${safe}`
+  const ext = safe.match(/\.[^.]+$/)?.[0] ?? ''
+  const base = ext ? safe.slice(0, -ext.length) : safe
+  const path = `${base || 'archivo'}-${Date.now()}${ext}`
 
   const { data, error } = await supabase.storage.from(BUCKET).upload(path, file, {
     upsert: true,

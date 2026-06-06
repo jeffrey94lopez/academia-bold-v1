@@ -21,16 +21,20 @@ async function init() {
   document.getElementById('adminApp').classList.remove('hidden')
   document.getElementById('logoutBtn').addEventListener('click', logout)
 
-  await renderLessonsPanel()
   lucide.createIcons()
   initMediaLibraryModal()
+  initPasteHandler()
 
   document.querySelectorAll('.admin-nav').forEach(btn => {
     btn.addEventListener('click', () => switchPanel(btn.dataset.panel))
   })
+
+  const savedPanel = localStorage.getItem('admin_panel') || 'lessons'
+  switchPanel(savedPanel)
 }
 
 function switchPanel(panel) {
+  localStorage.setItem('admin_panel', panel)
   document.querySelectorAll('[id^="panel-"]').forEach(p => p.classList.add('hidden'))
   document.getElementById(`panel-${panel}`).classList.remove('hidden')
   document.querySelectorAll('.admin-nav').forEach(b => {
@@ -851,8 +855,10 @@ function renderMaterialGrid(files) {
 
   grid.innerHTML = files.map(f => `
     <div class="group relative bg-white border border-slate-100 rounded-xl p-3 text-center shadow-sm hover:shadow-md transition-shadow">
-      <div class="text-3xl mb-2">${fileIcon(f.type)}</div>
-      <p class="text-xs text-slate-700 truncate font-medium" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</p>
+      ${f.type.startsWith('image/')
+        ? `<img src="${escapeHtml(f.url)}" alt="" class="w-full h-16 object-cover rounded-lg mb-2" loading="lazy">`
+        : `<div class="text-3xl mb-2">${fileIcon(f.type)}</div>`}
+      <p class="text-xs text-slate-700 truncate font-medium" title="${escapeHtml(displayName(f.name))}">${escapeHtml(displayName(f.name))}</p>
       <p class="text-xs text-slate-400">${formatBytes(f.size)}</p>
       <div class="absolute inset-0 bg-black/60 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
         <button class="copy-url bg-blue-500 text-white rounded-lg px-2 py-1 text-xs font-bold"
@@ -1093,6 +1099,10 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function displayName(name) {
+  return name.replace(/-\d{13}(\.[^.]+)?$/, '$1')
+}
+
 function showToast(msg, type = 'success') {
   const t = document.createElement('div')
   t.className = `fixed bottom-4 right-4 z-[100] px-4 py-3 rounded-xl text-sm font-medium shadow-lg text-white ${
@@ -1147,14 +1157,18 @@ function renderMediaGrid(files) {
     return
   }
 
-  grid.innerHTML = files.map(f => `
+  grid.innerHTML = files.map(f => {
+    const thumb = f.type.startsWith('image/')
+      ? `<img src="${escapeHtml(f.url)}" alt="" class="w-full h-14 object-cover rounded-lg mb-1" loading="lazy">`
+      : `<div class="text-3xl mb-1">${fileIcon(f.type)}</div>`
+    return `
     <div class="media-item cursor-pointer border-2 border-transparent rounded-xl p-2 text-center hover:border-[#E92129] transition-colors"
          data-url="${escapeHtml(f.url)}" data-name="${escapeHtml(f.name)}">
-      <div class="text-3xl mb-1">${fileIcon(f.type)}</div>
-      <p class="text-xs text-slate-700 truncate" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</p>
+      ${thumb}
+      <p class="text-xs text-slate-700 truncate" title="${escapeHtml(displayName(f.name))}">${escapeHtml(displayName(f.name))}</p>
       <p class="text-xs text-slate-400">${formatBytes(f.size)}</p>
-    </div>
-  `).join('')
+    </div>`
+  }).join('')
 
   grid.querySelectorAll('.media-item').forEach(item => {
     item.addEventListener('click', () => {
@@ -1187,6 +1201,30 @@ function initMediaLibraryModal() {
     if (e.target === e.currentTarget) {
       e.currentTarget.classList.add('hidden')
       e.currentTarget.classList.remove('flex')
+    }
+  })
+}
+
+function initPasteHandler() {
+  document.addEventListener('paste', async e => {
+    const modal = document.getElementById('lessonFormModal')
+    if (!modal || modal.classList.contains('hidden')) return
+
+    const imgItem = Array.from(e.clipboardData?.items || []).find(it => it.type.startsWith('image/'))
+    if (!imgItem) return
+    e.preventDefault()
+
+    const file = imgItem.getAsFile()
+    if (!file) return
+
+    showToast('Subiendo imagen...')
+    try {
+      const { url } = await uploadFile(file)
+      currentBlocks.push({ type: 'image', url, caption: '' })
+      renderBlockList()
+      showToast('✓ Imagen pegada')
+    } catch (err) {
+      showToast('Error al subir: ' + err.message)
     }
   })
 }
