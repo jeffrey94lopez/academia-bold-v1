@@ -514,14 +514,22 @@ async function renderBodiAnalytics(from = null, to = null) {
   const resolvedPct = withAnswer.length ? Math.round(resolved / withAnswer.length * 100) : 0
   const abandonedPct = total ? Math.round(abandoned / total * 100) : 0
 
-  const topicCounts = {}
-  rows.forEach(r => { const t = r.topic || 'desconocido'; topicCounts[t] = (topicCounts[t] || 0) + 1 })
-  const topicEntries = Object.entries(topicCounts).sort((a, b) => b[1] - a[1])
-  const maxTopic = Math.max(...topicEntries.map(e => e[1]), 1)
-
-  const sentMap = { positivo: 0, neutro: 0, negativo: 0 }
-  rows.forEach(r => { if (r.sentiment && sentMap[r.sentiment] !== undefined) sentMap[r.sentiment]++ })
-  const sentimentTotal = sentMap.positivo + sentMap.neutro + sentMap.negativo || 1
+  const moduleStats = {}
+  rows.forEach(r => {
+    const t = r.topic || 'Sin módulo'
+    if (!moduleStats[t]) moduleStats[t] = { total: 0, resolved: 0, withAnswer: 0, abandoned: 0, support: 0, positivo: 0, neutro: 0, negativo: 0 }
+    const m = moduleStats[t]
+    m.total++
+    if (r.resolved !== null) m.withAnswer++
+    if (r.resolved === true) m.resolved++
+    if (r.status === 'abandoned') m.abandoned++
+    if (r.support_redirected) m.support++
+    if (r.sentiment === 'positivo') m.positivo++
+    else if (r.sentiment === 'negativo') m.negativo++
+    else m.neutro++
+  })
+  const moduleEntries = Object.entries(moduleStats).sort((a, b) => b[1].total - a[1].total)
+  const maxModuleTotal = Math.max(...moduleEntries.map(e => e[1].total), 1)
 
   const heat = Array.from({ length: 7 }, () => new Array(24).fill(0))
   rows.forEach(r => {
@@ -533,10 +541,13 @@ async function renderBodiAnalytics(from = null, to = null) {
   const maxHeat = Math.max(...heat.flat(), 1)
   const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
-  let heatCells = dayNames.map(d =>
+  // Header row: empty corner + 7 day labels
+  let heatCells = `<div></div>` + dayNames.map(d =>
     `<div class="text-[9px] text-slate-500 text-center font-bold pb-0.5">${d}</div>`
   ).join('')
+
   for (let h = 0; h < 24; h++) {
+    heatCells += `<div class="text-[9px] text-slate-400 flex items-center justify-end pr-1 leading-none">${String(h).padStart(2,'0')}h</div>`
     for (let d = 0; d < 7; d++) {
       const count = heat[d][h]
       const opacity = count ? (0.12 + 0.88 * count / maxHeat).toFixed(2) : '0'
@@ -588,45 +599,56 @@ async function renderBodiAnalytics(from = null, to = null) {
         </div>`).join('')}
     </div>
 
-    <div class="grid gap-4 mb-5" style="grid-template-columns:2fr 1fr">
-      <div class="bg-white rounded-2xl border border-slate-100 p-4">
-        <p class="text-xs font-bold text-slate-800 mb-3">Conversaciones por módulo</p>
-        ${topicEntries.length === 0
-          ? '<p class="text-slate-400 text-xs">Sin datos en el período</p>'
-          : topicEntries.map(([t, c]) => `
-            <div class="mb-2">
-              <div class="flex justify-between mb-0.5">
-                <span class="text-xs text-slate-700">${escapeHtml(t)}</span>
-                <span class="text-xs font-bold text-[#E92129]">${c}</span>
-              </div>
-              <div class="h-1.5 bg-slate-100 rounded-full">
-                <div class="h-1.5 bg-[#E92129] rounded-full" style="width:${Math.round(c/maxTopic*100)}%"></div>
-              </div>
-            </div>`).join('')}
+    <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden mb-5">
+      <div class="px-4 py-3 border-b border-slate-100">
+        <p class="text-xs font-bold text-slate-800">Conversaciones por módulo</p>
       </div>
-      <div class="bg-white rounded-2xl border border-slate-100 p-4">
-        <p class="text-xs font-bold text-slate-800 mb-3">Sentimiento</p>
-        ${[['Positivo','positivo','#22c55e'],['Neutro','neutro','#94a3b8'],['Negativo','negativo','#ef4444']].map(([label, key, color]) => {
-          const cnt = sentMap[key]
-          const pct = Math.round(cnt / sentimentTotal * 100)
-          return `<div class="mb-2.5">
-            <div class="flex justify-between mb-0.5">
-              <span class="text-xs text-slate-700">${label}</span>
-              <span class="text-xs font-bold" style="color:${color}">${pct}%</span>
-            </div>
-            <div class="h-1.5 bg-slate-100 rounded-full">
-              <div class="h-1.5 rounded-full" style="width:${pct}%;background:${color}"></div>
-            </div>
-          </div>`
-        }).join('')}
-        ${total === 0 ? '<p class="text-[10px] text-slate-400 mt-2">Sin datos</p>' : ''}
-      </div>
+      ${moduleEntries.length === 0
+        ? '<p class="text-slate-400 text-xs p-4">Sin datos en el período</p>'
+        : `<div class="overflow-x-auto"><table class="w-full border-collapse text-xs">
+          <thead><tr class="border-b border-slate-100 bg-slate-50">
+            <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase">Módulo</th>
+            <th class="px-4 py-2 text-right text-[10px] font-bold text-slate-400 uppercase">Total</th>
+            <th class="px-4 py-2 text-right text-[10px] font-bold text-slate-400 uppercase">Resueltas</th>
+            <th class="px-4 py-2 text-right text-[10px] font-bold text-slate-400 uppercase">Abandon.</th>
+            <th class="px-4 py-2 text-right text-[10px] font-bold text-slate-400 uppercase">Soporte</th>
+            <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase">Sentimiento</th>
+            <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-400 uppercase">Volumen</th>
+          </tr></thead>
+          <tbody>
+            ${moduleEntries.map(([topic, m]) => {
+              const resolvedPctM = m.withAnswer ? Math.round(m.resolved / m.withAnswer * 100) : 0
+              const abandonedPctM = m.total ? Math.round(m.abandoned / m.total * 100) : 0
+              const supportPctM = m.total ? Math.round(m.support / m.total * 100) : 0
+              const dominantSent = m.positivo >= m.negativo && m.positivo >= m.neutro ? 'positivo'
+                : m.negativo >= m.neutro ? 'negativo' : 'neutro'
+              const sentColor = dominantSent === 'positivo' ? '#22c55e' : dominantSent === 'negativo' ? '#ef4444' : '#94a3b8'
+              const sentLabel = dominantSent === 'positivo' ? 'Positivo' : dominantSent === 'negativo' ? 'Negativo' : 'Neutro'
+              const barPct = Math.round(m.total / maxModuleTotal * 100)
+              return `<tr class="border-b border-slate-50 hover:bg-slate-50">
+                <td class="px-4 py-2.5 font-bold text-slate-800">${escapeHtml(topic)}</td>
+                <td class="px-4 py-2.5 text-right font-black text-[#E92129]">${m.total}</td>
+                <td class="px-4 py-2.5 text-right text-slate-600">${resolvedPctM}%</td>
+                <td class="px-4 py-2.5 text-right text-slate-600">${abandonedPctM}%</td>
+                <td class="px-4 py-2.5 text-right text-slate-600">${supportPctM}%</td>
+                <td class="px-4 py-2.5">
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="color:${sentColor};background:${sentColor}18">${sentLabel}</span>
+                </td>
+                <td class="px-4 py-2.5 min-w-[80px]">
+                  <div class="h-1.5 bg-slate-100 rounded-full">
+                    <div class="h-1.5 bg-[#E92129] rounded-full" style="width:${barPct}%"></div>
+                  </div>
+                </td>
+              </tr>`
+            }).join('')}
+          </tbody>
+        </table></div>`}
     </div>
 
     <div class="bg-white rounded-2xl border border-slate-100 p-4 mb-5">
       <p class="text-xs font-bold text-slate-800 mb-3">Mapa de calor — hora × día de la semana</p>
       <div class="overflow-x-auto">
-        <div class="grid gap-0.5" style="grid-template-columns:repeat(7,minmax(28px,1fr));min-width:200px;max-width:400px">
+        <div class="grid gap-0.5" style="grid-template-columns:36px repeat(7,minmax(28px,1fr));min-width:240px;max-width:480px">
           ${heatCells}
         </div>
       </div>
