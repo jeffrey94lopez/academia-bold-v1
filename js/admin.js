@@ -905,6 +905,7 @@ function renderMaterialGrid(files) {
         showToast('Archivo eliminado')
         const updated = await listFiles()
         renderMaterialGrid(updated)
+        lucide.createIcons()
       } catch {
         showToast('Error al eliminar el archivo', 'error')
       }
