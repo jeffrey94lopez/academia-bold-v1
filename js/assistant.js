@@ -61,7 +61,8 @@ async function upsertConversation(patch) {
           'Content-Type': 'application/json',
           'apikey': SUPABASE_ANON_KEY,
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'Prefer': 'return=minimal'
+          'Prefer': 'return=minimal',
+          'x-student-id': localStorage.getItem('bold_session_id') || ''
         },
         body: JSON.stringify(patch)
       }

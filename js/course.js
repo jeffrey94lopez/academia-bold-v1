@@ -1,4 +1,4 @@
-import { supabase } from './supabase.js'
+import { supabase, studentClient } from './supabase.js'
 import { track } from './analytics.js'
 
 function escHtml(t) {
@@ -28,7 +28,7 @@ export async function loadSession() {
   const id = localStorage.getItem('bold_session_id')
   if (!id) return null
 
-  const { data, error } = await supabase
+  const { data, error } = await studentClient()
     .from('progreso_estudiantes')
     .select('*')
     .eq('id', id)
@@ -63,7 +63,7 @@ export async function markLessonComplete(student, lessonId, puntaje) {
     },
   }
 
-  const { error } = await supabase
+  const { error } = await studentClient()
     .from('progreso_estudiantes')
     .update({ progreso })
     .eq('id', student.id)
@@ -79,7 +79,7 @@ export async function checkAndMarkCourseComplete(student, allLessonIds) {
 
   const fecha_completado = new Date().toISOString()
 
-  const { error } = await supabase
+  const { error } = await studentClient()
     .from('progreso_estudiantes')
     .update({ completado: true, fecha_completado })
     .eq('id', student.id)
