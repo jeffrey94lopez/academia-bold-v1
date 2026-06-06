@@ -326,7 +326,13 @@ function renderGroupedLessons(allLessons, searchQuery) {
     : allLessons
 
   if (!filtered.length) {
-    list.innerHTML = '<p class="text-slate-400 text-sm text-center py-8">No se encontraron lecciones.</p>'
+    list.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-12 text-center">
+        <i data-lucide="search-x" class="w-10 h-10 text-slate-300 mb-3"></i>
+        <p class="font-bold text-slate-500 mb-1">Sin resultados</p>
+        <p class="text-xs text-slate-400">Ninguna lección coincide con "<span class="font-medium">${escapeHtml(q)}</span>"</p>
+      </div>`
+    lucide.createIcons()
     return
   }
 
@@ -367,7 +373,23 @@ function renderGroupedLessons(allLessons, searchQuery) {
         ${uncategorized.map(l => lessonCardHtml(l)).join('')}
       </div>`
     }
-    list.innerHTML = html || '<p class="text-slate-400 text-sm text-center py-8">No hay lecciones aún.</p>'
+    if (!html) {
+      list.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-16 text-center">
+          <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+            <i data-lucide="book-open" class="w-8 h-8 text-slate-400"></i>
+          </div>
+          <p class="font-bold text-slate-700 mb-1">Aún no hay lecciones</p>
+          <p class="text-xs text-slate-400 mb-4">Crea la primera lección para que los estudiantes comiencen</p>
+          <button id="emptyAddLesson" class="bg-[#E92129] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 mx-auto">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Crear primera lección
+          </button>
+        </div>`
+      lucide.createIcons()
+      document.getElementById('emptyAddLesson')?.addEventListener('click', () => openLessonForm())
+      return
+    }
+    list.innerHTML = html
   }
 
   lucide.createIcons()
