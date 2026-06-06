@@ -93,10 +93,10 @@ async function renderLessonsPanel() {
           <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-slate-50">
             <span>${escapeHtml(c.emoji)}</span>
             <span class="flex-1 text-sm font-medium text-slate-700">${escapeHtml(c.nombre)}</span>
-            <button class="edit-cat text-slate-300 hover:text-slate-600 p-1" data-id="${c.id}" data-nombre="${escapeHtml(c.nombre)}" data-emoji="${escapeHtml(c.emoji)}" title="Editar">
+            <button class="edit-cat text-slate-300 hover:text-slate-600 p-1" data-id="${c.id}" data-nombre="${escapeHtml(c.nombre)}" data-emoji="${escapeHtml(c.emoji)}" title="Editar" aria-label="Editar categoría ${escapeHtml(c.nombre)}">
               <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
             </button>
-            <button class="del-cat text-slate-300 hover:text-red-500 p-1" data-id="${c.id}" data-nombre="${escapeHtml(c.nombre)}" title="Eliminar">
+            <button class="del-cat text-slate-300 hover:text-red-500 p-1" data-id="${c.id}" data-nombre="${escapeHtml(c.nombre)}" title="Eliminar" aria-label="Eliminar categoría ${escapeHtml(c.nombre)}">
               <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
             </button>
           </div>
@@ -385,10 +385,10 @@ function lessonCardHtml(l) {
         <p class="text-xs text-slate-400 mt-0.5 line-clamp-1">${escapeHtml(l.descripcion || '')}</p>
       </div>
       <div class="flex gap-1 shrink-0">
-        <button data-id="${l.id}" class="copy-whatsapp p-1.5 rounded-lg hover:bg-green-50 text-slate-400 hover:text-green-600" title="Copiar para WhatsApp">
+        <button data-id="${l.id}" class="copy-whatsapp p-1.5 rounded-lg hover:bg-green-50 text-slate-400 hover:text-green-600" title="Copiar para WhatsApp" aria-label="Copiar lección para WhatsApp">
           <i data-lucide="share-2" class="w-4 h-4"></i>
         </button>
-        <button data-id="${l.id}" class="del-lesson p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500" title="Eliminar">
+        <button data-id="${l.id}" data-titulo="${escapeHtml(l.titulo)}" class="del-lesson p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500" title="Eliminar" aria-label="Eliminar lección ${escapeHtml(l.titulo)}">
           <i data-lucide="trash-2" class="w-4 h-4"></i>
         </button>
       </div>
@@ -423,7 +423,7 @@ function wireLessonCards() {
 
   list.querySelectorAll('.del-lesson').forEach(b => b.addEventListener('click', async e => {
     e.stopPropagation()
-    if (!confirm('¿Eliminar esta lección?')) return
+    if (!confirm(`¿Eliminar la lección "${b.dataset.titulo}"?\nEsta acción no se puede deshacer.`)) return
     await supabase.from('lecciones').delete().eq('id', b.dataset.id)
     renderLessonsPanel()
   }))
@@ -607,7 +607,7 @@ function blockItemHtml(block, i) {
       <div class="text-[9px] font-black uppercase mb-1.5" style="color:${color}">${label}</div>
       ${fields}
     </div>
-    <button class="del-block text-slate-300 hover:text-red-400 text-sm px-1 mt-0.5 shrink-0">✕</button>
+    <button class="del-block text-slate-300 hover:text-red-400 text-sm px-1 mt-0.5 shrink-0" aria-label="Eliminar bloque">✕</button>
   </div>`
 }
 
@@ -622,7 +622,7 @@ function renderQuestionList() {
         <div class="drag-handle-q text-slate-300 text-lg cursor-grab select-none leading-none mt-0.5">⠿</div>
         <input data-qi="${qi}" class="q-text flex-1 px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129]"
           placeholder="Pregunta" value="${escapeHtml(q.pregunta || '')}">
-        <button data-qi="${qi}" class="del-q text-slate-300 hover:text-red-400 text-sm px-1 shrink-0 mt-1">✕</button>
+        <button data-qi="${qi}" class="del-q text-slate-300 hover:text-red-400 text-sm px-1 shrink-0 mt-1" aria-label="Eliminar pregunta">✕</button>
       </div>
       <div class="space-y-1.5 ml-6">
         ${(q.opciones || []).map((op, oi) => `
@@ -701,10 +701,10 @@ async function renderGlossaryPanel() {
             <p class="text-xs text-slate-500 mt-0.5">${escapeHtml(g.definicion)}</p>
           </div>
           <div class="flex gap-1 shrink-0">
-            <button data-id="${g.id}" data-term="${escapeHtml(g.termino)}" data-def="${escapeHtml(g.definicion)}" class="edit-term p-1.5 rounded-lg hover:bg-slate-100 text-slate-500">
+            <button data-id="${g.id}" data-term="${escapeHtml(g.termino)}" data-def="${escapeHtml(g.definicion)}" class="edit-term p-1.5 rounded-lg hover:bg-slate-100 text-slate-500" aria-label="Editar término ${escapeHtml(g.termino)}">
               <i data-lucide="edit-2" class="w-4 h-4"></i>
             </button>
-            <button data-id="${g.id}" class="del-term p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500">
+            <button data-id="${g.id}" class="del-term p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500" aria-label="Eliminar término ${escapeHtml(g.termino)}">
               <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           </div>
@@ -935,10 +935,10 @@ async function renderSuggestionsPanel() {
             }
           </div>
           <div class="flex gap-1 shrink-0">
-            <button data-id="${s.id}" data-texto="${escapeHtml(s.texto)}" data-orden="${escapeHtml(String(s.orden))}" data-activo="${escapeHtml(String(s.activo))}" class="edit-sug p-1.5 rounded-lg hover:bg-slate-100 text-slate-500">
+            <button data-id="${s.id}" data-texto="${escapeHtml(s.texto)}" data-orden="${escapeHtml(String(s.orden))}" data-activo="${escapeHtml(String(s.activo))}" class="edit-sug p-1.5 rounded-lg hover:bg-slate-100 text-slate-500" aria-label="Editar sugerencia ${escapeHtml(s.texto)}">
               <i data-lucide="edit-2" class="w-4 h-4"></i>
             </button>
-            <button data-id="${s.id}" class="del-sug p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500">
+            <button data-id="${s.id}" class="del-sug p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500" aria-label="Eliminar sugerencia ${escapeHtml(s.texto)}">
               <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           </div>
