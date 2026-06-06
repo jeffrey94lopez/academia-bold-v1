@@ -752,10 +752,14 @@ async function renderGlossaryPanel() {
       termino: document.getElementById('termTermino').value,
       definicion: document.getElementById('termDefinicion').value,
     }
-    if (id) {
-      await supabase.from('glosario').update(payload).eq('id', id)
-    } else {
-      await supabase.from('glosario').insert(payload)
+    const { error } = id
+      ? await supabase.from('glosario').update(payload).eq('id', id)
+      : await supabase.from('glosario').insert(payload)
+    if (error) {
+      alert('Error al guardar: ' + error.message)
+      btn.disabled = false
+      btn.textContent = 'Guardar'
+      return
     }
     renderGlossaryPanel()
   })
@@ -1022,10 +1026,15 @@ async function renderSuggestionsPanel() {
 
     errorEl.classList.add('hidden')
     const payload = { texto, orden, activo }
-    if (id) {
-      await supabase.from('bot_sugerencias').update(payload).eq('id', id)
-    } else {
-      await supabase.from('bot_sugerencias').insert(payload)
+    const { error } = id
+      ? await supabase.from('bot_sugerencias').update(payload).eq('id', id)
+      : await supabase.from('bot_sugerencias').insert(payload)
+    if (error) {
+      errorEl.textContent = 'Error al guardar: ' + error.message
+      errorEl.classList.remove('hidden')
+      saveBtn.disabled = false
+      saveBtn.textContent = 'Guardar'
+      return
     }
     document.getElementById('sugForm').classList.add('hidden')
     renderSuggestionsPanel()
