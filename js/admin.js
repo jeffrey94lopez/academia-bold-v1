@@ -772,7 +772,7 @@ async function renderMaterialPanel() {
       <h2 class="text-lg font-black mb-4">Biblioteca de archivos</h2>
 
       <div id="materialDropzone" class="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center mb-6 hover:border-[#E92129] transition-colors cursor-pointer">
-        <div class="text-4xl mb-3">📁</div>
+        <i data-lucide="folder-open" class="w-10 h-10 text-slate-300 mx-auto mb-3 block"></i>
         <p class="text-slate-400 text-sm mb-3">Arrastra archivos aquí o</p>
         <button id="materialPickFile" class="px-4 py-2 bg-[#E92129] text-white text-sm rounded-lg font-bold">📁 Buscar archivo</button>
         <p class="text-xs text-slate-400 mt-2">Cualquier tipo · Máx. 50MB</p>
@@ -795,6 +795,7 @@ async function renderMaterialPanel() {
       </div>
     </div>
   `
+  lucide.createIcons()
 
   let files = []
 
@@ -805,6 +806,7 @@ async function renderMaterialPanel() {
     try {
       files = await listFiles()
       renderMaterialGrid(files)
+      lucide.createIcons()
     } catch {
       grid.innerHTML = `<p class="col-span-5 text-center text-red-400 text-sm py-12">Error al cargar. <button onclick="renderMaterialPanel()" class="underline">Reintentar</button></p>`
     }
@@ -815,6 +817,7 @@ async function renderMaterialPanel() {
   document.getElementById('materialSearch').addEventListener('input', e => {
     const q = e.target.value.toLowerCase()
     renderMaterialGrid(files.filter(f => f.name.toLowerCase().includes(q)))
+    lucide.createIcons()
   })
 
   const dropzone = document.getElementById('materialDropzone')
@@ -872,7 +875,7 @@ function renderMaterialGrid(files) {
     <div class="group relative bg-white border border-slate-100 rounded-xl p-3 text-center shadow-sm hover:shadow-md transition-shadow">
       ${f.type.startsWith('image/')
         ? `<img src="${escapeHtml(f.url)}" alt="" class="w-full h-16 object-cover rounded-lg mb-2" loading="lazy">`
-        : `<div class="text-3xl mb-2">${fileIcon(f.type)}</div>`}
+        : `<div class="flex justify-center mb-2">${fileIcon(f.type)}</div>`}
       <p class="text-xs text-slate-700 truncate font-medium" title="${escapeHtml(displayName(f.name))}">${escapeHtml(displayName(f.name))}</p>
       <p class="text-xs text-slate-400">${formatBytes(f.size)}</p>
       <div class="absolute inset-0 bg-black/60 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
@@ -1110,12 +1113,12 @@ function setupUploadZone(zone) {
 }
 
 function fileIcon(type) {
-  if (!type) return '📁'
-  if (type.startsWith('image/')) return '🖼️'
-  if (type === 'application/pdf') return '📄'
-  if (type.startsWith('video/')) return '🎬'
-  if (type.startsWith('audio/')) return '🎵'
-  return '📁'
+  if (!type) return '<i data-lucide="folder" class="w-8 h-8 text-slate-400"></i>'
+  if (type.startsWith('image/')) return '<i data-lucide="image" class="w-8 h-8 text-blue-400"></i>'
+  if (type === 'application/pdf') return '<i data-lucide="file-text" class="w-8 h-8 text-red-400"></i>'
+  if (type.startsWith('video/')) return '<i data-lucide="video" class="w-8 h-8 text-purple-400"></i>'
+  if (type.startsWith('audio/')) return '<i data-lucide="music" class="w-8 h-8 text-green-400"></i>'
+  return '<i data-lucide="file" class="w-8 h-8 text-slate-400"></i>'
 }
 
 function formatBytes(bytes) {
@@ -1162,6 +1165,7 @@ async function openMediaLibrary(onSelect) {
   try {
     files = await listFiles()
     renderMediaGrid(files)
+    lucide.createIcons()
   } catch {
     grid.innerHTML = '<p class="col-span-4 text-center text-red-400 text-sm py-8">Error al cargar archivos</p>'
   }
@@ -1169,6 +1173,7 @@ async function openMediaLibrary(onSelect) {
   search.oninput = () => {
     const q = search.value.toLowerCase()
     renderMediaGrid(files.filter(f => f.name.toLowerCase().includes(q)))
+    lucide.createIcons()
   }
 }
 
@@ -1186,7 +1191,7 @@ function renderMediaGrid(files) {
   grid.innerHTML = files.map(f => {
     const thumb = f.type.startsWith('image/')
       ? `<img src="${escapeHtml(f.url)}" alt="" class="w-full h-14 object-cover rounded-lg mb-1" loading="lazy">`
-      : `<div class="text-3xl mb-1">${fileIcon(f.type)}</div>`
+      : `<div class="flex justify-center mb-1">${fileIcon(f.type)}</div>`
     return `
     <div class="media-item cursor-pointer border-2 border-transparent rounded-xl p-2 text-center hover:border-[#E92129] transition-colors"
          data-url="${escapeHtml(f.url)}" data-name="${escapeHtml(f.name)}">
