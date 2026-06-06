@@ -325,7 +325,7 @@ function renderGroupedLessons(allLessons, searchQuery) {
         l.titulo.toLowerCase().includes(q) || (l.descripcion || '').toLowerCase().includes(q))
     : allLessons
 
-  if (!filtered.length) {
+  if (!filtered.length && q) {
     list.innerHTML = `
       <div class="flex flex-col items-center justify-center py-12 text-center">
         <i data-lucide="search-x" class="w-10 h-10 text-slate-300 mb-3"></i>
@@ -407,7 +407,7 @@ function lessonCardHtml(l) {
         <p class="text-xs text-slate-400 mt-0.5 line-clamp-1">${escapeHtml(l.descripcion || '')}</p>
       </div>
       <div class="flex gap-1 shrink-0">
-        <button data-id="${l.id}" class="copy-whatsapp p-1.5 rounded-lg hover:bg-green-50 text-slate-400 hover:text-green-600" title="Copiar para WhatsApp" aria-label="Copiar lección para WhatsApp">
+        <button data-id="${l.id}" class="copy-whatsapp p-1.5 rounded-lg hover:bg-green-50 text-slate-400 hover:text-green-600" title="Copiar para WhatsApp" aria-label="Copiar ${escapeHtml(l.titulo)} para WhatsApp">
           <i data-lucide="share-2" class="w-4 h-4"></i>
         </button>
         <button data-id="${l.id}" data-titulo="${escapeHtml(l.titulo)}" class="del-lesson p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500" title="Eliminar" aria-label="Eliminar lección ${escapeHtml(l.titulo)}">
@@ -652,7 +652,7 @@ function renderQuestionList() {
             <input type="radio" name="correct-${qi}" data-qi="${qi}" data-oi="${oi}" class="correct-radio shrink-0" ${q.correcta === oi ? 'checked' : ''}>
             <input data-qi="${qi}" data-oi="${oi}" class="opt-text flex-1 px-2 py-1 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129]"
               placeholder="Opción ${oi + 1}" value="${escapeHtml(op || '')}">
-            ${q.opciones.length > 2 ? `<button data-qi="${qi}" data-oi="${oi}" class="del-opt text-slate-300 hover:text-red-400 text-xs px-1">✕</button>` : ''}
+            ${q.opciones.length > 2 ? `<button data-qi="${qi}" data-oi="${oi}" class="del-opt text-slate-300 hover:text-red-400 text-xs px-1" aria-label="Eliminar opción ${oi + 1}">✕</button>` : ''}
           </div>
         `).join('')}
         ${q.opciones.length < 4 ? `<button data-qi="${qi}" class="add-opt text-[10px] font-bold text-slate-400 hover:text-slate-700 mt-1">+ Opción</button>` : ''}
@@ -796,7 +796,7 @@ async function renderMaterialPanel() {
       <div id="materialDropzone" class="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center mb-6 hover:border-[#E92129] transition-colors cursor-pointer">
         <i data-lucide="folder-open" class="w-10 h-10 text-slate-300 mx-auto mb-3 block"></i>
         <p class="text-slate-400 text-sm mb-3">Arrastra archivos aquí o</p>
-        <button id="materialPickFile" class="px-4 py-2 bg-[#E92129] text-white text-sm rounded-lg font-bold">📁 Buscar archivo</button>
+        <button id="materialPickFile" class="px-4 py-2 bg-[#E92129] text-white text-sm rounded-lg font-bold flex items-center gap-1.5 mx-auto"><i data-lucide="upload" class="w-4 h-4"></i> Buscar archivo</button>
         <p class="text-xs text-slate-400 mt-2">Cualquier tipo · Máx. 50MB</p>
         <div id="materialProgress" class="hidden mt-4">
           <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden max-w-xs mx-auto">
@@ -1162,8 +1162,8 @@ function showToast(msg, type = 'success') {
   }`
   t.setAttribute('role', 'status')
   t.setAttribute('aria-live', 'polite')
-  t.textContent = msg
   document.body.appendChild(t)
+  t.textContent = msg
   setTimeout(() => t.remove(), 3000)
 }
 
