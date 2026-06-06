@@ -1160,6 +1160,8 @@ function showToast(msg, type = 'success') {
   t.className = `fixed bottom-4 right-4 z-[100] px-4 py-3 rounded-xl text-sm font-medium shadow-lg text-white ${
     type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
   }`
+  t.setAttribute('role', 'status')
+  t.setAttribute('aria-live', 'polite')
   t.textContent = msg
   document.body.appendChild(t)
   setTimeout(() => t.remove(), 3000)
