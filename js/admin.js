@@ -289,6 +289,9 @@ async function renderLessonsPanel() {
       alert('Completa Título y Orden antes de guardar.')
       return
     }
+    const btn = document.getElementById('saveLessonBtn')
+    btn.disabled = true
+    btn.textContent = 'Guardando...'
     const id = document.getElementById('lessonId').value
     const payload = {
       titulo,
@@ -302,7 +305,12 @@ async function renderLessonsPanel() {
     const { error } = id
       ? await supabase.from('lecciones').update(payload).eq('id', id)
       : await supabase.from('lecciones').insert(payload)
-    if (error) { alert('Error al guardar: ' + error.message); return }
+    if (error) {
+      alert('Error al guardar: ' + error.message)
+      btn.disabled = false
+      btn.textContent = 'Guardar lección'
+      return
+    }
     document.getElementById('lessonFormModal').classList.add('hidden')
     renderLessonsPanel()
   })
@@ -736,6 +744,9 @@ async function renderGlossaryPanel() {
     document.getElementById('termForm').classList.add('hidden')
   })
   document.getElementById('saveTerm').addEventListener('click', async () => {
+    const btn = document.getElementById('saveTerm')
+    btn.disabled = true
+    btn.textContent = 'Guardando...'
     const id = document.getElementById('termId').value
     const payload = {
       termino: document.getElementById('termTermino').value,
@@ -990,6 +1001,10 @@ async function renderSuggestionsPanel() {
       return
     }
 
+    const saveBtn = document.getElementById('saveSug')
+    saveBtn.disabled = true
+    saveBtn.textContent = 'Guardando...'
+
     if (activo) {
       const { data: activos } = await supabase
         .from('bot_sugerencias')
@@ -999,6 +1014,8 @@ async function renderSuggestionsPanel() {
       if (otrasActivas.length >= 6) {
         errorEl.textContent = 'Máximo 6 sugerencias activas. Desactiva una antes de agregar otra.'
         errorEl.classList.remove('hidden')
+        saveBtn.disabled = false
+        saveBtn.textContent = 'Guardar'
         return
       }
     }
