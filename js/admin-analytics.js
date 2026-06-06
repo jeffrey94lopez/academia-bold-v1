@@ -515,6 +515,7 @@ async function renderBodiAnalytics(from = null, to = null) {
   const abandonedPct = total ? Math.round(abandoned / total * 100) : 0
 
   const moduleStats = {}
+  const globalSent = { positivo: 0, neutro: 0, negativo: 0 }
   rows.forEach(r => {
     const t = r.topic || 'Sin módulo'
     if (!moduleStats[t]) moduleStats[t] = { total: 0, resolved: 0, withAnswer: 0, abandoned: 0, support: 0, positivo: 0, neutro: 0, negativo: 0 }
@@ -524,11 +525,12 @@ async function renderBodiAnalytics(from = null, to = null) {
     if (r.resolved === true) m.resolved++
     if (r.status === 'abandoned') m.abandoned++
     if (r.support_redirected) m.support++
-    if (r.sentiment === 'positivo') m.positivo++
-    else if (r.sentiment === 'negativo') m.negativo++
-    else m.neutro++
+    if (r.sentiment === 'positivo') { m.positivo++; globalSent.positivo++ }
+    else if (r.sentiment === 'negativo') { m.negativo++; globalSent.negativo++ }
+    else { m.neutro++; globalSent.neutro++ }
   })
   const moduleEntries = Object.entries(moduleStats).sort((a, b) => b[1].total - a[1].total)
+  const sentimentTotal = globalSent.positivo + globalSent.neutro + globalSent.negativo || 1
   const maxModuleTotal = Math.max(...moduleEntries.map(e => e[1].total), 1)
 
   const heat = Array.from({ length: 7 }, () => new Array(24).fill(0))
@@ -645,7 +647,8 @@ async function renderBodiAnalytics(from = null, to = null) {
         </table></div>`}
     </div>
 
-    <div class="bg-white rounded-2xl border border-slate-100 p-4 mb-5">
+    <div class="grid gap-4 mb-5" style="grid-template-columns:1fr auto">
+    <div class="bg-white rounded-2xl border border-slate-100 p-4">
       <p class="text-xs font-bold text-slate-800 mb-3">Mapa de calor — hora × día de la semana</p>
       <div class="overflow-x-auto">
         <div class="grid gap-0.5" style="grid-template-columns:36px repeat(7,minmax(28px,1fr));min-width:240px;max-width:480px">
@@ -653,6 +656,25 @@ async function renderBodiAnalytics(from = null, to = null) {
         </div>
       </div>
       <p class="text-[10px] text-slate-400 mt-2">Más rojo = más conversaciones. Cada celda = una hora del día.</p>
+    </div>
+    <div class="bg-white rounded-2xl border border-slate-100 p-4" style="min-width:140px">
+      <p class="text-xs font-bold text-slate-800 mb-3">Sentimiento</p>
+      ${[['Positivo','positivo','#22c55e'],['Neutro','neutro','#94a3b8'],['Negativo','negativo','#ef4444']].map(([label, key, color]) => {
+        const cnt = globalSent[key]
+        const pct = Math.round(cnt / sentimentTotal * 100)
+        return `<div class="mb-3">
+          <div class="flex justify-between mb-0.5">
+            <span class="text-xs text-slate-700">${label}</span>
+            <span class="text-xs font-bold" style="color:${color}">${pct}%</span>
+          </div>
+          <div class="h-1.5 bg-slate-100 rounded-full">
+            <div class="h-1.5 rounded-full" style="width:${pct}%;background:${color}"></div>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-0.5">${cnt} conv.</p>
+        </div>`
+      }).join('')}
+      ${total === 0 ? '<p class="text-[10px] text-slate-400">Sin datos</p>' : ''}
+    </div>
     </div>
 
     <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden mb-5">
