@@ -1,6 +1,6 @@
 import { supabase } from './supabase.js'
 import { requireAuth, logout } from './auth.js'
-import { uploadFile, listFiles, deleteFile, renameFile, createFolder } from './upload.js'
+import { uploadFile, listFiles, deleteFile, renameFile, createFolder, moveFile } from './upload.js'
 import { renderBlocks } from './block-renderer.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml } from './utils.js'
@@ -915,6 +915,31 @@ async function renderGlossaryPanel() {
   })
 }
 
+async function cascadeUpdateUrl(oldUrl, newUrl) {
+  const { data: lessons } = await supabase.from('lecciones').select('id, contenido')
+  const affected = (lessons || []).filter(l =>
+    l.contenido && JSON.stringify(l.contenido).includes(oldUrl)
+  )
+  for (const l of affected) {
+    const updated = (Array.isArray(l.contenido) ? l.contenido : []).map(b =>
+      b.url === oldUrl ? { ...b, url: newUrl } : b
+    )
+    await supabase.from('lecciones').update({ contenido: updated }).eq('id', l.id)
+  }
+  await supabase.from('material_apoyo').update({ url: newUrl }).eq('url', oldUrl)
+}
+
+async function handleFileMoveToFolder(oldPath, targetFolderPath) {
+  try {
+    const { oldUrl, newUrl } = await moveFile(oldPath, targetFolderPath)
+    await cascadeUpdateUrl(oldUrl, newUrl)
+    showToast(`Archivo movido a "${targetFolderPath.split('/').pop()}"`)
+    renderMaterialPanel()
+  } catch (e) {
+    showToast('Error al mover: ' + e.message, 'error')
+  }
+}
+
 function renderFolderBreadcrumb() {
   const container = document.getElementById('folderBreadcrumb')
   if (!container) return
@@ -1138,7 +1163,7 @@ function renderMaterialGrid(files, folders = []) {
         </div>`
     }).join('')
     grid.innerHTML = folderCards + files.map(f => `
-      <div class="flex items-center gap-3 bg-white border border-slate-100 rounded-xl px-3 py-2.5 hover:border-slate-200 transition-colors group">
+      <div class="file-card flex items-center gap-3 bg-white border border-slate-100 rounded-xl px-3 py-2.5 hover:border-slate-200 transition-colors group" draggable="true" data-path="${escapeHtml(f.name)}">
         <div class="w-10 h-10 shrink-0 flex items-center justify-center rounded-lg overflow-hidden bg-slate-50">
           ${f.type.startsWith('image/')
             ? `<img src="${escapeHtml(f.url)}" alt="" class="w-10 h-10 object-cover" loading="lazy">`
@@ -1179,7 +1204,7 @@ function renderMaterialGrid(files, folders = []) {
         </div>`
     }).join('')
     grid.innerHTML = folderGrid + files.map(f => `
-      <div class="group relative bg-white border border-slate-100 rounded-xl p-3 text-center shadow-sm hover:shadow-md transition-shadow">
+      <div class="file-card group relative bg-white border border-slate-100 rounded-xl p-3 text-center shadow-sm hover:shadow-md transition-shadow" draggable="true" data-path="${escapeHtml(f.name)}">
         ${f.type.startsWith('image/')
           ? `<img src="${escapeHtml(f.url)}" alt="" class="w-full h-16 object-cover rounded-lg mb-2" loading="lazy">`
           : `<div class="flex justify-center mb-2">${fileIcon(f.type)}</div>`}
@@ -1251,6 +1276,44 @@ function renderMaterialGrid(files, folders = []) {
       } catch {
         showToast('Error al eliminar el archivo', 'error')
       }
+    })
+  })
+
+  grid.querySelectorAll('.file-card').forEach(card => {
+    card.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('text/plain', card.dataset.path)
+      e.dataTransfer.effectAllowed = 'move'
+      setTimeout(() => card.classList.add('opacity-50'), 0)
+    })
+    card.addEventListener('dragend', () => card.classList.remove('opacity-50'))
+  })
+
+  grid.querySelectorAll('.folder-card').forEach(card => {
+    card.addEventListener('dragover', e => {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+      card.style.outline = '2px solid #E92129'
+      card.style.outlineOffset = '-2px'
+    })
+    card.addEventListener('dragleave', e => {
+      if (!card.contains(e.relatedTarget)) {
+        card.style.outline = ''
+        card.style.outlineOffset = ''
+      }
+    })
+    card.addEventListener('drop', async e => {
+      e.preventDefault()
+      e.stopPropagation()
+      card.style.outline = ''
+      card.style.outlineOffset = ''
+      const oldPath = e.dataTransfer.getData('text/plain')
+      if (!oldPath) return
+      const targetFolder = card.dataset.path
+      if (oldPath.startsWith(targetFolder + '/')) {
+        showToast('El archivo ya está en esta carpeta', 'error')
+        return
+      }
+      await handleFileMoveToFolder(oldPath, targetFolder)
     })
   })
 }

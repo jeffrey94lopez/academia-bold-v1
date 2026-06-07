@@ -80,3 +80,14 @@ export async function renameFile(oldPath, newDisplayName) {
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(newPath)
   return { path: newPath, url: data.publicUrl }
 }
+
+export async function moveFile(oldPath, targetFolderPath) {
+  const filename = oldPath.split('/').pop()
+  const newPath = targetFolderPath ? `${targetFolderPath}/${filename}` : filename
+  const oldUrl = supabase.storage.from(BUCKET).getPublicUrl(oldPath).data.publicUrl
+  if (oldPath === newPath) return { newPath, newUrl: oldUrl, oldUrl }
+  const { error } = await supabase.storage.from(BUCKET).move(oldPath, newPath)
+  if (error) throw error
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(newPath)
+  return { newPath, newUrl: data.publicUrl, oldUrl }
+}
