@@ -53,6 +53,7 @@ function switchPanel(panel) {
   if (panel === 'lessons') renderLessonsPanel()
   if (panel === 'glossary') renderGlossaryPanel()
   if (panel === 'material') renderMaterialPanel()
+  if (panel === 'material-apoyo') renderMaterialApoyoPanel()
   if (panel === 'suggestions') renderSuggestionsPanel()
   if (panel === 'results') renderResultsPanel()
   if (panel === 'analytics') renderAnalyticsPanel()
@@ -1146,6 +1147,138 @@ function renderMaterialGrid(files) {
         showToast('Error al eliminar el archivo', 'error')
       }
     })
+  })
+}
+
+async function renderMaterialApoyoPanel() {
+  const el = document.getElementById('panel-material-apoyo')
+  const { data } = await supabase.from('material_apoyo').select('*').order('titulo')
+
+  const iconMap = { pdf: 'file-text', link: 'link', video: 'play-circle' }
+  const colorMap = { pdf: 'text-red-500', link: 'text-blue-500', video: 'text-purple-500' }
+
+  el.innerHTML = `
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h2 class="text-lg font-black">Material de apoyo</h2>
+        <p class="text-xs text-slate-400 mt-0.5">Recursos visibles para los usuarios en la sección Recursos.</p>
+      </div>
+      <button id="addMatApoyo" class="bg-[#E92129] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:scale-105 transition-transform">
+        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nuevo recurso
+      </button>
+    </div>
+    <div class="space-y-2">
+      ${(data || []).map(m => `
+        <div class="bg-white rounded-xl border border-slate-100 p-3 flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+            <i data-lucide="${iconMap[m.tipo] || 'file'}" class="w-5 h-5 ${colorMap[m.tipo] || 'text-slate-500'}"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="font-bold text-sm truncate">${escapeHtml(m.titulo)}</p>
+            <p class="text-xs text-slate-400 uppercase font-bold">${escapeHtml(m.tipo)}</p>
+          </div>
+          <div class="flex gap-1 shrink-0">
+            <button data-id="${m.id}" data-titulo="${escapeHtml(m.titulo)}" data-url="${escapeHtml(m.url)}" data-tipo="${escapeHtml(m.tipo)}"
+              class="edit-mat-apoyo p-1.5 rounded-lg hover:bg-slate-100 text-slate-500" aria-label="Editar ${escapeHtml(m.titulo)}">
+              <i data-lucide="edit-2" class="w-4 h-4"></i>
+            </button>
+            <button data-id="${m.id}" data-titulo="${escapeHtml(m.titulo)}"
+              class="del-mat-apoyo p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500" aria-label="Eliminar ${escapeHtml(m.titulo)}">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      `).join('') || '<p class="text-slate-400 text-sm py-4">No hay recursos. Crea el primero.</p>'}
+    </div>
+    <div id="matApoyoForm" class="hidden mt-4 bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
+      <input type="hidden" id="matApoyoId">
+      <input id="matApoyoTitulo" placeholder="Título del recurso" autocomplete="off"
+        class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+      <div class="flex gap-2">
+        <input id="matApoyoUrl" placeholder="URL o enlace al recurso" autocomplete="off"
+          class="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+        <button id="matApoyoPickLib" type="button"
+          class="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50 shrink-0 flex items-center gap-1.5">
+          <i data-lucide="folder-open" class="w-3.5 h-3.5"></i> Biblioteca
+        </button>
+      </div>
+      <select id="matApoyoTipo" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] bg-white">
+        <option value="link">🔗 Link / Enlace web</option>
+        <option value="pdf">📄 PDF / Documento</option>
+        <option value="video">▶️ Video</option>
+      </select>
+      <p id="matApoyoError" class="hidden text-red-500 text-xs"></p>
+      <div class="flex gap-2">
+        <button id="cancelMatApoyo" class="flex-1 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-500">Cancelar</button>
+        <button id="saveMatApoyo" class="flex-1 py-2 rounded-xl bg-[#E92129] text-white text-sm font-bold">Guardar</button>
+      </div>
+    </div>
+  `
+  lucide.createIcons()
+
+  const showForm = () => document.getElementById('matApoyoForm').classList.remove('hidden')
+  const hideForm = () => document.getElementById('matApoyoForm').classList.add('hidden')
+
+  document.getElementById('addMatApoyo').addEventListener('click', () => {
+    document.getElementById('matApoyoId').value = ''
+    document.getElementById('matApoyoTitulo').value = ''
+    document.getElementById('matApoyoUrl').value = ''
+    document.getElementById('matApoyoTipo').value = 'link'
+    document.getElementById('matApoyoError').classList.add('hidden')
+    showForm()
+    document.getElementById('matApoyoTitulo').focus()
+  })
+
+  document.querySelectorAll('.edit-mat-apoyo').forEach(b => b.addEventListener('click', () => {
+    document.getElementById('matApoyoId').value = b.dataset.id
+    document.getElementById('matApoyoTitulo').value = b.dataset.titulo
+    document.getElementById('matApoyoUrl').value = b.dataset.url
+    document.getElementById('matApoyoTipo').value = b.dataset.tipo
+    document.getElementById('matApoyoError').classList.add('hidden')
+    showForm()
+  }))
+
+  document.querySelectorAll('.del-mat-apoyo').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm(`¿Eliminar "${b.dataset.titulo}"?`)) return
+    await supabase.from('material_apoyo').delete().eq('id', b.dataset.id)
+    renderMaterialApoyoPanel()
+  }))
+
+  document.getElementById('cancelMatApoyo').addEventListener('click', hideForm)
+
+  document.getElementById('matApoyoPickLib').addEventListener('click', () => {
+    openMediaLibrary(url => {
+      document.getElementById('matApoyoUrl').value = url
+    })
+  })
+
+  document.getElementById('saveMatApoyo').addEventListener('click', async () => {
+    const id = document.getElementById('matApoyoId').value
+    const titulo = document.getElementById('matApoyoTitulo').value.trim()
+    const url = document.getElementById('matApoyoUrl').value.trim()
+    const tipo = document.getElementById('matApoyoTipo').value
+    const errorEl = document.getElementById('matApoyoError')
+
+    if (!titulo || !url) {
+      errorEl.textContent = 'Completa el título y la URL.'
+      errorEl.classList.remove('hidden')
+      return
+    }
+
+    const btn = document.getElementById('saveMatApoyo')
+    btn.disabled = true
+    btn.textContent = 'Guardando...'
+    const { error } = id
+      ? await supabase.from('material_apoyo').update({ titulo, url, tipo }).eq('id', id)
+      : await supabase.from('material_apoyo').insert({ titulo, url, tipo })
+    if (error) {
+      errorEl.textContent = 'Error al guardar: ' + error.message
+      errorEl.classList.remove('hidden')
+      btn.disabled = false
+      btn.textContent = 'Guardar'
+      return
+    }
+    renderMaterialApoyoPanel()
   })
 }
 
