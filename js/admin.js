@@ -59,6 +59,8 @@ function switchPanel(panel) {
   if (panel === 'suggestions') renderSuggestionsPanel()
   if (panel === 'results') renderResultsPanel()
   if (panel === 'analytics') renderAnalyticsPanel()
+  if (panel === 'activity') renderActivityLogPanel()
+  if (panel === 'profile') renderProfilePanel()
 }
 
 async function renderLessonsPanel() {
@@ -357,6 +359,7 @@ async function renderLessonsPanel() {
       btn.textContent = 'Guardar lección'
       return
     }
+    logActivity(id ? 'update' : 'create', 'lesson', titulo)
     document.getElementById('lessonFormModal').classList.add('hidden')
     renderLessonsPanel()
   })
@@ -519,7 +522,9 @@ function wireLessonCards() {
   list.querySelectorAll('.del-lesson').forEach(b => b.addEventListener('click', async e => {
     e.stopPropagation()
     if (!confirm(`¿Eliminar la lección "${b.dataset.titulo}"?\nEsta acción no se puede deshacer.`)) return
-    await supabase.from('lecciones').delete().eq('id', b.dataset.id)
+    const { error } = await supabase.from('lecciones').delete().eq('id', b.dataset.id)
+    if (error) { showToast('Error al eliminar: ' + error.message, 'error'); return }
+    logActivity('delete', 'lesson', b.dataset.titulo)
     renderLessonsPanel()
   }))
 }
@@ -935,6 +940,7 @@ async function handleFileMoveToFolder(oldPath, targetFolderPath) {
     const { oldUrl, newUrl } = await moveFile(oldPath, targetFolderPath)
     await cascadeUpdateUrl(oldUrl, newUrl)
     showToast(`Archivo movido a "${targetFolderPath.split('/').pop()}"`)
+    logActivity('move', 'image', displayName(oldPath.split('/').pop()), { to: targetFolderPath })
     renderMaterialPanel()
   } catch (e) {
     showToast('Error al mover: ' + e.message, 'error')
@@ -1087,6 +1093,7 @@ async function renderMaterialPanel() {
       await createFolder(folderPath)
       document.getElementById('newFolderForm').classList.add('hidden')
       showToast(`Carpeta "${name}" creada`)
+      logActivity('create', 'folder', name)
       await loadFiles()
     } catch (e) {
       showToast('Error al crear carpeta: ' + e.message, 'error')
@@ -1110,6 +1117,7 @@ async function renderMaterialPanel() {
     try {
       await uploadFile(file, pct => { progressBar.style.width = pct + '%' }, currentFolderPath)
       showToast('Archivo subido correctamente')
+      logActivity('create', 'image', displayName(file.name), { folder: currentFolderPath || 'raíz' })
       await loadFiles()
     } catch (e) {
       showToast(e.message || 'Error al subir archivo', 'error')
@@ -1273,6 +1281,7 @@ function renderMaterialGrid(files, folders = []) {
       try {
         await deleteFile(btn.dataset.path)
         showToast('Archivo eliminado')
+        logActivity('delete', 'image', displayN)
         renderMaterialPanel()
       } catch {
         showToast('Error al eliminar el archivo', 'error')
@@ -1411,6 +1420,7 @@ async function renderMaterialApoyoPanel() {
     if (!confirm(`¿Eliminar "${b.dataset.titulo}"?`)) return
     const { error } = await supabase.from('material_apoyo').delete().eq('id', b.dataset.id)
     if (error) { showToast('Error al eliminar: ' + error.message, 'error'); return }
+    logActivity('delete', 'material_apoyo', b.dataset.titulo)
     renderMaterialApoyoPanel()
   }))
 
@@ -1448,6 +1458,7 @@ async function renderMaterialApoyoPanel() {
       btn.textContent = 'Guardar'
       return
     }
+    logActivity(id ? 'update' : 'create', 'material_apoyo', titulo)
     renderMaterialApoyoPanel()
   })
 }
@@ -1481,7 +1492,7 @@ async function renderSuggestionsPanel() {
             <button data-id="${s.id}" data-texto="${escapeHtml(s.texto)}" data-orden="${escapeHtml(String(s.orden))}" data-activo="${escapeHtml(String(s.activo))}" class="edit-sug p-1.5 rounded-lg hover:bg-slate-100 text-slate-500" aria-label="Editar sugerencia ${escapeHtml(s.texto)}">
               <i data-lucide="edit-2" class="w-4 h-4"></i>
             </button>
-            <button data-id="${s.id}" class="del-sug p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500" aria-label="Eliminar sugerencia ${escapeHtml(s.texto)}">
+            <button data-id="${s.id}" data-texto="${escapeHtml(s.texto)}" class="del-sug p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500" aria-label="Eliminar sugerencia ${escapeHtml(s.texto)}">
               <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           </div>
@@ -1527,7 +1538,9 @@ async function renderSuggestionsPanel() {
 
   document.querySelectorAll('.del-sug').forEach(b => b.addEventListener('click', async () => {
     if (!confirm('¿Eliminar esta sugerencia?')) return
-    await supabase.from('bot_sugerencias').delete().eq('id', b.dataset.id)
+    const { error } = await supabase.from('bot_sugerencias').delete().eq('id', b.dataset.id)
+    if (error) { showToast('Error al eliminar: ' + error.message, 'error'); return }
+    logActivity('delete', 'bot_suggestion', b.dataset.texto)
     renderSuggestionsPanel()
   }))
 
@@ -1579,9 +1592,249 @@ async function renderSuggestionsPanel() {
       saveBtn.textContent = 'Guardar'
       return
     }
+    logActivity(id ? 'update' : 'create', 'bot_suggestion', texto)
     document.getElementById('sugForm').classList.add('hidden')
     renderSuggestionsPanel()
   })
+}
+
+function actionBadge(action) {
+  const map = {
+    create: { cls: 'bg-green-100 text-green-800', label: 'Creó' },
+    update: { cls: 'bg-blue-100 text-blue-800',   label: 'Modificó' },
+    delete: { cls: 'bg-red-100 text-red-700',     label: 'Eliminó' },
+    move:   { cls: 'bg-amber-100 text-amber-800', label: 'Movió' },
+  }
+  const { cls = 'bg-slate-100 text-slate-500', label = action || '—' } = map[action] || {}
+  return `<span class="inline-block text-[10px] font-black px-2 py-0.5 rounded-full ${cls}">${escapeHtml(label)}</span>`
+}
+
+async function renderActivityLogPanel() {
+  const el = document.getElementById('panel-activity')
+  el.innerHTML = `<p class="text-slate-400 text-sm">Cargando...</p>`
+
+  const { data, error } = await supabase
+    .from('activity_log')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(200)
+
+  if (error) {
+    el.innerHTML = `<p class="text-red-500 text-sm">Error al cargar: ${escapeHtml(error.message)}</p>`
+    return
+  }
+
+  const rows = data || []
+  const types = [...new Set(rows.map(r => r.entity_type).filter(Boolean))].sort()
+
+  el.innerHTML = `
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h2 class="text-lg font-black">Registro de actividad</h2>
+        <p class="text-xs text-slate-400 mt-0.5">Últimas 200 acciones</p>
+      </div>
+      <select id="activityFilter" class="px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] bg-white">
+        <option value="">Todos los tipos</option>
+        ${types.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm" id="activityTable">
+          <thead>
+            <tr class="border-b border-slate-100 text-xs text-slate-400 font-bold uppercase tracking-wide">
+              <th class="text-left px-4 py-3">Fecha</th>
+              <th class="text-left px-4 py-3">Usuario</th>
+              <th class="text-left px-4 py-3">Acción</th>
+              <th class="text-left px-4 py-3">Tipo</th>
+              <th class="text-left px-4 py-3">Nombre</th>
+              <th class="text-left px-4 py-3">Detalles</th>
+            </tr>
+          </thead>
+          <tbody id="activityBody">
+            ${renderActivityRows(rows)}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `
+
+  document.getElementById('activityFilter').addEventListener('change', e => {
+    const filter = e.target.value
+    const filtered = filter ? rows.filter(r => r.entity_type === filter) : rows
+    document.getElementById('activityBody').innerHTML = renderActivityRows(filtered)
+  })
+}
+
+async function renderProfilePanel() {
+  const el = document.getElementById('panel-profile')
+  el.innerHTML = `<p class="text-slate-400 text-sm">Cargando...</p>`
+
+  const { data: { user }, error } = await supabase.auth.getUser()
+  if (error || !user) {
+    el.innerHTML = `<p class="text-red-500 text-sm">No se pudo cargar el perfil.</p>`
+    return
+  }
+
+  const name = user.user_metadata?.full_name || ''
+  const email = user.email || ''
+
+  el.innerHTML = `
+    <div class="max-w-lg">
+      <h2 class="text-lg font-black mb-6">Mi perfil</h2>
+
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-4">
+        <h3 class="text-sm font-black text-slate-700 mb-4">Información personal</h3>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-500 mb-1" for="profileName">Nombre</label>
+            <input id="profileName" type="text" value="${escapeHtml(name)}" autocomplete="name"
+              class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-500 mb-1" for="profileEmail">Correo electrónico</label>
+            <input id="profileEmail" type="email" value="${escapeHtml(email)}" autocomplete="email"
+              class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+            <p class="text-xs text-amber-600 mt-1 flex items-center gap-1">
+              <i data-lucide="triangle-alert" class="w-3 h-3 shrink-0"></i>
+              Cambiar el correo enviará un enlace de confirmación al nuevo correo.
+            </p>
+          </div>
+          <p id="profileInfoError" class="hidden text-red-500 text-xs"></p>
+          <button id="saveProfileInfo" class="w-full py-2.5 rounded-xl bg-[#E92129] text-white text-sm font-bold mt-1">
+            Guardar información
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 p-5">
+        <h3 class="text-sm font-black text-slate-700 mb-4">Cambiar contraseña</h3>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-500 mb-1" for="profileNewPassword">Nueva contraseña</label>
+            <input id="profileNewPassword" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"
+              class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-500 mb-1" for="profileConfirmPassword">Confirmar contraseña</label>
+            <input id="profileConfirmPassword" type="password" placeholder="Repite la contraseña" autocomplete="new-password"
+              class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+          </div>
+          <p id="profilePwError" class="hidden text-red-500 text-xs"></p>
+          <button id="saveProfilePassword" class="w-full py-2.5 rounded-xl bg-[#E92129] text-white text-sm font-bold mt-1">
+            Cambiar contraseña
+          </button>
+        </div>
+      </div>
+    </div>
+  `
+  lucide.createIcons()
+
+  document.getElementById('saveProfileInfo').addEventListener('click', async () => {
+    const newName = document.getElementById('profileName').value.trim()
+    const newEmail = document.getElementById('profileEmail').value.trim()
+    const btn = document.getElementById('saveProfileInfo')
+    const errorEl = document.getElementById('profileInfoError')
+    errorEl.classList.add('hidden')
+
+    if (!newEmail) {
+      errorEl.textContent = 'El correo no puede estar vacío.'
+      errorEl.classList.remove('hidden')
+      return
+    }
+    if (!document.getElementById('profileEmail').validity.valid) {
+      errorEl.textContent = 'Ingresa un correo electrónico válido.'
+      errorEl.classList.remove('hidden')
+      return
+    }
+
+    btn.disabled = true
+    btn.textContent = 'Guardando...'
+
+    const updates = {}
+    if (newName !== name) updates.data = { full_name: newName }
+    if (newEmail !== email) updates.email = newEmail
+
+    if (!Object.keys(updates).length) {
+      showToast('No hay cambios que guardar.')
+      btn.disabled = false
+      btn.textContent = 'Guardar información'
+      return
+    }
+
+    const { error: err } = await supabase.auth.updateUser(updates)
+    if (err) {
+      errorEl.textContent = err.message
+      errorEl.classList.remove('hidden')
+    } else {
+      showToast(newEmail !== email
+        ? 'Información guardada. Revisa tu nuevo correo para confirmar el cambio.'
+        : 'Información guardada correctamente.')
+    }
+    btn.disabled = false
+    btn.textContent = 'Guardar información'
+  })
+
+  document.getElementById('saveProfilePassword').addEventListener('click', async () => {
+    const pw = document.getElementById('profileNewPassword').value
+    const pw2 = document.getElementById('profileConfirmPassword').value
+    const errorEl = document.getElementById('profilePwError')
+    errorEl.classList.add('hidden')
+
+    if (!pw) {
+      errorEl.textContent = 'Ingresa una nueva contraseña.'
+      errorEl.classList.remove('hidden')
+      return
+    }
+    if (pw.length < 6) {
+      errorEl.textContent = 'La contraseña debe tener al menos 6 caracteres.'
+      errorEl.classList.remove('hidden')
+      return
+    }
+    if (pw !== pw2) {
+      errorEl.textContent = 'Las contraseñas no coinciden.'
+      errorEl.classList.remove('hidden')
+      return
+    }
+
+    const btn = document.getElementById('saveProfilePassword')
+    btn.disabled = true
+    btn.textContent = 'Guardando...'
+
+    const { error: err } = await supabase.auth.updateUser({ password: pw })
+    if (err) {
+      errorEl.textContent = err.message
+      errorEl.classList.remove('hidden')
+    } else {
+      showToast('Contraseña actualizada correctamente.')
+      document.getElementById('profileNewPassword').value = ''
+      document.getElementById('profileConfirmPassword').value = ''
+    }
+    btn.disabled = false
+    btn.textContent = 'Cambiar contraseña'
+  })
+}
+
+function renderActivityRows(rows) {
+  if (!rows.length) return `<tr><td colspan="6" class="text-center text-slate-400 py-8 text-sm">Sin resultados.</td></tr>`
+  return rows.map(r => {
+    const date = new Date(r.created_at)
+    const dateStr = date.toLocaleDateString('es-HN', { day: '2-digit', month: '2-digit', year: '2-digit' })
+    const timeStr = date.toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit' })
+    const details = r.details && Object.keys(r.details).length
+      ? Object.entries(r.details).map(([k, v]) => `${escapeHtml(k)}: ${escapeHtml(String(v))}`).join(', ')
+      : '—'
+    return `
+      <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+        <td class="px-4 py-3 text-slate-500 whitespace-nowrap text-xs">${escapeHtml(dateStr)} ${escapeHtml(timeStr)}</td>
+        <td class="px-4 py-3 text-slate-600 text-xs max-w-[140px] truncate" title="${escapeHtml(r.user_email || '')}">${escapeHtml(r.user_email || '—')}</td>
+        <td class="px-4 py-3">${actionBadge(r.action)}</td>
+        <td class="px-4 py-3 text-slate-500 text-xs">${escapeHtml(r.entity_type || '—')}</td>
+        <td class="px-4 py-3 text-slate-700 text-xs max-w-[200px] truncate" title="${escapeHtml(r.entity_name || '')}">${escapeHtml(r.entity_name || '—')}</td>
+        <td class="px-4 py-3 text-slate-400 text-xs max-w-[200px] truncate" title="${escapeHtml(details)}">${escapeHtml(details)}</td>
+      </tr>
+    `
+  }).join('')
 }
 
 function setupUploadZone(zone) {
@@ -1811,6 +2064,7 @@ function initRenameModal() {
       await renameFile(_renameCurrentPath, newName)
       modal.classList.add('hidden')
       showToast('Archivo renombrado correctamente')
+      logActivity('update', 'image', newName, { from: displayName(_renameCurrentPath.split('/').pop()) })
       if (_renameReloadCallback) await _renameReloadCallback()
     } catch (e) {
       showToast('Error al renombrar: ' + e.message, 'error')
