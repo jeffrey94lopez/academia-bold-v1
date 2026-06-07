@@ -1276,7 +1276,7 @@ async function renderMaterialApoyoPanel() {
       ${(data || []).map(m => `
         <div class="bg-white rounded-xl border border-slate-100 p-3 flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-            <i data-lucide="${iconMap[m.tipo] || 'file'}" class="w-5 h-5 ${colorMap[m.tipo] || 'text-slate-500'}"></i>
+            <i data-lucide="${escapeHtml(iconMap[m.tipo] || 'file')}" class="w-5 h-5 ${escapeHtml(colorMap[m.tipo] || 'text-slate-500')}"></i>
           </div>
           <div class="flex-1 min-w-0">
             <p class="font-bold text-sm truncate">${escapeHtml(m.titulo)}</p>
@@ -1345,7 +1345,8 @@ async function renderMaterialApoyoPanel() {
 
   document.querySelectorAll('.del-mat-apoyo').forEach(b => b.addEventListener('click', async () => {
     if (!confirm(`¿Eliminar "${b.dataset.titulo}"?`)) return
-    await supabase.from('material_apoyo').delete().eq('id', b.dataset.id)
+    const { error } = await supabase.from('material_apoyo').delete().eq('id', b.dataset.id)
+    if (error) { showToast('Error al eliminar: ' + error.message, 'error'); return }
     renderMaterialApoyoPanel()
   }))
 
@@ -1650,7 +1651,7 @@ async function openMediaLibrary(onSelect) {
 
   search.oninput = () => {
     const q = search.value.toLowerCase()
-    renderMediaGrid(files.filter(f => f.name.toLowerCase().includes(q)))
+    renderMediaGrid(files.filter(f => f.name.split('/').pop().toLowerCase().includes(q)))
     lucide.createIcons()
   }
 }
@@ -1674,7 +1675,7 @@ function renderMediaGrid(files) {
     <div class="media-item cursor-pointer border-2 border-transparent rounded-xl p-2 text-center hover:border-[#E92129] transition-colors"
          data-url="${escapeHtml(f.url)}" data-name="${escapeHtml(f.name)}">
       ${thumb}
-      <p class="text-xs text-slate-700 truncate" title="${escapeHtml(displayName(f.name))}">${escapeHtml(displayName(f.name))}</p>
+      <p class="text-xs text-slate-700 truncate" title="${escapeHtml(displayName(f.name.split('/').pop()))}">${escapeHtml(displayName(f.name.split('/').pop()))}</p>
       <p class="text-xs text-slate-400">${formatBytes(f.size)}</p>
     </div>`
   }).join('')
