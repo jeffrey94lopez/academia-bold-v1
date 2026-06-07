@@ -5,6 +5,7 @@ import { renderBlocks } from './block-renderer.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml } from './utils.js'
 import { renderResultsPanel, renderAnalyticsPanel } from './admin-analytics.js'
+import { logActivity } from './activity.js'
 
 let currentBlocks = []
 let sortableInstance = null
