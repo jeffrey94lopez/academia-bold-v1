@@ -1,6 +1,6 @@
 import { supabase } from './supabase.js'
 import { requireAuth, logout } from './auth.js'
-import { uploadFile, listFiles, deleteFile } from './upload.js'
+import { uploadFile, listFiles, deleteFile, renameFile } from './upload.js'
 import { renderBlocks } from './block-renderer.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml } from './utils.js'
@@ -12,6 +12,9 @@ let currentQuestions = []
 let questionsSortable = null
 let quillInstances = {}
 let currentCategories = []
+let materialView = localStorage.getItem('admin_material_view') || 'grid'
+let _materialCurrentFiles = []
+let lessonPreviewVisible = localStorage.getItem('admin_lesson_preview') !== 'false'
 
 async function init() {
   const ok = await requireAuth()
@@ -24,6 +27,8 @@ async function init() {
   lucide.createIcons()
   initMediaLibraryModal()
   initPasteHandler()
+  initFilePreviewModal()
+  initRenameModal()
 
   document.querySelectorAll('.admin-nav').forEach(btn => {
     btn.addEventListener('click', () => switchPanel(btn.dataset.panel))
@@ -123,9 +128,15 @@ async function renderLessonsPanel() {
       <div class="bg-white rounded-2xl w-full max-w-5xl flex flex-col" style="max-height:90vh">
         <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
           <h3 id="lessonFormTitle" class="font-black text-base">Nueva lección</h3>
-          <button id="cancelLessonForm" class="text-slate-400 hover:text-slate-700 text-lg leading-none px-1">&#x2715;</button>
+          <div class="flex items-center gap-2">
+            <button id="togglePreview" class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors" aria-label="Alternar vista previa">
+              <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+              <span class="hidden sm:inline">Vista previa</span>
+            </button>
+            <button id="cancelLessonForm" class="text-slate-400 hover:text-slate-700 text-lg leading-none px-1">&#x2715;</button>
+          </div>
         </div>
-        <div class="flex-1 overflow-hidden grid" style="grid-template-columns:1fr 1fr;min-height:0">
+        <div id="lessonFormGrid" class="flex-1 overflow-hidden grid" style="grid-template-columns:1fr 1fr;min-height:0">
           <div class="overflow-y-auto p-5 border-r border-slate-100">
             <input type="hidden" id="lessonId">
             <div class="space-y-2 mb-4">
@@ -173,7 +184,7 @@ async function renderLessonsPanel() {
               <button id="saveLessonBtn" class="flex-1 py-2.5 rounded-xl bg-[#E92129] text-white text-sm font-bold">Guardar lección</button>
             </div>
           </div>
-          <div class="overflow-y-auto p-5 bg-slate-50">
+          <div id="lessonPreviewPanel" class="overflow-y-auto p-5 bg-slate-50">
             <p class="text-[10px] font-black uppercase text-slate-400 tracking-wide mb-3">&#x1F441;&#xFE0F; Vista previa del estudiante</p>
             <div class="bg-white rounded-xl p-4 shadow-sm">
               <h3 id="previewTitle" class="font-black text-sm mb-1 text-slate-900"></h3>
@@ -255,6 +266,12 @@ async function renderLessonsPanel() {
   })
   document.getElementById('lessonDescripcion').addEventListener('input', e => {
     document.getElementById('previewDesc').textContent = e.target.value
+  })
+
+  document.getElementById('togglePreview').addEventListener('click', () => {
+    lessonPreviewVisible = !lessonPreviewVisible
+    localStorage.setItem('admin_lesson_preview', String(lessonPreviewVisible))
+    applyPreviewState()
   })
 
   document.querySelectorAll('.add-block').forEach(btn => {
@@ -451,6 +468,28 @@ function wireLessonCards() {
   }))
 }
 
+function applyPreviewState() {
+  const formGrid = document.getElementById('lessonFormGrid')
+  const previewPanel = document.getElementById('lessonPreviewPanel')
+  const btn = document.getElementById('togglePreview')
+  if (!formGrid || !previewPanel || !btn) return
+  const icon = btn.querySelector('i[data-lucide]')
+  if (lessonPreviewVisible) {
+    formGrid.style.gridTemplateColumns = '1fr 1fr'
+    previewPanel.classList.remove('hidden')
+    if (icon) icon.setAttribute('data-lucide', 'eye')
+    btn.classList.remove('text-slate-300')
+    btn.classList.add('text-slate-400')
+  } else {
+    formGrid.style.gridTemplateColumns = '1fr'
+    previewPanel.classList.add('hidden')
+    if (icon) icon.setAttribute('data-lucide', 'eye-off')
+    btn.classList.remove('text-slate-400')
+    btn.classList.add('text-slate-300')
+  }
+  lucide.createIcons()
+}
+
 function openLessonForm(lesson = null) {
   document.getElementById('lessonFormTitle').textContent = lesson ? 'Editar lección' : 'Nueva lección'
   document.getElementById('lessonId').value = lesson?.id || ''
@@ -487,6 +526,7 @@ function openLessonForm(lesson = null) {
   renderBlockList()
   renderQuestionList()
   updatePreview()
+  applyPreviewState()
 }
 
 function markdownToHtml(text) {
@@ -504,6 +544,7 @@ function renderBlockList() {
   quillInstances = {}
 
   list.innerHTML = currentBlocks.map((b, i) => blockItemHtml(b, i)).join('')
+  lucide.createIcons()
 
   list.querySelectorAll('input[data-field], textarea[data-field]').forEach(input => {
     input.addEventListener('input', () => {
@@ -544,6 +585,28 @@ function renderBlockList() {
     btn.addEventListener('click', () => {
       const idx = parseInt(btn.closest('[data-idx]').dataset.idx)
       currentBlocks.splice(idx, 1)
+      renderBlockList()
+      updatePreview()
+    })
+  })
+
+  list.querySelectorAll('.move-up').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.closest('[data-idx]').dataset.idx)
+      if (idx === 0) return
+      const moved = currentBlocks.splice(idx, 1)[0]
+      currentBlocks.splice(idx - 1, 0, moved)
+      renderBlockList()
+      updatePreview()
+    })
+  })
+
+  list.querySelectorAll('.move-down').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.closest('[data-idx]').dataset.idx)
+      if (idx === currentBlocks.length - 1) return
+      const moved = currentBlocks.splice(idx, 1)[0]
+      currentBlocks.splice(idx + 1, 0, moved)
       renderBlockList()
       updatePreview()
     })
@@ -623,8 +686,18 @@ function blockItemHtml(block, i) {
   }
 
   const cardBg = isBotBlock ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'
+  const isFirst = i === 0
+  const isLast = i === currentBlocks.length - 1
   return `<div data-idx="${i}" class="${cardBg} border rounded-xl p-2.5 flex items-start gap-2">
-    <div class="drag-handle text-slate-300 text-lg cursor-grab mt-0.5 select-none leading-none">⠿</div>
+    <div class="flex flex-col items-center gap-0.5 shrink-0 mt-0.5">
+      <div class="drag-handle text-slate-300 text-lg cursor-grab select-none leading-none">⠿</div>
+      <button class="move-up text-slate-300 hover:text-slate-600 transition-colors p-0.5 rounded ${isFirst ? 'opacity-30 cursor-not-allowed' : ''}" ${isFirst ? 'disabled' : ''} aria-label="Mover bloque arriba">
+        <i data-lucide="chevron-up" class="w-3.5 h-3.5"></i>
+      </button>
+      <button class="move-down text-slate-300 hover:text-slate-600 transition-colors p-0.5 rounded ${isLast ? 'opacity-30 cursor-not-allowed' : ''}" ${isLast ? 'disabled' : ''} aria-label="Mover bloque abajo">
+        <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+      </button>
+    </div>
     <div class="flex-1 min-w-0">
       <div class="text-[9px] font-black uppercase mb-1.5" style="color:${color}">${label}</div>
       ${fields}
@@ -810,6 +883,14 @@ async function renderMaterialPanel() {
         <input id="materialSearch" type="text" placeholder="🔍 Buscar archivos..."
           class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-[#E92129]">
         <span id="materialFileCount" class="text-xs text-slate-400 shrink-0"></span>
+        <div class="flex gap-0.5 border border-slate-200 rounded-lg p-0.5 shrink-0">
+          <button id="viewGrid" class="p-1.5 rounded-md transition-colors ${materialView === 'grid' ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:text-slate-600'}" aria-label="Vista cuadrícula">
+            <i data-lucide="grid-3x3" class="w-4 h-4"></i>
+          </button>
+          <button id="viewList" class="p-1.5 rounded-md transition-colors ${materialView === 'list' ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:text-slate-600'}" aria-label="Vista lista">
+            <i data-lucide="list" class="w-4 h-4"></i>
+          </button>
+        </div>
       </div>
 
       <div id="materialGrid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
@@ -827,8 +908,8 @@ async function renderMaterialPanel() {
     grid.innerHTML = '<p class="col-span-5 text-center text-slate-400 text-sm py-12">Cargando...</p>'
     try {
       files = await listFiles()
+      _materialCurrentFiles = files
       renderMaterialGrid(files)
-      lucide.createIcons()
     } catch {
       grid.innerHTML = `<p class="col-span-5 text-center text-red-400 text-sm py-12">Error al cargar. <button onclick="renderMaterialPanel()" class="underline">Reintentar</button></p>`
     }
@@ -838,8 +919,25 @@ async function renderMaterialPanel() {
 
   document.getElementById('materialSearch').addEventListener('input', e => {
     const q = e.target.value.toLowerCase()
-    renderMaterialGrid(files.filter(f => f.name.toLowerCase().includes(q)))
-    lucide.createIcons()
+    const filtered = files.filter(f => f.name.toLowerCase().includes(q))
+    _materialCurrentFiles = filtered
+    renderMaterialGrid(filtered)
+  })
+
+  document.getElementById('viewGrid').addEventListener('click', () => {
+    materialView = 'grid'
+    localStorage.setItem('admin_material_view', 'grid')
+    document.getElementById('viewGrid').className = 'p-1.5 rounded-md transition-colors bg-slate-100 text-slate-700'
+    document.getElementById('viewList').className = 'p-1.5 rounded-md transition-colors text-slate-400 hover:text-slate-600'
+    renderMaterialGrid(_materialCurrentFiles)
+  })
+
+  document.getElementById('viewList').addEventListener('click', () => {
+    materialView = 'list'
+    localStorage.setItem('admin_material_view', 'list')
+    document.getElementById('viewGrid').className = 'p-1.5 rounded-md transition-colors text-slate-400 hover:text-slate-600'
+    document.getElementById('viewList').className = 'p-1.5 rounded-md transition-colors bg-slate-100 text-slate-700'
+    renderMaterialGrid(_materialCurrentFiles)
   })
 
   const dropzone = document.getElementById('materialDropzone')
@@ -889,31 +987,96 @@ function renderMaterialGrid(files) {
   if (count) count.textContent = `${files.length} archivos`
 
   if (!files.length) {
-    grid.innerHTML = '<p class="col-span-5 text-center text-slate-400 text-sm py-12">No hay archivos subidos aún</p>'
+    grid.className = ''
+    grid.innerHTML = '<p class="text-center text-slate-400 text-sm py-12">No hay archivos subidos aún</p>'
     return
   }
 
-  grid.innerHTML = files.map(f => `
-    <div class="group relative bg-white border border-slate-100 rounded-xl p-3 text-center shadow-sm hover:shadow-md transition-shadow">
-      ${f.type.startsWith('image/')
-        ? `<img src="${escapeHtml(f.url)}" alt="" class="w-full h-16 object-cover rounded-lg mb-2" loading="lazy">`
-        : `<div class="flex justify-center mb-2">${fileIcon(f.type)}</div>`}
-      <p class="text-xs text-slate-700 truncate font-medium" title="${escapeHtml(displayName(f.name))}">${escapeHtml(displayName(f.name))}</p>
-      <p class="text-xs text-slate-400">${formatBytes(f.size)}</p>
-      <div class="absolute inset-0 bg-black/60 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-        <button class="copy-url bg-blue-500 text-white rounded-lg px-2 py-1 text-xs font-bold"
-          data-url="${escapeHtml(f.url)}" data-name="${escapeHtml(f.name)}">📋 URL</button>
-        <button class="delete-file bg-red-500 text-white rounded-lg px-2 py-1 text-xs font-bold"
-          data-path="${escapeHtml(f.name)}">🗑️</button>
+  if (materialView === 'list') {
+    grid.className = 'space-y-2'
+    grid.innerHTML = files.map(f => `
+      <div class="flex items-center gap-3 bg-white border border-slate-100 rounded-xl px-3 py-2.5 hover:border-slate-200 transition-colors group">
+        <div class="w-10 h-10 shrink-0 flex items-center justify-center rounded-lg overflow-hidden bg-slate-50">
+          ${f.type.startsWith('image/')
+            ? `<img src="${escapeHtml(f.url)}" alt="" class="w-10 h-10 object-cover" loading="lazy">`
+            : fileIcon(f.type)}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-slate-700 truncate" title="${escapeHtml(displayName(f.name))}">${escapeHtml(displayName(f.name))}</p>
+          <p class="text-xs text-slate-400">${formatBytes(f.size)}</p>
+        </div>
+        <div class="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button class="preview-file p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-500"
+            data-url="${escapeHtml(f.url)}" data-type="${escapeHtml(f.type)}" data-name="${escapeHtml(f.name)}" aria-label="Ver ${escapeHtml(displayName(f.name))}">
+            <i data-lucide="eye" class="w-4 h-4"></i>
+          </button>
+          <button class="rename-file p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500"
+            data-path="${escapeHtml(f.name)}" data-display="${escapeHtml(displayName(f.name))}" aria-label="Renombrar ${escapeHtml(displayName(f.name))}">
+            <i data-lucide="pencil" class="w-4 h-4"></i>
+          </button>
+          <button class="copy-url p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+            data-url="${escapeHtml(f.url)}" data-name="${escapeHtml(f.name)}" aria-label="Copiar URL">
+            <i data-lucide="link" class="w-4 h-4"></i>
+          </button>
+          <button class="delete-file p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500"
+            data-path="${escapeHtml(f.name)}" aria-label="Eliminar ${escapeHtml(displayName(f.name))}">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
       </div>
-    </div>
-  `).join('')
+    `).join('')
+  } else {
+    grid.className = 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3'
+    grid.innerHTML = files.map(f => `
+      <div class="group relative bg-white border border-slate-100 rounded-xl p-3 text-center shadow-sm hover:shadow-md transition-shadow">
+        ${f.type.startsWith('image/')
+          ? `<img src="${escapeHtml(f.url)}" alt="" class="w-full h-16 object-cover rounded-lg mb-2" loading="lazy">`
+          : `<div class="flex justify-center mb-2">${fileIcon(f.type)}</div>`}
+        <p class="text-xs text-slate-700 truncate font-medium" title="${escapeHtml(displayName(f.name))}">${escapeHtml(displayName(f.name))}</p>
+        <p class="text-xs text-slate-400">${formatBytes(f.size)}</p>
+        <div class="absolute inset-0 bg-black/60 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
+          <button class="preview-file bg-blue-500 text-white rounded-lg p-1.5"
+            data-url="${escapeHtml(f.url)}" data-type="${escapeHtml(f.type)}" data-name="${escapeHtml(f.name)}" aria-label="Ver ${escapeHtml(displayName(f.name))}">
+            <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+          </button>
+          <button class="rename-file bg-amber-500 text-white rounded-lg p-1.5"
+            data-path="${escapeHtml(f.name)}" data-display="${escapeHtml(displayName(f.name))}" aria-label="Renombrar ${escapeHtml(displayName(f.name))}">
+            <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+          </button>
+          <button class="copy-url bg-slate-600 text-white rounded-lg p-1.5"
+            data-url="${escapeHtml(f.url)}" data-name="${escapeHtml(f.name)}" aria-label="Copiar URL">
+            <i data-lucide="link" class="w-3.5 h-3.5"></i>
+          </button>
+          <button class="delete-file bg-red-500 text-white rounded-lg p-1.5"
+            data-path="${escapeHtml(f.name)}" aria-label="Eliminar ${escapeHtml(displayName(f.name))}">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+    `).join('')
+  }
+
+  lucide.createIcons()
+
+  grid.querySelectorAll('.preview-file').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation()
+      openFilePreview(btn.dataset.url, btn.dataset.type, btn.dataset.name)
+    })
+  })
+
+  grid.querySelectorAll('.rename-file').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation()
+      openRenameModal(btn.dataset.path, btn.dataset.display)
+    })
+  })
 
   grid.querySelectorAll('.copy-url').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation()
       navigator.clipboard.writeText(btn.dataset.url)
-        .then(() => showToast(`URL de "${btn.dataset.name}" copiada`))
+        .then(() => showToast(`URL de "${displayName(btn.dataset.name)}" copiada`))
         .catch(() => showToast('No se pudo copiar al portapapeles', 'error'))
     })
   })
@@ -921,13 +1084,11 @@ function renderMaterialGrid(files) {
   grid.querySelectorAll('.delete-file').forEach(btn => {
     btn.addEventListener('click', async e => {
       e.stopPropagation()
-      if (!confirm(`¿Eliminar "${btn.dataset.path}"?`)) return
+      if (!confirm(`¿Eliminar "${displayName(btn.dataset.path)}"?\nEsta acción no se puede deshacer.`)) return
       try {
         await deleteFile(btn.dataset.path)
         showToast('Archivo eliminado')
-        const updated = await listFiles()
-        renderMaterialGrid(updated)
-        lucide.createIcons()
+        renderMaterialPanel()
       } catch {
         showToast('Error al eliminar el archivo', 'error')
       }
@@ -1152,7 +1313,7 @@ function formatBytes(bytes) {
 }
 
 function displayName(name) {
-  return name.replace(/-\d{13}(\.[^.]+)?$/, '$1')
+  return name.replace(/-\d{13}(\.[^.]+)?$/, (_, ext) => ext || '')
 }
 
 function showToast(msg, type = 'success') {
@@ -1241,6 +1402,149 @@ function renderMediaGrid(files) {
       btn.textContent = `✓ Usar ${short}`
     })
   })
+}
+
+let _renameCurrentPath = null
+let _renameReloadCallback = null
+
+function initRenameModal() {
+  if (document.getElementById('renameModal')) return
+  const modal = document.createElement('div')
+  modal.id = 'renameModal'
+  modal.className = 'hidden fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4'
+  modal.innerHTML = `
+    <div class="bg-white rounded-2xl p-5 w-full max-w-sm shadow-xl">
+      <h3 class="font-black text-base mb-3">Renombrar archivo</h3>
+      <input id="renameInput" type="text" autocomplete="off" aria-label="Nuevo nombre del archivo"
+        class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] mb-2">
+      <p class="text-xs text-amber-600 mb-4 flex items-start gap-1.5">
+        <i data-lucide="triangle-alert" class="w-3.5 h-3.5 shrink-0 mt-0.5"></i>
+        Las lecciones que referencien este archivo deberán actualizarse manualmente.
+      </p>
+      <div class="flex gap-2">
+        <button id="cancelRename" class="flex-1 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50">Cancelar</button>
+        <button id="confirmRename" class="flex-1 py-2 rounded-xl bg-[#E92129] text-white text-sm font-bold">Renombrar</button>
+      </div>
+    </div>
+  `
+  document.body.appendChild(modal)
+  lucide.createIcons()
+
+  document.getElementById('cancelRename').addEventListener('click', () => {
+    modal.classList.add('hidden')
+    _renameCurrentPath = null
+    _renameReloadCallback = null
+  })
+
+  modal.addEventListener('click', e => {
+    if (e.target === modal) {
+      modal.classList.add('hidden')
+      _renameCurrentPath = null
+      _renameReloadCallback = null
+    }
+  })
+
+  document.getElementById('confirmRename').addEventListener('click', async () => {
+    const newName = document.getElementById('renameInput').value.trim()
+    if (!newName || !_renameCurrentPath) return
+    const btn = document.getElementById('confirmRename')
+    btn.disabled = true
+    btn.textContent = 'Renombrando...'
+    try {
+      await renameFile(_renameCurrentPath, newName)
+      modal.classList.add('hidden')
+      showToast('Archivo renombrado correctamente')
+      if (_renameReloadCallback) await _renameReloadCallback()
+    } catch (e) {
+      showToast('Error al renombrar: ' + e.message, 'error')
+      btn.disabled = false
+      btn.textContent = 'Renombrar'
+    }
+  })
+
+  document.getElementById('renameInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('confirmRename').click()
+    if (e.key === 'Escape') modal.classList.add('hidden')
+  })
+}
+
+function openRenameModal(path, currentDisplayName) {
+  const input = document.getElementById('renameInput')
+  if (!input) return
+  _renameCurrentPath = path
+  _renameReloadCallback = async () => {
+    const updated = await listFiles()
+    renderMaterialGrid(updated)
+    _materialCurrentFiles = updated
+  }
+  const confirmBtn = document.getElementById('confirmRename')
+  if (!confirmBtn) return
+  input.value = currentDisplayName
+  confirmBtn.disabled = false
+  confirmBtn.textContent = 'Renombrar'
+  document.getElementById('renameModal').classList.remove('hidden')
+  setTimeout(() => input.select(), 50)
+}
+
+function initFilePreviewModal() {
+  if (document.getElementById('filePreviewModal')) return
+  const modal = document.createElement('div')
+  modal.id = 'filePreviewModal'
+  modal.className = 'hidden fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-4'
+  modal.innerHTML = `
+    <button id="closeFilePreview" class="absolute top-4 right-4 text-white/70 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors" aria-label="Cerrar vista previa">
+      <i data-lucide="x" class="w-6 h-6"></i>
+    </button>
+    <div id="filePreviewContent" class="max-w-4xl w-full max-h-[85vh] flex items-center justify-center"></div>
+    <p id="filePreviewName" class="absolute bottom-4 left-0 right-0 text-center text-white/60 text-sm px-4 truncate"></p>
+  `
+  document.body.appendChild(modal)
+  lucide.createIcons()
+
+  document.getElementById('closeFilePreview').addEventListener('click', () => {
+    modal.classList.add('hidden')
+    document.getElementById('filePreviewContent').innerHTML = ''
+  })
+
+  modal.addEventListener('click', e => {
+    if (e.target === modal) {
+      modal.classList.add('hidden')
+      document.getElementById('filePreviewContent').innerHTML = ''
+    }
+  })
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+      modal.classList.add('hidden')
+      document.getElementById('filePreviewContent').innerHTML = ''
+    }
+  })
+}
+
+function openFilePreview(url, type, name) {
+  const modal = document.getElementById('filePreviewModal')
+  const content = document.getElementById('filePreviewContent')
+  const nameEl = document.getElementById('filePreviewName')
+  const safeType = /^[a-zA-Z0-9][a-zA-Z0-9!#$&\-^_]*\/[a-zA-Z0-9][a-zA-Z0-9!#$&\-^_.+]*$/.test(type) ? type : ''
+
+  if (safeType.startsWith('image/')) {
+    content.innerHTML = `<img src="${escapeHtml(url)}" alt="${escapeHtml(displayName(name))}" class="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl">`
+  } else if (safeType.startsWith('video/')) {
+    content.innerHTML = `<video src="${escapeHtml(url)}" controls class="max-w-full max-h-[80vh] rounded-lg shadow-2xl" style="max-width:800px"></video>`
+  } else {
+    content.innerHTML = `
+      <div class="text-center text-white/80">
+        <div class="flex justify-center mb-4 opacity-50">${fileIcon(safeType).replace(/class="([^"]+)"/g, 'class="$1" style="color:white;width:64px;height:64px"')}</div>
+        <p class="mb-4 text-lg font-medium">${escapeHtml(displayName(name))}</p>
+        <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-xl text-white hover:bg-white/30 transition-colors text-sm font-bold">
+          <i data-lucide="external-link" class="w-4 h-4"></i> Abrir en nueva pestaña
+        </a>
+      </div>`
+    lucide.createIcons()
+  }
+
+  nameEl.textContent = displayName(name)
+  modal.classList.remove('hidden')
 }
 
 function initMediaLibraryModal() {

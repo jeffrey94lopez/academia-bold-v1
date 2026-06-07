@@ -45,3 +45,18 @@ export async function deleteFile(path) {
   const { error } = await supabase.storage.from(BUCKET).remove([path])
   if (error) throw error
 }
+
+export async function renameFile(oldPath, newDisplayName) {
+  const ext = oldPath.match(/(\.[^.]+)?$/)[0] || ''
+  const rawBase = newDisplayName.replace(/\.[^.]+$/, '').trim()
+  const base = rawBase
+    .normalize('NFD').replace(/\p{M}/gu, '')
+    .replace(/\s+/g, '-')
+    .replace(/[^a-zA-Z0-9\-_]/g, '')
+    .toLowerCase() || 'archivo'
+  const newPath = `${base}-${Date.now()}${ext}`
+  const { error } = await supabase.storage.from(BUCKET).move(oldPath, newPath)
+  if (error) throw error
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(newPath)
+  return { path: newPath, url: data.publicUrl }
+}
