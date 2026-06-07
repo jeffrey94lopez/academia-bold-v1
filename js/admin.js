@@ -1178,11 +1178,11 @@ async function renderMaterialApoyoPanel() {
             <p class="text-xs text-slate-400 uppercase font-bold">${escapeHtml(m.tipo)}</p>
           </div>
           <div class="flex gap-1 shrink-0">
-            <button data-id="${m.id}" data-titulo="${escapeHtml(m.titulo)}" data-url="${escapeHtml(m.url)}" data-tipo="${escapeHtml(m.tipo)}"
+            <button data-id="${escapeHtml(String(m.id))}" data-titulo="${escapeHtml(m.titulo)}" data-url="${escapeHtml(m.url)}" data-tipo="${escapeHtml(m.tipo)}"
               class="edit-mat-apoyo p-1.5 rounded-lg hover:bg-slate-100 text-slate-500" aria-label="Editar ${escapeHtml(m.titulo)}">
               <i data-lucide="edit-2" class="w-4 h-4"></i>
             </button>
-            <button data-id="${m.id}" data-titulo="${escapeHtml(m.titulo)}"
+            <button data-id="${escapeHtml(String(m.id))}" data-titulo="${escapeHtml(m.titulo)}"
               class="del-mat-apoyo p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500" aria-label="Eliminar ${escapeHtml(m.titulo)}">
               <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
