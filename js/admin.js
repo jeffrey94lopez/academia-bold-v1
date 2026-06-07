@@ -14,6 +14,7 @@ let quillInstances = {}
 let currentCategories = []
 let materialView = localStorage.getItem('admin_material_view') || 'grid'
 let _materialCurrentFiles = []
+let lessonListView = localStorage.getItem('admin_lesson_list_view') || 'list'
 let lessonPreviewVisible = localStorage.getItem('admin_lesson_preview') !== 'false'
 
 async function init() {
@@ -82,10 +83,20 @@ async function renderLessonsPanel() {
       </div>
     </div>
 
-    <div class="relative mb-4">
-      <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"></i>
-      <input id="lessonSearch" type="text" placeholder="Buscar lección..."
-        class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] bg-white">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="relative flex-1">
+        <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"></i>
+        <input id="lessonSearch" type="text" placeholder="Buscar lección..."
+          class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] bg-white">
+      </div>
+      <div class="flex gap-0.5 border border-slate-200 rounded-lg p-0.5 shrink-0">
+        <button id="lessonViewList" class="p-1.5 rounded-md transition-colors ${lessonListView === 'list' ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:text-slate-600'}" aria-label="Vista lista">
+          <i data-lucide="list" class="w-4 h-4"></i>
+        </button>
+        <button id="lessonViewGrid" class="p-1.5 rounded-md transition-colors ${lessonListView === 'grid' ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:text-slate-600'}" aria-label="Vista cuadrícula">
+          <i data-lucide="grid-3x3" class="w-4 h-4"></i>
+        </button>
+      </div>
     </div>
 
     <div id="catManager" class="hidden mb-4 bg-white rounded-2xl border border-slate-200 p-4">
@@ -268,6 +279,21 @@ async function renderLessonsPanel() {
     document.getElementById('previewDesc').textContent = e.target.value
   })
 
+  document.getElementById('lessonViewList').addEventListener('click', () => {
+    lessonListView = 'list'
+    localStorage.setItem('admin_lesson_list_view', 'list')
+    document.getElementById('lessonViewList').className = 'p-1.5 rounded-md transition-colors bg-slate-100 text-slate-700'
+    document.getElementById('lessonViewGrid').className = 'p-1.5 rounded-md transition-colors text-slate-400 hover:text-slate-600'
+    renderGroupedLessons(allLessons, document.getElementById('lessonSearch')?.value || '')
+  })
+  document.getElementById('lessonViewGrid').addEventListener('click', () => {
+    lessonListView = 'grid'
+    localStorage.setItem('admin_lesson_list_view', 'grid')
+    document.getElementById('lessonViewList').className = 'p-1.5 rounded-md transition-colors text-slate-400 hover:text-slate-600'
+    document.getElementById('lessonViewGrid').className = 'p-1.5 rounded-md transition-colors bg-slate-100 text-slate-700'
+    renderGroupedLessons(allLessons, document.getElementById('lessonSearch')?.value || '')
+  })
+
   document.getElementById('togglePreview').addEventListener('click', () => {
     lessonPreviewVisible = !lessonPreviewVisible
     localStorage.setItem('admin_lesson_preview', String(lessonPreviewVisible))
@@ -354,7 +380,9 @@ function renderGroupedLessons(allLessons, searchQuery) {
   }
 
   if (q) {
-    list.innerHTML = filtered.map(l => lessonCardHtml(l)).join('')
+    list.innerHTML = lessonListView === 'grid'
+      ? `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3">${filtered.map(l => lessonCardGridHtml(l)).join('')}</div>`
+      : filtered.map(l => lessonCardHtml(l)).join('')
   } else {
     const byCategory = {}
     const uncategorized = []
@@ -376,7 +404,9 @@ function renderGroupedLessons(allLessons, searchQuery) {
           <span class="text-xs text-slate-400 ml-1">${catLessons.length}</span>
         </div>
         ${catLessons.length
-          ? catLessons.map(l => lessonCardHtml(l)).join('')
+          ? lessonListView === 'grid'
+            ? `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-4">${catLessons.map(l => lessonCardGridHtml(l)).join('')}</div>`
+            : catLessons.map(l => lessonCardHtml(l)).join('')
           : '<p class="text-xs text-slate-400 pl-1 pb-2">Sin lecciones.</p>'}
       </div>`
     }
@@ -387,7 +417,9 @@ function renderGroupedLessons(allLessons, searchQuery) {
           <span class="font-black text-sm text-slate-700">Sin categoría</span>
           <span class="text-xs text-slate-400 ml-1">${uncategorized.length}</span>
         </div>
-        ${uncategorized.map(l => lessonCardHtml(l)).join('')}
+        ${lessonListView === 'grid'
+          ? `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-4">${uncategorized.map(l => lessonCardGridHtml(l)).join('')}</div>`
+          : uncategorized.map(l => lessonCardHtml(l)).join('')}
       </div>`
     }
     if (!html) {
@@ -429,6 +461,27 @@ function lessonCardHtml(l) {
         </button>
         <button data-id="${l.id}" data-titulo="${escapeHtml(l.titulo)}" class="del-lesson p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500" title="Eliminar" aria-label="Eliminar lección ${escapeHtml(l.titulo)}">
           <i data-lucide="trash-2" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>`
+}
+
+function lessonCardGridHtml(l) {
+  const cat = currentCategories.find(c => c.nombre === l.categoria)
+  return `
+    <div class="lesson-card bg-white rounded-xl border border-slate-100 p-3.5 cursor-pointer hover:border-[#E92129] hover:shadow-sm transition-all flex flex-col gap-2" data-id="${l.id}">
+      <div class="flex items-start justify-between gap-2">
+        <p class="font-bold text-sm text-slate-800 leading-tight line-clamp-2 flex-1">${escapeHtml(l.titulo)}</p>
+        <span class="shrink-0 text-[10px] text-slate-400 font-bold">#${escapeHtml(String(l.orden))}</span>
+      </div>
+      ${l.descripcion ? `<p class="text-xs text-slate-400 line-clamp-2">${escapeHtml(l.descripcion)}</p>` : ''}
+      ${cat ? `<span class="self-start text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full">${escapeHtml(cat.emoji)} ${escapeHtml(cat.nombre)}</span>` : ''}
+      <div class="flex gap-1 mt-auto pt-2 border-t border-slate-50">
+        <button data-id="${l.id}" class="copy-whatsapp flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-green-50 text-slate-400 hover:text-green-600" aria-label="Copiar ${escapeHtml(l.titulo)} para WhatsApp">
+          <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
+        </button>
+        <button data-id="${l.id}" data-titulo="${escapeHtml(l.titulo)}" class="del-lesson flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500" aria-label="Eliminar lección ${escapeHtml(l.titulo)}">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
         </button>
       </div>
     </div>`
