@@ -53,7 +53,7 @@ function switchPanel(panel) {
 
   if (panel === 'lessons') renderLessonsPanel()
   if (panel === 'glossary') renderGlossaryPanel()
-  if (panel === 'material') renderMaterialPanel()
+  if (panel === 'material') { currentFolderPath = ''; renderMaterialPanel() }
   if (panel === 'material-apoyo') renderMaterialApoyoPanel()
   if (panel === 'suggestions') renderSuggestionsPanel()
   if (panel === 'results') renderResultsPanel()

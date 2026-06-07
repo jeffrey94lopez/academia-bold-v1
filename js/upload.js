@@ -72,7 +72,9 @@ export async function renameFile(oldPath, newDisplayName) {
     .replace(/\s+/g, '-')
     .replace(/[^a-zA-Z0-9\-_]/g, '')
     .toLowerCase() || 'archivo'
-  const newPath = `${base}-${Date.now()}${ext}`
+  const lastSlash = oldPath.lastIndexOf('/')
+  const folder = lastSlash >= 0 ? oldPath.slice(0, lastSlash) : ''
+  const newPath = folder ? `${folder}/${base}-${Date.now()}${ext}` : `${base}-${Date.now()}${ext}`
   const { error } = await supabase.storage.from(BUCKET).move(oldPath, newPath)
   if (error) throw error
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(newPath)
