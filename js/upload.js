@@ -3,13 +3,14 @@ import { supabase } from './supabase.js'
 const BUCKET = 'material'
 const MAX_BYTES = 50 * 1024 * 1024
 
-export async function uploadFile(file, onProgress) {
+export async function uploadFile(file, onProgress, targetFolder = '') {
   if (file.size > MAX_BYTES) throw new Error('El archivo supera el límite de 50MB')
 
   const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
   const ext = safe.match(/\.[^.]+$/)?.[0] ?? ''
   const base = ext ? safe.slice(0, -ext.length) : safe
-  const path = `${base || 'archivo'}-${Date.now()}${ext}`
+  const filename = `${base || 'archivo'}-${Date.now()}${ext}`
+  const path = targetFolder ? `${targetFolder}/${filename}` : filename
 
   const { data, error } = await supabase.storage.from(BUCKET).upload(path, file, {
     upsert: true,
@@ -24,21 +25,38 @@ export async function uploadFile(file, onProgress) {
   return { url: urlData.publicUrl, path: data.path }
 }
 
-export async function listFiles() {
-  const { data, error } = await supabase.storage.from(BUCKET).list('', {
+export async function listFiles(path = '') {
+  const { data, error } = await supabase.storage.from(BUCKET).list(path || '', {
     limit: 200,
     sortBy: { column: 'created_at', order: 'desc' },
   })
   if (error) throw error
 
-  return (data || [])
-    .filter(f => f.name !== '.emptyFolderPlaceholder')
-    .map(f => ({
-      name: f.name,
-      size: f.metadata?.size || 0,
-      type: f.metadata?.mimetype || '',
-      url: supabase.storage.from(BUCKET).getPublicUrl(f.name).data.publicUrl,
-    }))
+  const items = data || []
+
+  const folders = items
+    .filter(f => f.id === null)
+    .map(f => ({ name: f.name, isFolder: true }))
+
+  const files = items
+    .filter(f => f.id !== null && f.name !== '.emptyFolderPlaceholder')
+    .map(f => {
+      const fullPath = path ? `${path}/${f.name}` : f.name
+      return {
+        name: fullPath,
+        size: f.metadata?.size || 0,
+        type: f.metadata?.mimetype || '',
+        url: supabase.storage.from(BUCKET).getPublicUrl(fullPath).data.publicUrl,
+      }
+    })
+
+  return { folders, files }
+}
+
+export async function createFolder(folderPath) {
+  const placeholder = `${folderPath}/.emptyFolderPlaceholder`
+  const { error } = await supabase.storage.from(BUCKET).upload(placeholder, new Blob(['']), { upsert: true })
+  if (error) throw error
 }
 
 export async function deleteFile(path) {

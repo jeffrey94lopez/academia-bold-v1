@@ -1,6 +1,6 @@
 import { supabase } from './supabase.js'
 import { requireAuth, logout } from './auth.js'
-import { uploadFile, listFiles, deleteFile, renameFile } from './upload.js'
+import { uploadFile, listFiles, deleteFile, renameFile, createFolder } from './upload.js'
 import { renderBlocks } from './block-renderer.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml } from './utils.js'
@@ -15,6 +15,7 @@ let currentCategories = []
 let materialView = localStorage.getItem('admin_material_view') || 'grid'
 let _materialCurrentFiles = []
 let lessonListView = localStorage.getItem('admin_lesson_list_view') || 'list'
+let currentFolderPath = ''
 let lessonPreviewVisible = localStorage.getItem('admin_lesson_preview') !== 'false'
 
 async function init() {
@@ -914,11 +915,48 @@ async function renderGlossaryPanel() {
   })
 }
 
+function renderFolderBreadcrumb() {
+  const container = document.getElementById('folderBreadcrumb')
+  if (!container) return
+  const parts = currentFolderPath ? currentFolderPath.split('/') : []
+  const crumbs = [
+    { label: 'Todos los archivos', path: '' },
+    ...parts.map((p, i) => ({ label: p, path: parts.slice(0, i + 1).join('/') }))
+  ]
+  container.innerHTML = crumbs.map((c, i) => {
+    const isLast = i === crumbs.length - 1
+    if (isLast) return `<span class="text-slate-700 font-bold text-sm">${escapeHtml(c.label)}</span>`
+    return `<button class="folder-crumb text-[#E92129] hover:underline text-sm font-bold" data-path="${escapeHtml(c.path)}">${escapeHtml(c.label)}</button><span class="text-slate-300 text-sm">/</span>`
+  }).join('')
+
+  container.querySelectorAll('.folder-crumb').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentFolderPath = btn.dataset.path
+      renderMaterialPanel()
+    })
+  })
+}
+
 async function renderMaterialPanel() {
   const el = document.getElementById('panel-material')
   el.innerHTML = `
     <div class="max-w-4xl mx-auto">
-      <h2 class="text-lg font-black mb-4">Biblioteca de archivos</h2>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-black">Biblioteca de archivos</h2>
+        <button id="newFolderBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50">
+          <i data-lucide="folder-plus" class="w-3.5 h-3.5"></i> Nueva carpeta
+        </button>
+      </div>
+
+      <div id="folderBreadcrumb" class="flex items-center gap-1 mb-3 flex-wrap min-h-[24px]"></div>
+
+      <div id="newFolderForm" class="hidden bg-white border border-slate-200 rounded-xl p-3 mb-4 flex items-center gap-2">
+        <i data-lucide="folder" class="w-4 h-4 text-slate-400 shrink-0"></i>
+        <input id="newFolderInput" type="text" placeholder="Nombre de la carpeta" autocomplete="off"
+          class="flex-1 px-2 py-1 rounded-lg border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+        <button id="cancelNewFolder" class="px-3 py-1 rounded-lg border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50">Cancelar</button>
+        <button id="confirmNewFolder" class="px-3 py-1 rounded-lg bg-[#E92129] text-white text-xs font-bold">Crear</button>
+      </div>
 
       <div id="materialDropzone" class="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center mb-6 hover:border-[#E92129] transition-colors cursor-pointer">
         <i data-lucide="folder-open" class="w-10 h-10 text-slate-300 mx-auto mb-3 block"></i>
@@ -953,17 +991,21 @@ async function renderMaterialPanel() {
     </div>
   `
   lucide.createIcons()
+  renderFolderBreadcrumb()
 
   let files = []
+  let currentFolders = []
 
   const loadFiles = async () => {
     const grid = document.getElementById('materialGrid')
     if (!grid) return
     grid.innerHTML = '<p class="col-span-5 text-center text-slate-400 text-sm py-12">Cargando...</p>'
     try {
-      files = await listFiles()
+      const result = await listFiles(currentFolderPath)
+      files = result.files
+      currentFolders = result.folders
       _materialCurrentFiles = files
-      renderMaterialGrid(files)
+      renderMaterialGrid(files, currentFolders)
     } catch {
       grid.innerHTML = `<p class="col-span-5 text-center text-red-400 text-sm py-12">Error al cargar. <button onclick="renderMaterialPanel()" class="underline">Reintentar</button></p>`
     }
@@ -973,9 +1015,12 @@ async function renderMaterialPanel() {
 
   document.getElementById('materialSearch').addEventListener('input', e => {
     const q = e.target.value.toLowerCase()
-    const filtered = files.filter(f => f.name.toLowerCase().includes(q))
+    const filtered = files.filter(f => {
+      const name = f.name.split('/').pop()
+      return name.toLowerCase().includes(q)
+    })
     _materialCurrentFiles = filtered
-    renderMaterialGrid(filtered)
+    renderMaterialGrid(filtered, q ? [] : currentFolders)
   })
 
   document.getElementById('viewGrid').addEventListener('click', () => {
@@ -983,7 +1028,7 @@ async function renderMaterialPanel() {
     localStorage.setItem('admin_material_view', 'grid')
     document.getElementById('viewGrid').className = 'p-1.5 rounded-md transition-colors bg-slate-100 text-slate-700'
     document.getElementById('viewList').className = 'p-1.5 rounded-md transition-colors text-slate-400 hover:text-slate-600'
-    renderMaterialGrid(_materialCurrentFiles)
+    renderMaterialGrid(_materialCurrentFiles, currentFolders)
   })
 
   document.getElementById('viewList').addEventListener('click', () => {
@@ -991,7 +1036,42 @@ async function renderMaterialPanel() {
     localStorage.setItem('admin_material_view', 'list')
     document.getElementById('viewGrid').className = 'p-1.5 rounded-md transition-colors text-slate-400 hover:text-slate-600'
     document.getElementById('viewList').className = 'p-1.5 rounded-md transition-colors bg-slate-100 text-slate-700'
-    renderMaterialGrid(_materialCurrentFiles)
+    renderMaterialGrid(_materialCurrentFiles, currentFolders)
+  })
+
+  document.getElementById('newFolderBtn').addEventListener('click', () => {
+    document.getElementById('newFolderForm').classList.remove('hidden')
+    document.getElementById('newFolderInput').value = ''
+    document.getElementById('newFolderInput').focus()
+  })
+
+  document.getElementById('cancelNewFolder').addEventListener('click', () => {
+    document.getElementById('newFolderForm').classList.add('hidden')
+  })
+
+  document.getElementById('confirmNewFolder').addEventListener('click', async () => {
+    const raw = document.getElementById('newFolderInput').value.trim()
+    if (!raw) return
+    const name = raw.normalize('NFD').replace(/\p{M}/gu, '').replace(/\s+/g, '-').replace(/[^a-zA-Z0-9\-_]/g, '').toLowerCase() || 'carpeta'
+    const folderPath = currentFolderPath ? `${currentFolderPath}/${name}` : name
+    const btn = document.getElementById('confirmNewFolder')
+    btn.disabled = true
+    btn.textContent = 'Creando...'
+    try {
+      await createFolder(folderPath)
+      document.getElementById('newFolderForm').classList.add('hidden')
+      showToast(`Carpeta "${name}" creada`)
+      await loadFiles()
+    } catch (e) {
+      showToast('Error al crear carpeta: ' + e.message, 'error')
+      btn.disabled = false
+      btn.textContent = 'Crear'
+    }
+  })
+
+  document.getElementById('newFolderInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('confirmNewFolder').click()
+    if (e.key === 'Escape') document.getElementById('cancelNewFolder').click()
   })
 
   const dropzone = document.getElementById('materialDropzone')
@@ -1002,7 +1082,7 @@ async function renderMaterialPanel() {
     progressDiv.classList.remove('hidden')
     progressBar.style.width = '0%'
     try {
-      await uploadFile(file, pct => { progressBar.style.width = pct + '%' })
+      await uploadFile(file, pct => { progressBar.style.width = pct + '%' }, currentFolderPath)
       showToast('Archivo subido correctamente')
       await loadFiles()
     } catch (e) {
@@ -1034,13 +1114,13 @@ async function renderMaterialPanel() {
   })
 }
 
-function renderMaterialGrid(files) {
+function renderMaterialGrid(files, folders = []) {
   const grid = document.getElementById('materialGrid')
   const count = document.getElementById('materialFileCount')
   if (!grid) return
-  if (count) count.textContent = `${files.length} archivos`
+  if (count) count.textContent = `${folders.length + files.length} elementos`
 
-  if (!files.length) {
+  if (!folders.length && !files.length) {
     grid.className = ''
     grid.innerHTML = '<p class="text-center text-slate-400 text-sm py-12">No hay archivos subidos aún</p>'
     return
@@ -1048,7 +1128,16 @@ function renderMaterialGrid(files) {
 
   if (materialView === 'list') {
     grid.className = 'space-y-2'
-    grid.innerHTML = files.map(f => `
+    const folderCards = folders.map(f => {
+      const folderPath = currentFolderPath ? `${currentFolderPath}/${f.name}` : f.name
+      return `
+        <div class="folder-card group bg-amber-50 border border-amber-100 rounded-xl p-3 flex items-center gap-3 cursor-pointer hover:border-amber-300 hover:bg-amber-100 transition-colors" data-path="${escapeHtml(folderPath)}">
+          <i data-lucide="folder" class="w-8 h-8 text-amber-400 shrink-0"></i>
+          <p class="text-sm font-bold text-slate-700 truncate flex-1">${escapeHtml(f.name)}</p>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-slate-300 shrink-0"></i>
+        </div>`
+    }).join('')
+    grid.innerHTML = folderCards + files.map(f => `
       <div class="flex items-center gap-3 bg-white border border-slate-100 rounded-xl px-3 py-2.5 hover:border-slate-200 transition-colors group">
         <div class="w-10 h-10 shrink-0 flex items-center justify-center rounded-lg overflow-hidden bg-slate-50">
           ${f.type.startsWith('image/')
@@ -1056,16 +1145,16 @@ function renderMaterialGrid(files) {
             : fileIcon(f.type)}
         </div>
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-slate-700 truncate" title="${escapeHtml(displayName(f.name))}">${escapeHtml(displayName(f.name))}</p>
+          <p class="text-sm font-medium text-slate-700 truncate" title="${escapeHtml(displayName(f.name.split('/').pop()))}">${escapeHtml(displayName(f.name.split('/').pop()))}</p>
           <p class="text-xs text-slate-400">${formatBytes(f.size)}</p>
         </div>
         <div class="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
           <button class="preview-file p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-500"
-            data-url="${escapeHtml(f.url)}" data-type="${escapeHtml(f.type)}" data-name="${escapeHtml(f.name)}" aria-label="Ver ${escapeHtml(displayName(f.name))}">
+            data-url="${escapeHtml(f.url)}" data-type="${escapeHtml(f.type)}" data-name="${escapeHtml(f.name)}" aria-label="Ver ${escapeHtml(displayName(f.name.split('/').pop()))}">
             <i data-lucide="eye" class="w-4 h-4"></i>
           </button>
           <button class="rename-file p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500"
-            data-path="${escapeHtml(f.name)}" data-display="${escapeHtml(displayName(f.name))}" aria-label="Renombrar ${escapeHtml(displayName(f.name))}">
+            data-path="${escapeHtml(f.name)}" data-display="${escapeHtml(displayName(f.name.split('/').pop()))}" aria-label="Renombrar ${escapeHtml(displayName(f.name.split('/').pop()))}">
             <i data-lucide="pencil" class="w-4 h-4"></i>
           </button>
           <button class="copy-url p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"
@@ -1073,7 +1162,7 @@ function renderMaterialGrid(files) {
             <i data-lucide="link" class="w-4 h-4"></i>
           </button>
           <button class="delete-file p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500"
-            data-path="${escapeHtml(f.name)}" aria-label="Eliminar ${escapeHtml(displayName(f.name))}">
+            data-path="${escapeHtml(f.name)}" aria-label="Eliminar ${escapeHtml(displayName(f.name.split('/').pop()))}">
             <i data-lucide="trash-2" class="w-4 h-4"></i>
           </button>
         </div>
@@ -1081,20 +1170,28 @@ function renderMaterialGrid(files) {
     `).join('')
   } else {
     grid.className = 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3'
-    grid.innerHTML = files.map(f => `
+    const folderGrid = folders.map(f => {
+      const folderPath = currentFolderPath ? `${currentFolderPath}/${f.name}` : f.name
+      return `
+        <div class="folder-card group bg-amber-50 border border-amber-100 rounded-xl p-3 text-center cursor-pointer hover:border-amber-300 hover:bg-amber-100 transition-colors" data-path="${escapeHtml(folderPath)}">
+          <div class="flex justify-center mb-2"><i data-lucide="folder" class="w-10 h-10 text-amber-400"></i></div>
+          <p class="text-xs text-slate-700 truncate font-bold" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</p>
+        </div>`
+    }).join('')
+    grid.innerHTML = folderGrid + files.map(f => `
       <div class="group relative bg-white border border-slate-100 rounded-xl p-3 text-center shadow-sm hover:shadow-md transition-shadow">
         ${f.type.startsWith('image/')
           ? `<img src="${escapeHtml(f.url)}" alt="" class="w-full h-16 object-cover rounded-lg mb-2" loading="lazy">`
           : `<div class="flex justify-center mb-2">${fileIcon(f.type)}</div>`}
-        <p class="text-xs text-slate-700 truncate font-medium" title="${escapeHtml(displayName(f.name))}">${escapeHtml(displayName(f.name))}</p>
+        <p class="text-xs text-slate-700 truncate font-medium" title="${escapeHtml(displayName(f.name.split('/').pop()))}">${escapeHtml(displayName(f.name.split('/').pop()))}</p>
         <p class="text-xs text-slate-400">${formatBytes(f.size)}</p>
         <div class="absolute inset-0 bg-black/60 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
           <button class="preview-file bg-blue-500 text-white rounded-lg p-1.5"
-            data-url="${escapeHtml(f.url)}" data-type="${escapeHtml(f.type)}" data-name="${escapeHtml(f.name)}" aria-label="Ver ${escapeHtml(displayName(f.name))}">
+            data-url="${escapeHtml(f.url)}" data-type="${escapeHtml(f.type)}" data-name="${escapeHtml(f.name)}" aria-label="Ver ${escapeHtml(displayName(f.name.split('/').pop()))}">
             <i data-lucide="eye" class="w-3.5 h-3.5"></i>
           </button>
           <button class="rename-file bg-amber-500 text-white rounded-lg p-1.5"
-            data-path="${escapeHtml(f.name)}" data-display="${escapeHtml(displayName(f.name))}" aria-label="Renombrar ${escapeHtml(displayName(f.name))}">
+            data-path="${escapeHtml(f.name)}" data-display="${escapeHtml(displayName(f.name.split('/').pop()))}" aria-label="Renombrar ${escapeHtml(displayName(f.name.split('/').pop()))}">
             <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
           </button>
           <button class="copy-url bg-slate-600 text-white rounded-lg p-1.5"
@@ -1102,7 +1199,7 @@ function renderMaterialGrid(files) {
             <i data-lucide="link" class="w-3.5 h-3.5"></i>
           </button>
           <button class="delete-file bg-red-500 text-white rounded-lg p-1.5"
-            data-path="${escapeHtml(f.name)}" aria-label="Eliminar ${escapeHtml(displayName(f.name))}">
+            data-path="${escapeHtml(f.name)}" aria-label="Eliminar ${escapeHtml(displayName(f.name.split('/').pop()))}">
             <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
           </button>
         </div>
@@ -1111,6 +1208,13 @@ function renderMaterialGrid(files) {
   }
 
   lucide.createIcons()
+
+  grid.querySelectorAll('.folder-card').forEach(card => {
+    card.addEventListener('click', () => {
+      currentFolderPath = card.dataset.path
+      renderMaterialPanel()
+    })
+  })
 
   grid.querySelectorAll('.preview-file').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -1130,7 +1234,7 @@ function renderMaterialGrid(files) {
     btn.addEventListener('click', e => {
       e.stopPropagation()
       navigator.clipboard.writeText(btn.dataset.url)
-        .then(() => showToast(`URL de "${displayName(btn.dataset.name)}" copiada`))
+        .then(() => showToast(`URL de "${displayName(btn.dataset.name.split('/').pop())}" copiada`))
         .catch(() => showToast('No se pudo copiar al portapapeles', 'error'))
     })
   })
@@ -1138,7 +1242,8 @@ function renderMaterialGrid(files) {
   grid.querySelectorAll('.delete-file').forEach(btn => {
     btn.addEventListener('click', async e => {
       e.stopPropagation()
-      if (!confirm(`¿Eliminar "${displayName(btn.dataset.path)}"?\nEsta acción no se puede deshacer.`)) return
+      const displayN = displayName(btn.dataset.path.split('/').pop())
+      if (!confirm(`¿Eliminar "${displayN}"?\nEsta acción no se puede deshacer.`)) return
       try {
         await deleteFile(btn.dataset.path)
         showToast('Archivo eliminado')
@@ -1535,7 +1640,8 @@ async function openMediaLibrary(onSelect) {
 
   let files = []
   try {
-    files = await listFiles()
+    const result = await listFiles('')
+    files = result.files
     renderMediaGrid(files)
     lucide.createIcons()
   } catch {
@@ -1659,9 +1765,7 @@ function openRenameModal(path, currentDisplayName) {
   if (!input) return
   _renameCurrentPath = path
   _renameReloadCallback = async () => {
-    const updated = await listFiles()
-    renderMaterialGrid(updated)
-    _materialCurrentFiles = updated
+    renderMaterialPanel()
   }
   const confirmBtn = document.getElementById('confirmRename')
   if (!confirmBtn) return
