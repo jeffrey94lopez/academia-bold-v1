@@ -1,36 +1,11 @@
 import { supabase } from './supabase.js'
 import { renderBlocks } from './block-renderer.js'
-import { loadSession, renderModeSelection, markLessonComplete, checkAndMarkCourseComplete, showExamModal } from './course.js'
-import { renderCertificate } from './certificate.js'
 import { track } from './analytics.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml } from './utils.js'
 
-let courseStudent = null
-
-function progressIcon(lessonId) {
-  if (!courseStudent) return ''
-  const entry = courseStudent.progreso?.[String(lessonId)]
-  if (entry?.completado) return '<span class="text-green-500 text-xs ml-1 shrink-0">✅</span>'
-  return '<span class="text-[var(--black-40)] text-xs ml-1 shrink-0">⭕</span>'
-}
-
 async function renderLessons() {
   const container = document.getElementById('section-lessons')
-
-  if (!courseStudent) {
-    const session = await loadSession()
-    if (session) courseStudent = session
-  }
-
-  const exploreMode = localStorage.getItem('bold_mode') === 'explore'
-  if (!courseStudent && !exploreMode) {
-    renderModeSelection(container, {
-      onCourse(student) { courseStudent = student; renderLessons() },
-      onExplore() { renderLessons() },
-    })
-    return
-  }
 
   container.innerHTML = '<div class="flex items-center justify-center h-full text-[var(--black-60)] text-sm">Cargando lecciones...</div>'
 
@@ -46,22 +21,20 @@ async function renderLessons() {
     return
   }
 
-  // Group by category, preserving CATEGORIES order
+  // Group by category
   const grouped = {}
   for (const cat of CATEGORIES) grouped[cat.key] = []
   for (const l of lessons) {
-    const cat = l.categoria || 'Ventas'
+    const cat = l.categoria || CATEGORIES[0]?.key || 'General'
     if (!grouped[cat]) grouped[cat] = []
     grouped[cat].push(l)
   }
 
-  // Initial state
-  const firstCat = CATEGORIES.find(c => grouped[c.key].length > 0)?.key || CATEGORIES[0].key
+  const firstCat = CATEGORIES.find(c => grouped[c.key]?.length > 0)?.key || CATEGORIES[0]?.key
   let activeCategory = firstCat
   let activeLesson = grouped[firstCat]?.[0] || null
   let searchQuery = ''
 
-  // Build skeleton
   container.innerHTML = `
     <!-- MOBILE: 3-screen stack (hidden on md+) -->
     <div class="md:hidden absolute inset-0">
@@ -80,7 +53,7 @@ async function renderLessons() {
         <div class="px-3 py-2 border-b border-[var(--blue-10)] shrink-0">
           <div class="flex items-center gap-2 bg-[var(--background-page)] rounded-xl px-3 py-2">
             <span class="text-[var(--black-60)] text-sm">🔍</span>
-            <input id="ls-mob-search" placeholder="Buscar lección..." class="bg-transparent text-sm flex-1 outline-none placeholder-[var(--black-60)]">
+            <input id="ls-mob-search" placeholder="Buscar lección..." class="bg-transparent text-sm flex-1 outline-none">
           </div>
         </div>
         <div id="ls-lesson-list" class="flex-1 overflow-y-auto"></div>
@@ -101,7 +74,7 @@ async function renderLessons() {
         <div class="p-2.5 border-b border-[var(--blue-10)] shrink-0">
           <div class="flex items-center gap-2 bg-[var(--background-page)] rounded-xl px-3 py-2">
             <span class="text-[var(--black-60)] text-xs">🔍</span>
-            <input id="ls-desk-search" placeholder="Buscar..." class="bg-transparent text-xs flex-1 outline-none placeholder-[var(--black-60)]">
+            <input id="ls-desk-search" placeholder="Buscar..." class="bg-transparent text-xs flex-1 outline-none">
           </div>
         </div>
         <div id="ls-accordion" class="flex-1 overflow-y-auto custom-scroll"></div>
@@ -112,11 +85,12 @@ async function renderLessons() {
 
   track('page_view', { page: 'lessons' })
 
-  // ── Shared: render lesson content into any panel ───────────────────────────
+  // ── Render lesson content ─────────────────────────────────────────────────
   function renderLessonContent(panel, lesson) {
     panel.innerHTML = ''
-    track('lesson_open', { lesson_id: lesson.id, lesson_title: lesson.titulo || '', category: lesson.categoria || 'Ventas' })
-    const catLessons = grouped[lesson.categoria || 'Ventas'] || []
+    track('lesson_open', { lesson_id: lesson.id, lesson_title: lesson.titulo || '', category: lesson.categoria || '' })
+
+    const catLessons = grouped[lesson.categoria || CATEGORIES[0]?.key] || []
     const idx = catLessons.findIndex(l => l.id === lesson.id)
     const lessonIdx = idx >= 0 ? idx + 1 : '?'
 
@@ -128,10 +102,8 @@ async function renderLessons() {
       else isLegacy = true
     } catch (_) { isLegacy = true }
 
-    // First video block is promoted above the title; remaining blocks follow below
     let topVideo = null, restBlocks = blocks
     if (blocks[0]?.type === 'video') { topVideo = blocks[0]; restBlocks = blocks.slice(1) }
-
     if (topVideo) panel.appendChild(renderBlocks([topVideo]))
 
     const titleEl = document.createElement('h2')
@@ -140,7 +112,7 @@ async function renderLessons() {
 
     const metaEl = document.createElement('p')
     metaEl.className = 'text-xs text-[var(--black-60)] mb-4'
-    metaEl.textContent = `${lesson.categoria || 'Ventas'} · Lección ${lessonIdx}`
+    metaEl.textContent = `${lesson.categoria || ''} · Lección ${lessonIdx}`
 
     panel.append(titleEl, metaEl)
 
@@ -170,79 +142,18 @@ async function renderLessons() {
     waBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> Copiar para WhatsApp'
     waBtn.addEventListener('click', () => copyLessonToWhatsApp(lesson, waBtn))
     panel.append(waBtn)
-
-    if (courseStudent) {
-      const allIds = lessons.map(l => String(l.id))
-      const alreadyDone = courseStudent.progreso?.[String(lesson.id)]?.completado
-      if (alreadyDone) {
-        const doneTag = document.createElement('div')
-        doneTag.className = 'mt-5 py-3 rounded-xl bg-[var(--success-10)] border border-[var(--success-100)] text-center text-sm font-bold text-[var(--success-150)]'
-        doneTag.textContent = '✅ Lección completada'
-        panel.append(doneTag)
-      } else {
-        const hasExam = Array.isArray(lesson.examen?.preguntas) && lesson.examen.preguntas.length > 0
-        const examBtn = document.createElement('button')
-        examBtn.className = 'mt-5 w-full py-3 rounded-xl bg-[var(--coral-100)] text-white text-sm font-bold hover:scale-[1.02] transition-transform'
-        examBtn.textContent = hasExam ? 'Ir al examen →' : 'Marcar lección como completada ✓'
-        examBtn.addEventListener('click', () => {
-          if (hasExam) {
-            showExamModal(lesson, courseStudent, allIds, {
-              onPass(_puntaje, courseComplete) {
-                renderAccordion()
-                renderDeskContent()
-                renderMobileLessonList()
-                if (courseComplete) setTimeout(() => renderCertificate(courseStudent), 500)
-              },
-              onDismiss() {},
-            })
-          } else {
-            track('lesson_complete', { lesson_id: lesson.id, lesson_title: lesson.titulo || '' })
-            markLessonComplete(courseStudent, String(lesson.id), 100).then(() =>
-              checkAndMarkCourseComplete(courseStudent, allIds).then(done => {
-                renderAccordion()
-                renderDeskContent()
-                renderMobileLessonList()
-                if (done) setTimeout(() => renderCertificate(courseStudent), 500)
-              })
-            ).catch(err => console.error('[lessons] markLessonComplete error:', err))
-          }
-        })
-        panel.append(examBtn)
-      }
-    }
   }
 
   // ── Desktop: accordion ────────────────────────────────────────────────────
   function renderAccordion() {
     const accordion = document.getElementById('ls-accordion')
+    if (!accordion) return
 
-    let topBar = ''
-    if (courseStudent) {
-      const total = lessons.length
-      const done = Object.values(courseStudent.progreso || {}).filter(v => v?.completado).length
-      topBar = `
-        <div class="px-3 py-2.5 border-b border-[var(--blue-10)] bg-[var(--background-page)]">
-          <p class="text-[10px] font-black text-[var(--black-100)] truncate">${escapeHtml(courseStudent.nombre)} ${escapeHtml(courseStudent.apellido)}</p>
-          <div class="flex items-center gap-2 mt-1">
-            <div class="flex-1 h-1.5 bg-[var(--blue-20)] rounded-full overflow-hidden">
-              <div class="h-full bg-[var(--coral-100)] transition-all" style="width:${total ? Math.round(done / total * 100) : 0}%"></div>
-            </div>
-            <span class="text-[10px] text-[var(--black-40)] shrink-0">${done}/${total}</span>
-          </div>
-          ${courseStudent.completado ? `<button id="cert-btn" class="mt-2 w-full py-1.5 rounded-lg bg-[var(--coral-100)] text-white text-[10px] font-black">🏆 Ver mi certificado</button>` : ''}
-        </div>`
-    } else {
-      topBar = `
-        <div class="px-3 py-2 border-b border-[var(--blue-10)]">
-          <button id="start-course-btn" class="w-full py-1.5 rounded-lg border border-[var(--blue-20)] text-[10px] font-bold text-[var(--black-60)] hover:bg-[var(--black-10)] transition-colors">📋 Iniciar curso</button>
-        </div>`
-    }
-
-    accordion.innerHTML = topBar + CATEGORIES
-      .filter(c => grouped[c.key].length > 0)
+    accordion.innerHTML = CATEGORIES
+      .filter(c => grouped[c.key]?.length > 0)
       .map(cat => {
         const isOpen = cat.key === activeCategory
-        const catLessons = grouped[cat.key]
+        const catLessons = grouped[cat.key] || []
         const q = searchQuery.toLowerCase()
         const filtered = q
           ? catLessons.filter(l =>
@@ -257,10 +168,7 @@ async function renderLessons() {
               return `<button
                 class="acc-lesson w-full text-left px-4 py-2.5 text-xs border-b border-[var(--blue-10)] hover:bg-[var(--coral-10)] transition-colors ${isActive ? 'bg-[var(--coral-10)] border-l-2 border-l-[var(--coral-100)]' : ''}"
                 data-id="${l.id}">
-                <span class="flex items-center justify-between">
-                  <span class="${isActive ? 'font-bold text-[var(--coral-100)]' : 'text-[var(--black-60)]'}">${escapeHtml(l.titulo)}</span>
-                  ${progressIcon(l.id)}
-                </span>
+                <span class="${isActive ? 'font-bold text-[var(--coral-100)]' : 'text-[var(--black-60)]'}">${escapeHtml(l.titulo)}</span>
               </button>`
             }).join('')}
             ${filtered.length === 0 && q ? '<p class="text-xs text-[var(--black-60)] px-4 py-2">Sin resultados</p>' : ''}
@@ -293,17 +201,6 @@ async function renderLessons() {
         renderDeskContent()
       })
     })
-
-    accordion.querySelector('#cert-btn')?.addEventListener('click', () => renderCertificate(courseStudent))
-
-    accordion.querySelector('#start-course-btn')?.addEventListener('click', () => {
-      localStorage.removeItem('bold_mode')
-      courseStudent = null
-      renderModeSelection(container, {
-        onCourse(student) { courseStudent = student; renderLessons() },
-        onExplore() { renderLessons() },
-      })
-    })
   }
 
   function renderDeskContent() {
@@ -316,7 +213,6 @@ async function renderLessons() {
     renderLessonContent(panel, activeLesson)
   }
 
-  // Desktop search
   let searchDebounce = null
   document.getElementById('ls-desk-search')?.addEventListener('input', e => {
     clearTimeout(searchDebounce)
@@ -335,25 +231,19 @@ async function renderLessons() {
 
   // ── Mobile: screens ───────────────────────────────────────────────────────
   function showScreen(name) {
-    const screens = ['categories', 'lessons', 'content']
-    for (const s of screens) {
+    ['categories', 'lessons', 'content'].forEach(s => {
       const el = document.getElementById(`ls-screen-${s}`)
-      if (!el) continue
-      if (s === name) {
-        el.classList.remove('hidden')
-        el.classList.add('flex')
-      } else {
-        el.classList.add('hidden')
-        el.classList.remove('flex')
-      }
-    }
+      if (!el) return
+      if (s === name) { el.classList.remove('hidden'); el.classList.add('flex') }
+      else            { el.classList.add('hidden');    el.classList.remove('flex') }
+    })
   }
 
   function renderMobileCatList() {
     const list = document.getElementById('ls-cat-list')
     if (!list) return
     list.innerHTML = ''
-    CATEGORIES.filter(c => grouped[c.key].length > 0).forEach(cat => {
+    CATEGORIES.filter(c => grouped[c.key]?.length > 0).forEach(cat => {
       const btn = document.createElement('button')
       btn.className = 'w-full flex items-center gap-3 px-4 py-3.5 border-b border-[var(--blue-10)] text-left hover:bg-[var(--black-10)] transition-colors'
       btn.innerHTML = `
@@ -386,14 +276,10 @@ async function renderLessons() {
       const isActive = activeLesson?.id === l.id
       const btn = document.createElement('button')
       btn.className = `w-full text-left px-4 py-3.5 border-b border-[var(--blue-10)] hover:bg-[var(--black-10)] transition-colors ${isActive ? 'border-l-2 border-l-[var(--coral-100)] bg-[var(--coral-10)]' : ''}`
-      const row = document.createElement('div')
-      row.className = 'flex items-center justify-between'
       const title = document.createElement('p')
       title.className = `text-sm ${isActive ? 'font-bold text-[var(--coral-100)]' : 'font-medium text-[var(--black-100)]'}`
       title.textContent = l.titulo
-      row.append(title)
-      if (courseStudent) row.insertAdjacentHTML('beforeend', progressIcon(l.id))
-      btn.append(row)
+      btn.append(title)
       btn.addEventListener('click', () => {
         activeLesson = l
         renderMobileLessonList()
@@ -413,11 +299,9 @@ async function renderLessons() {
     }
   }
 
-  // Mobile back buttons
   document.getElementById('ls-back-cats')?.addEventListener('click', () => showScreen('categories'))
   document.getElementById('ls-back-lessons')?.addEventListener('click', () => showScreen('lessons'))
 
-  // Mobile search
   let mobSearchDebounce = null
   document.getElementById('ls-mob-search')?.addEventListener('input', e => {
     renderMobileLessonList()
@@ -437,7 +321,6 @@ async function renderLessons() {
   renderMobileCatList()
   renderMobileLessonList()
   showScreen('categories')
-
   renderAccordion()
   renderDeskContent()
 }
