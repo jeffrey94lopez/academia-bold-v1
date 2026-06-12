@@ -13,7 +13,7 @@ export function renderBlocks(blocks) {
       const wrap = document.createElement('div')
       wrap.style.cssText = 'display:flex;gap:10px;align-items:flex-start;margin-bottom:14px'
       const circle = document.createElement('div')
-      circle.style.cssText = 'width:24px;height:24px;background:#E92129;border-radius:50%;color:white;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px'
+      circle.style.cssText = 'width:24px;height:24px;background:var(--blue-100);border-radius:50%;color:white;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px'
       circle.textContent = stepCount
       const raw = block.text != null ? String(block.text) : ''
       const textEl = document.createElement(/<(ol|ul|li|div|h[1-6])/i.test(raw) ? 'div' : 'p')
