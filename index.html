@@ -3,29 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bold POS Academy — Academia Oficial de Bold POS</title>
+  <title>bolbot POS — Academia Oficial de Bold POS</title>
   <meta name="description" content="Plataforma oficial de capacitación Bold POS">
-  <script src="js/theme-init.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="js/tailwind-config.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 flex flex-col overflow-hidden" style="height: 100dvh;">
+<body class="bg-[var(--black-0)] text-[var(--black-100)] flex flex-col overflow-hidden" style="height: 100dvh;">
 
   <!-- Header -->
-  <header class="h-14 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between px-4 shrink-0 bg-white dark:bg-slate-900 z-10">
+  <header class="h-14 border-b border-[var(--blue-10)] flex items-center justify-between px-4 shrink-0 bg-white z-10">
     <div class="flex items-center gap-2.5">
-      <div class="w-8 h-8 bg-[#E92129] rounded-xl flex items-center justify-center text-white font-black italic text-base shadow">B</div>
-      <div class="leading-none">
-        <p class="font-black text-base uppercase tracking-tighter">Bold <span class="text-[#E92129] text-sm">POS</span> Academy</p>
-        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Academia Oficial de Bold POS</p>
-      </div>
+      <a href="https://bold.co/sistema-pos" target="_blank" rel="noopener noreferrer">
+        <img src="assets/Bold%20POS.png" alt="Bold POS" class="h-8 w-auto" />
+      </a>
     </div>
-    <button id="themeToggle" class="p-2 rounded-full bg-slate-100 dark:bg-slate-800 hover:scale-110 transition-transform">
-      <i data-lucide="moon" id="iconMoon" class="w-4 h-4"></i>
-      <i data-lucide="sun" id="iconSun" class="w-4 h-4 hidden"></i>
-    </button>
+    <a href="https://pos.bold.co/" target="_blank" rel="noopener noreferrer"
+       class="flex items-center justify-center gap-2 h-10 px-5 rounded-full bg-[var(--background-page)] text-[var(--blue-100)] text-sm font-medium hover:bg-[var(--blue-10)] transition-colors">
+      <i data-lucide="external-link" class="w-5 h-5"></i> Abrir Bold POS
+    </a>
   </header>
 
   <!-- Main content -->
@@ -36,35 +36,37 @@
   </main>
 
   <!-- Bottom nav (móvil) -->
-  <nav class="h-16 border-t border-slate-100 dark:border-slate-800 flex items-center justify-around bg-white dark:bg-slate-900 shrink-0 md:hidden">
-    <button data-tab="assistant" class="nav-tab flex flex-col items-center gap-1 text-[10px] font-bold text-[#E92129]">
+  <nav class="h-16 border-t border-[var(--blue-10)] flex items-center justify-around bg-white shrink-0 md:hidden">
+    <button data-tab="assistant" class="nav-tab flex flex-col items-center gap-1 text-[10px] font-bold text-[var(--coral-100)]">
       <i data-lucide="bot" class="w-5 h-5"></i>
       <span>Asistente</span>
     </button>
-    <button data-tab="lessons" class="nav-tab flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400">
+    <button data-tab="lessons" class="nav-tab flex flex-col items-center gap-1 text-[10px] font-bold text-[var(--black-60)]">
       <i data-lucide="book-open" class="w-5 h-5"></i>
-      <span>Lecciones</span>
+      <span>Centro de Ayuda</span>
     </button>
-    <button data-tab="resources" class="nav-tab flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400">
+    <button data-tab="resources" class="nav-tab flex flex-col items-center gap-1 text-[10px] font-bold text-[var(--black-60)]">
       <i data-lucide="library" class="w-5 h-5"></i>
       <span>Recursos</span>
     </button>
   </nav>
 
   <!-- Desktop sidebar -->
-  <div class="hidden md:flex md:fixed md:left-0 md:top-14 md:h-[calc(100vh-3.5rem)] md:w-56 md:border-r md:border-slate-100 md:dark:border-slate-800 md:bg-white md:dark:bg-slate-900 md:flex-col md:p-3 md:gap-1 md:z-10">
-    <button data-tab="assistant" class="nav-tab-desk flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-white bg-[#111] dark:bg-[#111]">
-      <i data-lucide="bot" class="w-4 h-4"></i> Asistente IA
+  <div class="hidden md:flex md:fixed md:left-0 md:top-14 md:h-[calc(100vh-3.5rem)] md:w-56 md:border-r md:border-[var(--blue-10)] md:bg-white md:flex-col md:p-3 md:gap-1 md:z-10">
+    <button data-tab="assistant" class="nav-tab-desk flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-white bg-[var(--blue-100)]">
+      <img src="assets/bolbotlineblue.png" alt="" class="nav-ico-default w-5 h-5 object-contain shrink-0" />
+      <img src="assets/bolbotline.png" alt="" class="nav-ico-selected w-5 h-5 object-contain shrink-0" /> bolbot POS
     </button>
-    <button data-tab="lessons" class="nav-tab-desk flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">
-      <i data-lucide="book-open" class="w-4 h-4"></i> Lecciones
+    <button data-tab="lessons" class="nav-tab-desk flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--blue-100)] hover:bg-[var(--black-10)]">
+      <i data-lucide="book-open" class="w-4 h-4"></i> Centro de Ayuda
     </button>
-    <button data-tab="resources" class="nav-tab-desk flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">
+    <button data-tab="resources" class="nav-tab-desk flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--blue-100)] hover:bg-[var(--black-10)]">
       <i data-lucide="library" class="w-4 h-4"></i> Recursos
     </button>
-    <div class="mt-auto pt-3 border-t border-slate-100 dark:border-slate-800">
-      <a href="admin.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800">
-        <i data-lucide="settings" class="w-4 h-4"></i> Admin
+    <div class="mt-auto pt-3 border-t border-[var(--blue-10)]">
+      <a href="https://api.whatsapp.com/send?phone=573171109500&text=Hola%20,%20necesito%20su%20ayuda" target="_blank" rel="noopener noreferrer"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-[var(--blue-100)] hover:bg-[var(--black-10)]">
+        <i data-lucide="message-circle" class="w-4 h-4"></i> Soporte
       </a>
     </div>
   </div>

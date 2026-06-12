@@ -1,4 +1,4 @@
 tailwind.config = {
   darkMode: 'class',
-  theme: { extend: { colors: { boldRed: '#E92129' } } }
+  theme: { extend: { colors: { boldRed: '#ff2947', boldBlue: '#121e6c' } } }
 }

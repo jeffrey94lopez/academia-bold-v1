@@ -12,7 +12,7 @@ function progressIcon(lessonId) {
   if (!courseStudent) return ''
   const entry = courseStudent.progreso?.[String(lessonId)]
   if (entry?.completado) return '<span class="text-green-500 text-xs ml-1 shrink-0">✅</span>'
-  return '<span class="text-slate-300 text-xs ml-1 shrink-0">⭕</span>'
+  return '<span class="text-[var(--black-40)] text-xs ml-1 shrink-0">⭕</span>'
 }
 
 async function renderLessons() {
@@ -32,7 +32,7 @@ async function renderLessons() {
     return
   }
 
-  container.innerHTML = '<div class="flex items-center justify-center h-full text-slate-400 text-sm">Cargando lecciones...</div>'
+  container.innerHTML = '<div class="flex items-center justify-center h-full text-[var(--black-60)] text-sm">Cargando lecciones...</div>'
 
   const [{ data: lessons, error }, { data: cats }] = await Promise.all([
     supabase.from('lecciones').select('*').order('orden'),
@@ -42,7 +42,7 @@ async function renderLessons() {
 
   if (error) console.error('[lessons] Supabase error:', error)
   if (error || !lessons?.length) {
-    container.innerHTML = '<p class="text-slate-400 text-sm text-center pt-16">No hay lecciones disponibles.</p>'
+    container.innerHTML = '<p class="text-[var(--black-60)] text-sm text-center pt-16">No hay lecciones disponibles.</p>'
     return
   }
 
@@ -66,28 +66,28 @@ async function renderLessons() {
     <!-- MOBILE: 3-screen stack (hidden on md+) -->
     <div class="md:hidden absolute inset-0">
       <div id="ls-screen-categories" class="absolute inset-0 flex flex-col bg-white">
-        <div class="px-4 py-3 border-b border-slate-100 shrink-0">
-          <h2 class="font-black text-base">Lecciones</h2>
+        <div class="px-4 py-3 border-b border-[var(--blue-10)] shrink-0">
+          <h2 class="font-black text-base">Centro de Ayuda</h2>
         </div>
         <div id="ls-cat-list" class="flex-1 overflow-y-auto"></div>
       </div>
 
       <div id="ls-screen-lessons" class="absolute inset-0 flex-col bg-white hidden">
-        <div class="bg-[#E92129] px-4 py-3 flex items-center gap-3 shrink-0">
+        <div class="bg-[var(--color-primary)] px-4 py-3 flex items-center gap-3 shrink-0">
           <button id="ls-back-cats" class="text-white/80 text-2xl font-bold leading-none">‹</button>
           <span id="ls-mob-cat-title" class="text-white font-black text-sm flex-1"></span>
         </div>
-        <div class="px-3 py-2 border-b border-slate-100 shrink-0">
-          <div class="flex items-center gap-2 bg-slate-100 rounded-xl px-3 py-2">
-            <span class="text-slate-400 text-sm">🔍</span>
-            <input id="ls-mob-search" placeholder="Buscar lección..." class="bg-transparent text-sm flex-1 outline-none placeholder-slate-400">
+        <div class="px-3 py-2 border-b border-[var(--blue-10)] shrink-0">
+          <div class="flex items-center gap-2 bg-[var(--background-page)] rounded-xl px-3 py-2">
+            <span class="text-[var(--black-60)] text-sm">🔍</span>
+            <input id="ls-mob-search" placeholder="Buscar lección..." class="bg-transparent text-sm flex-1 outline-none placeholder-[var(--black-60)]">
           </div>
         </div>
         <div id="ls-lesson-list" class="flex-1 overflow-y-auto"></div>
       </div>
 
-      <div id="ls-screen-content" class="absolute inset-0 flex-col bg-slate-50 hidden">
-        <div class="bg-[#E92129] px-4 py-3 flex items-center gap-3 shrink-0">
+      <div id="ls-screen-content" class="absolute inset-0 flex-col bg-[var(--background-page)] hidden">
+        <div class="bg-[var(--color-primary)] px-4 py-3 flex items-center gap-3 shrink-0">
           <button id="ls-back-lessons" class="text-white/80 text-2xl font-bold leading-none">‹</button>
           <span id="ls-mob-lesson-title" class="text-white font-black text-sm flex-1 truncate"></span>
         </div>
@@ -97,16 +97,16 @@ async function renderLessons() {
 
     <!-- DESKTOP: sidebar + content panel (hidden below md) -->
     <div class="hidden md:flex absolute inset-0">
-      <div class="w-48 bg-white border-r border-slate-100 flex flex-col shrink-0">
-        <div class="p-2.5 border-b border-slate-100 shrink-0">
-          <div class="flex items-center gap-2 bg-slate-100 rounded-xl px-3 py-2">
-            <span class="text-slate-400 text-xs">🔍</span>
-            <input id="ls-desk-search" placeholder="Buscar..." class="bg-transparent text-xs flex-1 outline-none placeholder-slate-400">
+      <div class="w-48 bg-white border-r border-[var(--blue-10)] flex flex-col shrink-0">
+        <div class="p-2.5 border-b border-[var(--blue-10)] shrink-0">
+          <div class="flex items-center gap-2 bg-[var(--background-page)] rounded-xl px-3 py-2">
+            <span class="text-[var(--black-60)] text-xs">🔍</span>
+            <input id="ls-desk-search" placeholder="Buscar..." class="bg-transparent text-xs flex-1 outline-none placeholder-[var(--black-60)]">
           </div>
         </div>
         <div id="ls-accordion" class="flex-1 overflow-y-auto custom-scroll"></div>
       </div>
-      <div id="ls-desk-content" class="flex-1 overflow-y-auto p-5 bg-slate-50 custom-scroll"></div>
+      <div id="ls-desk-content" class="flex-1 overflow-y-auto p-5 bg-[var(--background-page)] custom-scroll"></div>
     </div>
   `
 
@@ -135,11 +135,11 @@ async function renderLessons() {
     if (topVideo) panel.appendChild(renderBlocks([topVideo]))
 
     const titleEl = document.createElement('h2')
-    titleEl.className = 'font-black text-base text-slate-900 mb-0.5'
+    titleEl.className = 'font-black text-base text-[var(--black-100)] mb-0.5'
     titleEl.textContent = lesson.titulo
 
     const metaEl = document.createElement('p')
-    metaEl.className = 'text-xs text-slate-400 mb-4'
+    metaEl.className = 'text-xs text-[var(--black-60)] mb-4'
     metaEl.textContent = `${lesson.categoria || 'Ventas'} · Lección ${lessonIdx}`
 
     panel.append(titleEl, metaEl)
@@ -147,7 +147,6 @@ async function renderLessons() {
     if (restBlocks.length > 0) {
       panel.appendChild(renderBlocks(restBlocks))
     } else if (isLegacy && lesson.contenido) {
-      // Legacy HTML fallback for lessons saved before block editor
       const div = document.createElement('div')
       div.innerHTML = lesson.contenido
       panel.append(div)
@@ -155,12 +154,12 @@ async function renderLessons() {
 
     if (lesson.notas) {
       const notasWrap = document.createElement('div')
-      notasWrap.style.cssText = 'margin-top:16px;background:#fefce8;border-left:3px solid #eab308;border-radius:8px;padding:12px 14px'
+      notasWrap.style.cssText = 'margin-top:16px;background:var(--warning-10);border-left:3px solid var(--warning-100);border-radius:8px;padding:12px 14px'
       const notasTitle = document.createElement('p')
-      notasTitle.style.cssText = 'font-size:11px;font-weight:900;color:#854d0e;margin-bottom:6px'
+      notasTitle.style.cssText = 'font-size:11px;font-weight:900;color:var(--warning-150);margin-bottom:6px'
       notasTitle.textContent = '📝 Notas'
       const notasText = document.createElement('p')
-      notasText.style.cssText = 'font-size:12px;color:#713f12;line-height:1.5'
+      notasText.style.cssText = 'font-size:12px;color:var(--warning-200);line-height:1.5'
       notasText.textContent = lesson.notas
       notasWrap.append(notasTitle, notasText)
       panel.append(notasWrap)
@@ -177,13 +176,13 @@ async function renderLessons() {
       const alreadyDone = courseStudent.progreso?.[String(lesson.id)]?.completado
       if (alreadyDone) {
         const doneTag = document.createElement('div')
-        doneTag.className = 'mt-5 py-3 rounded-xl bg-green-50 border border-green-200 text-center text-sm font-bold text-green-700'
+        doneTag.className = 'mt-5 py-3 rounded-xl bg-[var(--success-10)] border border-[var(--success-100)] text-center text-sm font-bold text-[var(--success-150)]'
         doneTag.textContent = '✅ Lección completada'
         panel.append(doneTag)
       } else {
         const hasExam = Array.isArray(lesson.examen?.preguntas) && lesson.examen.preguntas.length > 0
         const examBtn = document.createElement('button')
-        examBtn.className = 'mt-5 w-full py-3 rounded-xl bg-[#E92129] text-white text-sm font-bold hover:scale-[1.02] transition-transform'
+        examBtn.className = 'mt-5 w-full py-3 rounded-xl bg-[var(--coral-100)] text-white text-sm font-bold hover:scale-[1.02] transition-transform'
         examBtn.textContent = hasExam ? 'Ir al examen →' : 'Marcar lección como completada ✓'
         examBtn.addEventListener('click', () => {
           if (hasExam) {
@@ -222,20 +221,20 @@ async function renderLessons() {
       const total = lessons.length
       const done = Object.values(courseStudent.progreso || {}).filter(v => v?.completado).length
       topBar = `
-        <div class="px-3 py-2.5 border-b border-slate-100 bg-slate-50">
-          <p class="text-[10px] font-black text-slate-700 truncate">${escapeHtml(courseStudent.nombre)} ${escapeHtml(courseStudent.apellido)}</p>
+        <div class="px-3 py-2.5 border-b border-[var(--blue-10)] bg-[var(--background-page)]">
+          <p class="text-[10px] font-black text-[var(--black-100)] truncate">${escapeHtml(courseStudent.nombre)} ${escapeHtml(courseStudent.apellido)}</p>
           <div class="flex items-center gap-2 mt-1">
-            <div class="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-              <div class="h-full bg-[#E92129] transition-all" style="width:${total ? Math.round(done / total * 100) : 0}%"></div>
+            <div class="flex-1 h-1.5 bg-[var(--blue-20)] rounded-full overflow-hidden">
+              <div class="h-full bg-[var(--coral-100)] transition-all" style="width:${total ? Math.round(done / total * 100) : 0}%"></div>
             </div>
-            <span class="text-[10px] text-slate-400 shrink-0">${done}/${total}</span>
+            <span class="text-[10px] text-[var(--black-40)] shrink-0">${done}/${total}</span>
           </div>
-          ${courseStudent.completado ? `<button id="cert-btn" class="mt-2 w-full py-1.5 rounded-lg bg-[#E92129] text-white text-[10px] font-black">🏆 Ver mi certificado</button>` : ''}
+          ${courseStudent.completado ? `<button id="cert-btn" class="mt-2 w-full py-1.5 rounded-lg bg-[var(--coral-100)] text-white text-[10px] font-black">🏆 Ver mi certificado</button>` : ''}
         </div>`
     } else {
       topBar = `
-        <div class="px-3 py-2 border-b border-slate-100">
-          <button id="start-course-btn" class="w-full py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 hover:bg-slate-50 transition-colors">📋 Iniciar curso</button>
+        <div class="px-3 py-2 border-b border-[var(--blue-10)]">
+          <button id="start-course-btn" class="w-full py-1.5 rounded-lg border border-[var(--blue-20)] text-[10px] font-bold text-[var(--black-60)] hover:bg-[var(--black-10)] transition-colors">📋 Iniciar curso</button>
         </div>`
     }
 
@@ -256,22 +255,22 @@ async function renderLessons() {
             ${filtered.map(l => {
               const isActive = activeLesson?.id === l.id
               return `<button
-                class="acc-lesson w-full text-left px-4 py-2.5 text-xs border-b border-slate-100/60 hover:bg-red-50 transition-colors ${isActive ? 'bg-red-50 border-l-2 border-l-[#E92129]' : ''}"
+                class="acc-lesson w-full text-left px-4 py-2.5 text-xs border-b border-[var(--blue-10)] hover:bg-[var(--coral-10)] transition-colors ${isActive ? 'bg-[var(--coral-10)] border-l-2 border-l-[var(--coral-100)]' : ''}"
                 data-id="${l.id}">
                 <span class="flex items-center justify-between">
-                  <span class="${isActive ? 'font-bold text-[#E92129]' : 'text-slate-600'}">${escapeHtml(l.titulo)}</span>
+                  <span class="${isActive ? 'font-bold text-[var(--coral-100)]' : 'text-[var(--black-60)]'}">${escapeHtml(l.titulo)}</span>
                   ${progressIcon(l.id)}
                 </span>
               </button>`
             }).join('')}
-            ${filtered.length === 0 && q ? '<p class="text-xs text-slate-400 px-4 py-2">Sin resultados</p>' : ''}
+            ${filtered.length === 0 && q ? '<p class="text-xs text-[var(--black-60)] px-4 py-2">Sin resultados</p>' : ''}
           </div>` : ''
 
         return `
           <div>
-            <button class="acc-cat w-full flex items-center justify-between px-3 py-2.5 border-b border-slate-100 hover:bg-slate-50 transition-colors" data-cat="${escapeHtml(cat.key)}">
-              <span class="text-xs font-black ${isOpen ? 'text-[#E92129]' : 'text-slate-600'}">${cat.emoji} ${escapeHtml(cat.key)}</span>
-              <span class="text-[10px] ${isOpen ? 'text-[#E92129]' : 'text-slate-300'}">${isOpen ? '▾' : '▸'}</span>
+            <button class="acc-cat w-full flex items-center justify-between px-3 py-2.5 border-b border-[var(--blue-10)] hover:bg-[var(--black-10)] transition-colors" data-cat="${escapeHtml(cat.key)}">
+              <span class="text-xs font-black ${isOpen ? 'text-[var(--blue-100)]' : 'text-[var(--black-60)]'}">${cat.emoji} ${escapeHtml(cat.key)}</span>
+              <span class="text-[10px] ${isOpen ? 'text-[var(--blue-100)]' : 'text-[var(--black-40)]'}">${isOpen ? '▾' : '▸'}</span>
             </button>
             ${lessonRows}
           </div>`
@@ -311,7 +310,7 @@ async function renderLessons() {
     const panel = document.getElementById('ls-desk-content')
     if (!panel) return
     if (!activeLesson) {
-      panel.innerHTML = '<p class="text-slate-400 text-sm">Selecciona una lección.</p>'
+      panel.innerHTML = '<p class="text-[var(--black-60)] text-sm">Selecciona una lección.</p>'
       return
     }
     renderLessonContent(panel, activeLesson)
@@ -356,11 +355,11 @@ async function renderLessons() {
     list.innerHTML = ''
     CATEGORIES.filter(c => grouped[c.key].length > 0).forEach(cat => {
       const btn = document.createElement('button')
-      btn.className = 'w-full flex items-center gap-3 px-4 py-3.5 border-b border-slate-100 text-left hover:bg-slate-50 transition-colors'
+      btn.className = 'w-full flex items-center gap-3 px-4 py-3.5 border-b border-[var(--blue-10)] text-left hover:bg-[var(--black-10)] transition-colors'
       btn.innerHTML = `
         <span class="text-lg">${cat.emoji}</span>
-        <span class="font-bold text-sm flex-1 text-slate-800">${escapeHtml(cat.key)}</span>
-        <span class="text-slate-300 text-xl">›</span>`
+        <span class="font-bold text-sm flex-1 text-[var(--black-100)]">${escapeHtml(cat.key)}</span>
+        <span class="text-[var(--black-40)] text-xl">›</span>`
       btn.addEventListener('click', () => {
         activeCategory = cat.key
         renderMobileLessonList()
@@ -386,11 +385,11 @@ async function renderLessons() {
     filtered.forEach(l => {
       const isActive = activeLesson?.id === l.id
       const btn = document.createElement('button')
-      btn.className = `w-full text-left px-4 py-3.5 border-b border-slate-100 hover:bg-slate-50 transition-colors ${isActive ? 'border-l-2 border-l-[#E92129] bg-red-50/40' : ''}`
+      btn.className = `w-full text-left px-4 py-3.5 border-b border-[var(--blue-10)] hover:bg-[var(--black-10)] transition-colors ${isActive ? 'border-l-2 border-l-[var(--coral-100)] bg-[var(--coral-10)]' : ''}`
       const row = document.createElement('div')
       row.className = 'flex items-center justify-between'
       const title = document.createElement('p')
-      title.className = `text-sm ${isActive ? 'font-bold text-[#E92129]' : 'font-medium text-slate-700'}`
+      title.className = `text-sm ${isActive ? 'font-bold text-[var(--coral-100)]' : 'font-medium text-[var(--black-100)]'}`
       title.textContent = l.titulo
       row.append(title)
       if (courseStudent) row.insertAdjacentHTML('beforeend', progressIcon(l.id))
@@ -408,7 +407,7 @@ async function renderLessons() {
 
     if (filtered.length === 0 && q) {
       const empty = document.createElement('p')
-      empty.className = 'text-slate-400 text-sm px-4 py-4'
+      empty.className = 'text-[var(--black-60)] text-sm px-4 py-4'
       empty.textContent = 'Sin resultados.'
       list.append(empty)
     }

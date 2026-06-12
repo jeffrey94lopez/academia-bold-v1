@@ -1,12 +1,134 @@
-/* Quill step editor */
+/* ── Merlin Design Tokens ────────────────────────────────────────────────── */
+:root {
+  /* ── Brand Blue ── */
+  --blue-hover:   #091144;
+  --blue-100:     #121e6c;
+  --blue-80:      #1f2a74;
+  --blue-60:      #3e4983;
+  --blue-50:      #6c759f;
+  --blue-40:      #969bbd;
+  --blue-30:      #babdd3;
+  --blue-20:      #d2d4e1;
+  --blue-10:      #f1f2f6;
+
+  /* ── Coral / CTA ── */
+  --coral-hover:  #e4102e;
+  --coral-100:    #ff2947;
+  --coral-60:     #f48990;
+  --coral-30:     #fcdfe2;
+  --coral-10:     #fef1f3;
+
+  /* ── Neutrals ── */
+  --black-100:    #1e1e1e;
+  --black-60:     #606060;
+  --black-40:     #969696;
+  --black-10:     #f3f3f3;
+  --black-0:      #ffffff;
+
+  /* ── Background ── */
+  --background-page: #f7f8fb;
+
+  /* ── Gradientes ── */
+  --gradient-horizontal: linear-gradient(to right, #121e6c, #ee424e);
+  --gradient-vertical:   linear-gradient(to bottom, #ee424e, #121e6c);
+
+  /* ── Feedback / Error ── */
+  --error-200:    #610017;
+  --error-150:    #910022;
+  --error-100:    #c31a2f;
+  --error-10:     #fbf3f5;
+
+  /* ── Feedback / Warning ── */
+  --warning-200:  #5b3100;
+  --warning-150:  #a16b00;
+  --warning-100:  #ffc217;
+  --warning-10:   #fff3d1;
+
+  /* ── Feedback / Success ── */
+  --success-200:  #0b3b26;
+  --success-150:  #1b8959;
+  --success-100:  #6cdcab;
+  --success-10:   #f4fdf9;
+
+  /* ── Feedback / Informative ── */
+  --info-200:     #052d65;
+  --info-150:     #0a53a5;
+  --info-100:     #227ad1;
+  --info-10:      #f1f9ff;
+
+  /* ── Typography ── */
+  --font-family:          'Montserrat', sans-serif;
+  --font-size-xxxl:       48px;
+  --font-size-xl:         28px;
+  --font-size-s:          16px;
+  --font-size-xs:         14px;
+  --font-size-xxs:        12px;
+  --font-height-xxl:      52px;
+  --font-height-lg:       32px;
+  --font-height-s:        24px;
+  --font-height-xs:       20px;
+  --font-height-xxs:      16px;
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+  --font-weight-bold:     700;
+
+  /* ── Spacing ── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-7:  28px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-11: 44px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-22: 88px;
+
+  /* ── Border Radius ── */
+  --radius-sm:   12px;
+  --radius-md:   16px;
+  --radius-lg:   18px;
+  --radius-xl:   20px;
+  --radius-pill: 32px;
+  --radius-full: 100px;
+
+  /* ── Shadows ── */
+  --shadow-2:      0px 4px 12px 0px rgba(18, 30, 108, 0.08);
+  --shadow-4:      0px 4px 16px 0px rgba(18, 30, 108, 0.08);
+  --shadow-8:      0px 8px 20px 0px rgba(18, 30, 108, 0.08);
+  --shadow-12:     0px 12px 28px 0px rgba(18, 30, 108, 0.08);
+  --shadow-dropup: 0px -4px 8px rgba(0, 0, 0, 0.12);
+
+  /* ── Semantic aliases ── */
+  --color-primary:        var(--coral-100);
+  --color-primary-dark:   var(--coral-hover);
+  --color-primary-subtle: var(--coral-10);
+  --color-primary-border: var(--coral-30);
+  --color-primary-glow:   rgba(255, 41, 71, 0.30);
+}
+
+body {
+  font-family: var(--font-family);
+}
+
+/* ── Desktop layout offset ── */
+@media (min-width: 768px) {
+  main { margin-left: 14rem; }
+}
+
+/* ── Quill step editor (admin) ── */
 .quill-step-editor .ql-toolbar {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--blue-20);
   border-radius: 8px 8px 0 0;
   padding: 3px 6px;
-  background: #f8fafc;
+  background: var(--background-page);
 }
 .quill-step-editor .ql-container {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--blue-20);
   border-top: 0;
   border-radius: 0 0 8px 8px;
   font-size: 12px;
@@ -16,63 +138,64 @@
   min-height: 56px;
   padding: 7px 10px;
   line-height: 1.55;
-  color: #334155;
+  color: var(--black-100);
 }
-.quill-step-editor .ql-editor.ql-blank::before {
-  font-style: normal;
-  color: #94a3b8;
-  font-size: 12px;
-}
+.quill-step-editor .ql-editor.ql-blank::before { font-style: normal; color: var(--black-40); font-size: 12px; }
 .quill-step-editor .ql-toolbar button { width: 24px; height: 22px; padding: 2px; }
 .quill-step-editor .ql-toolbar .ql-formats { margin-right: 4px; }
-.quill-step-editor .ql-toolbar .ql-stroke { stroke: #64748b; }
-.quill-step-editor .ql-toolbar .ql-fill   { fill: #64748b; }
+.quill-step-editor .ql-toolbar .ql-stroke { stroke: var(--blue-60); }
+.quill-step-editor .ql-toolbar .ql-fill   { fill: var(--blue-60); }
 .quill-step-editor .ql-toolbar button:hover .ql-stroke,
-.quill-step-editor .ql-toolbar button.ql-active .ql-stroke { stroke: #E92129; }
+.quill-step-editor .ql-toolbar button.ql-active .ql-stroke { stroke: var(--coral-100); }
 .quill-step-editor .ql-toolbar button:hover .ql-fill,
-.quill-step-editor .ql-toolbar button.ql-active .ql-fill   { fill: #E92129; }
-.quill-step-editor .ql-snow .ql-picker { color: #64748b; font-size: 11px; }
+.quill-step-editor .ql-toolbar button.ql-active .ql-fill   { fill: var(--coral-100); }
+.quill-step-editor .ql-snow .ql-picker { color: var(--blue-60); font-size: 11px; }
 
-/* Desktop layout offset */
-@media (min-width: 768px) {
-  main { margin-left: 14rem; }
-}
-
-/* Chat bubbles */
+/* ── Chat bubbles ── */
 .msg-user {
-  background: #E92129;
-  color: white;
-  border-radius: 18px 18px 4px 18px;
-  padding: 10px 16px;
+  background: var(--coral-10);
+  color: var(--black-100);
+  border: none;
+  border-radius: var(--radius-lg) var(--radius-lg) var(--space-1) var(--radius-lg);
+  padding: var(--space-2) var(--space-4);
   max-width: 75%;
   align-self: flex-end;
   word-break: break-word;
+  font-family: var(--font-family);
+  font-size: var(--font-size-xs);
+  line-height: var(--font-height-xs);
 }
 
 .msg-bot {
-  background: #f1f5f9;
-  color: #1e293b;
-  border-radius: 18px 18px 18px 4px;
-  padding: 10px 16px;
+  background: var(--background-page);
+  color: var(--black-100);
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--space-1);
+  padding: var(--space-2) var(--space-4);
   max-width: 75%;
   align-self: flex-start;
   word-break: break-word;
+  font-family: var(--font-family);
+  font-size: var(--font-size-xs);
+  line-height: var(--font-height-xs);
 }
 
-.dark .msg-bot {
-  background: #1e293b;
-  color: #f1f5f9;
+/* ── Send button ── */
+#sendBtn {
+  background-color: var(--coral-100);
+  border-radius: var(--radius-full);
+  font-family: var(--font-family);
+  box-shadow: var(--shadow-4);
 }
+#sendBtn:hover { background-color: var(--coral-hover); }
 
-/* Typing indicator */
+/* ── Typing indicator ── */
 .typing-dot {
   width: 8px;
   height: 8px;
-  background: #94a3b8;
+  background: var(--black-60);
   border-radius: 50%;
   animation: typingBounce 1.2s infinite;
 }
-
 .typing-dot:nth-child(2) { animation-delay: 0.2s; }
 .typing-dot:nth-child(3) { animation-delay: 0.4s; }
 
@@ -81,17 +204,15 @@
   30% { transform: translateY(-6px); }
 }
 
-/* Fade in para secciones */
-.section-enter {
-  animation: fadeSlide 0.25s ease;
-}
+/* ── Fade in para secciones ── */
+.section-enter { animation: fadeSlide 0.25s ease; }
 
 @keyframes fadeSlide {
   from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Listas dentro de bloques de paso (vista previa y vista estudiante) */
+/* ── Listas dentro de bloques de paso ── */
 .step-content ol, .step-content ul,
 #lessonPreview ol, #lessonPreview ul,
 #ls-desk-content ol, #ls-desk-content ul,
@@ -103,44 +224,30 @@
 #lessonPreview ul, #ls-desk-content ul, #ls-mob-content ul { list-style-type: disc; }
 #lessonPreview li, #ls-desk-content li, #ls-mob-content li { margin: 2px 0; }
 
-/* Lesson card hover */
-.lesson-card {
-  transition: border-color 0.15s, transform 0.15s;
-}
-.lesson-card:hover {
-  border-color: #E92129;
-  transform: translateY(-2px);
-}
+/* ── Lesson card hover ── */
+.lesson-card { transition: border-color 0.15s, transform 0.15s; }
+.lesson-card:hover { border-color: var(--color-primary); transform: translateY(-2px); }
 
-/* Scrollbar custom */
+/* ── Scrollbar custom ── */
 .custom-scroll::-webkit-scrollbar { width: 4px; }
-.custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-.dark .custom-scroll::-webkit-scrollbar-thumb { background: #334155; }
+.custom-scroll::-webkit-scrollbar-thumb { background: var(--black-10); border-radius: 10px; }
 
-/* Bot bubble wide (para mensajes con imágenes o videos) */
-.msg-bot-wide {
-  max-width: 90%;
-}
+/* ── Bot bubble wide ── */
+.msg-bot-wide { max-width: 90%; }
 
-/* Imágenes dentro del chat */
+/* ── Imágenes dentro del chat ── */
 .msg-bot img, .msg-bot-wide img, .chat-img {
-  max-width: 320px;
-  width: 100%;
+  max-width: 100%;
   border-radius: 12px;
   cursor: zoom-in;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--blue-20);
   margin-top: 6px;
   display: block;
   transition: opacity 0.15s;
 }
-
 .chat-img:hover { opacity: 0.88; }
 
-.dark .msg-bot img, .dark .msg-bot-wide img {
-  border-color: #334155;
-}
-
-/* Videos YouTube dentro del chat */
+/* ── Videos YouTube dentro del chat ── */
 .chat-video-wrap {
   position: relative;
   width: 100%;
@@ -149,7 +256,6 @@
   overflow: hidden;
   margin-top: 6px;
 }
-
 .chat-video-wrap iframe {
   position: absolute;
   inset: 0;
@@ -158,7 +264,7 @@
   border: none;
 }
 
-/* Botones de resolución Sí/No */
+/* ── Botones de resolución ── */
 .resolution-btns {
   display: flex;
   align-items: center;
@@ -166,26 +272,22 @@
   flex-wrap: wrap;
   padding: 2px 0 0 2px;
 }
-.resolution-label {
-  font-size: 11px;
-  color: #94a3b8;
-}
+.resolution-label { font-size: 11px; color: var(--black-60); }
 .res-btn {
   font-size: 11px;
   font-weight: 700;
   padding: 4px 12px;
   border-radius: 20px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--blue-20);
   cursor: pointer;
-  background: #f8fafc;
-  color: #475569;
+  background: var(--black-10);
+  color: var(--black-60);
   transition: all 0.15s;
 }
-.dark .res-btn { background: #1e293b; border-color: #334155; color: #94a3b8; }
 .res-yes:hover { background: #f0fdf4; border-color: #4ade80; color: #16a34a; }
-.res-no:hover  { background: #fff1f2; border-color: #fca5a5; color: #dc2626; }
+.res-no:hover  { background: var(--coral-10); border-color: var(--coral-30); color: var(--coral-hover); }
 
-/* Lightbox overlay */
+/* ── Lightbox overlay ── */
 #chatImgLightbox {
   display: none;
   position: fixed;
@@ -194,7 +296,6 @@
   align-items: center;
   justify-content: center;
 }
-
 #chatImgLightbox.open { display: flex; }
 
 #lb-backdrop {
@@ -222,22 +323,14 @@
   display: block;
 }
 
-#lb-caption {
-  color: #cbd5e1;
-  font-size: 13px;
-  text-align: center;
-  margin: 0;
-}
+#lb-caption { color: var(--blue-30); font-size: 13px; text-align: center; margin: 0; }
 
-#lb-actions {
-  display: flex;
-  gap: 10px;
-}
+#lb-actions { display: flex; gap: 10px; }
 
 #lb-actions button {
-  background: #1e293b;
-  border: 1px solid #475569;
-  color: #e2e8f0;
+  background: var(--blue-80);
+  border: 1px solid var(--blue-60);
+  color: var(--blue-10);
   padding: 8px 18px;
   border-radius: 8px;
   cursor: pointer;
@@ -245,6 +338,54 @@
   font-weight: 600;
   transition: background 0.15s;
 }
-
 #lb-download:hover { background: #14532d; border-color: #4ade80; color: #86efac; }
-#lb-close:hover    { background: #7f1d1d; border-color: #fca5a5; color: #fca5a5; }
+#lb-close:hover    { background: var(--coral-hover); border-color: var(--coral-30); color: #fff; }
+
+/* ── Sidebar nav (desktop) — Merlin blue states ── */
+.nav-tab-desk { color: var(--blue-100); }
+.nav-tab-desk.text-\[var\(--black-60\)\] { color: var(--blue-100); }
+
+.nav-tab-desk.bg-\[var\(--blue-100\)\],
+.nav-tab-desk.bg-\[var\(--coral-10\)\] {
+  background-color: var(--blue-100);
+  color: #fff;
+}
+.nav-tab-desk.text-\[var\(--coral-100\)\] { color: #fff; }
+
+.nav-tab-desk .nav-ico-selected { display: none; }
+.nav-tab-desk.bg-\[var\(--blue-100\)\] .nav-ico-default { display: none; }
+.nav-tab-desk.bg-\[var\(--blue-100\)\] .nav-ico-selected { display: inline-block; }
+
+/* ── Chat suggestion chips ── */
+.quick-query {
+  background-color: var(--blue-10) !important;
+  color: var(--blue-100) !important;
+  border-color: var(--blue-30) !important;
+}
+.quick-query:hover {
+  background-color: var(--blue-10) !important;
+  border-color: var(--blue-100) !important;
+  color: var(--blue-100) !important;
+}
+
+/* ── Chat input ── */
+#chatInput {
+  border: 1px solid var(--black-10);
+  border-radius: var(--radius-pill);
+  outline: none;
+  box-shadow: none;
+}
+#chatInput:focus {
+  border: 1px solid var(--blue-30);
+  outline: none;
+  box-shadow: none;
+}
+
+/* ── Sidebar submenu lesson items ── */
+.acc-lesson span {
+  display: inline-block;
+  text-transform: none;
+}
+.acc-lesson span::first-letter {
+  text-transform: uppercase;
+}

@@ -43,7 +43,7 @@ async function createConversation() {
     if (error) throw new Error(error.message)
     conversationId = id
   } catch (e) {
-    console.warn('[Bodi] createConversation failed:', e.message)
+    console.warn('[bolbot POS] createConversation failed:', e.message)
     conversationId = null
   } finally {
     _creating = false
@@ -92,55 +92,51 @@ async function renderAssistant() {
   const container = document.getElementById('section-assistant')
   container.innerHTML = `
     <div class="flex flex-col h-full">
-      <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-        <div class="flex items-center gap-2.5">
-          <div class="w-9 h-9 rounded-full bg-[#E92129] flex items-center justify-center shadow">
-            <i data-lucide="bot" class="w-5 h-5 text-white"></i>
-          </div>
-          <div>
-            <div class="flex items-center gap-1.5">
-              <p class="text-sm font-black">Bodi</p>
-              <span class="text-[9px] font-black bg-slate-100 dark:bg-slate-700 text-slate-500 px-1.5 py-0.5 rounded-full tracking-wide">IA</span>
-            </div>
-            <p class="text-[10px] text-slate-400 dark:text-slate-500">Asistente Bold POS · IA</p>
-          </div>
+      <!-- Chat header -->
+      <div class="px-4 py-3 border-b border-[var(--blue-10)] flex items-center justify-between shrink-0">
+        <div class="flex items-center">
+          <img src="assets/bolbot%20pos%20light.png" alt="bolbot POS" class="h-9 w-auto" />
         </div>
-        <button id="clearChat" class="text-xs text-slate-400 hover:text-[#E92129] font-bold flex items-center gap-1">
+        <button id="clearChat" class="text-xs text-[var(--black-60)] hover:text-[var(--coral-100)] font-bold flex items-center gap-1">
           <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Limpiar
         </button>
       </div>
 
+      <!-- Messages -->
       <div id="chatMessages" class="flex-1 overflow-y-auto custom-scroll p-4 flex flex-col gap-3">
         ${history.length === 0 ? `
           <div class="flex justify-start">
-            <div class="msg-bot text-sm">¡Hola! Soy Bodi, el asistente virtual de Bold POS 👋 Estoy aquí para ayudarte con cualquier duda sobre la plataforma. ¿En qué te puedo ayudar hoy?</div>
+            <div class="msg-bot text-sm">¡Hola! Soy bolbot POS, el asistente virtual de Bold POS 👋 Estoy aquí para ayudarte con cualquier duda sobre la plataforma. ¿En qué te puedo ayudar hoy?</div>
           </div>
         ` : history.map(m => renderBubble(m.role, m.content)).join('')}
       </div>
 
+      <!-- Typing indicator -->
       <div id="typingIndicator" class="hidden px-4 pb-2">
-        <div class="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 rounded-2xl px-4 py-3 w-fit">
+        <div class="flex items-center gap-1.5 bg-[var(--background-page)] rounded-2xl px-4 py-3 w-fit">
           <span class="typing-dot"></span>
           <span class="typing-dot"></span>
           <span class="typing-dot"></span>
         </div>
       </div>
 
+      <!-- Quick queries -->
       <div id="quickQueries" class="px-4 pb-2 flex gap-2 overflow-x-auto shrink-0 ${history.length > 0 ? 'hidden' : ''}">
         ${chips.map(q => `
-          <button class="quick-query shrink-0 text-xs font-bold px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 hover:border-[#E92129] hover:text-[#E92129] transition-colors whitespace-nowrap">${escapeHtml(q)}</button>
+          <button class="quick-query shrink-0 text-xs font-bold px-3 py-1.5 rounded-full border border-[var(--blue-20)] hover:border-[var(--blue-100)] transition-colors whitespace-nowrap">${escapeHtml(q)}</button>
         `).join('')}
       </div>
 
-      <div class="px-4 py-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
+      <!-- Input -->
+      <div class="px-4 py-3 border-t border-[var(--blue-10)] shrink-0">
         <div class="flex gap-2 items-end">
           <textarea
             id="chatInput"
             rows="1"
             placeholder="Escribe tu pregunta sobre Bold POS..."
-            class="flex-1 resize-none bg-slate-100 dark:bg-slate-800 rounded-2xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#E92129] max-h-28 overflow-y-auto"
+            class="flex-1 resize-none bg-[var(--background-page)] px-4 py-2.5 text-sm max-h-28 overflow-y-auto"
           ></textarea>
-          <button id="sendBtn" class="w-10 h-10 bg-[#E92129] rounded-full flex items-center justify-center shrink-0 hover:scale-105 transition-transform shadow">
+          <button id="sendBtn" class="w-10 h-10 flex items-center justify-center shrink-0 hover:scale-105 transition-transform">
             <i data-lucide="send" class="w-4 h-4 text-white"></i>
           </button>
         </div>
@@ -174,7 +170,7 @@ function renderMarkdown(text) {
     const safeUrl = escapeHtml(url)
     return `<div class="my-2 text-center">
       <img src="${safeUrl}" alt="${safeAlt}" class="chat-img" onclick="openLightbox('${safeUrl}')" title="Clic para ampliar">
-      ${safeAlt ? `<p class="text-[10px] text-slate-400 mt-1 italic">${safeAlt}</p>` : ''}
+      ${safeAlt ? `<p class="text-[10px] text-[var(--black-60)] mt-1 italic">${safeAlt}</p>` : ''}
     </div>`
   })
 
@@ -187,7 +183,7 @@ function renderMarkdown(text) {
   )
 
   text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
-    '<a href="$2" target="_blank" rel="noopener" class="text-[#E92129] underline font-semibold hover:opacity-75">$1</a>')
+    '<a href="$2" target="_blank" rel="noopener" class="text-[var(--color-primary)] underline font-semibold hover:opacity-75">$1</a>')
 
   text = text.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
   text = text.replace(/\n/g, '<br>')
@@ -215,7 +211,7 @@ function appendMedia(mediaItems) {
       const d = document.createElement('div')
       d.className = 'my-2'
       d.innerHTML = `<img src="${safeUrl}" alt="${safeAlt}" class="chat-img" onclick="openLightbox('${safeUrl}', '${safeAlt}')" title="Clic para ampliar">
-        ${safeAlt ? `<p class="text-[10px] text-slate-400 mt-1 italic">${safeAlt}</p>` : ''}`
+        ${safeAlt ? `<p class="text-[10px] text-[var(--black-60)] mt-1 italic">${safeAlt}</p>` : ''}`
       wrap.appendChild(d)
     } else if (item.type === 'video' && item.url) {
       let videoId = null
@@ -246,7 +242,7 @@ function normalizeSegments(segments) {
     const prev = out[out.length - 1]
     const isMedia = seg.type === 'image' || seg.type === 'video'
     const prevIsMedia = prev && (prev.type === 'image' || prev.type === 'video')
-    if (isMedia && prevIsMedia) continue  // drop consecutive media (LLM grouping artifact)
+    if (isMedia && prevIsMedia) continue
     out.push(seg)
   }
   return out
@@ -257,7 +253,7 @@ function appendSegments(segments) {
   if (!box || !Array.isArray(segments)) return
   segments = normalizeSegments(segments)
   let textBuffer = []
-  let hadText = false  // never render media before the first text segment
+  let hadText = false
 
   function flushText() {
     if (!textBuffer.length) return
@@ -282,7 +278,7 @@ function appendSegments(segments) {
       const d = document.createElement('div')
       d.className = 'chat-media-block'
       d.innerHTML = `<img src="${safeUrl}" alt="${safeAlt}" class="chat-img" onclick="openLightbox('${safeUrl}', '${safeAlt}')" title="Clic para ampliar">
-        ${safeAlt ? `<p class="text-[10px] text-slate-400 mt-1 italic">${safeAlt}</p>` : ''}`
+        ${safeAlt ? `<p class="text-[10px] text-[var(--black-60)] mt-1 italic">${safeAlt}</p>` : ''}`
       box.appendChild(d)
       scrollToBottom()
     } else if (seg.type === 'video' && seg.url) {
@@ -473,4 +469,4 @@ function appendBubble(role, content) {
   box.appendChild(div)
 }
 
-renderAssistant().catch(err => console.error('[Bodi] Failed to render assistant:', err))
+renderAssistant().catch(err => console.error('[bolbot POS] Failed to render assistant:', err))
