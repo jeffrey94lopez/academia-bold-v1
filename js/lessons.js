@@ -1,4 +1,4 @@
-import { supabase } from './supabase.js'
+﻿import { supabase } from './supabase.js'
 import { renderBlocks } from './block-renderer.js'
 import { track } from './analytics.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
@@ -46,7 +46,7 @@ async function renderLessons() {
       </div>
 
       <div id="ls-screen-lessons" class="absolute inset-0 flex-col bg-white hidden">
-        <div class="bg-[var(--color-primary)] px-4 py-3 flex items-center gap-3 shrink-0">
+        <div class="bg-[var(--blue-100)] px-4 py-3 flex items-center gap-3 shrink-0">
           <button id="ls-back-cats" class="text-white/80 text-2xl font-bold leading-none">‹</button>
           <span id="ls-mob-cat-title" class="text-white font-black text-sm flex-1"></span>
         </div>
@@ -60,7 +60,7 @@ async function renderLessons() {
       </div>
 
       <div id="ls-screen-content" class="absolute inset-0 flex-col bg-[var(--background-page)] hidden">
-        <div class="bg-[var(--color-primary)] px-4 py-3 flex items-center gap-3 shrink-0">
+        <div class="bg-[var(--blue-100)] px-4 py-3 flex items-center gap-3 shrink-0">
           <button id="ls-back-lessons" class="text-white/80 text-2xl font-bold leading-none">‹</button>
           <span id="ls-mob-lesson-title" class="text-white font-black text-sm flex-1 truncate"></span>
         </div>

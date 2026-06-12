@@ -117,7 +117,7 @@ export async function renderAnalyticsPanel(from = null, to = null) {
       <div class="flex items-center gap-3">
         <h2 class="text-lg font-black">Analytics</h2>
         <div class="flex text-xs font-bold border border-[var(--blue-20)] rounded-xl overflow-hidden">
-          <button id="analytics-tab-lecciones" class="px-3 py-1.5 bg-[var(--coral-100)] text-white">Lecciones</button>
+          <button id="analytics-tab-lecciones" class="px-3 py-1.5 bg-[var(--blue-100)] text-white">Lecciones</button>
           <button id="analytics-tab-bodi" class="px-3 py-1.5 text-[var(--black-60)] hover:bg-[var(--background-page)]">Bodi</button>
         </div>
       </div>
@@ -140,12 +140,12 @@ export async function renderAnalyticsPanel(from = null, to = null) {
             <div class="flex flex-col gap-2 flex-1">
               <label class="text-xs font-bold text-[var(--black-60)]">Desde</label>
               <input id="analytics-from-input" type="date" value="${fmtDate(from)}"
-                class="px-2 py-1.5 border border-[var(--blue-20)] rounded-lg text-xs outline-none focus:border-[var(--coral-100)]">
+                class="px-2 py-1.5 border border-[var(--blue-20)] rounded-lg text-xs outline-none focus:border-[var(--blue-100)]">
               <label class="text-xs font-bold text-[var(--black-60)]">Hasta</label>
               <input id="analytics-to-input" type="date" value="${fmtDate(to)}"
-                class="px-2 py-1.5 border border-[var(--blue-20)] rounded-lg text-xs outline-none focus:border-[var(--coral-100)]">
+                class="px-2 py-1.5 border border-[var(--blue-20)] rounded-lg text-xs outline-none focus:border-[var(--blue-100)]">
             </div>
-            <button id="analytics-apply-btn" class="px-3 py-1.5 bg-[var(--coral-100)] text-white text-xs font-bold rounded-lg">Aplicar</button>
+            <button id="analytics-apply-btn" class="px-3 py-1.5 bg-[var(--blue-100)] text-white text-xs font-bold rounded-lg">Aplicar</button>
           </div>
         </div>
       </div>
@@ -245,7 +245,7 @@ function renderAnalyticsBody(container, ev, from, to) {
   const barsHtml = dayCounts.map((c, i) => {
     const h = Math.round((c / maxCount) * 64)
     return `<div class="flex flex-col items-center gap-1" title="${days[i].toLocaleDateString('es-HN')}: ${c} visitas">
-      <div style="height:${h}px;width:${barWidth}px;background:${c === maxCount ? 'var(--coral-100)' : '#fca5a5'};border-radius:3px 3px 0 0;min-height:2px"></div>
+      <div style="height:${h}px;width:${barWidth}px;background:${c === maxCount ? 'var(--blue-100)' : '#fca5a5'};border-radius:3px 3px 0 0;min-height:2px"></div>
       <span class="text-[9px] text-[var(--black-40)]">${fmtDay(days[i])}</span>
     </div>`
   }).join('')
@@ -280,10 +280,10 @@ function renderAnalyticsBody(container, ev, from, to) {
           <div>
             <div class="flex justify-between mb-1">
               <span class="text-xs font-bold text-[var(--black-100)]">Curso</span>
-              <span class="text-xs font-bold text-[var(--coral-100)]">${coursePct}%</span>
+              <span class="text-xs font-bold text-[var(--blue-100)]">${coursePct}%</span>
             </div>
             <div class="h-1.5 bg-[var(--black-10)] rounded-full">
-              <div class="h-1.5 bg-[var(--coral-100)] rounded-full" style="width:${coursePct}%"></div>
+              <div class="h-1.5 bg-[var(--blue-100)] rounded-full" style="width:${coursePct}%"></div>
             </div>
           </div>
           <div>
@@ -309,7 +309,7 @@ function renderAnalyticsBody(container, ev, from, to) {
         : topLessons.map(([title, cnt]) => `
           <div class="flex items-center justify-between px-4 py-2.5 border-b border-slate-50 last:border-0">
             <span class="text-xs text-[var(--black-100)]">${escapeHtml(title)}</span>
-            <span class="text-xs font-bold text-[var(--coral-100)]">${cnt}</span>
+            <span class="text-xs font-bold text-[var(--blue-100)]">${cnt}</span>
           </div>`).join('')}
     </div>
 
@@ -368,12 +368,12 @@ function renderSearchesSection(container, ev) {
         <div class="flex items-center justify-between px-4 py-3 border-b border-[var(--blue-10)] flex-wrap gap-2">
           <p class="text-xs font-bold text-[var(--black-100)]">Todas las búsquedas</p>
           <div class="flex items-center gap-2">
-            <label class="flex items-center gap-1.5 text-[10px] font-bold text-[var(--coral-100)] bg-[var(--coral-10)] px-2.5 py-1 rounded-lg cursor-pointer">
-              <input id="srch-no-results" type="checkbox" class="accent-[var(--coral-100)]" ${filterNoResults ? 'checked' : ''}> Solo sin resultados
+            <label class="flex items-center gap-1.5 text-[10px] font-bold text-[var(--blue-100)] bg-[var(--blue-10)] px-2.5 py-1 rounded-lg cursor-pointer">
+              <input id="srch-no-results" type="checkbox" class="accent-[var(--blue-100)]" ${filterNoResults ? 'checked' : ''}> Solo sin resultados
             </label>
             <input id="srch-filter" type="text" placeholder="🔍 Filtrar término..."
               value="${escapeHtml(filterText)}"
-              class="px-2.5 py-1 border border-[var(--blue-20)] rounded-lg text-xs outline-none focus:border-[var(--coral-100)] w-40">
+              class="px-2.5 py-1 border border-[var(--blue-20)] rounded-lg text-xs outline-none focus:border-[var(--blue-100)] w-40">
           </div>
         </div>
         ${paged.length === 0
@@ -390,21 +390,21 @@ function renderSearchesSection(container, ev) {
           </thead>
           <tbody>
             ${paged.map(t => `
-              <tr class="border-t border-slate-50 ${t.noResults ? 'bg-[var(--coral-10)]/40' : ''}">
-                <td class="px-4 py-2.5 font-semibold ${t.noResults ? 'text-[var(--coral-100)]' : 'text-[var(--black-100)]'}">${escapeHtml(t.term)}</td>
+              <tr class="border-t border-slate-50 ${t.noResults ? 'bg-[var(--blue-10)]/40' : ''}">
+                <td class="px-4 py-2.5 font-semibold ${t.noResults ? 'text-[var(--blue-100)]' : 'text-[var(--black-100)]'}">${escapeHtml(t.term)}</td>
                 <td class="px-4 py-2.5 text-center text-[var(--black-60)]">${t.count}</td>
-                <td class="px-4 py-2.5 text-center font-bold ${t.noResults ? 'text-[var(--coral-100)]' : 'text-[var(--black-100)]'}">${t.avgResults}</td>
+                <td class="px-4 py-2.5 text-center font-bold ${t.noResults ? 'text-[var(--blue-100)]' : 'text-[var(--black-100)]'}">${t.avgResults}</td>
                 <td class="px-4 py-2.5 text-center text-[var(--black-40)]">${fmtRelTime(t.lastAt)}</td>
                 <td class="px-4 py-2.5 text-center">
                   ${t.noResults
-                    ? '<span class="bg-red-100 text-[var(--coral-100)] text-[10px] font-bold px-2 py-0.5 rounded-full">⚠ Sin resultados</span>'
+                    ? '<span class="bg-red-100 text-[var(--blue-100)] text-[10px] font-bold px-2 py-0.5 rounded-full">⚠ Sin resultados</span>'
                     : '<span class="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full">Con resultados</span>'}
                 </td>
               </tr>`).join('')}
           </tbody>
         </table>`}
         <div class="flex items-center justify-between px-4 py-2.5 border-t border-[var(--blue-10)]">
-          <span class="text-[10px] text-[var(--black-40)]">${total} términos · <span class="text-[var(--coral-100)] font-bold">${noResultsCount} sin resultados</span></span>
+          <span class="text-[10px] text-[var(--black-40)]">${total} términos · <span class="text-[var(--blue-100)] font-bold">${noResultsCount} sin resultados</span></span>
           <div class="flex gap-1">
             <button class="srch-prev px-2.5 py-1 border border-[var(--blue-20)] rounded-lg text-[10px] text-[var(--black-60)] ${page === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[var(--background-page)]'}">‹ Anterior</button>
             <button class="srch-next px-2.5 py-1 border border-[var(--blue-20)] rounded-lg text-[10px] text-[var(--black-60)] ${(page + 1) * PAGE >= total ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[var(--background-page)]'}">Siguiente ›</button>
@@ -452,7 +452,7 @@ function renderExamsSection(container, ev) {
       const total = d.passes + d.fails
       const passPct = Math.round(d.passes / total * 100)
       const avgScore = d.scoreCount ? Math.round(d.totalScore / d.scoreCount) : 0
-      const pctColor = passPct >= 80 ? 'text-green-600' : passPct >= 60 ? 'text-amber-500' : 'text-[var(--coral-100)]'
+      const pctColor = passPct >= 80 ? 'text-green-600' : passPct >= 60 ? 'text-amber-500' : 'text-[var(--blue-100)]'
       return { title, total, passPct, avgScore, pctColor }
     })
     .sort((a, b) => b.total - a.total)
@@ -553,7 +553,7 @@ async function renderBodiAnalytics(from = null, to = null) {
     for (let d = 0; d < 7; d++) {
       const count = heat[d][h]
       const opacity = count ? (0.12 + 0.88 * count / maxHeat).toFixed(2) : '0'
-      heatCells += `<div style="background:rgba(255,41,71,${opacity});border-radius:2px;min-height:10px" title="${dayNames[d]} ${String(h).padStart(2,'0')}:00 — ${count} conv."></div>`
+      heatCells += `<div style="background:rgba(18,30,108,${opacity});border-radius:2px;min-height:10px" title="${dayNames[d]} ${String(h).padStart(2,'0')}:00 — ${count} conv."></div>`
     }
   }
 
@@ -573,7 +573,7 @@ async function renderBodiAnalytics(from = null, to = null) {
         <h2 class="text-lg font-black">Analytics</h2>
         <div class="flex text-xs font-bold border border-[var(--blue-20)] rounded-xl overflow-hidden">
           <button id="bodi-tab-lecciones" class="px-3 py-1.5 text-[var(--black-60)] hover:bg-[var(--background-page)]">Lecciones</button>
-          <button id="bodi-tab-bodi" class="px-3 py-1.5 bg-[var(--coral-100)] text-white">Bodi</button>
+          <button id="bodi-tab-bodi" class="px-3 py-1.5 bg-[var(--blue-100)] text-white">Bodi</button>
         </div>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
@@ -629,7 +629,7 @@ async function renderBodiAnalytics(from = null, to = null) {
               const barPct = Math.round(m.total / maxModuleTotal * 100)
               return `<tr class="border-b border-slate-50 hover:bg-[var(--background-page)]">
                 <td class="px-4 py-2.5 font-bold text-[var(--black-100)]">${escapeHtml(topic)}</td>
-                <td class="px-4 py-2.5 text-right font-black text-[var(--coral-100)]">${m.total}</td>
+                <td class="px-4 py-2.5 text-right font-black text-[var(--blue-100)]">${m.total}</td>
                 <td class="px-4 py-2.5 text-right text-[var(--black-60)]">${resolvedPctM}%</td>
                 <td class="px-4 py-2.5 text-right text-[var(--black-60)]">${abandonedPctM}%</td>
                 <td class="px-4 py-2.5 text-right text-[var(--black-60)]">${supportPctM}%</td>
@@ -638,7 +638,7 @@ async function renderBodiAnalytics(from = null, to = null) {
                 </td>
                 <td class="px-4 py-2.5 min-w-[80px]">
                   <div class="h-1.5 bg-[var(--black-10)] rounded-full">
-                    <div class="h-1.5 bg-[var(--coral-100)] rounded-full" style="width:${barPct}%"></div>
+                    <div class="h-1.5 bg-[var(--blue-100)] rounded-full" style="width:${barPct}%"></div>
                   </div>
                 </td>
               </tr>`
@@ -689,7 +689,7 @@ async function renderBodiAnalytics(from = null, to = null) {
               <div class="flex items-center gap-3 min-w-0">
                 <span class="text-xs text-[var(--black-60)] shrink-0">${new Date(r.started_at).toLocaleDateString('es-CO')}</span>
                 <span class="text-xs font-bold text-[var(--black-100)] truncate">${escapeHtml(r.topic || '—')}</span>
-                <span class="text-[10px] px-2 py-0.5 rounded-full ${r.sentiment === 'negativo' ? 'bg-[var(--coral-10)] text-red-600' : 'bg-[var(--black-10)] text-[var(--black-60)]'}">${escapeHtml(r.sentiment || '—')}</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full ${r.sentiment === 'negativo' ? 'bg-[var(--blue-10)] text-red-600' : 'bg-[var(--black-10)] text-[var(--black-60)]'}">${escapeHtml(r.sentiment || '—')}</span>
               </div>
               <svg class="w-3.5 h-3.5 text-[var(--black-40)] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
@@ -744,7 +744,7 @@ async function renderBodiAnalytics(from = null, to = null) {
                   ${(r.lessons_used && r.lessons_used.length)
                     ? `<p class="text-[10px] font-bold text-[var(--black-40)] uppercase mb-1.5">Lecciones consultadas</p>
                        <div class="flex flex-wrap gap-1 mb-3">
-                         ${r.lessons_used.map(l => `<span class="text-[10px] bg-[var(--coral-10)] text-red-700 px-2 py-0.5 rounded-full font-medium">${escapeHtml(l)}</span>`).join('')}
+                         ${r.lessons_used.map(l => `<span class="text-[10px] bg-[var(--blue-10)] text-red-700 px-2 py-0.5 rounded-full font-medium">${escapeHtml(l)}</span>`).join('')}
                        </div>`
                     : r.topic
                       ? `<div class="bodi-lessons-container" data-topic="${escapeHtml(r.topic)}" data-loaded="false"></div>`
@@ -787,7 +787,7 @@ async function renderBodiAnalytics(from = null, to = null) {
       container.innerHTML = `
         <p class="text-[10px] font-bold text-[var(--black-40)] uppercase mb-1.5">Lecciones del módulo "${escapeHtml(topic)}"</p>
         <div class="flex flex-wrap gap-1 mb-3">
-          ${topicLessons.map(l => `<span class="text-[10px] bg-[var(--coral-10)] text-red-700 px-2 py-0.5 rounded-full font-medium">${escapeHtml(l.titulo)}</span>`).join('')}
+          ${topicLessons.map(l => `<span class="text-[10px] bg-[var(--blue-10)] text-red-700 px-2 py-0.5 rounded-full font-medium">${escapeHtml(l.titulo)}</span>`).join('')}
         </div>`
     })
   })

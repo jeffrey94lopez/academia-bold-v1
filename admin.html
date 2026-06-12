@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -19,16 +19,16 @@
   <!-- Login screen -->
   <div id="loginScreen" class="hidden fixed inset-0 bg-[var(--background-page)] flex items-center justify-center z-50">
     <div class="bg-white rounded-3xl p-8 shadow-xl w-full max-w-sm">
-      <div class="w-12 h-12 bg-[var(--color-primary)] rounded-2xl flex items-center justify-center text-white font-black italic text-2xl mx-auto mb-4">B</div>
+      <img src="assets/Bold%20POS.png" alt="Bold POS" class="h-10 w-auto mx-auto mb-4" />
       <h1 class="text-xl font-black text-center mb-1">Panel Admin</h1>
       <p class="text-[var(--black-60)] text-sm text-center mb-6">Bold POS Academy</p>
       <form id="loginForm" class="space-y-3">
         <input id="loginEmail" type="email" placeholder="Email" required
-          class="w-full px-4 py-3 bg-[var(--background-page)] rounded-2xl text-sm outline-none focus:ring-2 focus:ring-[var(--coral-100)]">
+          class="w-full px-4 py-3 bg-[var(--background-page)] rounded-2xl text-sm outline-none focus:ring-2 focus:ring-[var(--blue-100)]">
         <input id="loginPassword" type="password" placeholder="Contraseña" required
-          class="w-full px-4 py-3 bg-[var(--background-page)] rounded-2xl text-sm outline-none focus:ring-2 focus:ring-[var(--coral-100)]">
+          class="w-full px-4 py-3 bg-[var(--background-page)] rounded-2xl text-sm outline-none focus:ring-2 focus:ring-[var(--blue-100)]">
         <p id="loginError" class="hidden text-red-500 text-xs text-center"></p>
-        <button type="submit" class="w-full bg-[var(--color-primary)] text-white py-3 rounded-2xl font-black text-sm hover:scale-[1.02] transition-transform shadow">
+        <button type="submit" class="w-full bg-[var(--blue-100)] text-white py-3 rounded-2xl font-black text-sm hover:scale-[1.02] transition-transform shadow">
           Entrar
         </button>
       </form>
@@ -39,14 +39,14 @@
   <div id="adminApp" class="hidden">
     <header class="bg-white border-b border-[var(--blue-10)] px-6 py-4 flex items-center justify-between sticky top-0 z-10">
       <div class="flex items-center gap-2.5">
-        <div class="w-8 h-8 bg-[var(--color-primary)] rounded-xl flex items-center justify-center text-white font-black italic">B</div>
-        <p class="font-black text-sm uppercase tracking-tighter">Admin <span class="text-[var(--color-primary)]">Panel</span></p>
+        <img src="assets/Bold%20POS.png" alt="Bold POS" class="h-7 w-auto" />
+        <span class="text-xs font-bold text-[var(--black-40)] uppercase tracking-wider">Admin</span>
       </div>
       <div class="flex items-center gap-3">
         <a href="index.html" class="text-xs font-bold text-[var(--black-60)] hover:text-[var(--black-100)] flex items-center gap-1">
           <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Ver sitio
         </a>
-        <button id="logoutBtn" class="text-xs font-bold text-[var(--black-60)] hover:text-[var(--coral-100)] flex items-center gap-1">
+        <button id="logoutBtn" class="text-xs font-bold text-[var(--black-60)] hover:text-[var(--blue-100)] flex items-center gap-1">
           <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Salir
         </button>
       </div>
@@ -54,7 +54,7 @@
 
     <div class="flex">
       <nav class="w-48 bg-white border-r border-[var(--blue-10)] min-h-[calc(100vh-57px)] p-3 space-y-1 shrink-0">
-        <button data-panel="lessons" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--coral-100)] bg-[var(--coral-10)]">
+        <button data-panel="lessons" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--blue-100)] bg-[var(--blue-10)]">
           <i data-lucide="book-open" class="w-4 h-4"></i> Lecciones
         </button>
         <button data-panel="glossary" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--black-60)] hover:bg-[var(--black-10)]">
@@ -103,13 +103,13 @@
       <div class="flex items-center gap-3 p-4 border-b border-[var(--blue-10)]">
         <h3 class="font-bold text-[var(--black-100)] flex-1">Biblioteca de medios</h3>
         <input id="mediaSearch" type="text" placeholder="🔍 Buscar..."
-          class="px-3 py-1.5 bg-[var(--background-page)] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[var(--coral-100)]">
+          class="px-3 py-1.5 bg-[var(--background-page)] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[var(--blue-100)]">
         <span id="mediaCount" class="text-xs text-[var(--black-60)]"></span>
       </div>
       <div id="mediaGrid" class="grid grid-cols-4 gap-3 p-4 overflow-y-auto flex-1 min-h-0"></div>
       <div class="flex gap-2 justify-end p-4 border-t border-[var(--blue-10)] shrink-0">
         <button id="mediaCancelBtn" class="px-4 py-2 text-sm text-[var(--black-60)] bg-[var(--background-page)] rounded-lg hover:bg-[var(--black-10)]">Cancelar</button>
-        <button id="mediaSelectBtn" class="px-4 py-2 text-sm bg-[var(--color-primary)] text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed" disabled>✓ Usar archivo</button>
+        <button id="mediaSelectBtn" class="px-4 py-2 text-sm bg-[var(--blue-100)] text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed" disabled>✓ Usar archivo</button>
       </div>
     </div>
   </div>

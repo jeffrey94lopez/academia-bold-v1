@@ -1,4 +1,4 @@
-import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js'
+﻿import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js'
 import { escapeHtml } from './utils.js'
 
 const N8N_URL     = '/api/chat'
@@ -97,7 +97,7 @@ async function renderAssistant() {
         <div class="flex items-center">
           <img src="assets/bolbot%20pos%20light.png" alt="bolbot POS" class="h-9 w-auto" />
         </div>
-        <button id="clearChat" class="text-xs text-[var(--black-60)] hover:text-[var(--coral-100)] font-bold flex items-center gap-1">
+        <button id="clearChat" class="text-xs text-[var(--black-60)] hover:text-[var(--blue-100)] font-bold flex items-center gap-1">
           <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Limpiar
         </button>
       </div>
@@ -183,7 +183,7 @@ function renderMarkdown(text) {
   )
 
   text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
-    '<a href="$2" target="_blank" rel="noopener" class="text-[var(--color-primary)] underline font-semibold hover:opacity-75">$1</a>')
+    '<a href="$2" target="_blank" rel="noopener" class="text-[var(--blue-100)] underline font-semibold hover:opacity-75">$1</a>')
 
   text = text.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
   text = text.replace(/\n/g, '<br>')

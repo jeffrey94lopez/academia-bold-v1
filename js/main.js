@@ -8,7 +8,7 @@ function switchTab(tab) {
 
   document.querySelectorAll('.nav-tab').forEach(b => {
     const active = b.dataset.tab === tab
-    b.classList.toggle('text-[var(--coral-100)]', active)
+    b.classList.toggle('text-[var(--blue-100)]', active)
     b.classList.toggle('text-[var(--black-60)]', !active)
   })
 
@@ -19,8 +19,8 @@ function switchTab(tab) {
       b.classList.toggle('text-white', active)
       b.classList.toggle('text-[var(--black-60)]', !active)
     } else {
-      b.classList.toggle('text-[var(--coral-100)]', active)
-      b.classList.toggle('bg-[var(--coral-10)]', active)
+      b.classList.toggle('text-[var(--blue-100)]', active)
+      b.classList.toggle('bg-[var(--blue-10)]', active)
       b.classList.toggle('text-[var(--black-60)]', !active)
     }
   })
