@@ -166,9 +166,9 @@ async function renderLessons() {
             ${filtered.map(l => {
               const isActive = activeLesson?.id === l.id
               return `<button
-                class="acc-lesson w-full text-left px-4 py-2.5 text-xs border-b border-[var(--blue-10)] hover:bg-[var(--coral-10)] transition-colors ${isActive ? 'bg-[var(--coral-10)] border-l-2 border-l-[var(--coral-100)]' : ''}"
+                class="acc-lesson w-full text-left px-4 py-2.5 text-xs border-b border-[var(--blue-10)] hover:bg-[var(--blue-10)] transition-colors ${isActive ? 'bg-[var(--blue-10)] border-l-2 border-l-[var(--blue-100)]' : ''}"
                 data-id="${l.id}">
-                <span class="${isActive ? 'font-bold text-[var(--coral-100)]' : 'text-[var(--black-60)]'}">${escapeHtml(l.titulo)}</span>
+                <span class="${isActive ? 'font-bold text-[var(--blue-100)]' : 'text-[var(--black-60)]'}">${escapeHtml(l.titulo)}</span>
               </button>`
             }).join('')}
             ${filtered.length === 0 && q ? '<p class="text-xs text-[var(--black-60)] px-4 py-2">Sin resultados</p>' : ''}
@@ -177,7 +177,7 @@ async function renderLessons() {
         return `
           <div>
             <button class="acc-cat w-full flex items-center justify-between px-3 py-2.5 border-b border-[var(--blue-10)] hover:bg-[var(--black-10)] transition-colors" data-cat="${escapeHtml(cat.key)}">
-              <span class="text-xs font-black ${isOpen ? 'text-[var(--blue-100)]' : 'text-[var(--black-60)]'}">${cat.emoji} ${escapeHtml(cat.key)}</span>
+              <span class="text-xs font-black ${isOpen ? 'text-[var(--blue-100)]' : 'text-[var(--black-60)]'}">${escapeHtml(cat.key)}</span>
               <span class="text-[10px] ${isOpen ? 'text-[var(--blue-100)]' : 'text-[var(--black-40)]'}">${isOpen ? '▾' : '▸'}</span>
             </button>
             ${lessonRows}
@@ -247,7 +247,6 @@ async function renderLessons() {
       const btn = document.createElement('button')
       btn.className = 'w-full flex items-center gap-3 px-4 py-3.5 border-b border-[var(--blue-10)] text-left hover:bg-[var(--black-10)] transition-colors'
       btn.innerHTML = `
-        <span class="text-lg">${cat.emoji}</span>
         <span class="font-bold text-sm flex-1 text-[var(--black-100)]">${escapeHtml(cat.key)}</span>
         <span class="text-[var(--black-40)] text-xl">›</span>`
       btn.addEventListener('click', () => {
@@ -275,11 +274,14 @@ async function renderLessons() {
     filtered.forEach(l => {
       const isActive = activeLesson?.id === l.id
       const btn = document.createElement('button')
-      btn.className = `w-full text-left px-4 py-3.5 border-b border-[var(--blue-10)] hover:bg-[var(--black-10)] transition-colors ${isActive ? 'border-l-2 border-l-[var(--coral-100)] bg-[var(--coral-10)]' : ''}`
+      btn.className = `w-full text-left px-4 py-3.5 border-b border-[var(--blue-10)] hover:bg-[var(--black-10)] transition-colors ${isActive ? 'border-l-2 border-l-[var(--blue-100)] bg-[var(--blue-10)]' : ''}`
+      const row = document.createElement('div')
+      row.className = 'flex items-center justify-between'
       const title = document.createElement('p')
-      title.className = `text-sm ${isActive ? 'font-bold text-[var(--coral-100)]' : 'font-medium text-[var(--black-100)]'}`
+      title.className = `text-sm ${isActive ? 'font-bold text-[var(--blue-100)]' : 'font-medium text-[var(--black-100)]'}`
       title.textContent = l.titulo
-      btn.append(title)
+      row.append(title)
+      btn.append(row)
       btn.addEventListener('click', () => {
         activeLesson = l
         renderMobileLessonList()
