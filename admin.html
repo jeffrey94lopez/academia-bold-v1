@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin — Bold POS Academy</title>
-  <script src="js/theme-init.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="js/tailwind-config.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -12,21 +12,21 @@
   <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="bg-slate-50 text-slate-900 min-h-screen">
+<body class="bg-[var(--background-page)] text-[var(--black-100)] min-h-screen">
 
   <!-- Login screen -->
-  <div id="loginScreen" class="hidden fixed inset-0 bg-slate-50 flex items-center justify-center z-50">
+  <div id="loginScreen" class="hidden fixed inset-0 bg-[var(--background-page)] flex items-center justify-center z-50">
     <div class="bg-white rounded-3xl p-8 shadow-xl w-full max-w-sm">
-      <div class="w-12 h-12 bg-[#E92129] rounded-2xl flex items-center justify-center text-white font-black italic text-2xl mx-auto mb-4">B</div>
+      <div class="w-12 h-12 bg-[var(--coral-100)] rounded-2xl flex items-center justify-center text-white font-black italic text-2xl mx-auto mb-4">B</div>
       <h1 class="text-xl font-black text-center mb-1">Panel Admin</h1>
-      <p class="text-slate-400 text-sm text-center mb-6">Bold POS Academy</p>
+      <p class="text-[var(--black-40)] text-sm text-center mb-6">Bold POS Academy</p>
       <form id="loginForm" class="space-y-3">
         <input id="loginEmail" type="email" placeholder="Email" required
-          class="w-full px-4 py-3 bg-slate-50 rounded-2xl text-sm border-2 border-slate-100 outline-none focus:border-[#E92129]">
+          class="w-full px-4 py-3 bg-[var(--background-page)] rounded-2xl text-sm border-2 border-[var(--blue-10)] outline-none focus:border-[var(--coral-100)]">
         <input id="loginPassword" type="password" placeholder="Contraseña" required
-          class="w-full px-4 py-3 bg-slate-50 rounded-2xl text-sm border-2 border-slate-100 outline-none focus:border-[#E92129]">
-        <p id="loginError" class="hidden text-red-500 text-xs text-center"></p>
-        <button type="submit" class="w-full bg-[#E92129] text-white py-3 rounded-2xl font-black text-sm hover:scale-[1.02] transition-transform shadow">
+          class="w-full px-4 py-3 bg-[var(--background-page)] rounded-2xl text-sm border-2 border-[var(--blue-10)] outline-none focus:border-[var(--coral-100)]">
+        <p id="loginError" class="hidden text-[var(--coral-100)] text-xs text-center"></p>
+        <button type="submit" class="w-full bg-[var(--coral-100)] text-white py-3 rounded-2xl font-black text-sm hover:scale-[1.02] transition-transform shadow">
           Entrar
         </button>
       </form>
@@ -35,48 +35,48 @@
 
   <!-- Admin app -->
   <div id="adminApp" class="hidden">
-    <header class="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+    <header class="bg-white border-b border-[var(--blue-10)] px-6 py-4 flex items-center justify-between sticky top-0 z-10">
       <div class="flex items-center gap-2.5">
-        <div class="w-8 h-8 bg-[#E92129] rounded-xl flex items-center justify-center text-white font-black italic">B</div>
-        <p class="font-black text-sm uppercase tracking-tighter">Admin <span class="text-[#E92129]">Panel</span></p>
+        <div class="w-8 h-8 bg-[var(--coral-100)] rounded-xl flex items-center justify-center text-white font-black italic">B</div>
+        <p class="font-black text-sm uppercase tracking-tighter">Admin <span class="text-[var(--coral-100)]">Panel</span></p>
       </div>
       <div class="flex items-center gap-3">
-        <a href="index.html" class="text-xs font-bold text-slate-400 hover:text-slate-700 flex items-center gap-1">
+        <a href="index.html" class="text-xs font-bold text-[var(--black-40)] hover:text-[var(--black-100)] flex items-center gap-1">
           <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Ver sitio
         </a>
-        <button id="logoutBtn" class="text-xs font-bold text-slate-400 hover:text-red-500 flex items-center gap-1">
+        <button id="logoutBtn" class="text-xs font-bold text-[var(--black-40)] hover:text-[var(--coral-100)] flex items-center gap-1">
           <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Salir
         </button>
       </div>
     </header>
 
     <div class="flex">
-      <nav class="w-48 bg-white border-r border-slate-100 min-h-[calc(100vh-57px)] p-3 space-y-1 shrink-0">
-        <button data-panel="lessons" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[#E92129] bg-red-50">
+      <nav class="w-48 bg-white border-r border-[var(--blue-10)] min-h-[calc(100vh-57px)] p-3 space-y-1 shrink-0">
+        <button data-panel="lessons" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--coral-100)] bg-[var(--coral-10)]">
           <i data-lucide="book-open" class="w-4 h-4"></i> Lecciones
         </button>
-        <button data-panel="glossary" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50">
+        <button data-panel="glossary" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--black-60)] hover:bg-[var(--black-10)]">
           <i data-lucide="book" class="w-4 h-4"></i> Glosario
         </button>
-        <button data-panel="material" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50">
+        <button data-panel="material" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--black-60)] hover:bg-[var(--black-10)]">
           <i data-lucide="paperclip" class="w-4 h-4"></i> Material
         </button>
-        <button data-panel="material-apoyo" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50">
+        <button data-panel="material-apoyo" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--black-60)] hover:bg-[var(--black-10)]">
           <i data-lucide="link" class="w-4 h-4"></i> Mat. de apoyo
         </button>
-        <button data-panel="suggestions" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50">
+        <button data-panel="suggestions" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--black-60)] hover:bg-[var(--black-10)]">
           <i data-lucide="message-square" class="w-4 h-4"></i> Sugerencias Bot
         </button>
-        <button data-panel="results" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50">
+        <button data-panel="results" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--black-60)] hover:bg-[var(--black-10)]">
           <i data-lucide="bar-chart-2" class="w-4 h-4"></i> Resultados
         </button>
-        <button data-panel="analytics" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50">
+        <button data-panel="analytics" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--black-60)] hover:bg-[var(--black-10)]">
           <i data-lucide="trending-up" class="w-4 h-4"></i> Analytics
         </button>
-        <button data-panel="activity" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50">
+        <button data-panel="activity" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--black-60)] hover:bg-[var(--black-10)]">
           <i data-lucide="clock" class="w-4 h-4"></i> Registro
         </button>
-        <button data-panel="profile" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50">
+        <button data-panel="profile" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--black-60)] hover:bg-[var(--black-10)]">
           <i data-lucide="user" class="w-4 h-4"></i> Mi perfil
         </button>
       </nav>
@@ -98,16 +98,16 @@
   <!-- Media library modal -->
   <div id="mediaLibraryModal" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-4">
     <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col" style="max-height:80vh">
-      <div class="flex items-center gap-3 p-4 border-b border-slate-100">
-        <h3 class="font-bold text-slate-800 flex-1">Biblioteca de medios</h3>
+      <div class="flex items-center gap-3 p-4 border-b border-[var(--blue-10)]">
+        <h3 class="font-bold text-[var(--black-100)] flex-1">Biblioteca de medios</h3>
         <input id="mediaSearch" type="text" placeholder="🔍 Buscar..."
-          class="px-3 py-1.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-[#E92129]">
-        <span id="mediaCount" class="text-xs text-slate-400"></span>
+          class="px-3 py-1.5 border border-[var(--blue-20)] rounded-lg text-sm outline-none focus:border-[var(--coral-100)]">
+        <span id="mediaCount" class="text-xs text-[var(--black-40)]"></span>
       </div>
       <div id="mediaGrid" class="grid grid-cols-4 gap-3 p-4 overflow-y-auto flex-1 min-h-0"></div>
-      <div class="flex gap-2 justify-end p-4 border-t border-slate-100 shrink-0">
-        <button id="mediaCancelBtn" class="px-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">Cancelar</button>
-        <button id="mediaSelectBtn" class="px-4 py-2 text-sm bg-[#E92129] text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed" disabled>✓ Usar archivo</button>
+      <div class="flex gap-2 justify-end p-4 border-t border-[var(--blue-10)] shrink-0">
+        <button id="mediaCancelBtn" class="px-4 py-2 text-sm text-[var(--black-60)] border border-[var(--blue-20)] rounded-lg hover:bg-[var(--black-10)]">Cancelar</button>
+        <button id="mediaSelectBtn" class="px-4 py-2 text-sm bg-[var(--coral-100)] text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed" disabled>✓ Usar archivo</button>
       </div>
     </div>
   </div>

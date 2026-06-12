@@ -1,4 +1,4 @@
-import { supabase } from './supabase.js'
+﻿import { supabase } from './supabase.js'
 import { requireAuth, logout } from './auth.js'
 import { uploadFile, listFiles, deleteFile, renameFile, createFolder, moveFile } from './upload.js'
 import { renderBlocks } from './block-renderer.js'
@@ -47,9 +47,9 @@ function switchPanel(panel) {
   document.getElementById(`panel-${panel}`).classList.remove('hidden')
   document.querySelectorAll('.admin-nav').forEach(b => {
     const active = b.dataset.panel === panel
-    b.classList.toggle('text-[#E92129]', active)
-    b.classList.toggle('bg-red-50', active)
-    b.classList.toggle('text-slate-500', !active)
+    b.classList.toggle('text-[var(--coral-100)]', active)
+    b.classList.toggle('bg-[var(--coral-10)]', active)
+    b.classList.toggle('text-[var(--black-60)]', !active)
   })
 
   if (panel === 'lessons') renderLessonsPanel()
@@ -79,10 +79,10 @@ async function renderLessonsPanel() {
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-lg font-black">Lecciones</h2>
       <div class="flex gap-2">
-        <button id="manageCatsBtn" class="px-3 py-2 rounded-xl text-xs font-bold text-slate-500 border border-slate-200 hover:bg-slate-50 flex items-center gap-1.5">
+        <button id="manageCatsBtn" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)] hover:bg-[var(--background-page)] flex items-center gap-1.5">
           <i data-lucide="tag" class="w-3.5 h-3.5"></i> Categorías
         </button>
-        <button id="addLesson" class="bg-[#E92129] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:scale-105 transition-transform">
+        <button id="addLesson" class="bg-[var(--coral-100)] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:scale-105 transition-transform">
           <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nueva lección
         </button>
       </div>
@@ -90,50 +90,50 @@ async function renderLessonsPanel() {
 
     <div class="flex items-center gap-3 mb-4">
       <div class="relative flex-1">
-        <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"></i>
+        <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--black-40)] pointer-events-none"></i>
         <input id="lessonSearch" type="text" placeholder="Buscar lección..."
-          class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] bg-white">
+          class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--coral-100)] bg-white">
       </div>
-      <div class="flex gap-0.5 border border-slate-200 rounded-lg p-0.5 shrink-0">
-        <button id="lessonViewList" class="p-1.5 rounded-md transition-colors ${lessonListView === 'list' ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:text-slate-600'}" aria-label="Vista lista">
+      <div class="flex gap-0.5 border border-[var(--blue-20)] rounded-lg p-0.5 shrink-0">
+        <button id="lessonViewList" class="p-1.5 rounded-md transition-colors ${lessonListView === 'list' ? 'bg-[var(--black-10)] text-[var(--black-100)]' : 'text-[var(--black-40)] hover:text-[var(--black-60)]'}" aria-label="Vista lista">
           <i data-lucide="list" class="w-4 h-4"></i>
         </button>
-        <button id="lessonViewGrid" class="p-1.5 rounded-md transition-colors ${lessonListView === 'grid' ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:text-slate-600'}" aria-label="Vista cuadrícula">
+        <button id="lessonViewGrid" class="p-1.5 rounded-md transition-colors ${lessonListView === 'grid' ? 'bg-[var(--black-10)] text-[var(--black-100)]' : 'text-[var(--black-40)] hover:text-[var(--black-60)]'}" aria-label="Vista cuadrícula">
           <i data-lucide="grid-3x3" class="w-4 h-4"></i>
         </button>
       </div>
     </div>
 
-    <div id="catManager" class="hidden mb-4 bg-white rounded-2xl border border-slate-200 p-4">
+    <div id="catManager" class="hidden mb-4 bg-white rounded-2xl border border-[var(--blue-20)] p-4">
       <div class="flex items-center justify-between mb-3">
-        <p class="text-[10px] font-black uppercase text-slate-400 tracking-wide">Categorías</p>
-        <button id="addCatBtn" class="text-[10px] font-bold text-[#E92129] hover:underline">+ Nueva</button>
+        <p class="text-[10px] font-black uppercase text-[var(--black-40)] tracking-wide">Categorías</p>
+        <button id="addCatBtn" class="text-[10px] font-bold text-[var(--coral-100)] hover:underline">+ Nueva</button>
       </div>
       <div id="catList" class="space-y-1.5 mb-2">
         ${currentCategories.map(c => `
-          <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-slate-50">
+          <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-[var(--background-page)]">
             <span>${escapeHtml(c.emoji)}</span>
-            <span class="flex-1 text-sm font-medium text-slate-700">${escapeHtml(c.nombre)}</span>
-            <button class="edit-cat text-slate-300 hover:text-slate-600 p-1" data-id="${c.id}" data-nombre="${escapeHtml(c.nombre)}" data-emoji="${escapeHtml(c.emoji)}" title="Editar" aria-label="Editar categoría ${escapeHtml(c.nombre)}">
+            <span class="flex-1 text-sm font-medium text-[var(--black-100)]">${escapeHtml(c.nombre)}</span>
+            <button class="edit-cat text-[var(--black-40)] hover:text-[var(--black-60)] p-1" data-id="${c.id}" data-nombre="${escapeHtml(c.nombre)}" data-emoji="${escapeHtml(c.emoji)}" title="Editar" aria-label="Editar categoría ${escapeHtml(c.nombre)}">
               <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
             </button>
-            <button class="del-cat text-slate-300 hover:text-red-500 p-1" data-id="${c.id}" data-nombre="${escapeHtml(c.nombre)}" title="Eliminar" aria-label="Eliminar categoría ${escapeHtml(c.nombre)}">
+            <button class="del-cat text-[var(--black-40)] hover:text-[var(--coral-100)] p-1" data-id="${c.id}" data-nombre="${escapeHtml(c.nombre)}" title="Eliminar" aria-label="Eliminar categoría ${escapeHtml(c.nombre)}">
               <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
             </button>
           </div>
         `).join('')}
       </div>
-      <div id="catInlineForm" class="hidden border-t border-slate-100 pt-3">
+      <div id="catInlineForm" class="hidden border-t border-[var(--blue-10)] pt-3">
         <input type="hidden" id="catFormId">
         <div class="flex gap-2 mb-2">
           <input id="catFormEmoji" maxlength="2" placeholder="📁"
-            class="w-12 px-2 py-1.5 rounded-lg border border-slate-200 text-sm text-center outline-none focus:border-[#E92129]">
+            class="w-12 px-2 py-1.5 rounded-lg border border-[var(--blue-20)] text-sm text-center outline-none focus:border-[var(--coral-100)]">
           <input id="catFormNombre" placeholder="Nombre de categoría"
-            class="flex-1 px-2 py-1.5 rounded-lg border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+            class="flex-1 px-2 py-1.5 rounded-lg border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--coral-100)]">
         </div>
         <div class="flex gap-2">
-          <button id="cancelCatForm" class="flex-1 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-500">Cancelar</button>
-          <button id="saveCatForm" class="flex-1 py-1.5 rounded-lg bg-[#E92129] text-white text-xs font-bold">Guardar</button>
+          <button id="cancelCatForm" class="flex-1 py-1.5 rounded-lg border border-[var(--blue-20)] text-xs font-bold text-[var(--black-60)]">Cancelar</button>
+          <button id="saveCatForm" class="flex-1 py-1.5 rounded-lg bg-[var(--coral-100)] text-white text-xs font-bold">Guardar</button>
         </div>
       </div>
     </div>
@@ -142,32 +142,32 @@ async function renderLessonsPanel() {
 
     <div id="lessonFormModal" class="hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl w-full max-w-5xl flex flex-col" style="max-height:90vh">
-        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-[var(--blue-10)] shrink-0">
           <h3 id="lessonFormTitle" class="font-black text-base">Nueva lección</h3>
           <div class="flex items-center gap-2">
-            <button id="togglePreview" class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors" aria-label="Alternar vista previa">
+            <button id="togglePreview" class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-bold text-[var(--black-40)] hover:text-[var(--black-100)] hover:bg-[var(--background-page)] transition-colors" aria-label="Alternar vista previa">
               <i data-lucide="eye" class="w-3.5 h-3.5"></i>
               <span class="hidden sm:inline">Vista previa</span>
             </button>
-            <button id="cancelLessonForm" class="text-slate-400 hover:text-slate-700 text-lg leading-none px-1">&#x2715;</button>
+            <button id="cancelLessonForm" class="text-[var(--black-40)] hover:text-[var(--black-100)] text-lg leading-none px-1">&#x2715;</button>
           </div>
         </div>
         <div id="lessonFormGrid" class="flex-1 overflow-hidden grid" style="grid-template-columns:1fr 1fr;min-height:0">
-          <div class="overflow-y-auto p-5 border-r border-slate-100">
+          <div class="overflow-y-auto p-5 border-r border-[var(--blue-10)]">
             <input type="hidden" id="lessonId">
             <div class="space-y-2 mb-4">
               <input id="lessonTitulo" placeholder="Título" required
-                class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+                class="w-full px-3 py-2.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--coral-100)]">
               <input id="lessonDescripcion" placeholder="Descripción corta" required
-                class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+                class="w-full px-3 py-2.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--coral-100)]">
               <select id="lessonCategoria"
-                class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] bg-white">
+                class="w-full px-3 py-2.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--coral-100)] bg-white">
               </select>
             </div>
-            <p class="text-[10px] font-black uppercase text-slate-400 tracking-wide mb-2">Contenido</p>
+            <p class="text-[10px] font-black uppercase text-[var(--black-40)] tracking-wide mb-2">Contenido</p>
             <div id="blockList" class="space-y-2 mb-3"></div>
             <div class="flex flex-wrap gap-1.5 mb-4">
-              <button data-type="step" class="add-block bg-slate-100 text-slate-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-slate-200">+ Paso</button>
+              <button data-type="step" class="add-block bg-[var(--black-10)] text-[var(--black-60)] text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-[var(--black-10)]">+ Paso</button>
               <button data-type="image" class="add-block bg-blue-50 text-blue-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-blue-100">+ Imagen</button>
               <button data-type="video" class="add-block bg-purple-50 text-purple-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-purple-100">+ Video</button>
               <button data-type="link" class="add-block bg-green-50 text-green-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-green-100">+ Link</button>
@@ -180,31 +180,31 @@ async function renderLessonsPanel() {
               <button data-type="bot_faq" class="add-block bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100">❓ Preguntas frecuentes</button>
             </div>
             <div class="mb-4">
-              <p class="text-[10px] font-black uppercase text-slate-400 tracking-wide mb-1">Notas</p>
+              <p class="text-[10px] font-black uppercase text-[var(--black-40)] tracking-wide mb-1">Notas</p>
               <textarea id="lessonNotas" placeholder="Notas adicionales para el estudiante (opcional)..." rows="3"
-                class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-[#E92129] resize-none"></textarea>
+                class="w-full px-3 py-2.5 rounded-xl border border-[var(--blue-20)] text-xs outline-none focus:border-[var(--coral-100)] resize-none"></textarea>
             </div>
             <div class="mb-4">
               <div class="flex items-center justify-between mb-2">
-                <p class="text-[10px] font-black uppercase text-slate-400 tracking-wide">Examen</p>
-                <button type="button" id="addQuestion" class="text-[10px] font-bold text-[#E92129] hover:underline">+ Agregar pregunta</button>
+                <p class="text-[10px] font-black uppercase text-[var(--black-40)] tracking-wide">Examen</p>
+                <button type="button" id="addQuestion" class="text-[10px] font-bold text-[var(--coral-100)] hover:underline">+ Agregar pregunta</button>
               </div>
               <div id="questionList" class="space-y-3"></div>
             </div>
-            <div class="flex items-end gap-3 pt-3 border-t border-slate-100">
+            <div class="flex items-end gap-3 pt-3 border-t border-[var(--blue-10)]">
               <div>
-                <p class="text-[10px] font-black uppercase text-slate-400 mb-1">Orden</p>
+                <p class="text-[10px] font-black uppercase text-[var(--black-40)] mb-1">Orden</p>
                 <input id="lessonOrden" type="number" placeholder="1" required
-                  class="w-16 px-2 py-1.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+                  class="w-16 px-2 py-1.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--coral-100)]">
               </div>
-              <button id="saveLessonBtn" class="flex-1 py-2.5 rounded-xl bg-[#E92129] text-white text-sm font-bold">Guardar lección</button>
+              <button id="saveLessonBtn" class="flex-1 py-2.5 rounded-xl bg-[var(--coral-100)] text-white text-sm font-bold">Guardar lección</button>
             </div>
           </div>
-          <div id="lessonPreviewPanel" class="overflow-y-auto p-5 bg-slate-50">
-            <p class="text-[10px] font-black uppercase text-slate-400 tracking-wide mb-3">&#x1F441;&#xFE0F; Vista previa del estudiante</p>
+          <div id="lessonPreviewPanel" class="overflow-y-auto p-5 bg-[var(--background-page)]">
+            <p class="text-[10px] font-black uppercase text-[var(--black-40)] tracking-wide mb-3">&#x1F441;&#xFE0F; Vista previa del estudiante</p>
             <div class="bg-white rounded-xl p-4 shadow-sm">
-              <h3 id="previewTitle" class="font-black text-sm mb-1 text-slate-900"></h3>
-              <p id="previewDesc" class="text-xs text-slate-400 mb-4"></p>
+              <h3 id="previewTitle" class="font-black text-sm mb-1 text-[var(--black-100)]"></h3>
+              <p id="previewDesc" class="text-xs text-[var(--black-40)] mb-4"></p>
               <div id="lessonPreview"></div>
             </div>
           </div>
@@ -287,15 +287,15 @@ async function renderLessonsPanel() {
   document.getElementById('lessonViewList').addEventListener('click', () => {
     lessonListView = 'list'
     localStorage.setItem('admin_lesson_list_view', 'list')
-    document.getElementById('lessonViewList').className = 'p-1.5 rounded-md transition-colors bg-slate-100 text-slate-700'
-    document.getElementById('lessonViewGrid').className = 'p-1.5 rounded-md transition-colors text-slate-400 hover:text-slate-600'
+    document.getElementById('lessonViewList').className = 'p-1.5 rounded-md transition-colors bg-[var(--black-10)] text-[var(--black-100)]'
+    document.getElementById('lessonViewGrid').className = 'p-1.5 rounded-md transition-colors text-[var(--black-40)] hover:text-[var(--black-60)]'
     renderGroupedLessons(allLessons, document.getElementById('lessonSearch')?.value || '')
   })
   document.getElementById('lessonViewGrid').addEventListener('click', () => {
     lessonListView = 'grid'
     localStorage.setItem('admin_lesson_list_view', 'grid')
-    document.getElementById('lessonViewList').className = 'p-1.5 rounded-md transition-colors text-slate-400 hover:text-slate-600'
-    document.getElementById('lessonViewGrid').className = 'p-1.5 rounded-md transition-colors bg-slate-100 text-slate-700'
+    document.getElementById('lessonViewList').className = 'p-1.5 rounded-md transition-colors text-[var(--black-40)] hover:text-[var(--black-60)]'
+    document.getElementById('lessonViewGrid').className = 'p-1.5 rounded-md transition-colors bg-[var(--black-10)] text-[var(--black-100)]'
     renderGroupedLessons(allLessons, document.getElementById('lessonSearch')?.value || '')
   })
 
@@ -377,9 +377,9 @@ function renderGroupedLessons(allLessons, searchQuery) {
   if (!filtered.length && q) {
     list.innerHTML = `
       <div class="flex flex-col items-center justify-center py-12 text-center">
-        <i data-lucide="search-x" class="w-10 h-10 text-slate-300 mb-3"></i>
-        <p class="font-bold text-slate-500 mb-1">Sin resultados</p>
-        <p class="text-xs text-slate-400">Ninguna lección coincide con "<span class="font-medium">${escapeHtml(q)}</span>"</p>
+        <i data-lucide="search-x" class="w-10 h-10 text-[var(--black-40)] mb-3"></i>
+        <p class="font-bold text-[var(--black-60)] mb-1">Sin resultados</p>
+        <p class="text-xs text-[var(--black-40)]">Ninguna lección coincide con "<span class="font-medium">${escapeHtml(q)}</span>"</p>
       </div>`
     lucide.createIcons()
     return
@@ -404,24 +404,24 @@ function renderGroupedLessons(allLessons, searchQuery) {
     for (const cat of currentCategories) {
       const catLessons = byCategory[cat.nombre] || []
       html += `<div class="mb-6">
-        <div class="flex items-center gap-2 mb-2 pb-1.5 border-b border-slate-100">
+        <div class="flex items-center gap-2 mb-2 pb-1.5 border-b border-[var(--blue-10)]">
           <span>${escapeHtml(cat.emoji)}</span>
-          <span class="font-black text-sm text-slate-700">${escapeHtml(cat.nombre)}</span>
-          <span class="text-xs text-slate-400 ml-1">${catLessons.length}</span>
+          <span class="font-black text-sm text-[var(--black-100)]">${escapeHtml(cat.nombre)}</span>
+          <span class="text-xs text-[var(--black-40)] ml-1">${catLessons.length}</span>
         </div>
         ${catLessons.length
           ? lessonListView === 'grid'
             ? `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-4">${catLessons.map(l => lessonCardGridHtml(l)).join('')}</div>`
             : catLessons.map(l => lessonCardHtml(l)).join('')
-          : '<p class="text-xs text-slate-400 pl-1 pb-2">Sin lecciones.</p>'}
+          : '<p class="text-xs text-[var(--black-40)] pl-1 pb-2">Sin lecciones.</p>'}
       </div>`
     }
     if (uncategorized.length) {
       html += `<div class="mb-6">
-        <div class="flex items-center gap-2 mb-2 pb-1.5 border-b border-slate-100">
+        <div class="flex items-center gap-2 mb-2 pb-1.5 border-b border-[var(--blue-10)]">
           <span>📁</span>
-          <span class="font-black text-sm text-slate-700">Sin categoría</span>
-          <span class="text-xs text-slate-400 ml-1">${uncategorized.length}</span>
+          <span class="font-black text-sm text-[var(--black-100)]">Sin categoría</span>
+          <span class="text-xs text-[var(--black-40)] ml-1">${uncategorized.length}</span>
         </div>
         ${lessonListView === 'grid'
           ? `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-4">${uncategorized.map(l => lessonCardGridHtml(l)).join('')}</div>`
@@ -431,12 +431,12 @@ function renderGroupedLessons(allLessons, searchQuery) {
     if (!html) {
       list.innerHTML = `
         <div class="flex flex-col items-center justify-center py-16 text-center">
-          <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
-            <i data-lucide="book-open" class="w-8 h-8 text-slate-400"></i>
+          <div class="w-16 h-16 rounded-2xl bg-[var(--black-10)] flex items-center justify-center mb-4">
+            <i data-lucide="book-open" class="w-8 h-8 text-[var(--black-40)]"></i>
           </div>
-          <p class="font-bold text-slate-700 mb-1">Aún no hay lecciones</p>
-          <p class="text-xs text-slate-400 mb-4">Crea la primera lección para que los estudiantes comiencen</p>
-          <button id="emptyAddLesson" class="bg-[#E92129] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 mx-auto">
+          <p class="font-bold text-[var(--black-100)] mb-1">Aún no hay lecciones</p>
+          <p class="text-xs text-[var(--black-40)] mb-4">Crea la primera lección para que los estudiantes comiencen</p>
+          <button id="emptyAddLesson" class="bg-[var(--coral-100)] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 mx-auto">
             <i data-lucide="plus" class="w-3.5 h-3.5"></i> Crear primera lección
           </button>
         </div>`
@@ -453,19 +453,19 @@ function renderGroupedLessons(allLessons, searchQuery) {
 
 function lessonCardHtml(l) {
   return `
-    <div class="lesson-card bg-white rounded-xl border border-slate-100 p-3.5 flex items-center gap-3 mb-2 cursor-pointer hover:border-[#E92129] hover:shadow-sm transition-all" data-id="${l.id}">
+    <div class="lesson-card bg-white rounded-xl border border-[var(--blue-10)] p-3.5 flex items-center gap-3 mb-2 cursor-pointer hover:border-[var(--coral-100)] hover:shadow-sm transition-all" data-id="${l.id}">
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2">
-          <p class="font-bold text-sm text-slate-800 truncate">${escapeHtml(l.titulo)}</p>
-          <span class="shrink-0 text-[10px] text-slate-400">#${escapeHtml(String(l.orden))}</span>
+          <p class="font-bold text-sm text-[var(--black-100)] truncate">${escapeHtml(l.titulo)}</p>
+          <span class="shrink-0 text-[10px] text-[var(--black-40)]">#${escapeHtml(String(l.orden))}</span>
         </div>
-        <p class="text-xs text-slate-400 mt-0.5 line-clamp-1">${escapeHtml(l.descripcion || '')}</p>
+        <p class="text-xs text-[var(--black-40)] mt-0.5 line-clamp-1">${escapeHtml(l.descripcion || '')}</p>
       </div>
       <div class="flex gap-1 shrink-0">
-        <button data-id="${l.id}" class="copy-whatsapp p-1.5 rounded-lg hover:bg-green-50 text-slate-400 hover:text-green-600" title="Copiar para WhatsApp" aria-label="Copiar ${escapeHtml(l.titulo)} para WhatsApp">
+        <button data-id="${l.id}" class="copy-whatsapp p-1.5 rounded-lg hover:bg-green-50 text-[var(--black-40)] hover:text-green-600" title="Copiar para WhatsApp" aria-label="Copiar ${escapeHtml(l.titulo)} para WhatsApp">
           <i data-lucide="share-2" class="w-4 h-4"></i>
         </button>
-        <button data-id="${l.id}" data-titulo="${escapeHtml(l.titulo)}" class="del-lesson p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500" title="Eliminar" aria-label="Eliminar lección ${escapeHtml(l.titulo)}">
+        <button data-id="${l.id}" data-titulo="${escapeHtml(l.titulo)}" class="del-lesson p-1.5 rounded-lg hover:bg-[var(--coral-10)] text-[var(--black-40)] hover:text-[var(--coral-100)]" title="Eliminar" aria-label="Eliminar lección ${escapeHtml(l.titulo)}">
           <i data-lucide="trash-2" class="w-4 h-4"></i>
         </button>
       </div>
@@ -475,18 +475,18 @@ function lessonCardHtml(l) {
 function lessonCardGridHtml(l) {
   const cat = currentCategories.find(c => c.nombre === l.categoria)
   return `
-    <div class="lesson-card bg-white rounded-xl border border-slate-100 p-3.5 cursor-pointer hover:border-[#E92129] hover:shadow-sm transition-all flex flex-col gap-2" data-id="${l.id}">
+    <div class="lesson-card bg-white rounded-xl border border-[var(--blue-10)] p-3.5 cursor-pointer hover:border-[var(--coral-100)] hover:shadow-sm transition-all flex flex-col gap-2" data-id="${l.id}">
       <div class="flex items-start justify-between gap-2">
-        <p class="font-bold text-sm text-slate-800 leading-tight line-clamp-2 flex-1">${escapeHtml(l.titulo)}</p>
-        <span class="shrink-0 text-[10px] text-slate-400 font-bold">#${escapeHtml(String(l.orden))}</span>
+        <p class="font-bold text-sm text-[var(--black-100)] leading-tight line-clamp-2 flex-1">${escapeHtml(l.titulo)}</p>
+        <span class="shrink-0 text-[10px] text-[var(--black-40)] font-bold">#${escapeHtml(String(l.orden))}</span>
       </div>
-      ${l.descripcion ? `<p class="text-xs text-slate-400 line-clamp-2">${escapeHtml(l.descripcion)}</p>` : ''}
-      ${cat ? `<span class="self-start text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full">${escapeHtml(cat.emoji)} ${escapeHtml(cat.nombre)}</span>` : ''}
-      <div class="flex gap-1 mt-auto pt-2 border-t border-slate-50">
-        <button data-id="${l.id}" class="copy-whatsapp flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-green-50 text-slate-400 hover:text-green-600" aria-label="Copiar ${escapeHtml(l.titulo)} para WhatsApp">
+      ${l.descripcion ? `<p class="text-xs text-[var(--black-40)] line-clamp-2">${escapeHtml(l.descripcion)}</p>` : ''}
+      ${cat ? `<span class="self-start text-[10px] font-bold text-[var(--black-40)] bg-[var(--background-page)] px-2 py-0.5 rounded-full">${escapeHtml(cat.emoji)} ${escapeHtml(cat.nombre)}</span>` : ''}
+      <div class="flex gap-1 mt-auto pt-2 border-t border-[var(--blue-10)]">
+        <button data-id="${l.id}" class="copy-whatsapp flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-green-50 text-[var(--black-40)] hover:text-green-600" aria-label="Copiar ${escapeHtml(l.titulo)} para WhatsApp">
           <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
         </button>
-        <button data-id="${l.id}" data-titulo="${escapeHtml(l.titulo)}" class="del-lesson flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500" aria-label="Eliminar lección ${escapeHtml(l.titulo)}">
+        <button data-id="${l.id}" data-titulo="${escapeHtml(l.titulo)}" class="del-lesson flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-[var(--coral-10)] text-[var(--black-40)] hover:text-[var(--coral-100)]" aria-label="Eliminar lección ${escapeHtml(l.titulo)}">
           <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
         </button>
       </div>
@@ -539,14 +539,14 @@ function applyPreviewState() {
     formGrid.style.gridTemplateColumns = '1fr 1fr'
     previewPanel.classList.remove('hidden')
     if (icon) icon.setAttribute('data-lucide', 'eye')
-    btn.classList.remove('text-slate-300')
-    btn.classList.add('text-slate-400')
+    btn.classList.remove('text-[var(--black-40)]')
+    btn.classList.add('text-[var(--black-40)]')
   } else {
     formGrid.style.gridTemplateColumns = '1fr'
     previewPanel.classList.add('hidden')
     if (icon) icon.setAttribute('data-lucide', 'eye-off')
-    btn.classList.remove('text-slate-400')
-    btn.classList.add('text-slate-300')
+    btn.classList.remove('text-[var(--black-40)]')
+    btn.classList.add('text-[var(--black-40)]')
   }
   lucide.createIcons()
 }
@@ -688,7 +688,7 @@ function renderBlockList() {
 }
 
 function blockItemHtml(block, i) {
-  const colors = { step: '#E92129', image: '#3b82f6', video: '#8b5cf6', link: '#16a34a',
+  const colors = { step: 'var(--coral-100)', image: '#3b82f6', video: '#8b5cf6', link: '#16a34a',
     bot_nota: '#d97706', bot_advertencia: '#d97706', bot_pasos: '#d97706', bot_relacionado: '#d97706', bot_faq: '#d97706' }
   const labels = { step: '📝 Paso', image: '🖼️ Imagen', video: '▶️ Video YouTube', link: '🔗 Link',
     bot_nota: '💡 Nota — Solo Bodi', bot_advertencia: '⚠️ Advertencia — Solo Bodi',
@@ -713,49 +713,49 @@ function blockItemHtml(block, i) {
   } else if (block.type === 'image') {
     fields = `
       <input data-field="url" value="${escapeHtml(block.url || '')}" class="hidden">
-      <div class="upload-zone border-2 border-dashed border-slate-200 rounded-lg p-3 text-center mb-1.5 transition-colors">
+      <div class="upload-zone border-2 border-dashed border-[var(--blue-20)] rounded-lg p-3 text-center mb-1.5 transition-colors">
         ${block.url ? `
-          <div class="flex items-center gap-2 bg-slate-50 rounded-lg p-2">
+          <div class="flex items-center gap-2 bg-[var(--background-page)] rounded-lg p-2">
             <img src="${escapeHtml(block.url)}" class="w-10 h-10 object-cover rounded shrink-0" onerror="this.style.display='none'">
-            <span class="text-xs text-slate-600 truncate flex-1">${escapeHtml(block.url.split('/').pop())}</span>
-            <button type="button" class="clear-upload text-slate-300 hover:text-red-400 text-sm px-1">✕</button>
+            <span class="text-xs text-[var(--black-60)] truncate flex-1">${escapeHtml(block.url.split('/').pop())}</span>
+            <button type="button" class="clear-upload text-[var(--black-40)] hover:text-[var(--coral-100)] text-sm px-1">✕</button>
           </div>
         ` : `
-          <p class="text-slate-400 text-xs mb-2">🖼️ Arrastra una imagen aquí o</p>
+          <p class="text-[var(--black-40)] text-xs mb-2">🖼️ Arrastra una imagen aquí o</p>
           <div class="flex gap-1.5 justify-center">
-            <button type="button" class="pick-file px-3 py-1.5 bg-[#E92129] text-white text-xs rounded-lg">📁 Buscar</button>
-            <button type="button" class="pick-library px-3 py-1.5 bg-slate-100 text-slate-600 text-xs rounded-lg border border-slate-200">🗂️ Biblioteca</button>
+            <button type="button" class="pick-file px-3 py-1.5 bg-[var(--coral-100)] text-white text-xs rounded-lg">📁 Buscar</button>
+            <button type="button" class="pick-library px-3 py-1.5 bg-[var(--black-10)] text-[var(--black-60)] text-xs rounded-lg border border-[var(--blue-20)]">🗂️ Biblioteca</button>
           </div>
         `}
         <div class="upload-progress hidden mt-2">
-          <div class="h-1 bg-slate-200 rounded-full overflow-hidden"><div class="upload-bar h-full bg-[#E92129] transition-all" style="width:0%"></div></div>
-          <p class="text-xs text-slate-400 mt-1">Subiendo...</p>
+          <div class="h-1 bg-[var(--blue-20)] rounded-full overflow-hidden"><div class="upload-bar h-full bg-[var(--coral-100)] transition-all" style="width:0%"></div></div>
+          <p class="text-xs text-[var(--black-40)] mt-1">Subiendo...</p>
         </div>
       </div>
       <input data-field="caption" value="${escapeHtml(block.caption || '')}" placeholder="Pie de foto (opcional)"
-        class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129]">`
+        class="w-full px-2 py-1.5 rounded-lg border border-[var(--blue-20)] text-xs outline-none focus:border-[var(--coral-100)]">`
   } else if (block.type === 'video') {
     fields = `<input data-field="url" value="${escapeHtml(block.url || '')}" placeholder="URL de YouTube"
-        class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129] mb-1.5">
+        class="w-full px-2 py-1.5 rounded-lg border border-[var(--blue-20)] text-xs outline-none focus:border-[var(--coral-100)] mb-1.5">
       <input data-field="label" value="${escapeHtml(block.label || '')}" placeholder="Etiqueta del video"
-        class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129]">`
+        class="w-full px-2 py-1.5 rounded-lg border border-[var(--blue-20)] text-xs outline-none focus:border-[var(--coral-100)]">`
   } else if (block.type === 'link') {
     fields = `<input data-field="url" value="${escapeHtml(block.url || '')}" placeholder="URL del enlace"
-        class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129] mb-1.5">
+        class="w-full px-2 py-1.5 rounded-lg border border-[var(--blue-20)] text-xs outline-none focus:border-[var(--coral-100)] mb-1.5">
       <input data-field="label" value="${escapeHtml(block.label || '')}" placeholder="Texto del enlace"
-        class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129]">`
+        class="w-full px-2 py-1.5 rounded-lg border border-[var(--blue-20)] text-xs outline-none focus:border-[var(--coral-100)]">`
   }
 
-  const cardBg = isBotBlock ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'
+  const cardBg = isBotBlock ? 'bg-amber-50 border-amber-200' : 'bg-[var(--background-page)] border-[var(--blue-20)]'
   const isFirst = i === 0
   const isLast = i === currentBlocks.length - 1
   return `<div data-idx="${i}" class="${cardBg} border rounded-xl p-2.5 flex items-start gap-2">
     <div class="flex flex-col items-center gap-0.5 shrink-0 mt-0.5">
-      <div class="drag-handle text-slate-300 text-lg cursor-grab select-none leading-none">⠿</div>
-      <button class="move-up text-slate-300 hover:text-slate-600 transition-colors p-0.5 rounded ${isFirst ? 'opacity-30 cursor-not-allowed' : ''}" ${isFirst ? 'disabled' : ''} aria-label="Mover bloque arriba">
+      <div class="drag-handle text-[var(--black-40)] text-lg cursor-grab select-none leading-none">⠿</div>
+      <button class="move-up text-[var(--black-40)] hover:text-[var(--black-60)] transition-colors p-0.5 rounded ${isFirst ? 'opacity-30 cursor-not-allowed' : ''}" ${isFirst ? 'disabled' : ''} aria-label="Mover bloque arriba">
         <i data-lucide="chevron-up" class="w-3.5 h-3.5"></i>
       </button>
-      <button class="move-down text-slate-300 hover:text-slate-600 transition-colors p-0.5 rounded ${isLast ? 'opacity-30 cursor-not-allowed' : ''}" ${isLast ? 'disabled' : ''} aria-label="Mover bloque abajo">
+      <button class="move-down text-[var(--black-40)] hover:text-[var(--black-60)] transition-colors p-0.5 rounded ${isLast ? 'opacity-30 cursor-not-allowed' : ''}" ${isLast ? 'disabled' : ''} aria-label="Mover bloque abajo">
         <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
       </button>
     </div>
@@ -763,7 +763,7 @@ function blockItemHtml(block, i) {
       <div class="text-[9px] font-black uppercase mb-1.5" style="color:${color}">${label}</div>
       ${fields}
     </div>
-    <button class="del-block text-slate-300 hover:text-red-400 text-sm px-1 mt-0.5 shrink-0" aria-label="Eliminar bloque">✕</button>
+    <button class="del-block text-[var(--black-40)] hover:text-[var(--coral-100)] text-sm px-1 mt-0.5 shrink-0" aria-label="Eliminar bloque">✕</button>
   </div>`
 }
 
@@ -773,23 +773,23 @@ function renderQuestionList() {
   if (questionsSortable) { questionsSortable.destroy(); questionsSortable = null }
 
   list.innerHTML = currentQuestions.map((q, qi) => `
-    <div data-qi="${qi}" class="bg-white border border-slate-200 rounded-xl p-3">
+    <div data-qi="${qi}" class="bg-white border border-[var(--blue-20)] rounded-xl p-3">
       <div class="flex items-start gap-2 mb-2">
-        <div class="drag-handle-q text-slate-300 text-lg cursor-grab select-none leading-none mt-0.5">⠿</div>
-        <input data-qi="${qi}" class="q-text flex-1 px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129]"
+        <div class="drag-handle-q text-[var(--black-40)] text-lg cursor-grab select-none leading-none mt-0.5">⠿</div>
+        <input data-qi="${qi}" class="q-text flex-1 px-2 py-1.5 rounded-lg border border-[var(--blue-20)] text-xs outline-none focus:border-[var(--coral-100)]"
           placeholder="Pregunta" value="${escapeHtml(q.pregunta || '')}">
-        <button data-qi="${qi}" class="del-q text-slate-300 hover:text-red-400 text-sm px-1 shrink-0 mt-1" aria-label="Eliminar pregunta">✕</button>
+        <button data-qi="${qi}" class="del-q text-[var(--black-40)] hover:text-[var(--coral-100)] text-sm px-1 shrink-0 mt-1" aria-label="Eliminar pregunta">✕</button>
       </div>
       <div class="space-y-1.5 ml-6">
         ${(q.opciones || []).map((op, oi) => `
           <div class="flex items-center gap-2">
             <input type="radio" name="correct-${qi}" data-qi="${qi}" data-oi="${oi}" class="correct-radio shrink-0" ${q.correcta === oi ? 'checked' : ''}>
-            <input data-qi="${qi}" data-oi="${oi}" class="opt-text flex-1 px-2 py-1 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#E92129]"
+            <input data-qi="${qi}" data-oi="${oi}" class="opt-text flex-1 px-2 py-1 rounded-lg border border-[var(--blue-20)] text-xs outline-none focus:border-[var(--coral-100)]"
               placeholder="Opción ${oi + 1}" value="${escapeHtml(op || '')}">
-            ${q.opciones.length > 2 ? `<button data-qi="${qi}" data-oi="${oi}" class="del-opt text-slate-300 hover:text-red-400 text-xs px-1" aria-label="Eliminar opción ${oi + 1}">✕</button>` : ''}
+            ${q.opciones.length > 2 ? `<button data-qi="${qi}" data-oi="${oi}" class="del-opt text-[var(--black-40)] hover:text-[var(--coral-100)] text-xs px-1" aria-label="Eliminar opción ${oi + 1}">✕</button>` : ''}
           </div>
         `).join('')}
-        ${q.opciones.length < 4 ? `<button data-qi="${qi}" class="add-opt text-[10px] font-bold text-slate-400 hover:text-slate-700 mt-1">+ Opción</button>` : ''}
+        ${q.opciones.length < 4 ? `<button data-qi="${qi}" class="add-opt text-[10px] font-bold text-[var(--black-40)] hover:text-[var(--black-100)] mt-1">+ Opción</button>` : ''}
       </div>
     </div>
   `).join('')
@@ -845,35 +845,35 @@ async function renderGlossaryPanel() {
   el.innerHTML = `
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-lg font-black">Glosario</h2>
-      <button id="addTerm" class="bg-[#E92129] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:scale-105 transition-transform">
+      <button id="addTerm" class="bg-[var(--coral-100)] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:scale-105 transition-transform">
         <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nuevo término
       </button>
     </div>
     <div class="space-y-2">
       ${(data || []).map(g => `
-        <div class="bg-white rounded-xl border border-slate-100 p-3 flex items-start justify-between gap-3">
+        <div class="bg-white rounded-xl border border-[var(--blue-10)] p-3 flex items-start justify-between gap-3">
           <div>
-            <p class="font-bold text-sm text-[#E92129]">${escapeHtml(g.termino)}</p>
-            <p class="text-xs text-slate-500 mt-0.5">${escapeHtml(g.definicion)}</p>
+            <p class="font-bold text-sm text-[var(--coral-100)]">${escapeHtml(g.termino)}</p>
+            <p class="text-xs text-[var(--black-60)] mt-0.5">${escapeHtml(g.definicion)}</p>
           </div>
           <div class="flex gap-1 shrink-0">
-            <button data-id="${g.id}" data-term="${escapeHtml(g.termino)}" data-def="${escapeHtml(g.definicion)}" class="edit-term p-1.5 rounded-lg hover:bg-slate-100 text-slate-500" aria-label="Editar término ${escapeHtml(g.termino)}">
+            <button data-id="${g.id}" data-term="${escapeHtml(g.termino)}" data-def="${escapeHtml(g.definicion)}" class="edit-term p-1.5 rounded-lg hover:bg-[var(--black-10)] text-[var(--black-60)]" aria-label="Editar término ${escapeHtml(g.termino)}">
               <i data-lucide="edit-2" class="w-4 h-4"></i>
             </button>
-            <button data-id="${g.id}" class="del-term p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500" aria-label="Eliminar término ${escapeHtml(g.termino)}">
+            <button data-id="${g.id}" class="del-term p-1.5 rounded-lg hover:bg-[var(--coral-10)] text-[var(--black-60)] hover:text-[var(--coral-100)]" aria-label="Eliminar término ${escapeHtml(g.termino)}">
               <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           </div>
         </div>
-      `).join('') || '<p class="text-slate-400 text-sm">No hay términos aún.</p>'}
+      `).join('') || '<p class="text-[var(--black-40)] text-sm">No hay términos aún.</p>'}
     </div>
-    <div id="termForm" class="hidden mt-4 bg-white rounded-2xl border border-slate-200 p-4">
+    <div id="termForm" class="hidden mt-4 bg-white rounded-2xl border border-[var(--blue-20)] p-4">
       <input type="hidden" id="termId">
-      <input id="termTermino" placeholder="Término" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] mb-2">
-      <textarea id="termDefinicion" placeholder="Definición" rows="2" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] resize-none mb-2"></textarea>
+      <input id="termTermino" placeholder="Término" required class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--coral-100)] mb-2">
+      <textarea id="termDefinicion" placeholder="Definición" rows="2" required class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--coral-100)] resize-none mb-2"></textarea>
       <div class="flex gap-2">
-        <button id="cancelTerm" class="flex-1 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-500">Cancelar</button>
-        <button id="saveTerm" class="flex-1 py-2 rounded-xl bg-[#E92129] text-white text-sm font-bold">Guardar</button>
+        <button id="cancelTerm" class="flex-1 py-2 rounded-xl border border-[var(--blue-20)] text-sm font-bold text-[var(--black-60)]">Cancelar</button>
+        <button id="saveTerm" class="flex-1 py-2 rounded-xl bg-[var(--coral-100)] text-white text-sm font-bold">Guardar</button>
       </div>
     </div>
   `
@@ -957,8 +957,8 @@ function renderFolderBreadcrumb() {
   ]
   container.innerHTML = crumbs.map((c, i) => {
     const isLast = i === crumbs.length - 1
-    if (isLast) return `<span class="text-slate-700 font-bold text-sm">${escapeHtml(c.label)}</span>`
-    return `<button class="folder-crumb text-[#E92129] hover:underline text-sm font-bold" data-path="${escapeHtml(c.path)}">${escapeHtml(c.label)}</button><span class="text-slate-300 text-sm">/</span>`
+    if (isLast) return `<span class="text-[var(--black-100)] font-bold text-sm">${escapeHtml(c.label)}</span>`
+    return `<button class="folder-crumb text-[var(--coral-100)] hover:underline text-sm font-bold" data-path="${escapeHtml(c.path)}">${escapeHtml(c.label)}</button><span class="text-[var(--black-40)] text-sm">/</span>`
   }).join('')
 
   container.querySelectorAll('.folder-crumb').forEach(btn => {
@@ -975,50 +975,50 @@ async function renderMaterialPanel() {
     <div class="max-w-4xl mx-auto">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-black">Biblioteca de archivos</h2>
-        <button id="newFolderBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50">
+        <button id="newFolderBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[var(--blue-20)] text-xs font-bold text-[var(--black-60)] hover:bg-[var(--background-page)]">
           <i data-lucide="folder-plus" class="w-3.5 h-3.5"></i> Nueva carpeta
         </button>
       </div>
 
       <div id="folderBreadcrumb" class="flex items-center gap-1 mb-3 flex-wrap min-h-[24px]"></div>
 
-      <div id="newFolderForm" class="hidden bg-white border border-slate-200 rounded-xl p-3 mb-4 flex items-center gap-2">
-        <i data-lucide="folder" class="w-4 h-4 text-slate-400 shrink-0"></i>
+      <div id="newFolderForm" class="hidden bg-white border border-[var(--blue-20)] rounded-xl p-3 mb-4 flex items-center gap-2">
+        <i data-lucide="folder" class="w-4 h-4 text-[var(--black-40)] shrink-0"></i>
         <input id="newFolderInput" type="text" placeholder="Nombre de la carpeta" autocomplete="off"
-          class="flex-1 px-2 py-1 rounded-lg border border-slate-200 text-sm outline-none focus:border-[#E92129]">
-        <button id="cancelNewFolder" class="px-3 py-1 rounded-lg border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50">Cancelar</button>
-        <button id="confirmNewFolder" class="px-3 py-1 rounded-lg bg-[#E92129] text-white text-xs font-bold">Crear</button>
+          class="flex-1 px-2 py-1 rounded-lg border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--coral-100)]">
+        <button id="cancelNewFolder" class="px-3 py-1 rounded-lg border border-[var(--blue-20)] text-xs font-bold text-[var(--black-60)] hover:bg-[var(--background-page)]">Cancelar</button>
+        <button id="confirmNewFolder" class="px-3 py-1 rounded-lg bg-[var(--coral-100)] text-white text-xs font-bold">Crear</button>
       </div>
 
-      <div id="materialDropzone" class="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center mb-6 hover:border-[#E92129] transition-colors cursor-pointer">
-        <i data-lucide="folder-open" class="w-10 h-10 text-slate-300 mx-auto mb-3 block"></i>
-        <p class="text-slate-400 text-sm mb-3">Arrastra archivos aquí o</p>
-        <button id="materialPickFile" class="px-4 py-2 bg-[#E92129] text-white text-sm rounded-lg font-bold flex items-center gap-1.5 mx-auto"><i data-lucide="upload" class="w-4 h-4"></i> Buscar archivo</button>
-        <p class="text-xs text-slate-400 mt-2">Cualquier tipo · Máx. 50MB</p>
+      <div id="materialDropzone" class="border-2 border-dashed border-[var(--blue-20)] rounded-xl p-8 text-center mb-6 hover:border-[var(--coral-100)] transition-colors cursor-pointer">
+        <i data-lucide="folder-open" class="w-10 h-10 text-[var(--black-40)] mx-auto mb-3 block"></i>
+        <p class="text-[var(--black-40)] text-sm mb-3">Arrastra archivos aquí o</p>
+        <button id="materialPickFile" class="px-4 py-2 bg-[var(--coral-100)] text-white text-sm rounded-lg font-bold flex items-center gap-1.5 mx-auto"><i data-lucide="upload" class="w-4 h-4"></i> Buscar archivo</button>
+        <p class="text-xs text-[var(--black-40)] mt-2">Cualquier tipo · Máx. 50MB</p>
         <div id="materialProgress" class="hidden mt-4">
-          <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden max-w-xs mx-auto">
-            <div id="materialProgressBar" class="h-full bg-[#E92129] transition-all" style="width:0%"></div>
+          <div class="h-1.5 bg-[var(--blue-20)] rounded-full overflow-hidden max-w-xs mx-auto">
+            <div id="materialProgressBar" class="h-full bg-[var(--coral-100)] transition-all" style="width:0%"></div>
           </div>
-          <p class="text-xs text-slate-400 mt-1">Subiendo...</p>
+          <p class="text-xs text-[var(--black-40)] mt-1">Subiendo...</p>
         </div>
       </div>
 
       <div class="flex items-center gap-3 mb-4">
         <input id="materialSearch" type="text" placeholder="🔍 Buscar archivos..."
-          class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-[#E92129]">
-        <span id="materialFileCount" class="text-xs text-slate-400 shrink-0"></span>
-        <div class="flex gap-0.5 border border-slate-200 rounded-lg p-0.5 shrink-0">
-          <button id="viewGrid" class="p-1.5 rounded-md transition-colors ${materialView === 'grid' ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:text-slate-600'}" aria-label="Vista cuadrícula">
+          class="flex-1 px-3 py-2 border border-[var(--blue-20)] rounded-lg text-sm outline-none focus:border-[var(--coral-100)]">
+        <span id="materialFileCount" class="text-xs text-[var(--black-40)] shrink-0"></span>
+        <div class="flex gap-0.5 border border-[var(--blue-20)] rounded-lg p-0.5 shrink-0">
+          <button id="viewGrid" class="p-1.5 rounded-md transition-colors ${materialView === 'grid' ? 'bg-[var(--black-10)] text-[var(--black-100)]' : 'text-[var(--black-40)] hover:text-[var(--black-60)]'}" aria-label="Vista cuadrícula">
             <i data-lucide="grid-3x3" class="w-4 h-4"></i>
           </button>
-          <button id="viewList" class="p-1.5 rounded-md transition-colors ${materialView === 'list' ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:text-slate-600'}" aria-label="Vista lista">
+          <button id="viewList" class="p-1.5 rounded-md transition-colors ${materialView === 'list' ? 'bg-[var(--black-10)] text-[var(--black-100)]' : 'text-[var(--black-40)] hover:text-[var(--black-60)]'}" aria-label="Vista lista">
             <i data-lucide="list" class="w-4 h-4"></i>
           </button>
         </div>
       </div>
 
       <div id="materialGrid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-        <p class="col-span-5 text-center text-slate-400 text-sm py-12">Cargando archivos...</p>
+        <p class="col-span-5 text-center text-[var(--black-40)] text-sm py-12">Cargando archivos...</p>
       </div>
     </div>
   `
@@ -1031,7 +1031,7 @@ async function renderMaterialPanel() {
   const loadFiles = async () => {
     const grid = document.getElementById('materialGrid')
     if (!grid) return
-    grid.innerHTML = '<p class="col-span-5 text-center text-slate-400 text-sm py-12">Cargando...</p>'
+    grid.innerHTML = '<p class="col-span-5 text-center text-[var(--black-40)] text-sm py-12">Cargando...</p>'
     try {
       const result = await listFiles(currentFolderPath)
       files = result.files
@@ -1058,16 +1058,16 @@ async function renderMaterialPanel() {
   document.getElementById('viewGrid').addEventListener('click', () => {
     materialView = 'grid'
     localStorage.setItem('admin_material_view', 'grid')
-    document.getElementById('viewGrid').className = 'p-1.5 rounded-md transition-colors bg-slate-100 text-slate-700'
-    document.getElementById('viewList').className = 'p-1.5 rounded-md transition-colors text-slate-400 hover:text-slate-600'
+    document.getElementById('viewGrid').className = 'p-1.5 rounded-md transition-colors bg-[var(--black-10)] text-[var(--black-100)]'
+    document.getElementById('viewList').className = 'p-1.5 rounded-md transition-colors text-[var(--black-40)] hover:text-[var(--black-60)]'
     renderMaterialGrid(_materialCurrentFiles, currentFolders)
   })
 
   document.getElementById('viewList').addEventListener('click', () => {
     materialView = 'list'
     localStorage.setItem('admin_material_view', 'list')
-    document.getElementById('viewGrid').className = 'p-1.5 rounded-md transition-colors text-slate-400 hover:text-slate-600'
-    document.getElementById('viewList').className = 'p-1.5 rounded-md transition-colors bg-slate-100 text-slate-700'
+    document.getElementById('viewGrid').className = 'p-1.5 rounded-md transition-colors text-[var(--black-40)] hover:text-[var(--black-60)]'
+    document.getElementById('viewList').className = 'p-1.5 rounded-md transition-colors bg-[var(--black-10)] text-[var(--black-100)]'
     renderMaterialGrid(_materialCurrentFiles, currentFolders)
   })
 
@@ -1128,14 +1128,14 @@ async function renderMaterialPanel() {
 
   dropzone.addEventListener('dragover', e => {
     e.preventDefault()
-    dropzone.classList.add('border-[#E92129]', 'bg-red-50')
+    dropzone.classList.add('border-[var(--coral-100)]', 'bg-[var(--coral-10)]')
   })
   dropzone.addEventListener('dragleave', () => {
-    dropzone.classList.remove('border-[#E92129]', 'bg-red-50')
+    dropzone.classList.remove('border-[var(--coral-100)]', 'bg-[var(--coral-10)]')
   })
   dropzone.addEventListener('drop', e => {
     e.preventDefault()
-    dropzone.classList.remove('border-[#E92129]', 'bg-red-50')
+    dropzone.classList.remove('border-[var(--coral-100)]', 'bg-[var(--coral-10)]')
     if (e.dataTransfer.files[0]) doUpload(e.dataTransfer.files[0])
   })
 
@@ -1156,7 +1156,7 @@ function renderMaterialGrid(files, folders = []) {
 
   if (!folders.length && !files.length) {
     grid.className = ''
-    grid.innerHTML = '<p class="text-center text-slate-400 text-sm py-12">No hay archivos subidos aún</p>'
+    grid.innerHTML = '<p class="text-center text-[var(--black-40)] text-sm py-12">No hay archivos subidos aún</p>'
     return
   }
 
@@ -1167,35 +1167,35 @@ function renderMaterialGrid(files, folders = []) {
       return `
         <div class="folder-card group bg-amber-50 border border-amber-100 rounded-xl p-3 flex items-center gap-3 cursor-pointer hover:border-amber-300 hover:bg-amber-100 transition-colors" data-path="${escapeHtml(folderPath)}">
           <i data-lucide="folder" class="w-8 h-8 text-amber-400 shrink-0"></i>
-          <p class="text-sm font-bold text-slate-700 truncate flex-1">${escapeHtml(f.name)}</p>
-          <i data-lucide="chevron-right" class="w-4 h-4 text-slate-300 shrink-0"></i>
+          <p class="text-sm font-bold text-[var(--black-100)] truncate flex-1">${escapeHtml(f.name)}</p>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-[var(--black-40)] shrink-0"></i>
         </div>`
     }).join('')
     grid.innerHTML = folderCards + files.map(f => `
-      <div class="file-card flex items-center gap-3 bg-white border border-slate-100 rounded-xl px-3 py-2.5 hover:border-slate-200 transition-colors group" draggable="true" data-path="${escapeHtml(f.name)}">
-        <div class="w-10 h-10 shrink-0 flex items-center justify-center rounded-lg overflow-hidden bg-slate-50">
+      <div class="file-card flex items-center gap-3 bg-white border border-[var(--blue-10)] rounded-xl px-3 py-2.5 hover:border-[var(--blue-20)] transition-colors group" draggable="true" data-path="${escapeHtml(f.name)}">
+        <div class="w-10 h-10 shrink-0 flex items-center justify-center rounded-lg overflow-hidden bg-[var(--background-page)]">
           ${f.type.startsWith('image/')
             ? `<img src="${escapeHtml(f.url)}" alt="" class="w-10 h-10 object-cover" loading="lazy">`
             : fileIcon(f.type)}
         </div>
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-slate-700 truncate" title="${escapeHtml(displayName(f.name.split('/').pop()))}">${escapeHtml(displayName(f.name.split('/').pop()))}</p>
-          <p class="text-xs text-slate-400">${formatBytes(f.size)}</p>
+          <p class="text-sm font-medium text-[var(--black-100)] truncate" title="${escapeHtml(displayName(f.name.split('/').pop()))}">${escapeHtml(displayName(f.name.split('/').pop()))}</p>
+          <p class="text-xs text-[var(--black-40)]">${formatBytes(f.size)}</p>
         </div>
         <div class="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button class="preview-file p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-500"
+          <button class="preview-file p-1.5 rounded-lg hover:bg-blue-50 text-[var(--black-40)] hover:text-blue-500"
             data-url="${escapeHtml(f.url)}" data-type="${escapeHtml(f.type)}" data-name="${escapeHtml(f.name)}" aria-label="Ver ${escapeHtml(displayName(f.name.split('/').pop()))}">
             <i data-lucide="eye" class="w-4 h-4"></i>
           </button>
-          <button class="rename-file p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500"
+          <button class="rename-file p-1.5 rounded-lg hover:bg-amber-50 text-[var(--black-40)] hover:text-amber-500"
             data-path="${escapeHtml(f.name)}" data-display="${escapeHtml(displayName(f.name.split('/').pop()))}" aria-label="Renombrar ${escapeHtml(displayName(f.name.split('/').pop()))}">
             <i data-lucide="pencil" class="w-4 h-4"></i>
           </button>
-          <button class="copy-url p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+          <button class="copy-url p-1.5 rounded-lg hover:bg-[var(--black-10)] text-[var(--black-40)] hover:text-[var(--black-60)]"
             data-url="${escapeHtml(f.url)}" data-name="${escapeHtml(f.name)}" aria-label="Copiar URL">
             <i data-lucide="link" class="w-4 h-4"></i>
           </button>
-          <button class="delete-file p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500"
+          <button class="delete-file p-1.5 rounded-lg hover:bg-[var(--coral-10)] text-[var(--black-40)] hover:text-[var(--coral-100)]"
             data-path="${escapeHtml(f.name)}" aria-label="Eliminar ${escapeHtml(displayName(f.name.split('/').pop()))}">
             <i data-lucide="trash-2" class="w-4 h-4"></i>
           </button>
@@ -1209,16 +1209,16 @@ function renderMaterialGrid(files, folders = []) {
       return `
         <div class="folder-card group bg-amber-50 border border-amber-100 rounded-xl p-3 text-center cursor-pointer hover:border-amber-300 hover:bg-amber-100 transition-colors" data-path="${escapeHtml(folderPath)}">
           <div class="flex justify-center mb-2"><i data-lucide="folder" class="w-10 h-10 text-amber-400"></i></div>
-          <p class="text-xs text-slate-700 truncate font-bold" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</p>
+          <p class="text-xs text-[var(--black-100)] truncate font-bold" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</p>
         </div>`
     }).join('')
     grid.innerHTML = folderGrid + files.map(f => `
-      <div class="file-card group relative bg-white border border-slate-100 rounded-xl p-3 text-center shadow-sm hover:shadow-md transition-shadow" draggable="true" data-path="${escapeHtml(f.name)}">
+      <div class="file-card group relative bg-white border border-[var(--blue-10)] rounded-xl p-3 text-center shadow-sm hover:shadow-md transition-shadow" draggable="true" data-path="${escapeHtml(f.name)}">
         ${f.type.startsWith('image/')
           ? `<img src="${escapeHtml(f.url)}" alt="" class="w-full h-16 object-cover rounded-lg mb-2" loading="lazy">`
           : `<div class="flex justify-center mb-2">${fileIcon(f.type)}</div>`}
-        <p class="text-xs text-slate-700 truncate font-medium" title="${escapeHtml(displayName(f.name.split('/').pop()))}">${escapeHtml(displayName(f.name.split('/').pop()))}</p>
-        <p class="text-xs text-slate-400">${formatBytes(f.size)}</p>
+        <p class="text-xs text-[var(--black-100)] truncate font-medium" title="${escapeHtml(displayName(f.name.split('/').pop()))}">${escapeHtml(displayName(f.name.split('/').pop()))}</p>
+        <p class="text-xs text-[var(--black-40)]">${formatBytes(f.size)}</p>
         <div class="absolute inset-0 bg-black/60 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
           <button class="preview-file bg-blue-500 text-white rounded-lg p-1.5"
             data-url="${escapeHtml(f.url)}" data-type="${escapeHtml(f.type)}" data-name="${escapeHtml(f.name)}" aria-label="Ver ${escapeHtml(displayName(f.name.split('/').pop()))}">
@@ -1228,11 +1228,11 @@ function renderMaterialGrid(files, folders = []) {
             data-path="${escapeHtml(f.name)}" data-display="${escapeHtml(displayName(f.name.split('/').pop()))}" aria-label="Renombrar ${escapeHtml(displayName(f.name.split('/').pop()))}">
             <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
           </button>
-          <button class="copy-url bg-slate-600 text-white rounded-lg p-1.5"
+          <button class="copy-url bg-[var(--black-60)] text-white rounded-lg p-1.5"
             data-url="${escapeHtml(f.url)}" data-name="${escapeHtml(f.name)}" aria-label="Copiar URL">
             <i data-lucide="link" class="w-3.5 h-3.5"></i>
           </button>
-          <button class="delete-file bg-red-500 text-white rounded-lg p-1.5"
+          <button class="delete-file bg-[var(--coral-10)]0 text-white rounded-lg p-1.5"
             data-path="${escapeHtml(f.name)}" aria-label="Eliminar ${escapeHtml(displayName(f.name.split('/').pop()))}">
             <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
           </button>
@@ -1302,7 +1302,7 @@ function renderMaterialGrid(files, folders = []) {
     card.addEventListener('dragover', e => {
       e.preventDefault()
       e.dataTransfer.dropEffect = 'move'
-      card.style.outline = '2px solid #E92129'
+      card.style.outline = '2px solid var(--coral-100)'
       card.style.outlineOffset = '-2px'
     })
     card.addEventListener('dragleave', e => {
@@ -1339,56 +1339,56 @@ async function renderMaterialApoyoPanel() {
     <div class="flex items-center justify-between mb-4">
       <div>
         <h2 class="text-lg font-black">Material de apoyo</h2>
-        <p class="text-xs text-slate-400 mt-0.5">Recursos visibles para los usuarios en la sección Recursos.</p>
+        <p class="text-xs text-[var(--black-40)] mt-0.5">Recursos visibles para los usuarios en la sección Recursos.</p>
       </div>
-      <button id="addMatApoyo" class="bg-[#E92129] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:scale-105 transition-transform">
+      <button id="addMatApoyo" class="bg-[var(--coral-100)] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:scale-105 transition-transform">
         <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nuevo recurso
       </button>
     </div>
     <div class="space-y-2">
       ${(data || []).map(m => `
-        <div class="bg-white rounded-xl border border-slate-100 p-3 flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-            <i data-lucide="${escapeHtml(iconMap[m.tipo] || 'file')}" class="w-5 h-5 ${escapeHtml(colorMap[m.tipo] || 'text-slate-500')}"></i>
+        <div class="bg-white rounded-xl border border-[var(--blue-10)] p-3 flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-[var(--black-10)] flex items-center justify-center shrink-0">
+            <i data-lucide="${escapeHtml(iconMap[m.tipo] || 'file')}" class="w-5 h-5 ${escapeHtml(colorMap[m.tipo] || 'text-[var(--black-60)]')}"></i>
           </div>
           <div class="flex-1 min-w-0">
             <p class="font-bold text-sm truncate">${escapeHtml(m.titulo)}</p>
-            <p class="text-xs text-slate-400 uppercase font-bold">${escapeHtml(m.tipo)}</p>
+            <p class="text-xs text-[var(--black-40)] uppercase font-bold">${escapeHtml(m.tipo)}</p>
           </div>
           <div class="flex gap-1 shrink-0">
             <button data-id="${escapeHtml(String(m.id))}" data-titulo="${escapeHtml(m.titulo)}" data-url="${escapeHtml(m.url)}" data-tipo="${escapeHtml(m.tipo)}"
-              class="edit-mat-apoyo p-1.5 rounded-lg hover:bg-slate-100 text-slate-500" aria-label="Editar ${escapeHtml(m.titulo)}">
+              class="edit-mat-apoyo p-1.5 rounded-lg hover:bg-[var(--black-10)] text-[var(--black-60)]" aria-label="Editar ${escapeHtml(m.titulo)}">
               <i data-lucide="edit-2" class="w-4 h-4"></i>
             </button>
             <button data-id="${escapeHtml(String(m.id))}" data-titulo="${escapeHtml(m.titulo)}"
-              class="del-mat-apoyo p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500" aria-label="Eliminar ${escapeHtml(m.titulo)}">
+              class="del-mat-apoyo p-1.5 rounded-lg hover:bg-[var(--coral-10)] text-[var(--black-60)] hover:text-[var(--coral-100)]" aria-label="Eliminar ${escapeHtml(m.titulo)}">
               <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           </div>
         </div>
-      `).join('') || '<p class="text-slate-400 text-sm py-4">No hay recursos. Crea el primero.</p>'}
+      `).join('') || '<p class="text-[var(--black-40)] text-sm py-4">No hay recursos. Crea el primero.</p>'}
     </div>
-    <div id="matApoyoForm" class="hidden mt-4 bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
+    <div id="matApoyoForm" class="hidden mt-4 bg-white rounded-2xl border border-[var(--blue-20)] p-4 space-y-3">
       <input type="hidden" id="matApoyoId">
       <input id="matApoyoTitulo" placeholder="Título del recurso" autocomplete="off"
-        class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+        class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--coral-100)]">
       <div class="flex gap-2">
         <input id="matApoyoUrl" placeholder="URL o enlace al recurso" autocomplete="off"
-          class="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+          class="flex-1 px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--coral-100)]">
         <button id="matApoyoPickLib" type="button"
-          class="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50 shrink-0 flex items-center gap-1.5">
+          class="px-3 py-2 rounded-xl border border-[var(--blue-20)] text-xs font-bold text-[var(--black-60)] hover:bg-[var(--background-page)] shrink-0 flex items-center gap-1.5">
           <i data-lucide="folder-open" class="w-3.5 h-3.5"></i> Biblioteca
         </button>
       </div>
-      <select id="matApoyoTipo" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] bg-white">
+      <select id="matApoyoTipo" class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--coral-100)] bg-white">
         <option value="link">🔗 Link / Enlace web</option>
         <option value="pdf">📄 PDF / Documento</option>
         <option value="video">▶️ Video</option>
       </select>
       <p id="matApoyoError" class="hidden text-red-500 text-xs"></p>
       <div class="flex gap-2">
-        <button id="cancelMatApoyo" class="flex-1 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-500">Cancelar</button>
-        <button id="saveMatApoyo" class="flex-1 py-2 rounded-xl bg-[#E92129] text-white text-sm font-bold">Guardar</button>
+        <button id="cancelMatApoyo" class="flex-1 py-2 rounded-xl border border-[var(--blue-20)] text-sm font-bold text-[var(--black-60)]">Cancelar</button>
+        <button id="saveMatApoyo" class="flex-1 py-2 rounded-xl bg-[var(--coral-100)] text-white text-sm font-bold">Guardar</button>
       </div>
     </div>
   `
@@ -1471,48 +1471,48 @@ async function renderSuggestionsPanel() {
     <div class="flex items-center justify-between mb-4">
       <div>
         <h2 class="text-lg font-black">Sugerencias Bot</h2>
-        <p class="text-xs text-slate-400 mt-0.5">Máximo 6 activas. Se muestran en el chat de Bodi.</p>
+        <p class="text-xs text-[var(--black-40)] mt-0.5">Máximo 6 activas. Se muestran en el chat de Bodi.</p>
       </div>
-      <button id="addSuggestion" class="bg-[#E92129] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:scale-105 transition-transform">
+      <button id="addSuggestion" class="bg-[var(--coral-100)] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:scale-105 transition-transform">
         <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nueva sugerencia
       </button>
     </div>
     <div class="space-y-2">
       ${(data || []).map(s => `
-        <div class="bg-white rounded-xl border border-slate-100 p-3 flex items-center justify-between gap-3">
+        <div class="bg-white rounded-xl border border-[var(--blue-10)] p-3 flex items-center justify-between gap-3">
           <div class="flex items-center gap-3 min-w-0">
-            <span class="text-xs font-black text-slate-300 w-5 text-center">${escapeHtml(String(s.orden))}</span>
+            <span class="text-xs font-black text-[var(--black-40)] w-5 text-center">${escapeHtml(String(s.orden))}</span>
             <p class="font-bold text-sm truncate">${escapeHtml(s.texto)}</p>
             ${s.activo
               ? '<span class="shrink-0 text-[10px] font-black bg-green-50 text-green-600 px-2 py-0.5 rounded-full">Activo</span>'
-              : '<span class="shrink-0 text-[10px] font-black bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full">Inactivo</span>'
+              : '<span class="shrink-0 text-[10px] font-black bg-[var(--black-10)] text-[var(--black-40)] px-2 py-0.5 rounded-full">Inactivo</span>'
             }
           </div>
           <div class="flex gap-1 shrink-0">
-            <button data-id="${s.id}" data-texto="${escapeHtml(s.texto)}" data-orden="${escapeHtml(String(s.orden))}" data-activo="${escapeHtml(String(s.activo))}" class="edit-sug p-1.5 rounded-lg hover:bg-slate-100 text-slate-500" aria-label="Editar sugerencia ${escapeHtml(s.texto)}">
+            <button data-id="${s.id}" data-texto="${escapeHtml(s.texto)}" data-orden="${escapeHtml(String(s.orden))}" data-activo="${escapeHtml(String(s.activo))}" class="edit-sug p-1.5 rounded-lg hover:bg-[var(--black-10)] text-[var(--black-60)]" aria-label="Editar sugerencia ${escapeHtml(s.texto)}">
               <i data-lucide="edit-2" class="w-4 h-4"></i>
             </button>
-            <button data-id="${s.id}" data-texto="${escapeHtml(s.texto)}" class="del-sug p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500" aria-label="Eliminar sugerencia ${escapeHtml(s.texto)}">
+            <button data-id="${s.id}" data-texto="${escapeHtml(s.texto)}" class="del-sug p-1.5 rounded-lg hover:bg-[var(--coral-10)] text-[var(--black-60)] hover:text-[var(--coral-100)]" aria-label="Eliminar sugerencia ${escapeHtml(s.texto)}">
               <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           </div>
         </div>
-      `).join('') || '<p class="text-slate-400 text-sm">No hay sugerencias. Crea la primera.</p>'}
+      `).join('') || '<p class="text-[var(--black-40)] text-sm">No hay sugerencias. Crea la primera.</p>'}
     </div>
-    <div id="sugForm" class="hidden mt-4 bg-white rounded-2xl border border-slate-200 p-4 space-y-2">
+    <div id="sugForm" class="hidden mt-4 bg-white rounded-2xl border border-[var(--blue-20)] p-4 space-y-2">
       <input type="hidden" id="sugId">
       <input id="sugTexto" placeholder="Texto del chip (max 60 caracteres)" maxlength="60" required
-        class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+        class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--coral-100)]">
       <input id="sugOrden" type="number" placeholder="Orden (ej: 1)" required min="0"
-        class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+        class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--coral-100)]">
       <label class="flex items-center gap-2 cursor-pointer">
-        <input id="sugActivo" type="checkbox" checked class="w-4 h-4 accent-[#E92129]">
-        <span class="text-sm font-bold text-slate-700">Activo</span>
+        <input id="sugActivo" type="checkbox" checked class="w-4 h-4 accent-[var(--coral-100)]">
+        <span class="text-sm font-bold text-[var(--black-100)]">Activo</span>
       </label>
       <p id="sugError" class="hidden text-red-500 text-xs"></p>
       <div class="flex gap-2">
-        <button id="cancelSug" class="flex-1 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-500">Cancelar</button>
-        <button id="saveSug" class="flex-1 py-2 rounded-xl bg-[#E92129] text-white text-sm font-bold">Guardar</button>
+        <button id="cancelSug" class="flex-1 py-2 rounded-xl border border-[var(--blue-20)] text-sm font-bold text-[var(--black-60)]">Cancelar</button>
+        <button id="saveSug" class="flex-1 py-2 rounded-xl bg-[var(--coral-100)] text-white text-sm font-bold">Guardar</button>
       </div>
     </div>
   `
@@ -1605,13 +1605,13 @@ function actionBadge(action) {
     delete: { cls: 'bg-red-100 text-red-700',     label: 'Eliminó' },
     move:   { cls: 'bg-amber-100 text-amber-800', label: 'Movió' },
   }
-  const { cls = 'bg-slate-100 text-slate-500', label = action || '—' } = map[action] || {}
+  const { cls = 'bg-[var(--black-10)] text-[var(--black-60)]', label = action || '—' } = map[action] || {}
   return `<span class="inline-block text-[10px] font-black px-2 py-0.5 rounded-full ${cls}">${escapeHtml(label)}</span>`
 }
 
 async function renderActivityLogPanel() {
   const el = document.getElementById('panel-activity')
-  el.innerHTML = `<p class="text-slate-400 text-sm">Cargando...</p>`
+  el.innerHTML = `<p class="text-[var(--black-40)] text-sm">Cargando...</p>`
 
   const { data, error } = await supabase
     .from('activity_log')
@@ -1631,18 +1631,18 @@ async function renderActivityLogPanel() {
     <div class="flex items-center justify-between mb-4">
       <div>
         <h2 class="text-lg font-black">Registro de actividad</h2>
-        <p class="text-xs text-slate-400 mt-0.5">Últimas 200 acciones</p>
+        <p class="text-xs text-[var(--black-40)] mt-0.5">Últimas 200 acciones</p>
       </div>
-      <select id="activityFilter" class="px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] bg-white">
+      <select id="activityFilter" class="px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--coral-100)] bg-white">
         <option value="">Todos los tipos</option>
         ${types.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('')}
       </select>
     </div>
-    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+    <div class="bg-white rounded-2xl border border-[var(--blue-20)] overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-sm" id="activityTable">
           <thead>
-            <tr class="border-b border-slate-100 text-xs text-slate-400 font-bold uppercase tracking-wide">
+            <tr class="border-b border-[var(--blue-10)] text-xs text-[var(--black-40)] font-bold uppercase tracking-wide">
               <th class="text-left px-4 py-3">Fecha</th>
               <th class="text-left px-4 py-3">Usuario</th>
               <th class="text-left px-4 py-3">Acción</th>
@@ -1668,7 +1668,7 @@ async function renderActivityLogPanel() {
 
 async function renderProfilePanel() {
   const el = document.getElementById('panel-profile')
-  el.innerHTML = `<p class="text-slate-400 text-sm">Cargando...</p>`
+  el.innerHTML = `<p class="text-[var(--black-40)] text-sm">Cargando...</p>`
 
   const { data: { user }, error } = await supabase.auth.getUser()
   if (error || !user) {
@@ -1683,45 +1683,45 @@ async function renderProfilePanel() {
     <div class="max-w-lg">
       <h2 class="text-lg font-black mb-6">Mi perfil</h2>
 
-      <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-4">
-        <h3 class="text-sm font-black text-slate-700 mb-4">Información personal</h3>
+      <div class="bg-white rounded-2xl border border-[var(--blue-20)] p-5 mb-4">
+        <h3 class="text-sm font-black text-[var(--black-100)] mb-4">Información personal</h3>
         <div class="space-y-3">
           <div>
-            <label class="block text-xs font-bold text-slate-500 mb-1" for="profileName">Nombre</label>
+            <label class="block text-xs font-bold text-[var(--black-60)] mb-1" for="profileName">Nombre</label>
             <input id="profileName" type="text" value="${escapeHtml(name)}" autocomplete="name"
-              class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+              class="w-full px-3 py-2.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--coral-100)]">
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-500 mb-1" for="profileEmail">Correo electrónico</label>
+            <label class="block text-xs font-bold text-[var(--black-60)] mb-1" for="profileEmail">Correo electrónico</label>
             <input id="profileEmail" type="email" value="${escapeHtml(email)}" autocomplete="email"
-              class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+              class="w-full px-3 py-2.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--coral-100)]">
             <p class="text-xs text-amber-600 mt-1 flex items-center gap-1">
               <i data-lucide="triangle-alert" class="w-3 h-3 shrink-0"></i>
               Cambiar el correo enviará un enlace de confirmación al nuevo correo.
             </p>
           </div>
           <p id="profileInfoError" class="hidden text-red-500 text-xs"></p>
-          <button id="saveProfileInfo" class="w-full py-2.5 rounded-xl bg-[#E92129] text-white text-sm font-bold mt-1">
+          <button id="saveProfileInfo" class="w-full py-2.5 rounded-xl bg-[var(--coral-100)] text-white text-sm font-bold mt-1">
             Guardar información
           </button>
         </div>
       </div>
 
-      <div class="bg-white rounded-2xl border border-slate-200 p-5">
-        <h3 class="text-sm font-black text-slate-700 mb-4">Cambiar contraseña</h3>
+      <div class="bg-white rounded-2xl border border-[var(--blue-20)] p-5">
+        <h3 class="text-sm font-black text-[var(--black-100)] mb-4">Cambiar contraseña</h3>
         <div class="space-y-3">
           <div>
-            <label class="block text-xs font-bold text-slate-500 mb-1" for="profileNewPassword">Nueva contraseña</label>
+            <label class="block text-xs font-bold text-[var(--black-60)] mb-1" for="profileNewPassword">Nueva contraseña</label>
             <input id="profileNewPassword" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"
-              class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+              class="w-full px-3 py-2.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--coral-100)]">
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-500 mb-1" for="profileConfirmPassword">Confirmar contraseña</label>
+            <label class="block text-xs font-bold text-[var(--black-60)] mb-1" for="profileConfirmPassword">Confirmar contraseña</label>
             <input id="profileConfirmPassword" type="password" placeholder="Repite la contraseña" autocomplete="new-password"
-              class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129]">
+              class="w-full px-3 py-2.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--coral-100)]">
           </div>
           <p id="profilePwError" class="hidden text-red-500 text-xs"></p>
-          <button id="saveProfilePassword" class="w-full py-2.5 rounded-xl bg-[#E92129] text-white text-sm font-bold mt-1">
+          <button id="saveProfilePassword" class="w-full py-2.5 rounded-xl bg-[var(--coral-100)] text-white text-sm font-bold mt-1">
             Cambiar contraseña
           </button>
         </div>
@@ -1816,7 +1816,7 @@ async function renderProfilePanel() {
 }
 
 function renderActivityRows(rows) {
-  if (!rows.length) return `<tr><td colspan="6" class="text-center text-slate-400 py-8 text-sm">Sin resultados.</td></tr>`
+  if (!rows.length) return `<tr><td colspan="6" class="text-center text-[var(--black-40)] py-8 text-sm">Sin resultados.</td></tr>`
   return rows.map(r => {
     const date = new Date(r.created_at)
     const dateStr = date.toLocaleDateString('es-HN', { day: '2-digit', month: '2-digit', year: '2-digit' })
@@ -1825,13 +1825,13 @@ function renderActivityRows(rows) {
       ? Object.entries(r.details).map(([k, v]) => `${escapeHtml(k)}: ${escapeHtml(String(v))}`).join(', ')
       : '—'
     return `
-      <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-        <td class="px-4 py-3 text-slate-500 whitespace-nowrap text-xs">${escapeHtml(dateStr)} ${escapeHtml(timeStr)}</td>
-        <td class="px-4 py-3 text-slate-600 text-xs max-w-[140px] truncate" title="${escapeHtml(r.user_email || '')}">${escapeHtml(r.user_email || '—')}</td>
+      <tr class="border-b border-[var(--blue-10)] hover:bg-[var(--background-page)] transition-colors">
+        <td class="px-4 py-3 text-[var(--black-60)] whitespace-nowrap text-xs">${escapeHtml(dateStr)} ${escapeHtml(timeStr)}</td>
+        <td class="px-4 py-3 text-[var(--black-60)] text-xs max-w-[140px] truncate" title="${escapeHtml(r.user_email || '')}">${escapeHtml(r.user_email || '—')}</td>
         <td class="px-4 py-3">${actionBadge(r.action)}</td>
-        <td class="px-4 py-3 text-slate-500 text-xs">${escapeHtml(r.entity_type || '—')}</td>
-        <td class="px-4 py-3 text-slate-700 text-xs max-w-[200px] truncate" title="${escapeHtml(r.entity_name || '')}">${escapeHtml(r.entity_name || '—')}</td>
-        <td class="px-4 py-3 text-slate-400 text-xs max-w-[200px] truncate" title="${escapeHtml(details)}">${escapeHtml(details)}</td>
+        <td class="px-4 py-3 text-[var(--black-60)] text-xs">${escapeHtml(r.entity_type || '—')}</td>
+        <td class="px-4 py-3 text-[var(--black-100)] text-xs max-w-[200px] truncate" title="${escapeHtml(r.entity_name || '')}">${escapeHtml(r.entity_name || '—')}</td>
+        <td class="px-4 py-3 text-[var(--black-40)] text-xs max-w-[200px] truncate" title="${escapeHtml(details)}">${escapeHtml(details)}</td>
       </tr>
     `
   }).join('')
@@ -1859,15 +1859,15 @@ function setupUploadZone(zone) {
   zone.addEventListener('dragover', e => {
     e.preventDefault()
     e.stopPropagation()
-    zone.classList.add('border-[#E92129]', 'bg-red-50')
+    zone.classList.add('border-[var(--coral-100)]', 'bg-[var(--coral-10)]')
   })
   zone.addEventListener('dragleave', () => {
-    zone.classList.remove('border-[#E92129]', 'bg-red-50')
+    zone.classList.remove('border-[var(--coral-100)]', 'bg-[var(--coral-10)]')
   })
   zone.addEventListener('drop', e => {
     e.preventDefault()
     e.stopPropagation()
-    zone.classList.remove('border-[#E92129]', 'bg-red-50')
+    zone.classList.remove('border-[var(--coral-100)]', 'bg-[var(--coral-10)]')
     if (e.dataTransfer.files[0]) doUpload(e.dataTransfer.files[0])
   })
 
@@ -1906,12 +1906,12 @@ function setupUploadZone(zone) {
 }
 
 function fileIcon(type) {
-  if (!type) return '<i data-lucide="folder" class="w-8 h-8 text-slate-400"></i>'
+  if (!type) return '<i data-lucide="folder" class="w-8 h-8 text-[var(--black-40)]"></i>'
   if (type.startsWith('image/')) return '<i data-lucide="image" class="w-8 h-8 text-blue-400"></i>'
   if (type === 'application/pdf') return '<i data-lucide="file-text" class="w-8 h-8 text-red-400"></i>'
   if (type.startsWith('video/')) return '<i data-lucide="video" class="w-8 h-8 text-purple-400"></i>'
   if (type.startsWith('audio/')) return '<i data-lucide="music" class="w-8 h-8 text-green-400"></i>'
-  return '<i data-lucide="file" class="w-8 h-8 text-slate-400"></i>'
+  return '<i data-lucide="file" class="w-8 h-8 text-[var(--black-40)]"></i>'
 }
 
 function formatBytes(bytes) {
@@ -1928,7 +1928,7 @@ function displayName(name) {
 function showToast(msg, type = 'success') {
   const t = document.createElement('div')
   t.className = `fixed bottom-4 right-4 z-[100] px-4 py-3 rounded-xl text-sm font-medium shadow-lg text-white ${
-    type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
+    type === 'error' ? 'bg-[var(--coral-10)]0' : 'bg-emerald-500'
   }`
   t.setAttribute('role', 'status')
   t.setAttribute('aria-live', 'polite')
@@ -1954,7 +1954,7 @@ async function openMediaLibrary(onSelect) {
   selectBtn.disabled = true
   selectBtn.textContent = '✓ Usar archivo'
   search.value = ''
-  grid.innerHTML = '<p class="col-span-4 text-center text-slate-400 text-sm py-8">Cargando...</p>'
+  grid.innerHTML = '<p class="col-span-4 text-center text-[var(--black-40)] text-sm py-8">Cargando...</p>'
 
   let files = []
   try {
@@ -1980,7 +1980,7 @@ function renderMediaGrid(files) {
   count.textContent = `${files.length} archivos`
 
   if (!files.length) {
-    grid.innerHTML = '<p class="col-span-4 text-center text-slate-400 text-sm py-8">No hay archivos subidos</p>'
+    grid.innerHTML = '<p class="col-span-4 text-center text-[var(--black-40)] text-sm py-8">No hay archivos subidos</p>'
     return
   }
 
@@ -1989,20 +1989,20 @@ function renderMediaGrid(files) {
       ? `<img src="${escapeHtml(f.url)}" alt="" class="w-full h-14 object-cover rounded-lg mb-1" loading="lazy">`
       : `<div class="flex justify-center mb-1">${fileIcon(f.type)}</div>`
     return `
-    <div class="media-item cursor-pointer border-2 border-transparent rounded-xl p-2 text-center hover:border-[#E92129] transition-colors"
+    <div class="media-item cursor-pointer border-2 border-transparent rounded-xl p-2 text-center hover:border-[var(--coral-100)] transition-colors"
          data-url="${escapeHtml(f.url)}" data-name="${escapeHtml(f.name)}">
       ${thumb}
-      <p class="text-xs text-slate-700 truncate" title="${escapeHtml(displayName(f.name.split('/').pop()))}">${escapeHtml(displayName(f.name.split('/').pop()))}</p>
-      <p class="text-xs text-slate-400">${formatBytes(f.size)}</p>
+      <p class="text-xs text-[var(--black-100)] truncate" title="${escapeHtml(displayName(f.name.split('/').pop()))}">${escapeHtml(displayName(f.name.split('/').pop()))}</p>
+      <p class="text-xs text-[var(--black-40)]">${formatBytes(f.size)}</p>
     </div>`
   }).join('')
 
   grid.querySelectorAll('.media-item').forEach(item => {
     item.addEventListener('click', () => {
       grid.querySelectorAll('.media-item').forEach(i => {
-        i.classList.remove('border-[#E92129]', 'bg-red-50')
+        i.classList.remove('border-[var(--coral-100)]', 'bg-[var(--coral-10)]')
       })
-      item.classList.add('border-[#E92129]', 'bg-red-50')
+      item.classList.add('border-[var(--coral-100)]', 'bg-[var(--coral-10)]')
       _selectedUrl = item.dataset.url
       const btn = document.getElementById('mediaSelectBtn')
       btn.disabled = false
@@ -2026,14 +2026,14 @@ function initRenameModal() {
     <div class="bg-white rounded-2xl p-5 w-full max-w-sm shadow-xl">
       <h3 class="font-black text-base mb-3">Renombrar archivo</h3>
       <input id="renameInput" type="text" autocomplete="off" aria-label="Nuevo nombre del archivo"
-        class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-[#E92129] mb-2">
+        class="w-full px-3 py-2.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--coral-100)] mb-2">
       <p class="text-xs text-amber-600 mb-4 flex items-start gap-1.5">
         <i data-lucide="triangle-alert" class="w-3.5 h-3.5 shrink-0 mt-0.5"></i>
         Las lecciones que referencien este archivo deberán actualizarse manualmente.
       </p>
       <div class="flex gap-2">
-        <button id="cancelRename" class="flex-1 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50">Cancelar</button>
-        <button id="confirmRename" class="flex-1 py-2 rounded-xl bg-[#E92129] text-white text-sm font-bold">Renombrar</button>
+        <button id="cancelRename" class="flex-1 py-2 rounded-xl border border-[var(--blue-20)] text-sm font-bold text-[var(--black-60)] hover:bg-[var(--background-page)]">Cancelar</button>
+        <button id="confirmRename" class="flex-1 py-2 rounded-xl bg-[var(--coral-100)] text-white text-sm font-bold">Renombrar</button>
       </div>
     </div>
   `
