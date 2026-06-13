@@ -97,9 +97,14 @@ async function renderAssistant() {
         <div class="flex items-center">
           <img src="assets/bolbot%20pos%20light.png" alt="bolbot POS" class="h-9 w-auto" />
         </div>
-        <button id="clearChat" class="text-xs text-[var(--black-60)] hover:text-[var(--blue-100)] font-bold flex items-center gap-1">
-          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Limpiar
-        </button>
+        <div class="flex items-center gap-3">
+          <button id="refreshApp" class="text-xs text-[var(--black-60)] hover:text-[var(--blue-100)] font-bold flex items-center gap-1" title="Actualizar la app">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Actualizar
+          </button>
+          <button id="clearChat" class="text-xs text-[var(--black-60)] hover:text-[var(--blue-100)] font-bold flex items-center gap-1">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Limpiar
+          </button>
+        </div>
       </div>
 
       <!-- Messages -->
@@ -237,12 +242,34 @@ function appendMedia(mediaItems) {
 }
 
 function normalizeSegments(segments) {
-  const out = []
+  // First pass: extract [IMAGEN], [VIDEO], [LINK] markers embedded in text segments
+  const extracted = []
+  const markerRe = /\[(IMAGEN|VIDEO|LINK)\s+url="([^"]+)"(?:\s+(?:caption|label)="([^"]*)")?\]/g
   for (const seg of segments) {
+    if (seg.type !== 'text' || !seg.content) { extracted.push(seg); continue }
+    let content = seg.content
+    if (!markerRe.test(content)) { extracted.push(seg); continue }
+    markerRe.lastIndex = 0
+    let last = 0, m
+    while ((m = markerRe.exec(content)) !== null) {
+      const textBefore = content.slice(last, m.index).replace(/\n+$/, '').trim()
+      if (textBefore) extracted.push({ type: 'text', content: textBefore })
+      const [, kind, url, extra] = m
+      if (kind === 'IMAGEN') extracted.push({ type: 'image', url, caption: extra || '' })
+      else if (kind === 'VIDEO') extracted.push({ type: 'video', url, label: extra || '' })
+      else extracted.push({ type: 'link', url, label: extra || url })
+      last = m.index + m[0].length
+    }
+    const textAfter = content.slice(last).replace(/^\n+/, '').trim()
+    if (textAfter) extracted.push({ type: 'text', content: textAfter })
+  }
+  // Second pass: collapse consecutive media (no two images back-to-back)
+  const out = []
+  for (const seg of extracted) {
     const prev = out[out.length - 1]
     const isMedia = seg.type === 'image' || seg.type === 'video'
     const prevIsMedia = prev && (prev.type === 'image' || prev.type === 'video')
-    if (isMedia && prevIsMedia) continue
+    if (isMedia && prevIsMedia) { out.push({ type: 'text', content: '' }); }
     out.push(seg)
   }
   return out
@@ -271,7 +298,6 @@ function appendSegments(segments) {
       hadText = true
       textBuffer.push(seg.content)
     } else if (seg.type === 'image' && seg.url) {
-      if (!hadText) continue
       flushText()
       const safeUrl = escapeHtml(seg.url)
       const safeAlt = escapeHtml(seg.caption || '')
@@ -282,7 +308,6 @@ function appendSegments(segments) {
       box.appendChild(d)
       scrollToBottom()
     } else if (seg.type === 'video' && seg.url) {
-      if (!hadText) continue
       flushText()
       let videoId = null
       try {
@@ -299,9 +324,39 @@ function appendSegments(segments) {
         box.appendChild(d)
         scrollToBottom()
       }
+    } else if (seg.type === 'link' && seg.url) {
+      flushText()
+      const safeUrl = escapeHtml(seg.url)
+      const safeLabel = escapeHtml(seg.label || seg.url)
+      const d = document.createElement('div')
+      d.className = 'chat-media-block'
+      d.innerHTML = `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="chat-link-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        ${safeLabel}
+      </a>`
+      box.appendChild(d)
+      scrollToBottom()
     }
   }
   flushText()
+}
+
+function appendSupportCTA() {
+  const box = document.getElementById('chatMessages')
+  if (!box) return
+  document.querySelectorAll('.support-cta').forEach(el => el.remove())
+  const cta = document.createElement('div')
+  cta.className = 'support-cta flex justify-start px-1 pb-1'
+  cta.innerHTML = `
+    <a href="https://api.whatsapp.com/send?phone=573171109500&text=Hola%20,%20necesito%20su%20ayuda%20en%20Bold%20POS."
+       target="_blank" rel="noopener noreferrer"
+       class="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold text-white shadow-sm"
+       style="background:#25d366;">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.122 1.532 5.857L0 24l6.335-1.51A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.793 9.793 0 01-5.012-1.374l-.36-.213-3.732.889.936-3.623-.234-.372A9.775 9.775 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182S21.818 6.57 21.818 12 17.43 21.818 12 21.818z"/></svg>
+      Hablar con Soporte Bold POS
+    </a>`
+  box.appendChild(cta)
+  scrollToBottom()
 }
 
 function appendResolutionButtons() {
@@ -311,9 +366,17 @@ function appendResolutionButtons() {
   const btns = document.createElement('div')
   btns.className = 'resolution-btns'
   btns.innerHTML = `
-    <span class="resolution-label">¿Logré resolver tu duda?</span>
-    <button class="res-btn res-yes">✓ Sí</button>
-    <button class="res-btn res-no">✗ No</button>
+    <p class="resolution-label">¿Logré resolver tu duda?</p>
+    <div class="resolution-actions">
+      <button class="res-btn res-yes">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd"/></svg>
+        Sí, gracias
+      </button>
+      <button class="res-btn res-no">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+        Necesito más ayuda
+      </button>
+    </div>
   `
   btns.querySelector('.res-yes').onclick = () => resolveConversation(true, btns)
   btns.querySelector('.res-no').onclick  = () => resolveConversation(false, btns)
@@ -369,7 +432,13 @@ async function downloadImage(url, name) {
 function bindAssistantEvents() {
   const input    = document.getElementById('chatInput')
   const sendBtn  = document.getElementById('sendBtn')
-  const clearBtn = document.getElementById('clearChat')
+  const clearBtn   = document.getElementById('clearChat')
+  const refreshBtn = document.getElementById('refreshApp')
+
+  refreshBtn.addEventListener('click', () => {
+    // Force reload bypassing browser cache
+    window.location.href = window.location.origin + window.location.pathname + '?v=' + Date.now()
+  })
 
   input.addEventListener('input', () => {
     input.style.height = 'auto'
@@ -428,12 +497,18 @@ async function sendMessage(text) {
     typing.classList.add('hidden')
 
     const reply = data.response || 'No pude procesar tu pregunta. Intenta de nuevo.'
-    if (data.segments?.length) {
-      appendSegments(data.segments)
+    let segments = data.segments?.length ? data.segments : null
+    // If no segments but reply contains [IMAGEN]/[VIDEO] markers, synthesize segments
+    if (!segments && /\[(IMAGEN|VIDEO|LINK)\s+url=/.test(reply)) {
+      segments = [{ type: 'text', content: reply }]
+    }
+    if (segments) {
+      appendSegments(segments)
     } else {
       appendBubble('bot', reply)
       if (data.media?.length) appendMedia(data.media)
     }
+    if (data.support_redirected) appendSupportCTA()
     appendResolutionButtons()
 
     history.push({ role: 'assistant', content: reply })
