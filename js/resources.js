@@ -32,6 +32,12 @@ async function renderResources() {
     </div>
   `
 
+  const { data: settingsRows } = await supabase.from('app_settings').select('key,value')
+  const settings = settingsRows ? Object.fromEntries(settingsRows.map(r => [r.key, r.value])) : {}
+  if (settings.resources_enabled === 'false') {
+    document.getElementById('tabMaterial').classList.add('hidden')
+  }
+
   await Promise.all([loadGlossary(), loadMaterial()])
   bindResourceEvents()
 }
