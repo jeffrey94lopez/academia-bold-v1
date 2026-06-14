@@ -7,6 +7,33 @@ import { escapeHtml } from './utils.js'
 import { renderResultsPanel, renderAnalyticsPanel } from './admin-analytics.js'
 import { logActivity } from './activity.js'
 
+const EMBED_WEBHOOK = 'https://n8n.mplasesores.com/webhook/embed-lesson'
+const EMBED_TOKEN   = 'BoldBodi-2026-K9xMvP7q'
+
+function lessonToEmbedText(titulo, categoria, blocks) {
+  let text = `Titulo: ${titulo}\nCategoria: ${categoria}\n`
+  if (Array.isArray(blocks)) {
+    blocks.forEach(b => {
+      if (b.type === 'step' && b.text)
+        text += b.text.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim() + '\n'
+      else if ((b.type === 'bot_nota' || b.type === 'bot_faq') && b.content)
+        text += b.content + '\n'
+    })
+  }
+  return text.slice(0, 8000)
+}
+
+async function embedLesson(lessonId, titulo, categoria, blocks) {
+  try {
+    const text = lessonToEmbedText(titulo, categoria, blocks)
+    await fetch(EMBED_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': EMBED_TOKEN },
+      body: JSON.stringify({ lessonId, text })
+    })
+  } catch (_) {}
+}
+
 let currentBlocks = []
 let sortableInstance = null
 let currentQuestions = []
@@ -360,6 +387,9 @@ async function renderLessonsPanel() {
       return
     }
     logActivity(id ? 'update' : 'create', 'lesson', titulo)
+    // Regenerate RAG embedding asynchronously (fire-and-forget)
+    const savedId = id || (await supabase.from('lecciones').select('id').eq('titulo', titulo).order('created_at', { ascending: false }).limit(1).single()).data?.id
+    if (savedId) embedLesson(savedId, titulo, payload.categoria, currentBlocks)
     document.getElementById('lessonFormModal').classList.add('hidden')
     renderLessonsPanel()
   })
@@ -1726,9 +1756,62 @@ async function renderProfilePanel() {
           </button>
         </div>
       </div>
+
+      <div class="bg-white rounded-2xl border border-[var(--blue-20)] p-5 mt-4">
+        <h3 class="text-sm font-black text-[var(--black-100)] mb-4">Configuración de la app</h3>
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-bold text-[var(--black-100)]">Material de apoyo</p>
+            <p class="text-xs text-[var(--black-60)] mt-0.5">Muestra u oculta la sección para los estudiantes</p>
+          </div>
+          <button id="toggleResources" class="relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none" aria-pressed="true">
+            <span id="toggleResourcesKnob" class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"></span>
+          </button>
+        </div>
+        <p id="toggleResourcesMsg" class="text-xs mt-3 hidden"></p>
+      </div>
     </div>
   `
   lucide.createIcons()
+
+  // ── Load and wire resources toggle ───────────────────────────────────────
+  const toggleBtn = document.getElementById('toggleResources')
+  const toggleKnob = document.getElementById('toggleResourcesKnob')
+  const toggleMsg = document.getElementById('toggleResourcesMsg')
+
+  async function applyToggleState(enabled) {
+    if (enabled) {
+      toggleBtn.classList.add('bg-[var(--success-150)]')
+      toggleBtn.classList.remove('bg-[var(--black-40)]')
+      toggleKnob.style.transform = 'translateX(20px)'
+      toggleBtn.setAttribute('aria-pressed', 'true')
+    } else {
+      toggleBtn.classList.remove('bg-[var(--success-150)]')
+      toggleBtn.classList.add('bg-[var(--black-40)]')
+      toggleKnob.style.transform = 'translateX(0)'
+      toggleBtn.setAttribute('aria-pressed', 'false')
+    }
+  }
+
+  const { data: settingRow } = await supabase.from('app_settings').select('value').eq('key', 'resources_enabled').single()
+  let resourcesEnabled = settingRow ? settingRow.value === 'true' : true
+  applyToggleState(resourcesEnabled)
+
+  toggleBtn.addEventListener('click', async () => {
+    resourcesEnabled = !resourcesEnabled
+    applyToggleState(resourcesEnabled)
+    toggleMsg.className = 'text-xs mt-3'
+    toggleMsg.textContent = 'Guardando...'
+    const { error: tErr } = await supabase.from('app_settings').upsert({ key: 'resources_enabled', value: String(resourcesEnabled) })
+    if (tErr) {
+      toggleMsg.textContent = 'Error al guardar.'
+      toggleMsg.classList.add('text-red-500')
+    } else {
+      toggleMsg.textContent = resourcesEnabled ? 'Material de apoyo activado.' : 'Material de apoyo desactivado.'
+      toggleMsg.classList.add('text-[var(--success-150)]')
+    }
+    setTimeout(() => { toggleMsg.className = 'text-xs mt-3 hidden'; toggleMsg.textContent = '' }, 2500)
+  })
 
   document.getElementById('saveProfileInfo').addEventListener('click', async () => {
     const newName = document.getElementById('profileName').value.trim()
