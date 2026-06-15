@@ -1759,59 +1759,69 @@ async function renderProfilePanel() {
 
       <div class="bg-white rounded-2xl border border-[var(--blue-20)] p-5 mt-4">
         <h3 class="text-sm font-black text-[var(--black-100)] mb-4">Configuración de la app</h3>
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm font-bold text-[var(--black-100)]">Material de apoyo</p>
-            <p class="text-xs text-[var(--black-60)] mt-0.5">Muestra u oculta la sección para los estudiantes</p>
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-bold text-[var(--black-100)]">Lecciones</p>
+              <p class="text-xs text-[var(--black-60)] mt-0.5">Muestra u oculta el módulo de lecciones</p>
+            </div>
+            <button id="toggleLessons" class="relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none" aria-pressed="true">
+              <span id="toggleLessonsKnob" class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"></span>
+            </button>
           </div>
-          <button id="toggleResources" class="relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none" aria-pressed="true">
-            <span id="toggleResourcesKnob" class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"></span>
-          </button>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-bold text-[var(--black-100)]">Material de apoyo</p>
+              <p class="text-xs text-[var(--black-60)] mt-0.5">Muestra u oculta el material de apoyo en Recursos</p>
+            </div>
+            <button id="toggleResources" class="relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none" aria-pressed="true">
+              <span id="toggleResourcesKnob" class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"></span>
+            </button>
+          </div>
         </div>
-        <p id="toggleResourcesMsg" class="text-xs mt-3 hidden"></p>
+        <p id="toggleSettingsMsg" class="text-xs mt-3 hidden"></p>
       </div>
     </div>
   `
   lucide.createIcons()
 
-  // ── Load and wire resources toggle ───────────────────────────────────────
-  const toggleBtn = document.getElementById('toggleResources')
-  const toggleKnob = document.getElementById('toggleResourcesKnob')
-  const toggleMsg = document.getElementById('toggleResourcesMsg')
+  // ── Load and wire settings toggles ───────────────────────────────────────
+  const settingsMsg = document.getElementById('toggleSettingsMsg')
 
-  async function applyToggleState(enabled) {
-    if (enabled) {
-      toggleBtn.classList.add('bg-[var(--success-150)]')
-      toggleBtn.classList.remove('bg-[var(--black-40)]')
-      toggleKnob.style.transform = 'translateX(20px)'
-      toggleBtn.setAttribute('aria-pressed', 'true')
-    } else {
-      toggleBtn.classList.remove('bg-[var(--success-150)]')
-      toggleBtn.classList.add('bg-[var(--black-40)]')
-      toggleKnob.style.transform = 'translateX(0)'
-      toggleBtn.setAttribute('aria-pressed', 'false')
-    }
+  function applyToggle(btnId, knobId, enabled) {
+    const btn = document.getElementById(btnId)
+    const knob = document.getElementById(knobId)
+    btn.classList.toggle('bg-[var(--success-150)]', enabled)
+    btn.classList.toggle('bg-[var(--black-40)]', !enabled)
+    knob.style.transform = enabled ? 'translateX(20px)' : 'translateX(0)'
+    btn.setAttribute('aria-pressed', String(enabled))
   }
 
-  const { data: settingRow } = await supabase.from('app_settings').select('value').eq('key', 'resources_enabled').single()
-  let resourcesEnabled = settingRow ? settingRow.value === 'true' : true
-  applyToggleState(resourcesEnabled)
+  function showSettingsMsg(text, isError) {
+    settingsMsg.className = 'text-xs mt-3 ' + (isError ? 'text-red-500' : 'text-[var(--success-150)]')
+    settingsMsg.textContent = text
+    setTimeout(() => { settingsMsg.className = 'text-xs mt-3 hidden'; settingsMsg.textContent = '' }, 2500)
+  }
 
-  toggleBtn.addEventListener('click', async () => {
-    resourcesEnabled = !resourcesEnabled
-    applyToggleState(resourcesEnabled)
-    toggleMsg.className = 'text-xs mt-3'
-    toggleMsg.textContent = 'Guardando...'
-    const { error: tErr } = await supabase.from('app_settings').upsert({ key: 'resources_enabled', value: String(resourcesEnabled) })
-    if (tErr) {
-      toggleMsg.textContent = 'Error al guardar.'
-      toggleMsg.classList.add('text-red-500')
-    } else {
-      toggleMsg.textContent = resourcesEnabled ? 'Material de apoyo activado.' : 'Material de apoyo desactivado.'
-      toggleMsg.classList.add('text-[var(--success-150)]')
-    }
-    setTimeout(() => { toggleMsg.className = 'text-xs mt-3 hidden'; toggleMsg.textContent = '' }, 2500)
-  })
+  function wireToggle(btnId, knobId, settingKey, labelOn, labelOff) {
+    let enabled = true
+    const btn = document.getElementById(btnId)
+    btn.addEventListener('click', async () => {
+      enabled = !enabled
+      applyToggle(btnId, knobId, enabled)
+      const { error } = await supabase.from('app_settings').upsert({ key: settingKey, value: String(enabled) })
+      showSettingsMsg(error ? 'Error al guardar.' : (enabled ? labelOn : labelOff), !!error)
+    })
+    return (initialValue) => { enabled = initialValue; applyToggle(btnId, knobId, enabled) }
+  }
+
+  const setLessons   = wireToggle('toggleLessons',   'toggleLessonsKnob',   'lessons_enabled',   'Lecciones activadas.',           'Lecciones desactivadas.')
+  const setResources = wireToggle('toggleResources',  'toggleResourcesKnob', 'resources_enabled', 'Material de apoyo activado.',    'Material de apoyo desactivado.')
+
+  const { data: allSettings } = await supabase.from('app_settings').select('key,value')
+  const settingsMap = allSettings ? Object.fromEntries(allSettings.map(r => [r.key, r.value])) : {}
+  setLessons(settingsMap.lessons_enabled !== 'false')
+  setResources(settingsMap.resources_enabled !== 'false')
 
   document.getElementById('saveProfileInfo').addEventListener('click', async () => {
     const newName = document.getElementById('profileName').value.trim()

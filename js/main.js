@@ -1,7 +1,16 @@
 import './assistant.js'
 import './lessons.js'
 import './resources.js'
+import { supabase } from './supabase.js'
 
+;(async () => {
+  const { data } = await supabase.from('app_settings').select('key,value')
+  const s = data ? Object.fromEntries(data.map(r => [r.key, r.value])) : {}
+  if (s.lessons_enabled === 'false') {
+    document.querySelectorAll('[data-tab="lessons"]').forEach(el => el.classList.add('hidden'))
+    document.getElementById('section-lessons')?.classList.add('hidden')
+  }
+})()
 
 function switchTab(tab) {
   document.querySelectorAll('[id^="section-"]').forEach(s => s.classList.add('hidden'))
