@@ -483,15 +483,19 @@ function renderGroupedLessons(allLessons, searchQuery) {
 
 function lessonCardHtml(l) {
   return `
-    <div class="lesson-card bg-white rounded-xl border border-[var(--blue-10)] p-3.5 flex items-center gap-3 mb-2 cursor-pointer hover:border-[var(--blue-100)] hover:shadow-sm transition-all" data-id="${l.id}">
+    <div class="lesson-card bg-white rounded-xl border ${l.active === false ? 'border-[var(--black-10)] opacity-50' : 'border-[var(--blue-10)]'} p-3.5 flex items-center gap-3 mb-2 cursor-pointer hover:border-[var(--blue-100)] hover:shadow-sm transition-all" data-id="${l.id}">
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2">
           <p class="font-bold text-sm text-[var(--black-100)] truncate">${escapeHtml(l.titulo)}</p>
           <span class="shrink-0 text-[10px] text-[var(--black-40)]">#${escapeHtml(String(l.orden))}</span>
+          ${l.active === false ? '<span class="shrink-0 text-[10px] font-bold text-[var(--black-40)] bg-[var(--black-10)] px-1.5 py-0.5 rounded-full">Oculta</span>' : ''}
         </div>
         <p class="text-xs text-[var(--black-40)] mt-0.5 line-clamp-1">${escapeHtml(l.descripcion || '')}</p>
       </div>
       <div class="flex gap-1 shrink-0">
+        <button data-id="${l.id}" data-active="${l.active === false ? 'false' : 'true'}" class="toggle-lesson p-1.5 rounded-lg transition-colors ${l.active === false ? 'text-[var(--black-40)] hover:text-[var(--success-150)]' : 'text-[var(--success-150)] hover:text-[var(--black-40)]'}" title="${l.active === false ? 'Activar lección' : 'Desactivar lección'}" aria-label="${l.active === false ? 'Activar' : 'Desactivar'} lección ${escapeHtml(l.titulo)}">
+          <i data-lucide="${l.active === false ? 'eye-off' : 'eye'}" class="w-4 h-4"></i>
+        </button>
         <button data-id="${l.id}" class="copy-whatsapp p-1.5 rounded-lg hover:bg-green-50 text-[var(--black-40)] hover:text-green-600" title="Copiar para WhatsApp" aria-label="Copiar ${escapeHtml(l.titulo)} para WhatsApp">
           <i data-lucide="share-2" class="w-4 h-4"></i>
         </button>
@@ -505,14 +509,20 @@ function lessonCardHtml(l) {
 function lessonCardGridHtml(l) {
   const cat = currentCategories.find(c => c.nombre === l.categoria)
   return `
-    <div class="lesson-card bg-white rounded-xl border border-[var(--blue-10)] p-3.5 cursor-pointer hover:border-[var(--blue-100)] hover:shadow-sm transition-all flex flex-col gap-2" data-id="${l.id}">
+    <div class="lesson-card bg-white rounded-xl border ${l.active === false ? 'border-[var(--black-10)] opacity-50' : 'border-[var(--blue-10)]'} p-3.5 cursor-pointer hover:border-[var(--blue-100)] hover:shadow-sm transition-all flex flex-col gap-2" data-id="${l.id}">
       <div class="flex items-start justify-between gap-2">
         <p class="font-bold text-sm text-[var(--black-100)] leading-tight line-clamp-2 flex-1">${escapeHtml(l.titulo)}</p>
-        <span class="shrink-0 text-[10px] text-[var(--black-40)] font-bold">#${escapeHtml(String(l.orden))}</span>
+        <div class="flex items-center gap-1 shrink-0">
+          ${l.active === false ? '<span class="text-[10px] font-bold text-[var(--black-40)] bg-[var(--black-10)] px-1.5 py-0.5 rounded-full">Oculta</span>' : ''}
+          <span class="text-[10px] text-[var(--black-40)] font-bold">#${escapeHtml(String(l.orden))}</span>
+        </div>
       </div>
       ${l.descripcion ? `<p class="text-xs text-[var(--black-40)] line-clamp-2">${escapeHtml(l.descripcion)}</p>` : ''}
       ${cat ? `<span class="self-start text-[10px] font-bold text-[var(--black-40)] bg-[var(--background-page)] px-2 py-0.5 rounded-full">${escapeHtml(cat.emoji)} ${escapeHtml(cat.nombre)}</span>` : ''}
       <div class="flex gap-1 mt-auto pt-2 border-t border-[var(--blue-10)]">
+        <button data-id="${l.id}" data-active="${l.active === false ? 'false' : 'true'}" class="toggle-lesson flex-1 flex items-center justify-center py-1 rounded-lg transition-colors ${l.active === false ? 'text-[var(--black-40)] hover:text-[var(--success-150)]' : 'text-[var(--success-150)] hover:text-[var(--black-40)]'}" aria-label="${l.active === false ? 'Activar' : 'Desactivar'} lección ${escapeHtml(l.titulo)}">
+          <i data-lucide="${l.active === false ? 'eye-off' : 'eye'}" class="w-3.5 h-3.5"></i>
+        </button>
         <button data-id="${l.id}" class="copy-whatsapp flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-green-50 text-[var(--black-40)] hover:text-green-600" aria-label="Copiar ${escapeHtml(l.titulo)} para WhatsApp">
           <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
         </button>
@@ -527,9 +537,24 @@ function wireLessonCards() {
   const list = document.getElementById('lessonsList')
   if (!list) return
 
+  list.querySelectorAll('.toggle-lesson').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation()
+      const id = btn.dataset.id
+      const newActive = btn.dataset.active === 'false'
+      const { error } = await supabase.from('lecciones').update({ active: newActive }).eq('id', id)
+      if (!error) {
+        showToast(newActive ? 'Lección activada.' : 'Lección desactivada.')
+        renderLessonsPanel()
+      } else {
+        showToast('Error al actualizar.')
+      }
+    })
+  })
+
   list.querySelectorAll('.lesson-card').forEach(card => {
     card.addEventListener('click', async e => {
-      if (e.target.closest('.del-lesson') || e.target.closest('.copy-whatsapp')) return
+      if (e.target.closest('.del-lesson') || e.target.closest('.copy-whatsapp') || e.target.closest('.toggle-lesson')) return
       const { data } = await supabase.from('lecciones').select('*').eq('id', card.dataset.id).single()
       if (data) openLessonForm(data)
     })

@@ -10,7 +10,7 @@ async function renderLessons() {
   container.innerHTML = '<div class="flex items-center justify-center h-full text-[var(--black-60)] text-sm">Cargando lecciones...</div>'
 
   const [{ data: lessons, error }, { data: cats }] = await Promise.all([
-    supabase.from('lecciones').select('*').order('orden'),
+    supabase.from('lecciones').select('*').eq('active', true).order('orden'),
     supabase.from('categorias').select('*').order('orden'),
   ])
   const CATEGORIES = (cats || []).map(c => ({ key: c.nombre, emoji: c.emoji }))
