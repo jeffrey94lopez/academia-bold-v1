@@ -1798,6 +1798,15 @@ async function renderProfilePanel() {
         <div class="space-y-4">
           <div class="flex items-center justify-between">
             <div>
+              <p class="text-sm font-bold text-[var(--black-100)]">Chatbot Bodi</p>
+              <p class="text-xs text-[var(--black-60)] mt-0.5">Muestra u oculta el chatbot para los estudiantes</p>
+            </div>
+            <button id="toggleBot" class="relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none" aria-pressed="true">
+              <span id="toggleBotKnob" class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"></span>
+            </button>
+          </div>
+          <div class="flex items-center justify-between">
+            <div>
               <p class="text-sm font-bold text-[var(--black-100)]">Lecciones</p>
               <p class="text-xs text-[var(--black-60)] mt-0.5">Muestra u oculta el módulo de lecciones</p>
             </div>
@@ -1851,11 +1860,13 @@ async function renderProfilePanel() {
     return (initialValue) => { enabled = initialValue; applyToggle(btnId, knobId, enabled) }
   }
 
+  const setBot       = wireToggle('toggleBot',        'toggleBotKnob',       'bot_enabled',       'Chatbot Bodi activado.',         'Chatbot Bodi desactivado.')
   const setLessons   = wireToggle('toggleLessons',   'toggleLessonsKnob',   'lessons_enabled',   'Lecciones activadas.',           'Lecciones desactivadas.')
   const setResources = wireToggle('toggleResources',  'toggleResourcesKnob', 'resources_enabled', 'Material de apoyo activado.',    'Material de apoyo desactivado.')
 
   const { data: allSettings } = await supabase.from('app_settings').select('key,value')
   const settingsMap = allSettings ? Object.fromEntries(allSettings.map(r => [r.key, r.value])) : {}
+  setBot(settingsMap.bot_enabled !== 'false')
   setLessons(settingsMap.lessons_enabled !== 'false')
   setResources(settingsMap.resources_enabled !== 'false')
 

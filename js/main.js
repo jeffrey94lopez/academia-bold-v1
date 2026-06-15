@@ -6,6 +6,11 @@ import { supabase } from './supabase.js'
 ;(async () => {
   const { data } = await supabase.from('app_settings').select('key,value')
   const s = data ? Object.fromEntries(data.map(r => [r.key, r.value])) : {}
+  if (s.bot_enabled === 'false') {
+    document.querySelectorAll('[data-tab="assistant"]').forEach(el => el.classList.add('hidden'))
+    document.getElementById('section-assistant')?.classList.add('hidden')
+    switchTab('lessons')
+  }
   if (s.lessons_enabled === 'false') {
     document.querySelectorAll('[data-tab="lessons"]').forEach(el => el.classList.add('hidden'))
     document.getElementById('section-lessons')?.classList.add('hidden')
