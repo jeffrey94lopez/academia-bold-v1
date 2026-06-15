@@ -34,6 +34,11 @@ async function renderResources() {
 
   const { data: settingsRows } = await supabase.from('app_settings').select('key,value')
   const settings = settingsRows ? Object.fromEntries(settingsRows.map(r => [r.key, r.value])) : {}
+  if (settings.glossary_enabled === 'false') {
+    document.getElementById('tabGlossary').classList.add('hidden')
+    document.getElementById('subGlossary').classList.add('hidden')
+    if (settings.resources_enabled !== 'false') switchSubTab('material')
+  }
   if (settings.resources_enabled === 'false') {
     document.getElementById('tabMaterial').classList.add('hidden')
   }

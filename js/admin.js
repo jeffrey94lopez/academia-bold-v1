@@ -1816,6 +1816,15 @@ async function renderProfilePanel() {
           </div>
           <div class="flex items-center justify-between">
             <div>
+              <p class="text-sm font-bold text-[var(--black-100)]">Glosario</p>
+              <p class="text-xs text-[var(--black-60)] mt-0.5">Muestra u oculta el glosario en Recursos</p>
+            </div>
+            <button id="toggleGlossary" class="relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none" aria-pressed="true">
+              <span id="toggleGlossaryKnob" class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"></span>
+            </button>
+          </div>
+          <div class="flex items-center justify-between">
+            <div>
               <p class="text-sm font-bold text-[var(--black-100)]">Material de apoyo</p>
               <p class="text-xs text-[var(--black-60)] mt-0.5">Muestra u oculta el material de apoyo en Recursos</p>
             </div>
@@ -1860,14 +1869,16 @@ async function renderProfilePanel() {
     return (initialValue) => { enabled = initialValue; applyToggle(btnId, knobId, enabled) }
   }
 
-  const setBot       = wireToggle('toggleBot',        'toggleBotKnob',       'bot_enabled',       'Chatbot Bodi activado.',         'Chatbot Bodi desactivado.')
-  const setLessons   = wireToggle('toggleLessons',   'toggleLessonsKnob',   'lessons_enabled',   'Lecciones activadas.',           'Lecciones desactivadas.')
-  const setResources = wireToggle('toggleResources',  'toggleResourcesKnob', 'resources_enabled', 'Material de apoyo activado.',    'Material de apoyo desactivado.')
+  const setBot       = wireToggle('toggleBot',       'toggleBotKnob',       'bot_enabled',       'Chatbot Bodi activado.',      'Chatbot Bodi desactivado.')
+  const setLessons   = wireToggle('toggleLessons',   'toggleLessonsKnob',   'lessons_enabled',   'Lecciones activadas.',        'Lecciones desactivadas.')
+  const setGlossary  = wireToggle('toggleGlossary',  'toggleGlossaryKnob',  'glossary_enabled',  'Glosario activado.',          'Glosario desactivado.')
+  const setResources = wireToggle('toggleResources',  'toggleResourcesKnob', 'resources_enabled', 'Material de apoyo activado.', 'Material de apoyo desactivado.')
 
   const { data: allSettings } = await supabase.from('app_settings').select('key,value')
   const settingsMap = allSettings ? Object.fromEntries(allSettings.map(r => [r.key, r.value])) : {}
   setBot(settingsMap.bot_enabled !== 'false')
   setLessons(settingsMap.lessons_enabled !== 'false')
+  setGlossary(settingsMap.glossary_enabled !== 'false')
   setResources(settingsMap.resources_enabled !== 'false')
 
   document.getElementById('saveProfileInfo').addEventListener('click', async () => {
