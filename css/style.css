@@ -252,8 +252,8 @@ body {
 /* ── Videos YouTube dentro del chat ── */
 .chat-video-wrap {
   position: relative;
-  width: 100%;
-  padding-bottom: 56.25%;
+  width: min(390px, 100%);
+  height: 220px;
   border-radius: 12px;
   overflow: hidden;
   margin-top: 6px;

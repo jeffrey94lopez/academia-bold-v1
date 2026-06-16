@@ -301,11 +301,14 @@ function appendSegments(segments) {
       flushText()
       const safeUrl = escapeHtml(seg.url)
       const safeAlt = escapeHtml(seg.caption || '')
+      const wrap = document.createElement('div')
+      wrap.className = 'flex justify-start'
       const d = document.createElement('div')
-      d.className = 'chat-media-block'
+      d.className = 'my-2'
       d.innerHTML = `<img src="${safeUrl}" alt="${safeAlt}" class="chat-img" onclick="openLightbox('${safeUrl}', '${safeAlt}')" title="Clic para ampliar">
         ${safeAlt ? `<p class="text-[10px] text-[var(--black-60)] mt-1 italic">${safeAlt}</p>` : ''}`
-      box.appendChild(d)
+      wrap.appendChild(d)
+      box.appendChild(wrap)
       scrollToBottom()
     } else if (seg.type === 'video' && seg.url) {
       flushText()
@@ -317,24 +320,30 @@ function appendSegments(segments) {
       } catch (_) {}
       if (videoId) {
         const safeLabel = escapeHtml(seg.label || '')
+        const wrap = document.createElement('div')
+        wrap.className = 'flex justify-start'
         const d = document.createElement('div')
-        d.className = 'chat-media-block'
+        d.className = 'my-2'
         d.innerHTML = `${safeLabel ? `<p class="text-xs font-bold mb-1.5">▶ ${safeLabel}</p>` : ''}
           <div class="chat-video-wrap"><iframe src="https://www.youtube.com/embed/${videoId}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`
-        box.appendChild(d)
+        wrap.appendChild(d)
+        box.appendChild(wrap)
         scrollToBottom()
       }
     } else if (seg.type === 'link' && seg.url) {
       flushText()
       const safeUrl = escapeHtml(seg.url)
       const safeLabel = escapeHtml(seg.label || seg.url)
+      const wrap = document.createElement('div')
+      wrap.className = 'flex justify-start'
       const d = document.createElement('div')
-      d.className = 'chat-media-block'
+      d.className = 'my-2'
       d.innerHTML = `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="chat-link-btn">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         ${safeLabel}
       </a>`
-      box.appendChild(d)
+      wrap.appendChild(d)
+      box.appendChild(wrap)
       scrollToBottom()
     }
   }
