@@ -299,18 +299,23 @@ function appendSegments(segments) {
       textBuffer.push(seg.content)
     } else if (seg.type === 'image' && seg.url) {
       flushText()
-      const safeUrl = escapeHtml(seg.url)
-      const safeAlt = escapeHtml(seg.caption || '')
-      const wrap = document.createElement('div')
-      wrap.className = 'flex justify-start'
+      const imgEl = document.createElement('img')
+      imgEl.src = seg.url
+      imgEl.alt = seg.caption || ''
+      imgEl.title = 'Clic para ampliar'
+      imgEl.style.cssText = 'display:block;max-width:100%;max-height:220px;width:auto;border-radius:12px;cursor:zoom-in;border:1px solid var(--blue-20);margin-top:6px;'
+      imgEl.addEventListener('click', () => window.openLightbox(imgEl.src, imgEl.alt))
+      imgEl.addEventListener('load', scrollToBottom)
       const d = document.createElement('div')
-      d.className = 'my-2 w-full'
-      d.innerHTML = `<img src="${safeUrl}" alt="${safeAlt}" class="chat-img" onclick="openLightbox('${safeUrl}', '${safeAlt}')" title="Clic para ampliar">
-        ${safeAlt ? `<p class="text-[10px] text-[var(--black-60)] mt-1 italic">${safeAlt}</p>` : ''}`
-      const loadedImg = d.querySelector('img')
-      if (loadedImg) loadedImg.addEventListener('load', scrollToBottom)
-      wrap.appendChild(d)
-      box.appendChild(wrap)
+      d.style.cssText = 'margin:8px 0;'
+      d.appendChild(imgEl)
+      if (seg.caption) {
+        const cap = document.createElement('p')
+        cap.textContent = seg.caption
+        cap.style.cssText = 'font-size:10px;color:var(--black-60);margin-top:4px;font-style:italic;font-family:var(--font-family);'
+        d.appendChild(cap)
+      }
+      box.appendChild(d)
       scrollToBottom()
     } else if (seg.type === 'video' && seg.url) {
       flushText()
