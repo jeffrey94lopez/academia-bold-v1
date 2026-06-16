@@ -24,3 +24,9 @@ desktop.ini
 
 # CodeGraph index
 .codegraph/
+
+.vercel
+
+# Build artifacts
+node_modules/
+css/tw.css
