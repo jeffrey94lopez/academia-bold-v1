@@ -304,9 +304,11 @@ function appendSegments(segments) {
       const wrap = document.createElement('div')
       wrap.className = 'flex justify-start'
       const d = document.createElement('div')
-      d.className = 'my-2'
+      d.className = 'my-2 w-full'
       d.innerHTML = `<img src="${safeUrl}" alt="${safeAlt}" class="chat-img" onclick="openLightbox('${safeUrl}', '${safeAlt}')" title="Clic para ampliar">
         ${safeAlt ? `<p class="text-[10px] text-[var(--black-60)] mt-1 italic">${safeAlt}</p>` : ''}`
+      const loadedImg = d.querySelector('img')
+      if (loadedImg) loadedImg.addEventListener('load', scrollToBottom)
       wrap.appendChild(d)
       box.appendChild(wrap)
       scrollToBottom()
