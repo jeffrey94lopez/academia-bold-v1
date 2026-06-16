@@ -326,15 +326,24 @@ function appendSegments(segments) {
         else if (u.hostname === 'youtu.be') videoId = u.pathname.slice(1)
       } catch (_) {}
       if (videoId) {
-        const safeLabel = escapeHtml(seg.label || '')
-        const wrap = document.createElement('div')
-        wrap.className = 'flex justify-start'
+        const iframe = document.createElement('iframe')
+        iframe.src = `https://www.youtube.com/embed/${videoId}`
+        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'
+        iframe.allowFullscreen = true
+        iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;'
+        const videoWrap = document.createElement('div')
+        videoWrap.style.cssText = 'position:relative;height:220px;width:min(390px,100%);border-radius:12px;overflow:hidden;margin-top:6px;'
+        videoWrap.appendChild(iframe)
         const d = document.createElement('div')
-        d.className = 'my-2'
-        d.innerHTML = `${safeLabel ? `<p class="text-xs font-bold mb-1.5">▶ ${safeLabel}</p>` : ''}
-          <div class="chat-video-wrap"><iframe src="https://www.youtube.com/embed/${videoId}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`
-        wrap.appendChild(d)
-        box.appendChild(wrap)
+        d.style.cssText = 'margin:8px 0;'
+        if (seg.label) {
+          const lbl = document.createElement('p')
+          lbl.textContent = seg.label
+          lbl.style.cssText = 'font-size:12px;font-weight:700;margin-bottom:6px;font-family:var(--font-family);'
+          d.appendChild(lbl)
+        }
+        d.appendChild(videoWrap)
+        box.appendChild(d)
         scrollToBottom()
       }
     } else if (seg.type === 'link' && seg.url) {
