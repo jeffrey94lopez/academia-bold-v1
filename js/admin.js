@@ -26,12 +26,13 @@ function lessonToEmbedText(titulo, categoria, blocks) {
 async function embedLesson(lessonId, titulo, categoria, blocks) {
   try {
     const text = lessonToEmbedText(titulo, categoria, blocks)
-    await fetch(EMBED_WEBHOOK, {
+    const res = await fetch(EMBED_WEBHOOK, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': EMBED_TOKEN },
       body: JSON.stringify({ lessonId, text })
     })
-  } catch (_) {}
+    return res.ok
+  } catch (_) { return false }
 }
 
 let currentBlocks = []
@@ -489,6 +490,7 @@ function lessonCardHtml(l) {
           <p class="font-bold text-sm text-[var(--black-100)] truncate">${escapeHtml(l.titulo)}</p>
           <span class="shrink-0 text-[10px] text-[var(--black-40)]">#${escapeHtml(String(l.orden))}</span>
           ${l.active === false ? '<span class="shrink-0 text-[10px] font-bold text-[var(--black-40)] bg-[var(--black-10)] px-1.5 py-0.5 rounded-full">Oculta</span>' : ''}
+          ${!l.embedding ? '<span class="shrink-0 text-[10px] font-bold text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-full">Sin IA</span>' : ''}
         </div>
         <p class="text-xs text-[var(--black-40)] mt-0.5 line-clamp-1">${escapeHtml(l.descripcion || '')}</p>
       </div>
@@ -498,6 +500,9 @@ function lessonCardHtml(l) {
         </button>
         <button data-id="${l.id}" data-bot-active="${l.bot_active === false ? 'false' : 'true'}" class="toggle-bot p-1.5 rounded-lg transition-colors ${l.bot_active === false ? 'text-[var(--black-40)] hover:text-[var(--coral-100)]' : 'text-[var(--coral-100)] hover:text-[var(--black-40)]'}" title="${l.bot_active === false ? 'Activar en Bodi' : 'Desactivar en Bodi'}">
           <i data-lucide="bot" class="w-4 h-4"></i>
+        </button>
+        <button data-id="${l.id}" class="re-embed p-1.5 rounded-lg transition-colors ${!l.embedding ? 'text-orange-500 hover:bg-orange-50' : 'text-[var(--black-40)] hover:bg-[var(--blue-10)]'}" title="Regenerar embedding IA">
+          <i data-lucide="brain" class="w-4 h-4"></i>
         </button>
         <button data-id="${l.id}" class="copy-whatsapp p-1.5 rounded-lg hover:bg-green-50 text-[var(--black-40)] hover:text-green-600" title="Copiar para WhatsApp">
           <i data-lucide="share-2" class="w-4 h-4"></i>
@@ -517,6 +522,7 @@ function lessonCardGridHtml(l) {
         <p class="font-bold text-sm text-[var(--black-100)] leading-tight line-clamp-2 flex-1">${escapeHtml(l.titulo)}</p>
         <div class="flex items-center gap-1 shrink-0">
           ${l.active === false ? '<span class="text-[10px] font-bold text-[var(--black-40)] bg-[var(--black-10)] px-1.5 py-0.5 rounded-full">Oculta</span>' : ''}
+          ${!l.embedding ? '<span class="text-[10px] font-bold text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-full">Sin IA</span>' : ''}
           <span class="text-[10px] text-[var(--black-40)] font-bold">#${escapeHtml(String(l.orden))}</span>
         </div>
       </div>
@@ -528,6 +534,9 @@ function lessonCardGridHtml(l) {
         </button>
         <button data-id="${l.id}" data-bot-active="${l.bot_active === false ? 'false' : 'true'}" class="toggle-bot flex-1 flex items-center justify-center py-1 rounded-lg transition-colors ${l.bot_active === false ? 'text-[var(--black-40)] hover:text-[var(--coral-100)]' : 'text-[var(--coral-100)] hover:text-[var(--black-40)]'}" title="${l.bot_active === false ? 'Activar en Bodi' : 'Desactivar en Bodi'}">
           <i data-lucide="bot" class="w-3.5 h-3.5"></i>
+        </button>
+        <button data-id="${l.id}" class="re-embed flex-1 flex items-center justify-center py-1 rounded-lg transition-colors ${!l.embedding ? 'text-orange-500 hover:bg-orange-50' : 'text-[var(--black-40)] hover:bg-[var(--blue-10)]'}" title="Regenerar embedding IA">
+          <i data-lucide="brain" class="w-3.5 h-3.5"></i>
         </button>
         <button data-id="${l.id}" class="copy-whatsapp flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-green-50 text-[var(--black-40)] hover:text-green-600">
           <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
@@ -563,9 +572,23 @@ function wireLessonCards() {
     })
   })
 
+  list.querySelectorAll('.re-embed').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation()
+      const icon = btn.querySelector('i')
+      btn.disabled = true
+      if (icon) { icon.setAttribute('data-lucide', 'loader-2'); lucide.createIcons() }
+      const { data } = await supabase.from('lecciones').select('*').eq('id', btn.dataset.id).single()
+      if (!data) { showToast('Error al cargar la lección.', 'error'); btn.disabled = false; return }
+      const ok = await embedLesson(data.id, data.titulo, data.categoria, JSON.parse(data.contenido))
+      if (ok) { showToast('Embedding regenerado correctamente.'); renderLessonsPanel() }
+      else { showToast('Error al regenerar embedding.', 'error'); btn.disabled = false; if (icon) { icon.setAttribute('data-lucide', 'brain'); lucide.createIcons() } }
+    })
+  })
+
   list.querySelectorAll('.lesson-card').forEach(card => {
     card.addEventListener('click', async e => {
-      if (e.target.closest('.del-lesson') || e.target.closest('.copy-whatsapp') || e.target.closest('.toggle-lesson') || e.target.closest('.toggle-bot')) return
+      if (e.target.closest('.del-lesson') || e.target.closest('.copy-whatsapp') || e.target.closest('.toggle-lesson') || e.target.closest('.toggle-bot') || e.target.closest('.re-embed')) return
       const { data } = await supabase.from('lecciones').select('*').eq('id', card.dataset.id).single()
       if (data) openLessonForm(data)
     })
