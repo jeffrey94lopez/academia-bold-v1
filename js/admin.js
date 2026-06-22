@@ -311,29 +311,46 @@ async function renderLessonsPanel() {
         <div id="lessonFormGrid" class="flex-1 overflow-hidden grid" style="grid-template-columns:1fr 1fr;min-height:0">
           <div class="overflow-y-auto p-5 border-r border-[var(--blue-10)]">
             <input type="hidden" id="lessonId">
-            <div class="space-y-2 mb-4">
-              <input id="lessonTitulo" placeholder="Título" required
-                class="w-full px-3 py-2.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)]">
-              <input id="lessonDescripcion" placeholder="Descripción corta" required
-                class="w-full px-3 py-2.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)]">
-              <select id="lessonCategoria"
-                class="w-full px-3 py-2.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] bg-white">
-              </select>
+            <div class="space-y-3 mb-4">
+              <div>
+                <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Título</label>
+                <input id="lessonTitulo" placeholder="Nombre de la lección" required
+                  class="w-full px-3 py-2.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)]">
+              </div>
+              <div>
+                <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Descripción</label>
+                <input id="lessonDescripcion" placeholder="Descripción corta visible al alumno" required
+                  class="w-full px-3 py-2.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)]">
+              </div>
+              <div>
+                <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Categoría</label>
+                <select id="lessonCategoria"
+                  class="w-full px-3 py-2.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] bg-white">
+                </select>
+              </div>
             </div>
             <p class="text-[10px] font-black uppercase text-[var(--black-40)] tracking-wide mb-2">Contenido</p>
             <div id="blockList" class="space-y-2 mb-3"></div>
-            <div class="flex flex-wrap gap-1.5 mb-4">
-              <button data-type="step" class="add-block bg-[var(--black-10)] text-[var(--black-60)] text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-[var(--black-10)]">+ Paso</button>
-              <button data-type="image" class="add-block bg-blue-50 text-blue-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-blue-100">+ Imagen</button>
-              <button data-type="video" class="add-block bg-purple-50 text-purple-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-purple-100">+ Video</button>
-              <button data-type="link" class="add-block bg-green-50 text-green-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-green-100">+ Link</button>
-              <div class="w-full border-t border-dashed border-amber-200 my-1"></div>
-              <p class="w-full text-[9px] font-black uppercase text-amber-500 tracking-widest">🤖 Solo para bolbot POS</p>
-              <button data-type="bot_nota" class="add-block bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100">💡 Nota</button>
-              <button data-type="bot_advertencia" class="add-block bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100">⚠️ Advertencia</button>
-              <button data-type="bot_pasos" class="add-block bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100">📋 Pasos internos</button>
-              <button data-type="bot_relacionado" class="add-block bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100">🔗 Relacionado</button>
-              <button data-type="bot_faq" class="add-block bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100">❓ Preguntas frecuentes</button>
+            <div class="border border-dashed border-[var(--blue-20)] rounded-xl p-3 mb-4 space-y-2">
+              <div>
+                <p class="text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-2">Agregar bloque de contenido</p>
+                <div class="flex flex-wrap gap-1.5">
+                  <button data-type="step"  class="add-block bg-[var(--blue-10)] text-[var(--blue-100)] text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-[var(--blue-20)]">Paso</button>
+                  <button data-type="image" class="add-block bg-[var(--blue-10)] text-[var(--blue-100)] text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-[var(--blue-20)]">Imagen</button>
+                  <button data-type="video" class="add-block bg-[var(--blue-10)] text-[var(--blue-100)] text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-[var(--blue-20)]">Video</button>
+                  <button data-type="link"  class="add-block bg-[var(--blue-10)] text-[var(--blue-100)] text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-[var(--blue-20)]">Link</button>
+                </div>
+              </div>
+              <div class="border-t border-dashed border-amber-200 pt-2">
+                <p class="text-[9px] font-black uppercase tracking-widest text-amber-500 mb-2">Solo para bolbot POS</p>
+                <div class="flex flex-wrap gap-1.5">
+                  <button data-type="bot_nota"        class="add-block bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100">Nota</button>
+                  <button data-type="bot_advertencia" class="add-block bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100">Advertencia</button>
+                  <button data-type="bot_pasos"       class="add-block bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100">Pasos internos</button>
+                  <button data-type="bot_relacionado" class="add-block bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100">Relacionado</button>
+                  <button data-type="bot_faq"         class="add-block bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100">Pregunta frecuente</button>
+                </div>
+              </div>
             </div>
             <div class="mb-4">
               <p class="text-[10px] font-black uppercase text-[var(--black-40)] tracking-wide mb-1">Notas</p>
@@ -963,10 +980,9 @@ function blockItemHtml(block, i) {
         class="w-full px-2 py-1.5 rounded-lg border border-[var(--blue-20)] text-xs outline-none focus:border-[var(--blue-100)]">`
   }
 
-  const cardBg = isBotBlock ? 'bg-amber-50 border-amber-200' : 'bg-[var(--background-page)] border-[var(--blue-20)]'
   const isFirst = i === 0
   const isLast = i === currentBlocks.length - 1
-  return `<div data-idx="${i}" class="${cardBg} border rounded-xl p-2.5 flex items-start gap-2">
+  return `<div data-idx="${i}" class="bg-white border ${block.type?.startsWith('bot_') ? 'border-amber-200' : 'border-[var(--blue-10)]'} rounded-xl p-2.5 flex items-start gap-2">
     <div class="flex flex-col items-center gap-0.5 shrink-0 mt-0.5">
       <div class="drag-handle text-[var(--black-40)] text-lg cursor-grab select-none leading-none">⠿</div>
       <button class="move-up text-[var(--black-40)] hover:text-[var(--black-60)] transition-colors p-0.5 rounded ${isFirst ? 'opacity-30 cursor-not-allowed' : ''}" ${isFirst ? 'disabled' : ''} aria-label="Mover bloque arriba">
@@ -977,7 +993,7 @@ function blockItemHtml(block, i) {
       </button>
     </div>
     <div class="flex-1 min-w-0">
-      <div class="text-[9px] font-black uppercase mb-1.5" style="color:${color}">${label}</div>
+      <div class="inline-block text-[9px] font-black uppercase tracking-wide mb-1.5 px-2 py-0.5 rounded-md ${block.type?.startsWith('bot_') ? 'bg-amber-50 text-amber-700' : 'bg-[var(--blue-10)] text-[var(--blue-100)]'}">${label}</div>
       ${fields}
     </div>
     <button class="del-block text-[var(--black-40)] hover:text-[var(--blue-100)] text-sm px-1 mt-0.5 shrink-0" aria-label="Eliminar bloque">✕</button>
