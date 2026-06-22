@@ -128,7 +128,7 @@ async function renderHomePanel() {
   el.innerHTML = `
     <div class="max-w-4xl">
       <div class="mb-6">
-        <p class="text-lg font-black text-[var(--black-100)]">${greeting} 👋</p>
+        <p class="text-lg font-black text-[var(--black-100)]">${greeting}${name ? ', ' + escapeHtml(name) : ''} 👋</p>
         <p class="text-sm text-[var(--black-40)] mt-0.5">Esto es lo que está pasando en tu academia.</p>
       </div>
 
@@ -154,8 +154,8 @@ async function renderHomePanel() {
               <div class="flex gap-3 items-start">
                 <div class="w-1.5 h-1.5 rounded-full bg-[var(--blue-100)] mt-1.5 shrink-0"></div>
                 <div>
-                  <p class="text-xs font-bold text-[var(--black-100)]">${actionLabel[a.action] || a.action} — ${entityLabel[a.entity_type] || a.entity_type}</p>
-                  <p class="text-[10px] text-[var(--black-40)]">${escapeHtml(a.entity_name || '')} · ${timeAgo(a.created_at)}</p>
+                  <p class="text-xs font-bold text-[var(--black-100)]">${actionLabel[a.action] || escapeHtml(a.action)} — ${entityLabel[a.entity_type] || escapeHtml(a.entity_type)}</p>
+                  <p class="text-[10px] text-[var(--black-40)]">${escapeHtml(a.entity_name || '')} · ${a.created_at ? timeAgo(a.created_at) : ''}</p>
                 </div>
               </div>
             `).join('') : '<p class="text-xs text-[var(--black-40)]">Sin actividad reciente.</p>'}
