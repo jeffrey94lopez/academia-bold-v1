@@ -87,7 +87,103 @@ async function init() {
   switchPanel(savedPanel)
 }
 
-function renderHomePanel() {}
+async function renderHomePanel() {
+  const el = document.getElementById('panel-home')
+  el.innerHTML = `<p class="text-sm text-[var(--black-40)] p-6">Cargando...</p>`
+
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches'
+  const { data: { user } } = await supabase.auth.getUser()
+  const name = user?.user_metadata?.name || user?.email?.split('@')[0] || ''
+
+  const today = new Date().toISOString().slice(0, 10)
+  const [
+    { count: lessonesCount },
+    { count: convsCount },
+    { count: faqCount },
+    { count: glosarioCount },
+    { data: activity }
+  ] = await Promise.all([
+    supabase.from('lecciones').select('*', { count: 'exact', head: true }).eq('active', true),
+    supabase.from('bodi_conversations').select('*', { count: 'exact', head: true }).gte('created_at', today),
+    supabase.from('preguntas_frecuentes').select('*', { count: 'exact', head: true }),
+    supabase.from('glosario').select('*', { count: 'exact', head: true }),
+    supabase.from('activity_log').select('action,entity_type,entity_name,created_at').order('created_at', { ascending: false }).limit(5)
+  ])
+
+  function timeAgo(iso) {
+    const diff = Math.floor((Date.now() - new Date(iso)) / 1000)
+    if (diff < 60) return 'hace un momento'
+    if (diff < 3600) return `hace ${Math.floor(diff / 60)}m`
+    if (diff < 86400) return `hace ${Math.floor(diff / 3600)}h`
+    return `hace ${Math.floor(diff / 86400)}d`
+  }
+
+  const actionLabel = { create: 'Creado', update: 'Editado', delete: 'Eliminado' }
+  const entityLabel = {
+    lecciones: 'Lección', preguntas_frecuentes: 'FAQ',
+    glosario: 'Término', material_apoyo: 'Material'
+  }
+
+  el.innerHTML = `
+    <div class="max-w-4xl">
+      <div class="mb-6">
+        <p class="text-lg font-black text-[var(--black-100)]">${greeting} 👋</p>
+        <p class="text-sm text-[var(--black-40)] mt-0.5">Esto es lo que está pasando en tu academia.</p>
+      </div>
+
+      <div class="grid grid-cols-4 gap-3 mb-6">
+        ${[
+          ['Lecciones activas',    lessonesCount ?? 0],
+          ['Conversaciones hoy',   convsCount    ?? 0],
+          ['Preguntas frecuentes', faqCount      ?? 0],
+          ['Términos en glosario', glosarioCount ?? 0],
+        ].map(([label, val]) => `
+          <div class="bg-white border border-[var(--blue-10)] rounded-2xl p-4">
+            <p class="text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1.5">${label}</p>
+            <p class="text-2xl font-black text-[var(--blue-100)]">${val}</p>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div class="bg-white border border-[var(--blue-10)] rounded-2xl p-4">
+          <p class="text-[9px] font-black uppercase tracking-widest text-[var(--black-100)] mb-3">Actividad reciente</p>
+          <div class="space-y-3">
+            ${(activity || []).length ? (activity).map(a => `
+              <div class="flex gap-3 items-start">
+                <div class="w-1.5 h-1.5 rounded-full bg-[var(--blue-100)] mt-1.5 shrink-0"></div>
+                <div>
+                  <p class="text-xs font-bold text-[var(--black-100)]">${actionLabel[a.action] || a.action} — ${entityLabel[a.entity_type] || a.entity_type}</p>
+                  <p class="text-[10px] text-[var(--black-40)]">${escapeHtml(a.entity_name || '')} · ${timeAgo(a.created_at)}</p>
+                </div>
+              </div>
+            `).join('') : '<p class="text-xs text-[var(--black-40)]">Sin actividad reciente.</p>'}
+          </div>
+        </div>
+
+        <div class="bg-white border border-[var(--blue-10)] rounded-2xl p-4">
+          <p class="text-[9px] font-black uppercase tracking-widest text-[var(--black-100)] mb-3">Acciones rápidas</p>
+          <div class="space-y-2">
+            <button id="quickNewLesson" class="w-full text-left px-4 py-2.5 bg-[var(--background-page)] border border-[var(--blue-10)] rounded-xl text-sm font-bold text-[var(--blue-100)] hover:border-[var(--blue-100)] transition-colors">+ Nueva lección</button>
+            <button id="quickNewFaq" class="w-full text-left px-4 py-2.5 bg-[var(--background-page)] border border-[var(--blue-10)] rounded-xl text-sm font-bold text-[var(--blue-100)] hover:border-[var(--blue-100)] transition-colors">+ Nueva pregunta frecuente</button>
+            <button id="quickAnalytics" class="w-full text-left px-4 py-2.5 bg-[var(--background-page)] border border-[var(--blue-10)] rounded-xl text-sm font-bold text-[var(--blue-100)] hover:border-[var(--blue-100)] transition-colors">Ver Analytics</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `
+
+  document.getElementById('quickNewLesson').addEventListener('click', () => {
+    switchPanel('lessons')
+    setTimeout(() => document.getElementById('newLessonBtn')?.click(), 300)
+  })
+  document.getElementById('quickNewFaq').addEventListener('click', () => {
+    switchPanel('faq')
+    setTimeout(() => document.getElementById('addFaq')?.click(), 300)
+  })
+  document.getElementById('quickAnalytics').addEventListener('click', () => switchPanel('analytics'))
+}
 
 function switchPanel(panel) {
   localStorage.setItem('admin_panel', panel)
