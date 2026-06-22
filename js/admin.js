@@ -201,7 +201,7 @@ async function renderLessonsPanel() {
               <button data-type="video" class="add-block bg-purple-50 text-purple-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-purple-100">+ Video</button>
               <button data-type="link" class="add-block bg-green-50 text-green-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-green-100">+ Link</button>
               <div class="w-full border-t border-dashed border-amber-200 my-1"></div>
-              <p class="w-full text-[9px] font-black uppercase text-amber-500 tracking-widest">🤖 Solo para Bodi</p>
+              <p class="w-full text-[9px] font-black uppercase text-amber-500 tracking-widest">🤖 Solo para bolbot POS</p>
               <button data-type="bot_nota" class="add-block bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100">💡 Nota</button>
               <button data-type="bot_advertencia" class="add-block bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100">⚠️ Advertencia</button>
               <button data-type="bot_pasos" class="add-block bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100">📋 Pasos internos</button>
@@ -499,7 +499,7 @@ function lessonCardHtml(l) {
         <button data-id="${l.id}" data-active="${l.active === false ? 'false' : 'true'}" class="toggle-lesson p-1.5 rounded-lg transition-colors ${l.active === false ? 'text-[var(--black-40)] hover:text-[var(--success-150)]' : 'text-[var(--success-150)] hover:text-[var(--black-40)]'}" title="${l.active === false ? 'Mostrar a estudiantes' : 'Ocultar a estudiantes'}">
           <i data-lucide="${l.active === false ? 'eye-off' : 'eye'}" class="w-4 h-4"></i>
         </button>
-        <button data-id="${l.id}" data-bot-active="${l.bot_active === false ? 'false' : 'true'}" class="toggle-bot p-1.5 rounded-lg transition-colors ${l.bot_active === false ? 'text-[var(--black-40)] hover:text-[var(--coral-100)]' : 'text-[var(--coral-100)] hover:text-[var(--black-40)]'}" title="${l.bot_active === false ? 'Activar en Bodi' : 'Desactivar en Bodi'}">
+        <button data-id="${l.id}" data-bot-active="${l.bot_active === false ? 'false' : 'true'}" class="toggle-bot p-1.5 rounded-lg transition-colors ${l.bot_active === false ? 'text-[var(--black-40)] hover:text-[var(--coral-100)]' : 'text-[var(--coral-100)] hover:text-[var(--black-40)]'}" title="${l.bot_active === false ? 'Activar en bolbot POS' : 'Desactivar en bolbot POS'}">
           <i data-lucide="bot" class="w-4 h-4"></i>
         </button>
         <button data-id="${l.id}" class="re-embed p-1.5 rounded-lg transition-colors ${!l.embedding ? 'text-orange-500 hover:bg-orange-50' : 'text-[var(--black-40)] hover:bg-[var(--blue-10)]'}" title="Regenerar embedding IA">
@@ -533,7 +533,7 @@ function lessonCardGridHtml(l) {
         <button data-id="${l.id}" data-active="${l.active === false ? 'false' : 'true'}" class="toggle-lesson flex-1 flex items-center justify-center py-1 rounded-lg transition-colors ${l.active === false ? 'text-[var(--black-40)] hover:text-[var(--success-150)]' : 'text-[var(--success-150)] hover:text-[var(--black-40)]'}" title="${l.active === false ? 'Mostrar a estudiantes' : 'Ocultar a estudiantes'}">
           <i data-lucide="${l.active === false ? 'eye-off' : 'eye'}" class="w-3.5 h-3.5"></i>
         </button>
-        <button data-id="${l.id}" data-bot-active="${l.bot_active === false ? 'false' : 'true'}" class="toggle-bot flex-1 flex items-center justify-center py-1 rounded-lg transition-colors ${l.bot_active === false ? 'text-[var(--black-40)] hover:text-[var(--coral-100)]' : 'text-[var(--coral-100)] hover:text-[var(--black-40)]'}" title="${l.bot_active === false ? 'Activar en Bodi' : 'Desactivar en Bodi'}">
+        <button data-id="${l.id}" data-bot-active="${l.bot_active === false ? 'false' : 'true'}" class="toggle-bot flex-1 flex items-center justify-center py-1 rounded-lg transition-colors ${l.bot_active === false ? 'text-[var(--black-40)] hover:text-[var(--coral-100)]' : 'text-[var(--coral-100)] hover:text-[var(--black-40)]'}" title="${l.bot_active === false ? 'Activar en bolbot POS' : 'Desactivar en bolbot POS'}">
           <i data-lucide="bot" class="w-3.5 h-3.5"></i>
         </button>
         <button data-id="${l.id}" class="re-embed flex-1 flex items-center justify-center py-1 rounded-lg transition-colors ${!l.embedding ? 'text-orange-500 hover:bg-orange-50' : 'text-[var(--black-40)] hover:bg-[var(--blue-10)]'}" title="Regenerar embedding IA">
@@ -568,7 +568,7 @@ function wireLessonCards() {
       e.stopPropagation()
       const newBotActive = btn.dataset.botActive === 'false'
       const { error } = await supabase.from('lecciones').update({ bot_active: newBotActive }).eq('id', btn.dataset.id)
-      if (!error) { showToast(newBotActive ? 'Lección activada en Bodi.' : 'Lección desactivada en Bodi.'); renderLessonsPanel() }
+      if (!error) { showToast(newBotActive ? 'Lección activada en bolbot POS.' : 'Lección desactivada en bolbot POS.'); renderLessonsPanel() }
       else showToast('Error al actualizar.')
     })
   })
@@ -781,8 +781,8 @@ function blockItemHtml(block, i) {
   const colors = { step: 'var(--blue-100)', image: '#3b82f6', video: '#8b5cf6', link: '#16a34a',
     bot_nota: '#d97706', bot_advertencia: '#d97706', bot_pasos: '#d97706', bot_relacionado: '#d97706', bot_faq: '#d97706' }
   const labels = { step: '📝 Paso', image: '🖼️ Imagen', video: '▶️ Video YouTube', link: '🔗 Link',
-    bot_nota: '💡 Nota — Solo Bodi', bot_advertencia: '⚠️ Advertencia — Solo Bodi',
-    bot_pasos: '📋 Pasos internos — Solo Bodi', bot_relacionado: '🔗 Relacionado — Solo Bodi', bot_faq: '❓ Preg. frecuente — Solo Bodi' }
+    bot_nota: '💡 Nota — bolbot POS', bot_advertencia: '⚠️ Advertencia — bolbot POS',
+    bot_pasos: '📋 Pasos internos — bolbot POS', bot_relacionado: '🔗 Relacionado — bolbot POS', bot_faq: '❓ Preg. frecuente — bolbot POS' }
   const color = colors[block.type] || '#94a3b8'
   const label = labels[block.type] || escapeHtml(block.type)
   const isBotBlock = block.type.startsWith('bot_')
@@ -790,11 +790,11 @@ function blockItemHtml(block, i) {
   let fields = ''
   if (isBotBlock) {
     const placeholders = {
-      bot_nota: 'Contexto adicional o aclaración para Bodi...',
-      bot_advertencia: 'Error común o restricción importante que Bodi debe mencionar...',
-      bot_pasos: 'Secuencia de pasos internos que Bodi debe guiar...',
-      bot_relacionado: 'Módulos o temas relacionados que Bodi puede mencionar...',
-      bot_faq: 'Pregunta frecuente y respuesta que Bodi debe saber...',
+      bot_nota: 'Contexto adicional o aclaración para bolbot POS...',
+      bot_advertencia: 'Error común o restricción importante que bolbot POS debe mencionar...',
+      bot_pasos: 'Secuencia de pasos internos que bolbot POS debe guiar...',
+      bot_relacionado: 'Módulos o temas relacionados que bolbot POS puede mencionar...',
+      bot_faq: 'Pregunta frecuente y respuesta que bolbot POS debe saber...',
     }
     fields = `<textarea data-field="content" rows="2" placeholder="${placeholders[block.type] || ''}"
       class="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-xs outline-none focus:border-amber-400 resize-none">${escapeHtml(block.content || '')}</textarea>`
@@ -1730,7 +1730,7 @@ async function renderSuggestionsPanel() {
     <div class="flex items-center justify-between mb-4">
       <div>
         <h2 class="text-lg font-black">Sugerencias Bot</h2>
-        <p class="text-xs text-[var(--black-40)] mt-0.5">Máximo 6 activas. Se muestran en el chat de Bodi.</p>
+        <p class="text-xs text-[var(--black-40)] mt-0.5">Máximo 6 activas. Se muestran en el chat de bolbot POS.</p>
       </div>
       <button id="addSuggestion" class="bg-[var(--blue-100)] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:scale-105 transition-transform">
         <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nueva sugerencia
@@ -1991,7 +1991,7 @@ async function renderProfilePanel() {
         <div class="space-y-4">
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-sm font-bold text-[var(--black-100)]">Chatbot Bodi</p>
+              <p class="text-sm font-bold text-[var(--black-100)]">bolbot POS</p>
               <p class="text-xs text-[var(--black-60)] mt-0.5">Muestra u oculta el chatbot para los estudiantes</p>
             </div>
             <button id="toggleBot" class="relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none" aria-pressed="true">
@@ -2071,7 +2071,7 @@ async function renderProfilePanel() {
     return (initialValue) => { enabled = initialValue; applyToggle(btnId, knobId, enabled) }
   }
 
-  const setBot       = wireToggle('toggleBot',       'toggleBotKnob',       'bot_enabled',       'Chatbot Bodi activado.',           'Chatbot Bodi desactivado.')
+  const setBot       = wireToggle('toggleBot',       'toggleBotKnob',       'bot_enabled',       'bolbot POS activado.',           'bolbot POS desactivado.')
   const setLessons   = wireToggle('toggleLessons',   'toggleLessonsKnob',   'lessons_enabled',   'Lecciones activadas.',             'Lecciones desactivadas.')
   const setFaq       = wireToggle('toggleFaq',       'toggleFaqKnob',       'faq_enabled',       'P. frecuentes activadas.',         'P. frecuentes desactivadas.')
   const setGlossary  = wireToggle('toggleGlossary',  'toggleGlossaryKnob',  'glossary_enabled',  'Glosario activado.',               'Glosario desactivado.')
