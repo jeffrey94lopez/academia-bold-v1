@@ -56,6 +56,24 @@ async function init() {
   document.getElementById('logoutBtn').addEventListener('click', logout)
 
   lucide.createIcons()
+
+  // Avatar + dropdown
+  const { data: { user } } = await supabase.auth.getUser()
+  const initial = (user?.user_metadata?.name || user?.email || '?')[0].toUpperCase()
+  document.getElementById('avatarInitial').textContent = initial
+
+  const avatarBtn = document.getElementById('avatarBtn')
+  const dropdown  = document.getElementById('avatarDropdown')
+  avatarBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    dropdown.classList.toggle('hidden')
+  })
+  document.addEventListener('click', () => dropdown.classList.add('hidden'))
+  document.getElementById('dropdownProfile').addEventListener('click', () => {
+    dropdown.classList.add('hidden')
+    switchPanel('profile')
+  })
+
   initMediaLibraryModal()
   initPasteHandler()
   initFilePreviewModal()

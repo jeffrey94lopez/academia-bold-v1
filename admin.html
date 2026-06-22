@@ -36,18 +36,28 @@
 
   <!-- Admin app -->
   <div id="adminApp" class="hidden">
-    <header class="bg-white border-b border-[var(--blue-10)] px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-      <div class="flex items-center gap-2.5">
-        <img src="assets/Bold%20POS.png" alt="Bold POS" class="h-7 w-auto" />
-        <span class="text-xs font-bold text-[var(--black-40)] uppercase tracking-wider">Admin</span>
-      </div>
+    <header class="bg-white border-b border-[var(--blue-10)] px-6 py-0 h-[57px] flex items-center justify-between sticky top-0 z-10">
       <div class="flex items-center gap-3">
-        <a href="index.html" class="text-xs font-bold text-[var(--black-60)] hover:text-[var(--black-100)] flex items-center gap-1">
-          <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Ver sitio
+        <img src="assets/Bold%20POS.png" alt="Bold POS" class="h-7 w-auto" />
+        <div class="w-px h-5 bg-[var(--blue-10)]"></div>
+        <span class="text-[10px] font-black uppercase tracking-widest text-[var(--black-40)]">Admin</span>
+        <span class="text-[var(--blue-20)] text-sm">/</span>
+        <span id="adminBreadcrumb" class="text-sm font-bold text-[var(--blue-100)]">Inicio</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="index.html" class="text-xs font-bold text-[var(--black-40)] hover:text-[var(--black-100)] flex items-center gap-1">
+          Ver sitio <span class="text-[10px]">↗</span>
         </a>
-        <button id="logoutBtn" class="text-xs font-bold text-[var(--black-60)] hover:text-[var(--blue-100)] flex items-center gap-1">
-          <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Salir
-        </button>
+        <div class="relative">
+          <button id="avatarBtn" class="w-8 h-8 rounded-full bg-[var(--blue-10)] text-[var(--blue-100)] text-xs font-black flex items-center justify-center hover:bg-[var(--blue-20)] transition-colors">
+            <span id="avatarInitial">?</span>
+          </button>
+          <div id="avatarDropdown" class="hidden absolute right-0 top-10 bg-white border border-[var(--blue-10)] rounded-2xl shadow-lg py-1 w-40 z-50">
+            <button id="dropdownProfile" class="w-full text-left px-4 py-2.5 text-sm font-bold text-[var(--blue-100)] hover:bg-[var(--black-10)]">Mi perfil</button>
+            <div class="border-t border-[var(--blue-10)] mx-2"></div>
+            <button id="logoutBtn" class="w-full text-left px-4 py-2.5 text-sm font-bold text-[var(--black-60)] hover:bg-[var(--black-10)]">Cerrar sesión</button>
+          </div>
+        </div>
       </div>
     </header>
 
