@@ -118,7 +118,7 @@ export async function renderAnalyticsPanel(from = null, to = null) {
         <h2 class="text-lg font-black">Analytics</h2>
         <div class="flex text-xs font-bold border border-[var(--blue-20)] rounded-xl overflow-hidden">
           <button id="analytics-tab-lecciones" class="px-3 py-1.5 bg-[var(--blue-100)] text-white">Lecciones</button>
-          <button id="analytics-tab-bodi" class="px-3 py-1.5 text-[var(--black-60)] hover:bg-[var(--background-page)]">Bodi</button>
+          <button id="analytics-tab-bodi" class="px-3 py-1.5 text-[var(--black-60)] hover:bg-[var(--background-page)]">bolbot POS</button>
         </div>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
@@ -492,7 +492,7 @@ async function renderBodiAnalytics(from = null, to = null) {
 
   const el = document.getElementById('panel-analytics')
   if (!el) return
-  el.innerHTML = '<p class="text-[var(--black-40)] text-sm p-6">Cargando analytics de Bodi...</p>'
+  el.innerHTML = '<p class="text-[var(--black-40)] text-sm p-6">Cargando analytics de bolbot POS...</p>'
 
   const { data: convs, error } = await supabase
     .from('bodi_conversations')
@@ -502,7 +502,7 @@ async function renderBodiAnalytics(from = null, to = null) {
     .limit(2000)
     .order('started_at', { ascending: false })
 
-  if (error) { el.innerHTML = '<p class="text-red-400 text-sm p-6">Error al cargar datos de Bodi.</p>'; return }
+  if (error) { el.innerHTML = '<p class="text-red-400 text-sm p-6">Error al cargar datos de bolbot POS.</p>'; return }
 
   const rows = convs || []
   const total = rows.length
@@ -573,7 +573,7 @@ async function renderBodiAnalytics(from = null, to = null) {
         <h2 class="text-lg font-black">Analytics</h2>
         <div class="flex text-xs font-bold border border-[var(--blue-20)] rounded-xl overflow-hidden">
           <button id="bodi-tab-lecciones" class="px-3 py-1.5 text-[var(--black-60)] hover:bg-[var(--background-page)]">Lecciones</button>
-          <button id="bodi-tab-bodi" class="px-3 py-1.5 bg-[var(--blue-100)] text-white">Bodi</button>
+          <button id="bodi-tab-bodi" class="px-3 py-1.5 bg-[var(--blue-100)] text-white">bolbot POS</button>
         </div>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
@@ -696,7 +696,7 @@ async function renderBodiAnalytics(from = null, to = null) {
             <div class="bodi-messages hidden px-4 pb-3 space-y-1.5" data-id="${escapeHtml(r.id)}">
               ${(r.messages || []).map(m => `
                 <div class="text-xs ${m.role === 'user' ? 'text-blue-700 bg-blue-50' : 'text-[var(--black-100)] bg-[var(--background-page)]'} rounded-lg px-3 py-1.5">
-                  <span class="font-bold">${m.role === 'user' ? 'Usuario' : 'Bodi'}:</span> ${escapeHtml(m.content || '')}
+                  <span class="font-bold">${m.role === 'user' ? 'Usuario' : 'bolbot POS'}:</span> ${escapeHtml(m.content || '')}
                 </div>`).join('')}
             </div>
           </div>`).join('')}
@@ -724,7 +724,7 @@ async function renderBodiAnalytics(from = null, to = null) {
               const preview = firstQ ? (firstQ.content.length > 65 ? firstQ.content.slice(0, 65) + '…' : firstQ.content) : '—'
               const msgRows = (r.messages || []).map(m => `
                 <div class="text-xs ${m.role === 'user' ? 'text-blue-700 bg-blue-50' : 'text-[var(--black-100)] bg-[var(--background-page)]'} rounded-lg px-3 py-1.5 mb-1">
-                  <span class="font-bold mr-1">${m.role === 'user' ? 'Usuario:' : 'Bodi:'}</span>${escapeHtml(m.content || '')}
+                  <span class="font-bold mr-1">${m.role === 'user' ? 'Usuario:' : 'bolbot POS:'}</span>${escapeHtml(m.content || '')}
                 </div>`).join('')
               return `
               <tr class="border-b border-slate-50 hover:bg-[var(--background-page)] cursor-pointer bodi-conv-row" data-id="${escapeHtml(r.id)}">

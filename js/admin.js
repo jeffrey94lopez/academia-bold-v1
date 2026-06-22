@@ -176,7 +176,7 @@ async function renderHomePanel() {
 
   document.getElementById('quickNewLesson').addEventListener('click', () => {
     switchPanel('lessons')
-    setTimeout(() => document.getElementById('addLesson')?.click(), 300)
+    setTimeout(() => document.getElementById('lessonFormModal') && openLessonForm(), 500)
   })
   document.getElementById('quickNewFaq').addEventListener('click', () => {
     switchPanel('faq')

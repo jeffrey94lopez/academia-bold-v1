@@ -62,7 +62,7 @@
     </header>
 
     <div class="flex">
-      <nav class="w-48 bg-white border-r border-[var(--blue-10)] min-h-[calc(100vh-57px)] p-3 flex flex-col gap-0.5 shrink-0">
+      <nav class="w-48 bg-white border-r border-[var(--blue-10)] h-[calc(100vh-57px)] overflow-y-auto sticky top-[57px] p-3 flex flex-col gap-0.5 shrink-0">
         <button data-panel="home" class="admin-nav w-full px-3 py-2 rounded-xl text-sm font-bold text-left">Inicio</button>
 
         <p class="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-[var(--black-40)]">Contenido</p>
@@ -84,12 +84,9 @@
         <button data-panel="analytics" class="admin-nav w-full px-3 py-2 rounded-xl text-sm font-bold text-left">Analytics</button>
         <button data-panel="activity" class="admin-nav w-full px-3 py-2 rounded-xl text-sm font-bold text-left">Registro</button>
 
-        <div class="mt-auto pt-2 border-t border-[var(--blue-10)]">
-          <button data-panel="profile" class="admin-nav w-full px-3 py-2 rounded-xl text-sm font-bold text-left text-[var(--black-60)]">Mi perfil</button>
-        </div>
       </nav>
 
-      <main class="flex-1 p-6">
+      <main class="flex-1 p-5">
         <div id="panel-home" class="hidden"></div>
         <div id="panel-lessons"></div>
         <div id="panel-faq" class="hidden"></div>
