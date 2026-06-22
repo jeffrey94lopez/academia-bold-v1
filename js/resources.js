@@ -1,20 +1,27 @@
 ﻿import { supabase } from './supabase.js'
 
-let activeSubTab = 'glossary'
+let activeSubTab = 'faq'
 
 async function renderResources() {
   const container = document.getElementById('section-resources')
   container.innerHTML = `
     <div class="h-full flex flex-col overflow-hidden">
       <div class="px-4 pt-4 pb-2 shrink-0">
-        <h2 class="text-lg font-black mb-3">Recursos</h2>
-        <div class="flex gap-2">
-          <button id="tabGlossary" class="sub-tab px-4 py-1.5 rounded-full text-xs font-bold bg-[var(--blue-100)] text-white">Glosario</button>
-          <button id="tabMaterial" class="sub-tab px-4 py-1.5 rounded-full text-xs font-bold text-[var(--black-60)] bg-[var(--black-10)]">Material de apoyo</button>
+        <h2 class="text-lg font-black mb-3">Preguntas Frecuentes</h2>
+        <div class="flex gap-2 overflow-x-auto">
+          <button id="tabFaq" class="sub-tab shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-[var(--blue-100)] text-white">Preguntas frecuentes</button>
+          <button id="tabGlossary" class="sub-tab shrink-0 px-4 py-1.5 rounded-full text-xs font-bold text-[var(--black-60)] bg-[var(--black-10)]">Glosario</button>
+          <button id="tabMaterial" class="sub-tab shrink-0 px-4 py-1.5 rounded-full text-xs font-bold text-[var(--black-60)] bg-[var(--black-10)]">Material de apoyo</button>
         </div>
       </div>
 
-      <div id="subGlossary" class="flex-1 overflow-y-auto custom-scroll px-4 pb-4">
+      <div id="subFaq" class="flex-1 overflow-y-auto custom-scroll px-4 pb-4">
+        <div id="faqList" class="space-y-2 pt-1">
+          <p class="text-[var(--black-60)] text-sm text-center py-8">Cargando preguntas...</p>
+        </div>
+      </div>
+
+      <div id="subGlossary" class="hidden flex-1 overflow-y-auto custom-scroll px-4 pb-4">
         <div class="mb-3">
           <input id="searchGlossary" type="text" placeholder="Buscar término..."
             class="w-full px-4 py-2 rounded-xl bg-[var(--background-page)] text-sm outline-none focus:ring-2 focus:ring-[var(--blue-100)]">
@@ -34,17 +41,59 @@ async function renderResources() {
 
   const { data: settingsRows } = await supabase.from('app_settings').select('key,value')
   const settings = settingsRows ? Object.fromEntries(settingsRows.map(r => [r.key, r.value])) : {}
-  if (settings.glossary_enabled === 'false') {
-    document.getElementById('tabGlossary').classList.add('hidden')
-    document.getElementById('subGlossary').classList.add('hidden')
-    if (settings.resources_enabled !== 'false') switchSubTab('material')
+
+  const faqEnabled      = settings.faq_enabled !== 'false'
+  const glossaryEnabled = settings.glossary_enabled !== 'false'
+  const materialEnabled = settings.resources_enabled !== 'false'
+
+  if (!faqEnabled) {
+    document.getElementById('tabFaq').classList.add('hidden')
+    document.getElementById('subFaq').classList.add('hidden')
   }
-  if (settings.resources_enabled === 'false') {
+  if (!glossaryEnabled) {
+    document.getElementById('tabGlossary').classList.add('hidden')
+  }
+  if (!materialEnabled) {
     document.getElementById('tabMaterial').classList.add('hidden')
   }
 
-  await Promise.all([loadGlossary(), loadMaterial()])
+  // Show first enabled tab
+  if (!faqEnabled) {
+    if (glossaryEnabled) switchSubTab('glossary')
+    else if (materialEnabled) switchSubTab('material')
+  }
+
+  await Promise.all([loadFaq(), loadGlossary(), loadMaterial()])
   bindResourceEvents()
+}
+
+async function loadFaq() {
+  const { data, error } = await supabase.from('preguntas_frecuentes').select('*').order('orden').order('created_at')
+  const list = document.getElementById('faqList')
+
+  if (error || !data?.length) {
+    list.innerHTML = '<p class="text-[var(--black-60)] text-sm text-center py-8">No hay preguntas frecuentes aún.</p>'
+    return
+  }
+
+  list.innerHTML = data.map(f => `
+    <details class="rounded-xl border border-[var(--blue-10)] bg-white overflow-hidden">
+      <summary class="flex items-center justify-between gap-2 p-3 cursor-pointer list-none font-bold text-sm select-none">
+        <span>${escapeHtml(f.pregunta)}</span>
+        <i data-lucide="chevron-down" class="w-4 h-4 shrink-0 text-[var(--black-60)] transition-transform faq-chevron"></i>
+      </summary>
+      <div class="px-3 pb-3 text-xs text-[var(--black-60)] border-t border-[var(--blue-10)] pt-2 mt-0">${escapeHtml(f.respuesta)}</div>
+    </details>
+  `).join('')
+
+  lucide.createIcons()
+
+  list.querySelectorAll('details').forEach(d => {
+    d.addEventListener('toggle', () => {
+      const icon = d.querySelector('.faq-chevron')
+      if (icon) icon.style.transform = d.open ? 'rotate(180deg)' : ''
+    })
+  })
 }
 
 async function loadGlossary() {
@@ -103,16 +152,21 @@ async function loadMaterial() {
 }
 
 function bindResourceEvents() {
+  document.getElementById('tabFaq').addEventListener('click', () => switchSubTab('faq'))
   document.getElementById('tabGlossary').addEventListener('click', () => switchSubTab('glossary'))
   document.getElementById('tabMaterial').addEventListener('click', () => switchSubTab('material'))
 }
 
 function switchSubTab(tab) {
   activeSubTab = tab
+  document.getElementById('subFaq').classList.toggle('hidden', tab !== 'faq')
   document.getElementById('subGlossary').classList.toggle('hidden', tab !== 'glossary')
   document.getElementById('subMaterial').classList.toggle('hidden', tab !== 'material')
-  document.getElementById('tabGlossary').className = `sub-tab px-4 py-1.5 rounded-full text-xs font-bold ${tab === 'glossary' ? 'bg-[var(--blue-100)] text-white' : 'text-[var(--black-60)] bg-[var(--black-10)]'}`
-  document.getElementById('tabMaterial').className = `sub-tab px-4 py-1.5 rounded-full text-xs font-bold ${tab === 'material' ? 'bg-[var(--blue-100)] text-white' : 'text-[var(--black-60)] bg-[var(--black-10)]'}`
+  const active   = 'sub-tab shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-[var(--blue-100)] text-white'
+  const inactive = 'sub-tab shrink-0 px-4 py-1.5 rounded-full text-xs font-bold text-[var(--black-60)] bg-[var(--black-10)]'
+  document.getElementById('tabFaq').className      = tab === 'faq'      ? active : inactive
+  document.getElementById('tabGlossary').className = tab === 'glossary' ? active : inactive
+  document.getElementById('tabMaterial').className = tab === 'material' ? active : inactive
 }
 
 function escapeHtml(text) {
