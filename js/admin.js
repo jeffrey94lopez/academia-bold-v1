@@ -1653,7 +1653,7 @@ function renderMaterialGrid(files, folders = []) {
             data-url="${escapeHtml(f.url)}" data-name="${escapeHtml(f.name)}" aria-label="Copiar URL">
             <i data-lucide="link" class="w-3.5 h-3.5"></i>
           </button>
-          <button class="delete-file bg-[var(--blue-10)]0 text-white rounded-lg p-1.5"
+          <button class="delete-file bg-red-500 text-white rounded-lg p-1.5"
             data-path="${escapeHtml(f.name)}" aria-label="Eliminar ${escapeHtml(displayName(f.name.split('/').pop()))}">
             <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
           </button>
@@ -2445,7 +2445,7 @@ function displayName(name) {
 function showToast(msg, type = 'success') {
   const t = document.createElement('div')
   t.className = `fixed bottom-4 right-4 z-[100] px-4 py-3 rounded-xl text-sm font-medium shadow-lg text-white ${
-    type === 'error' ? 'bg-[var(--blue-10)]0' : 'bg-emerald-500'
+    type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
   }`
   t.setAttribute('role', 'status')
   t.setAttribute('aria-live', 'polite')
