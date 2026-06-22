@@ -1758,17 +1758,19 @@ async function renderMaterialApoyoPanel() {
 
   el.innerHTML = `
     <div class="flex items-center justify-between mb-4">
-      <div>
+      <div class="flex items-center gap-2">
         <h2 class="text-lg font-black">Material de apoyo</h2>
-        <p class="text-xs text-[var(--black-40)] mt-0.5">Recursos visibles para los usuarios en la sección Recursos.</p>
+        <span class="text-xs font-bold text-[var(--black-40)]">${(data || []).length} recursos</span>
       </div>
       <button id="addMatApoyo" class="bg-[var(--blue-100)] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:scale-105 transition-transform">
         <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nuevo recurso
       </button>
     </div>
+    <input id="searchMatApoyo" type="text" placeholder="🔍  Buscar recurso..."
+      class="w-full px-4 py-2.5 rounded-xl border border-[var(--blue-20)] bg-white text-sm outline-none focus:border-[var(--blue-100)] mb-3">
     <div class="space-y-2">
       ${(data || []).map(m => `
-        <div class="bg-white rounded-xl border border-[var(--blue-10)] p-3 flex items-center gap-3">
+        <div class="mat-apoyo-item bg-white rounded-xl border border-[var(--blue-10)] p-3 flex items-center gap-3" data-titulo="${escapeHtml(m.titulo)}">
           <div class="w-10 h-10 rounded-xl bg-[var(--black-10)] flex items-center justify-center shrink-0">
             <i data-lucide="${escapeHtml(iconMap[m.tipo] || 'file')}" class="w-5 h-5 ${escapeHtml(colorMap[m.tipo] || 'text-[var(--black-60)]')}"></i>
           </div>
@@ -1777,14 +1779,10 @@ async function renderMaterialApoyoPanel() {
             <p class="text-xs text-[var(--black-40)] uppercase font-bold">${escapeHtml(m.tipo)}</p>
           </div>
           <div class="flex gap-1 shrink-0">
-            <button data-id="${escapeHtml(String(m.id))}" data-titulo="${escapeHtml(m.titulo)}" data-url="${escapeHtml(m.url)}" data-tipo="${escapeHtml(m.tipo)}"
-              class="edit-mat-apoyo p-1.5 rounded-lg hover:bg-[var(--black-10)] text-[var(--black-60)]" aria-label="Editar ${escapeHtml(m.titulo)}">
-              <i data-lucide="edit-2" class="w-4 h-4"></i>
-            </button>
-            <button data-id="${escapeHtml(String(m.id))}" data-titulo="${escapeHtml(m.titulo)}"
-              class="del-mat-apoyo p-1.5 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-60)] hover:text-[var(--blue-100)]" aria-label="Eliminar ${escapeHtml(m.titulo)}">
-              <i data-lucide="trash-2" class="w-4 h-4"></i>
-            </button>
+            <button data-id="${m.id}" data-titulo="${escapeHtml(m.titulo)}" data-url="${escapeHtml(m.url)}" data-tipo="${m.tipo}"
+              class="edit-mat-apoyo px-3 py-1.5 text-xs font-bold rounded-lg bg-[var(--blue-10)] text-[var(--blue-100)] hover:bg-[var(--blue-20)]">Editar</button>
+            <button data-id="${m.id}" data-titulo="${escapeHtml(m.titulo)}"
+              class="del-mat-apoyo px-3 py-1.5 text-xs font-bold rounded-lg bg-[var(--coral-10)] text-[var(--coral-100)] hover:bg-[var(--coral-30)]">Eliminar</button>
           </div>
         </div>
       `).join('') || '<p class="text-[var(--black-40)] text-sm py-4">No hay recursos. Crea el primero.</p>'}
@@ -1814,6 +1812,13 @@ async function renderMaterialApoyoPanel() {
     </div>
   `
   lucide.createIcons()
+
+  document.getElementById('searchMatApoyo')?.addEventListener('input', e => {
+    const q = e.target.value.toLowerCase()
+    document.querySelectorAll('.mat-apoyo-item').forEach(item => {
+      item.style.display = item.dataset.titulo?.toLowerCase().includes(q) ? '' : 'none'
+    })
+  })
 
   const showForm = () => document.getElementById('matApoyoForm').classList.remove('hidden')
   const hideForm = () => document.getElementById('matApoyoForm').classList.add('hidden')
