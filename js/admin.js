@@ -1098,10 +1098,31 @@ async function embedGlosarioTerm(id, termino, definicion) {
 async function renderFaqPanel() {
   const el = document.getElementById('panel-faq')
   const { data } = await supabase.from('preguntas_frecuentes').select('*').order('orden').order('created_at')
+  const items = data || []
+
+  function renderList(list) {
+    return list.length ? list.map(f => `
+      <div data-id="${f.id}" class="faq-item bg-white border border-[var(--blue-10)] rounded-xl px-4 py-3 flex items-start gap-3">
+        <div class="flex-1 min-w-0">
+          <p class="font-bold text-sm text-[var(--blue-100)]">${escapeHtml(f.pregunta)}</p>
+          <p class="text-xs text-[var(--black-60)] mt-0.5 line-clamp-2">${escapeHtml(f.respuesta)}</p>
+        </div>
+        <div class="flex gap-1.5 shrink-0">
+          <button data-id="${f.id}" data-pregunta="${escapeHtml(f.pregunta)}" data-respuesta="${escapeHtml(f.respuesta)}"
+            class="edit-faq px-3 py-1.5 text-xs font-bold rounded-lg bg-[var(--blue-10)] text-[var(--blue-100)] hover:bg-[var(--blue-20)]">Editar</button>
+          <button data-id="${f.id}" data-pregunta="${escapeHtml(f.pregunta)}"
+            class="del-faq px-3 py-1.5 text-xs font-bold rounded-lg bg-[var(--coral-10)] text-[var(--coral-100)] hover:bg-[var(--coral-30)]">Eliminar</button>
+        </div>
+      </div>
+    `).join('') : '<p class="text-[var(--black-40)] text-sm text-center py-6">No hay preguntas aún.</p>'
+  }
 
   el.innerHTML = `
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-lg font-black">Preguntas Frecuentes</h2>
+      <div class="flex items-center gap-2">
+        <h2 class="text-lg font-black">Preguntas Frecuentes</h2>
+        <span class="text-xs font-bold text-[var(--black-40)]">${items.length} preguntas</span>
+      </div>
       <div class="flex gap-2">
         <button id="reembedAllFaq" class="border border-[var(--blue-20)] text-[var(--blue-100)] px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:bg-[var(--blue-10)] transition-colors">
           <i data-lucide="brain" class="w-3.5 h-3.5"></i> Re-embedear todo
@@ -1111,27 +1132,16 @@ async function renderFaqPanel() {
         </button>
       </div>
     </div>
-    <div class="space-y-2">
-      ${(data || []).map(f => `
-        <div class="bg-white rounded-xl border border-[var(--blue-10)] p-3 flex items-start justify-between gap-3">
-          <div class="min-w-0">
-            <p class="font-bold text-sm text-[var(--blue-100)]">${escapeHtml(f.pregunta)}</p>
-            <p class="text-xs text-[var(--black-60)] mt-0.5 line-clamp-2">${escapeHtml(f.respuesta)}</p>
-          </div>
-          <div class="flex gap-1 shrink-0">
-            <button data-id="${f.id}" data-pregunta="${escapeHtml(f.pregunta)}" data-respuesta="${escapeHtml(f.respuesta)}" class="edit-faq p-1.5 rounded-lg hover:bg-[var(--black-10)] text-[var(--black-60)]">
-              <i data-lucide="edit-2" class="w-4 h-4"></i>
-            </button>
-            <button data-id="${f.id}" data-pregunta="${escapeHtml(f.pregunta)}" class="del-faq p-1.5 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-60)] hover:text-[var(--blue-100)]">
-              <i data-lucide="trash-2" class="w-4 h-4"></i>
-            </button>
-          </div>
-        </div>
-      `).join('') || '<p class="text-[var(--black-40)] text-sm">No hay preguntas aún.</p>'}
+    <input id="searchFaq" type="text" placeholder="🔍  Buscar pregunta..."
+      class="w-full px-4 py-2.5 rounded-xl border border-[var(--blue-20)] bg-white text-sm outline-none focus:border-[var(--blue-100)] mb-3">
+    <div id="faqList" class="space-y-2">
+      ${renderList(items)}
     </div>
-    <div id="faqForm" class="hidden mt-4 bg-white rounded-2xl border border-[var(--blue-20)] p-4">
+    <div id="faqFormInline" class="hidden mt-3 bg-white rounded-2xl border border-[var(--blue-20)] p-4">
       <input type="hidden" id="faqId">
-      <input id="faqPregunta" placeholder="Pregunta" required class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] mb-2">
+      <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Pregunta</label>
+      <input id="faqPregunta" placeholder="Pregunta frecuente" required class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] mb-2">
+      <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Respuesta</label>
       <textarea id="faqRespuesta" placeholder="Respuesta" rows="3" required class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] resize-none mb-2"></textarea>
       <p id="faqFormError" class="hidden text-red-500 text-xs mb-2"></p>
       <div class="flex gap-2">
@@ -1142,45 +1152,39 @@ async function renderFaqPanel() {
   `
   lucide.createIcons()
 
-  document.getElementById('reembedAllFaq').addEventListener('click', async () => {
-    const btn = document.getElementById('reembedAllFaq')
-    if (!data?.length) return
-    btn.disabled = true
-    btn.innerHTML = '<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Embeddando...'
-    lucide.createIcons()
-    let ok = 0
-    for (const f of data) {
-      const success = await embedFaqItem(f.id, f.pregunta, f.respuesta)
-      if (success) ok++
-    }
-    btn.disabled = false
-    btn.innerHTML = '<i data-lucide="brain" class="w-3.5 h-3.5"></i> Re-embedear todo'
-    lucide.createIcons()
-    showToast(`${ok}/${data.length} preguntas embeddadas.`, ok === data.length ? 'success' : 'error')
+  document.getElementById('searchFaq').addEventListener('input', e => {
+    const q = e.target.value.toLowerCase()
+    const filtered = items.filter(f => f.pregunta.toLowerCase().includes(q) || f.respuesta.toLowerCase().includes(q))
+    document.getElementById('faqList').innerHTML = renderList(filtered)
+    bindFaqActions()
   })
 
-  document.getElementById('addFaq').addEventListener('click', () => {
-    document.getElementById('faqId').value = ''
-    document.getElementById('faqPregunta').value = ''
-    document.getElementById('faqRespuesta').value = ''
+  function showFaqForm(id = '', pregunta = '', respuesta = '') {
+    document.getElementById('faqId').value = id
+    document.getElementById('faqPregunta').value = pregunta
+    document.getElementById('faqRespuesta').value = respuesta
     document.getElementById('faqFormError').classList.add('hidden')
-    document.getElementById('faqForm').classList.remove('hidden')
-  })
-  document.querySelectorAll('.edit-faq').forEach(b => b.addEventListener('click', () => {
-    document.getElementById('faqId').value = b.dataset.id
-    document.getElementById('faqPregunta').value = b.dataset.pregunta
-    document.getElementById('faqRespuesta').value = b.dataset.respuesta
-    document.getElementById('faqFormError').classList.add('hidden')
-    document.getElementById('faqForm').classList.remove('hidden')
-  }))
-  document.querySelectorAll('.del-faq').forEach(b => b.addEventListener('click', async () => {
-    if (!confirm(`¿Eliminar "${b.dataset.pregunta}"?`)) return
-    await supabase.from('preguntas_frecuentes').delete().eq('id', b.dataset.id)
-    logActivity('delete', 'preguntas_frecuentes', b.dataset.pregunta)
-    renderFaqPanel()
-  }))
+    document.getElementById('faqFormInline').classList.remove('hidden')
+    document.getElementById('faqPregunta').focus()
+    document.querySelectorAll('.faq-item').forEach(el => el.classList.remove('!border-[var(--blue-100)]'))
+    if (id) document.querySelector(`.faq-item[data-id="${id}"]`)?.classList.add('!border-[var(--blue-100)]')
+  }
+
+  function bindFaqActions() {
+    document.querySelectorAll('.edit-faq').forEach(b => b.addEventListener('click', () =>
+      showFaqForm(b.dataset.id, b.dataset.pregunta, b.dataset.respuesta)))
+    document.querySelectorAll('.del-faq').forEach(b => b.addEventListener('click', async () => {
+      if (!confirm(`¿Eliminar "${b.dataset.pregunta}"?`)) return
+      await supabase.from('preguntas_frecuentes').delete().eq('id', b.dataset.id)
+      logActivity('delete', 'preguntas_frecuentes', b.dataset.pregunta)
+      renderFaqPanel()
+    }))
+  }
+
+  document.getElementById('addFaq').addEventListener('click', () => showFaqForm())
   document.getElementById('cancelFaq').addEventListener('click', () => {
-    document.getElementById('faqForm').classList.add('hidden')
+    document.getElementById('faqFormInline').classList.add('hidden')
+    document.querySelectorAll('.faq-item').forEach(el => el.classList.remove('!border-[var(--blue-100)]'))
   })
   document.getElementById('saveFaq').addEventListener('click', async () => {
     const btn = document.getElementById('saveFaq')
@@ -1189,30 +1193,32 @@ async function renderFaqPanel() {
     const id = document.getElementById('faqId').value
     const pregunta = document.getElementById('faqPregunta').value.trim()
     const respuesta = document.getElementById('faqRespuesta').value.trim()
-    if (!pregunta || !respuesta) {
-      errorEl.textContent = 'La pregunta y respuesta son requeridas.'
-      errorEl.classList.remove('hidden')
-      return
-    }
-    btn.disabled = true
-    btn.textContent = 'Guardando...'
-    const payload = { pregunta, respuesta }
+    if (!pregunta || !respuesta) { errorEl.textContent = 'La pregunta y respuesta son requeridas.'; errorEl.classList.remove('hidden'); return }
+    btn.disabled = true; btn.textContent = 'Guardando...'
     let savedId = id
     const { data: saved, error } = id
-      ? await supabase.from('preguntas_frecuentes').update(payload).eq('id', id).select('id').single()
-      : await supabase.from('preguntas_frecuentes').insert(payload).select('id').single()
-    if (error) {
-      errorEl.textContent = 'Error al guardar: ' + error.message
-      errorEl.classList.remove('hidden')
-      btn.disabled = false
-      btn.textContent = 'Guardar'
-      return
-    }
+      ? await supabase.from('preguntas_frecuentes').update({ pregunta, respuesta }).eq('id', id).select('id').single()
+      : await supabase.from('preguntas_frecuentes').insert({ pregunta, respuesta }).select('id').single()
+    if (error) { errorEl.textContent = 'Error: ' + error.message; errorEl.classList.remove('hidden'); btn.disabled = false; btn.textContent = 'Guardar'; return }
     if (saved?.id) savedId = saved.id
     logActivity(id ? 'update' : 'create', 'preguntas_frecuentes', pregunta)
     embedFaqItem(savedId, pregunta, respuesta)
     renderFaqPanel()
   })
+
+  document.getElementById('reembedAllFaq').addEventListener('click', async () => {
+    const btn = document.getElementById('reembedAllFaq')
+    if (!items.length) return
+    btn.disabled = true; btn.innerHTML = '<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Embeddando...'
+    lucide.createIcons()
+    let ok = 0
+    for (const f of items) { if (await embedFaqItem(f.id, f.pregunta, f.respuesta)) ok++ }
+    btn.disabled = false; btn.innerHTML = '<i data-lucide="brain" class="w-3.5 h-3.5"></i> Re-embedear todo'
+    lucide.createIcons()
+    showToast(`${ok}/${items.length} preguntas embeddadas.`, ok === items.length ? 'success' : 'error')
+  })
+
+  bindFaqActions()
 }
 
 async function renderGlossaryPanel() {
