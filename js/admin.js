@@ -1218,10 +1218,31 @@ async function renderFaqPanel() {
 async function renderGlossaryPanel() {
   const el = document.getElementById('panel-glossary')
   const { data } = await supabase.from('glosario').select('*').order('termino')
+  const items = data || []
+
+  function renderList(list) {
+    return list.length ? list.map(g => `
+      <div data-id="${g.id}" class="glos-item bg-white border border-[var(--blue-10)] rounded-xl px-4 py-3 flex items-center gap-3">
+        <div class="flex-1 min-w-0">
+          <p class="font-bold text-sm text-[var(--blue-100)]">${escapeHtml(g.termino)}</p>
+          <p class="text-xs text-[var(--black-60)] mt-0.5">${escapeHtml(g.definicion)}</p>
+        </div>
+        <div class="flex gap-1.5 shrink-0">
+          <button data-id="${g.id}" data-term="${escapeHtml(g.termino)}" data-def="${escapeHtml(g.definicion)}"
+            class="edit-term px-3 py-1.5 text-xs font-bold rounded-lg bg-[var(--blue-10)] text-[var(--blue-100)] hover:bg-[var(--blue-20)]">Editar</button>
+          <button data-id="${g.id}"
+            class="del-term px-3 py-1.5 text-xs font-bold rounded-lg bg-[var(--coral-10)] text-[var(--coral-100)] hover:bg-[var(--coral-30)]">Eliminar</button>
+        </div>
+      </div>
+    `).join('') : '<p class="text-[var(--black-40)] text-sm text-center py-6">No hay términos aún.</p>'
+  }
 
   el.innerHTML = `
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-lg font-black">Glosario</h2>
+      <div class="flex items-center gap-2">
+        <h2 class="text-lg font-black">Glosario</h2>
+        <span class="text-xs font-bold text-[var(--black-40)]">${items.length} términos</span>
+      </div>
       <div class="flex gap-2">
         <button id="reembedAllGlossary" class="border border-[var(--blue-20)] text-[var(--blue-100)] px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:bg-[var(--blue-10)] transition-colors">
           <i data-lucide="brain" class="w-3.5 h-3.5"></i> Re-embedear todo
@@ -1231,27 +1252,16 @@ async function renderGlossaryPanel() {
         </button>
       </div>
     </div>
-    <div class="space-y-2">
-      ${(data || []).map(g => `
-        <div class="bg-white rounded-xl border border-[var(--blue-10)] p-3 flex items-start justify-between gap-3">
-          <div>
-            <p class="font-bold text-sm text-[var(--blue-100)]">${escapeHtml(g.termino)}</p>
-            <p class="text-xs text-[var(--black-60)] mt-0.5">${escapeHtml(g.definicion)}</p>
-          </div>
-          <div class="flex gap-1 shrink-0">
-            <button data-id="${g.id}" data-term="${escapeHtml(g.termino)}" data-def="${escapeHtml(g.definicion)}" class="edit-term p-1.5 rounded-lg hover:bg-[var(--black-10)] text-[var(--black-60)]" aria-label="Editar término ${escapeHtml(g.termino)}">
-              <i data-lucide="edit-2" class="w-4 h-4"></i>
-            </button>
-            <button data-id="${g.id}" class="del-term p-1.5 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-60)] hover:text-[var(--blue-100)]" aria-label="Eliminar término ${escapeHtml(g.termino)}">
-              <i data-lucide="trash-2" class="w-4 h-4"></i>
-            </button>
-          </div>
-        </div>
-      `).join('') || '<p class="text-[var(--black-40)] text-sm">No hay términos aún.</p>'}
+    <input id="searchGlosario" type="text" placeholder="🔍  Buscar término..."
+      class="w-full px-4 py-2.5 rounded-xl border border-[var(--blue-20)] bg-white text-sm outline-none focus:border-[var(--blue-100)] mb-3">
+    <div id="glosarioList" class="space-y-2">
+      ${renderList(items)}
     </div>
-    <div id="termForm" class="hidden mt-4 bg-white rounded-2xl border border-[var(--blue-20)] p-4">
+    <div id="termFormInline" class="hidden mt-3 bg-white rounded-2xl border border-[var(--blue-20)] p-4">
       <input type="hidden" id="termId">
+      <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Término</label>
       <input id="termTermino" placeholder="Término" required class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] mb-2">
+      <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Definición</label>
       <textarea id="termDefinicion" placeholder="Definición" rows="2" required class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] resize-none mb-2"></textarea>
       <div class="flex gap-2">
         <button id="cancelTerm" class="flex-1 py-2 rounded-xl border border-[var(--blue-20)] text-sm font-bold text-[var(--black-60)]">Cancelar</button>
@@ -1261,66 +1271,69 @@ async function renderGlossaryPanel() {
   `
   lucide.createIcons()
 
-  document.getElementById('reembedAllGlossary').addEventListener('click', async () => {
-    const btn = document.getElementById('reembedAllGlossary')
-    if (!data?.length) return
-    btn.disabled = true
-    btn.innerHTML = '<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Embeddando...'
-    lucide.createIcons()
-    let ok = 0
-    for (const g of data) {
-      const success = await embedGlosarioTerm(g.id, g.termino, g.definicion)
-      if (success) ok++
-    }
-    btn.disabled = false
-    btn.innerHTML = '<i data-lucide="brain" class="w-3.5 h-3.5"></i> Re-embedear todo'
-    lucide.createIcons()
-    showToast(`${ok}/${data.length} términos embeddados.`, ok === data.length ? 'success' : 'error')
+  document.getElementById('searchGlosario').addEventListener('input', e => {
+    const q = e.target.value.toLowerCase()
+    const filtered = items.filter(g => g.termino.toLowerCase().includes(q) || g.definicion.toLowerCase().includes(q))
+    document.getElementById('glosarioList').innerHTML = renderList(filtered)
+    bindGlosarioActions()
   })
 
-  document.getElementById('addTerm').addEventListener('click', () => {
-    document.getElementById('termId').value = ''
-    document.getElementById('termTermino').value = ''
-    document.getElementById('termDefinicion').value = ''
-    document.getElementById('termForm').classList.remove('hidden')
-  })
-  document.querySelectorAll('.edit-term').forEach(b => b.addEventListener('click', () => {
-    document.getElementById('termId').value = b.dataset.id
-    document.getElementById('termTermino').value = b.dataset.term
-    document.getElementById('termDefinicion').value = b.dataset.def
-    document.getElementById('termForm').classList.remove('hidden')
-  }))
-  document.querySelectorAll('.del-term').forEach(b => b.addEventListener('click', async () => {
-    if (!confirm('¿Eliminar este término?')) return
-    await supabase.from('glosario').delete().eq('id', b.dataset.id)
-    renderGlossaryPanel()
-  }))
+  function showForm(id = '', term = '', def = '') {
+    document.getElementById('termId').value = id
+    document.getElementById('termTermino').value = term
+    document.getElementById('termDefinicion').value = def
+    document.getElementById('termFormInline').classList.remove('hidden')
+    document.getElementById('termTermino').focus()
+    document.querySelectorAll('.glos-item').forEach(el => el.classList.remove('!border-[var(--blue-100)]'))
+    if (id) document.querySelector(`.glos-item[data-id="${id}"]`)?.classList.add('!border-[var(--blue-100)]')
+  }
+
+  function bindGlosarioActions() {
+    document.querySelectorAll('.edit-term').forEach(b => b.addEventListener('click', () =>
+      showForm(b.dataset.id, b.dataset.term, b.dataset.def)))
+    document.querySelectorAll('.del-term').forEach(b => b.addEventListener('click', async () => {
+      if (!confirm('¿Eliminar este término?')) return
+      await supabase.from('glosario').delete().eq('id', b.dataset.id)
+      renderGlossaryPanel()
+    }))
+  }
+
+  document.getElementById('addTerm').addEventListener('click', () => showForm())
   document.getElementById('cancelTerm').addEventListener('click', () => {
-    document.getElementById('termForm').classList.add('hidden')
+    document.getElementById('termFormInline').classList.add('hidden')
+    document.querySelectorAll('.glos-item').forEach(el => el.classList.remove('!border-[var(--blue-100)]'))
   })
   document.getElementById('saveTerm').addEventListener('click', async () => {
     const btn = document.getElementById('saveTerm')
-    btn.disabled = true
-    btn.textContent = 'Guardando...'
+    btn.disabled = true; btn.textContent = 'Guardando...'
     const id = document.getElementById('termId').value
     const payload = {
-      termino: document.getElementById('termTermino').value,
-      definicion: document.getElementById('termDefinicion').value,
+      termino:    document.getElementById('termTermino').value.trim(),
+      definicion: document.getElementById('termDefinicion').value.trim(),
     }
     let savedId = id
     const { data: saved, error } = id
       ? await supabase.from('glosario').update(payload).eq('id', id).select('id').single()
       : await supabase.from('glosario').insert(payload).select('id').single()
-    if (error) {
-      alert('Error al guardar: ' + error.message)
-      btn.disabled = false
-      btn.textContent = 'Guardar'
-      return
-    }
+    if (error) { alert('Error al guardar: ' + error.message); btn.disabled = false; btn.textContent = 'Guardar'; return }
     if (saved?.id) savedId = saved.id
     embedGlosarioTerm(savedId, payload.termino, payload.definicion)
     renderGlossaryPanel()
   })
+
+  document.getElementById('reembedAllGlossary').addEventListener('click', async () => {
+    const btn = document.getElementById('reembedAllGlossary')
+    if (!items.length) return
+    btn.disabled = true; btn.innerHTML = '<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Embeddando...'
+    lucide.createIcons()
+    let ok = 0
+    for (const g of items) { if (await embedGlosarioTerm(g.id, g.termino, g.definicion)) ok++ }
+    btn.disabled = false; btn.innerHTML = '<i data-lucide="brain" class="w-3.5 h-3.5"></i> Re-embedear todo'
+    lucide.createIcons()
+    showToast(`${ok}/${items.length} términos embeddados.`, ok === items.length ? 'success' : 'error')
+  })
+
+  bindGlosarioActions()
 }
 
 async function cascadeUpdateUrl(oldUrl, newUrl) {
