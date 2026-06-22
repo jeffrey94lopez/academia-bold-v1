@@ -176,7 +176,7 @@ async function renderHomePanel() {
 
   document.getElementById('quickNewLesson').addEventListener('click', () => {
     switchPanel('lessons')
-    setTimeout(() => document.getElementById('newLessonBtn')?.click(), 300)
+    setTimeout(() => document.getElementById('addLesson')?.click(), 300)
   })
   document.getElementById('quickNewFaq').addEventListener('click', () => {
     switchPanel('faq')
