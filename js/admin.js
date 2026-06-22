@@ -65,9 +65,11 @@ async function init() {
     btn.addEventListener('click', () => switchPanel(btn.dataset.panel))
   })
 
-  const savedPanel = localStorage.getItem('admin_panel') || 'lessons'
+  const savedPanel = localStorage.getItem('admin_panel') || 'home'
   switchPanel(savedPanel)
 }
+
+function renderHomePanel() {}
 
 function switchPanel(panel) {
   localStorage.setItem('admin_panel', panel)
@@ -75,11 +77,22 @@ function switchPanel(panel) {
   document.getElementById(`panel-${panel}`).classList.remove('hidden')
   document.querySelectorAll('.admin-nav').forEach(b => {
     const active = b.dataset.panel === panel
-    b.classList.toggle('text-[var(--blue-100)]', active)
-    b.classList.toggle('bg-[var(--blue-10)]', active)
-    b.classList.toggle('text-[var(--black-60)]', !active)
+    b.classList.toggle('bg-[var(--blue-100)]', active)
+    b.classList.toggle('text-white', active)
+    b.classList.toggle('text-[var(--blue-100)]', !active && b.dataset.panel !== 'profile')
+    b.classList.toggle('hover:bg-[var(--black-10)]', !active)
   })
+  // breadcrumb
+  const labels = {
+    home: 'Inicio', lessons: 'Lecciones', faq: 'P. Frecuentes',
+    glossary: 'Glosario', material: 'Material', 'material-apoyo': 'Mat. de apoyo',
+    suggestions: 'Sugerencias', results: 'Resultados', analytics: 'Analytics',
+    activity: 'Registro', profile: 'Mi perfil'
+  }
+  const bc = document.getElementById('adminBreadcrumb')
+  if (bc) bc.textContent = labels[panel] || panel
 
+  if (panel === 'home') renderHomePanel()
   if (panel === 'lessons') renderLessonsPanel()
   if (panel === 'faq') renderFaqPanel()
   if (panel === 'glossary') renderGlossaryPanel()

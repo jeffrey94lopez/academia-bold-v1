@@ -52,40 +52,35 @@
     </header>
 
     <div class="flex">
-      <nav class="w-48 bg-white border-r border-[var(--blue-10)] min-h-[calc(100vh-57px)] p-3 space-y-1 shrink-0">
-        <button data-panel="lessons" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--blue-100)] bg-[var(--blue-10)]">
-          <i data-lucide="book-open" class="w-4 h-4"></i> Lecciones
-        </button>
-        <button data-panel="faq" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--black-60)] hover:bg-[var(--black-10)]">
-          <i data-lucide="help-circle" class="w-4 h-4"></i> P. Frecuentes
-        </button>
-        <button data-panel="glossary" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--black-60)] hover:bg-[var(--black-10)]">
-          <i data-lucide="book" class="w-4 h-4"></i> Glosario
-        </button>
-        <button data-panel="material" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--black-60)] hover:bg-[var(--black-10)]">
-          <i data-lucide="paperclip" class="w-4 h-4"></i> Material
-        </button>
-        <button data-panel="material-apoyo" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--black-60)] hover:bg-[var(--black-10)]">
-          <i data-lucide="link" class="w-4 h-4"></i> Mat. de apoyo
-        </button>
-        <button data-panel="suggestions" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--black-60)] hover:bg-[var(--black-10)]">
-          <i data-lucide="message-square" class="w-4 h-4"></i> Sugerencias Bot
-        </button>
-        <button data-panel="results" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--black-60)] hover:bg-[var(--black-10)]">
-          <i data-lucide="bar-chart-2" class="w-4 h-4"></i> Resultados
-        </button>
-        <button data-panel="analytics" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--black-60)] hover:bg-[var(--black-10)]">
-          <i data-lucide="trending-up" class="w-4 h-4"></i> Analytics
-        </button>
-        <button data-panel="activity" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--black-60)] hover:bg-[var(--black-10)]">
-          <i data-lucide="clock" class="w-4 h-4"></i> Registro
-        </button>
-        <button data-panel="profile" class="admin-nav w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--black-60)] hover:bg-[var(--black-10)]">
-          <i data-lucide="user" class="w-4 h-4"></i> Mi perfil
-        </button>
+      <nav class="w-48 bg-white border-r border-[var(--blue-10)] min-h-[calc(100vh-57px)] p-3 flex flex-col gap-0.5 shrink-0">
+        <button data-panel="home" class="admin-nav w-full px-3 py-2 rounded-xl text-sm font-bold text-left">Inicio</button>
+
+        <p class="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-[var(--black-40)]">Contenido</p>
+        <button data-panel="lessons" class="admin-nav w-full px-3 py-2 rounded-xl text-sm font-bold text-left">Lecciones</button>
+        <button data-panel="faq" class="admin-nav w-full px-3 py-2 rounded-xl text-sm font-bold text-left">P. Frecuentes</button>
+        <button data-panel="glossary" class="admin-nav w-full px-3 py-2 rounded-xl text-sm font-bold text-left">Glosario</button>
+        <button data-panel="material" class="admin-nav w-full px-3 py-2 rounded-xl text-sm font-bold text-left">Material</button>
+
+        <hr class="border-[var(--blue-10)] my-1">
+
+        <p class="px-3 pt-1 pb-1 text-[9px] font-black uppercase tracking-widest text-[var(--black-40)]">bolbot POS</p>
+        <button data-panel="material-apoyo" class="admin-nav w-full px-3 py-2 rounded-xl text-sm font-bold text-left">Mat. de apoyo</button>
+        <button data-panel="suggestions" class="admin-nav w-full px-3 py-2 rounded-xl text-sm font-bold text-left">Sugerencias</button>
+
+        <hr class="border-[var(--blue-10)] my-1">
+
+        <p class="px-3 pt-1 pb-1 text-[9px] font-black uppercase tracking-widest text-[var(--black-40)]">Datos</p>
+        <button data-panel="results" class="admin-nav w-full px-3 py-2 rounded-xl text-sm font-bold text-left">Resultados</button>
+        <button data-panel="analytics" class="admin-nav w-full px-3 py-2 rounded-xl text-sm font-bold text-left">Analytics</button>
+        <button data-panel="activity" class="admin-nav w-full px-3 py-2 rounded-xl text-sm font-bold text-left">Registro</button>
+
+        <div class="mt-auto pt-2 border-t border-[var(--blue-10)]">
+          <button data-panel="profile" class="admin-nav w-full px-3 py-2 rounded-xl text-sm font-bold text-left text-[var(--black-60)]">Mi perfil</button>
+        </div>
       </nav>
 
       <main class="flex-1 p-6">
+        <div id="panel-home" class="hidden"></div>
         <div id="panel-lessons"></div>
         <div id="panel-faq" class="hidden"></div>
         <div id="panel-glossary" class="hidden"></div>
