@@ -16,8 +16,10 @@ async function renderResources() {
       </div>
 
       <div id="subFaq" class="flex-1 overflow-y-auto custom-scroll px-4 pb-4">
-        <input id="faqStudentSearch" type="text" placeholder="Buscar pregunta..."
-          class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] mb-3 bg-white mt-1">
+        <div class="mb-3">
+          <input id="faqStudentSearch" type="text" placeholder="Buscar pregunta..."
+            class="w-full px-4 py-2 rounded-xl bg-[var(--background-page)] text-sm outline-none focus:ring-2 focus:ring-[var(--blue-100)]">
+        </div>
         <div id="faqList" class="space-y-2">
           <p class="text-[var(--black-60)] text-sm text-center py-8">Cargando preguntas...</p>
         </div>
