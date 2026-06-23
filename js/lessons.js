@@ -325,6 +325,21 @@ async function renderLessons() {
   showScreen('categories')
   renderAccordion()
   renderDeskContent()
+
+  window.openLessonById = (id) => {
+    const lesson = lessons.find(l => String(l.id) === String(id))
+    if (!lesson) return
+    activeLesson = lesson
+    // Desktop
+    renderAccordion()
+    renderDeskContent()
+    // Mobile
+    const titleSpan = document.getElementById('ls-mob-lesson-title')
+    if (titleSpan) titleSpan.textContent = lesson.titulo
+    const mobContent = document.getElementById('ls-mob-content')
+    if (mobContent) renderLessonContent(mobContent, lesson)
+    showScreen('content')
+  }
 }
 
 renderLessons()
