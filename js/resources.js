@@ -15,11 +15,12 @@ async function renderResources() {
         </div>
       </div>
 
+      <div id="faqSearchWrapper" class="px-4 pb-2 shrink-0">
+        <input id="faqStudentSearch" type="text" placeholder="Buscar pregunta..."
+          class="w-full px-4 py-2 rounded-xl bg-[var(--background-page)] text-sm outline-none focus:ring-2 focus:ring-[var(--blue-100)]">
+      </div>
+
       <div id="subFaq" class="flex-1 overflow-y-auto custom-scroll px-4 pb-4">
-        <div class="mb-3">
-          <input id="faqStudentSearch" type="text" placeholder="Buscar pregunta..."
-            class="w-full px-4 py-2 rounded-xl bg-[var(--background-page)] text-sm outline-none focus:ring-2 focus:ring-[var(--blue-100)]">
-        </div>
         <div id="faqList" class="space-y-2">
           <p class="text-[var(--black-60)] text-sm text-center py-8">Cargando preguntas...</p>
         </div>
@@ -199,6 +200,7 @@ function bindResourceEvents() {
 
 function switchSubTab(tab) {
   activeSubTab = tab
+  document.getElementById('faqSearchWrapper').classList.toggle('hidden', tab !== 'faq')
   document.getElementById('subFaq').classList.toggle('hidden', tab !== 'faq')
   document.getElementById('subGlossary').classList.toggle('hidden', tab !== 'glossary')
   document.getElementById('subMaterial').classList.toggle('hidden', tab !== 'material')
