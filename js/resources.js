@@ -16,7 +16,9 @@ async function renderResources() {
       </div>
 
       <div id="subFaq" class="flex-1 overflow-y-auto custom-scroll px-4 pb-4">
-        <div id="faqList" class="space-y-2 pt-1">
+        <input id="faqStudentSearch" type="text" placeholder="Buscar pregunta..."
+          class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] mb-3 bg-white mt-1">
+        <div id="faqList" class="space-y-2">
           <p class="text-[var(--black-60)] text-sm text-center py-8">Cargando preguntas...</p>
         </div>
       </div>
@@ -69,10 +71,11 @@ async function renderResources() {
 
 async function loadFaq() {
   const { data, error } = await supabase.from('preguntas_frecuentes').select('*').order('orden').order('created_at')
-  const container = document.getElementById('subFaq')
+  const list = document.getElementById('faqList')
+  const searchInput = document.getElementById('faqStudentSearch')
 
   if (error || !data?.length) {
-    container.innerHTML = '<p class="text-[var(--black-60)] text-sm text-center py-8">No hay preguntas frecuentes aún.</p>'
+    list.innerHTML = '<p class="text-[var(--black-60)] text-sm text-center py-8">No hay preguntas frecuentes aún.</p>'
     return
   }
 
@@ -85,22 +88,12 @@ async function loadFaq() {
     return ''
   }
 
-  container.innerHTML = `
-    <input id="faqStudentSearch" type="text" placeholder="Buscar pregunta..."
-      class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] mb-3 bg-white mt-1">
-    <div id="faqStudentList" class="space-y-2"></div>
-  `
-
-  const studentList = container.querySelector('#faqStudentList')
-  const studentSearch = container.querySelector('#faqStudentSearch')
-
-  function renderStudentFaqs(items) {
+  function renderFaqList(items) {
     if (!items.length) {
-      studentList.innerHTML = '<p class="text-[var(--black-60)] text-sm text-center py-8">No hay resultados.</p>'
+      list.innerHTML = '<p class="text-[var(--black-60)] text-sm text-center py-8">No hay resultados.</p>'
       return
     }
-
-    studentList.innerHTML = items.map(f => `
+    list.innerHTML = items.map(f => `
       <details class="rounded-xl border border-[var(--blue-10)] bg-white overflow-hidden">
         <summary class="flex items-center justify-between gap-2 p-3 cursor-pointer list-none font-bold text-sm select-none">
           <span>${escapeHtml(f.pregunta)}</span>
@@ -115,14 +108,14 @@ async function loadFaq() {
 
     lucide.createIcons()
 
-    studentList.querySelectorAll('details').forEach(d => {
+    list.querySelectorAll('details').forEach(d => {
       d.addEventListener('toggle', () => {
         const icon = d.querySelector('.faq-chevron')
         if (icon) icon.style.transform = d.open ? 'rotate(180deg)' : ''
       })
     })
 
-    studentList.querySelectorAll('.faq-lesson-btn').forEach(btn => {
+    list.querySelectorAll('.faq-lesson-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelector('[data-tab="lessons"]')?.click()
         setTimeout(() => window.openLessonById?.(btn.dataset.lessonId), 150)
@@ -130,14 +123,14 @@ async function loadFaq() {
     })
   }
 
-  renderStudentFaqs(data)
+  renderFaqList(data)
 
-  studentSearch.addEventListener('input', () => {
-    const q = studentSearch.value.toLowerCase()
+  searchInput?.addEventListener('input', () => {
+    const q = searchInput.value.toLowerCase()
     const filtered = q ? data.filter(f =>
       f.pregunta.toLowerCase().includes(q) || f.respuesta.toLowerCase().includes(q)
     ) : data
-    renderStudentFaqs(filtered)
+    renderFaqList(filtered)
   })
 }
 
