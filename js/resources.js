@@ -78,9 +78,9 @@ async function loadFaq() {
 
   const actionBtn = (f) => {
     if (f.leccion_id) {
-      return `<button class="faq-lesson-btn mt-2 text-xs font-bold text-[var(--blue-100)] hover:underline" data-lesson-id="${f.leccion_id}">Ver lección →</button>`
-    } else if (f.link_url) {
-      return `<a href="${escapeHtml(f.link_url)}" target="_blank" rel="noopener" class="mt-2 inline-block text-xs font-bold text-[var(--blue-100)] hover:underline">Más información →</a>`
+      return `<button type="button" class="faq-lesson-btn mt-2 text-xs font-bold text-[var(--blue-100)] hover:underline" data-lesson-id="${f.leccion_id}">Ver lección →</button>`
+    } else if (f.link_url && /^https?:\/\//i.test(f.link_url)) {
+      return `<a href="${escapeHtml(f.link_url)}" target="_blank" rel="noopener noreferrer" class="mt-2 inline-block text-xs font-bold text-[var(--blue-100)] hover:underline">Más información →</a>`
     }
     return ''
   }
