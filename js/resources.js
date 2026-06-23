@@ -76,13 +76,25 @@ async function loadFaq() {
     return
   }
 
+  const actionBtn = (f) => {
+    if (f.leccion_id) {
+      return `<button class="faq-lesson-btn mt-2 text-xs font-bold text-[var(--blue-100)] hover:underline" data-lesson-id="${f.leccion_id}">Ver lección →</button>`
+    } else if (f.link_url) {
+      return `<a href="${escapeHtml(f.link_url)}" target="_blank" rel="noopener" class="mt-2 inline-block text-xs font-bold text-[var(--blue-100)] hover:underline">Más información →</a>`
+    }
+    return ''
+  }
+
   list.innerHTML = data.map(f => `
     <details class="rounded-xl border border-[var(--blue-10)] bg-white overflow-hidden">
       <summary class="flex items-center justify-between gap-2 p-3 cursor-pointer list-none font-bold text-sm select-none">
         <span>${escapeHtml(f.pregunta)}</span>
         <i data-lucide="chevron-down" class="w-4 h-4 shrink-0 text-[var(--black-60)] transition-transform faq-chevron"></i>
       </summary>
-      <div class="px-3 pb-3 text-xs text-[var(--black-60)] border-t border-[var(--blue-10)] pt-2 mt-0">${escapeHtml(f.respuesta)}</div>
+      <div class="px-3 pb-3 text-xs text-[var(--black-60)] border-t border-[var(--blue-10)] pt-2 mt-0">
+        ${escapeHtml(f.respuesta)}
+        ${actionBtn(f)}
+      </div>
     </details>
   `).join('')
 
@@ -92,6 +104,13 @@ async function loadFaq() {
     d.addEventListener('toggle', () => {
       const icon = d.querySelector('.faq-chevron')
       if (icon) icon.style.transform = d.open ? 'rotate(180deg)' : ''
+    })
+  })
+
+  list.querySelectorAll('.faq-lesson-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelector('[data-tab="lessons"]')?.click()
+      setTimeout(() => window.openLessonById?.(btn.dataset.lessonId), 150)
     })
   })
 }
