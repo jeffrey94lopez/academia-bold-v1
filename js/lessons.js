@@ -330,10 +330,13 @@ async function renderLessons() {
     const lesson = lessons.find(l => String(l.id) === String(id))
     if (!lesson) { console.warn('[openLessonById] Lección no encontrada:', id); return }
     activeLesson = lesson
+    // Sync activeCategory for mobile back navigation
+    activeCategory = lesson.categoria || firstCat
     // Desktop
     renderAccordion()
     renderDeskContent()
     // Mobile
+    renderMobileLessonList()
     const titleSpan = document.getElementById('ls-mob-lesson-title')
     if (titleSpan) titleSpan.textContent = lesson.titulo
     const mobContent = document.getElementById('ls-mob-content')
