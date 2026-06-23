@@ -328,7 +328,7 @@ async function renderLessons() {
 
   window.openLessonById = (id) => {
     const lesson = lessons.find(l => String(l.id) === String(id))
-    if (!lesson) return
+    if (!lesson) { console.warn('[openLessonById] Lección no encontrada:', id); return }
     activeLesson = lesson
     // Desktop
     renderAccordion()
