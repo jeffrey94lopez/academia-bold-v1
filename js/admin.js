@@ -1097,18 +1097,27 @@ async function embedGlosarioTerm(id, termino, definicion) {
 
 async function renderFaqPanel() {
   const el = document.getElementById('panel-faq')
-  const { data } = await supabase.from('preguntas_frecuentes').select('*').order('orden').order('created_at')
+  const [{ data }, { data: lecciones }] = await Promise.all([
+    supabase.from('preguntas_frecuentes').select('*').order('orden').order('created_at'),
+    supabase.from('lecciones').select('id,titulo').eq('active', true).order('orden')
+  ])
   const items = data || []
+  const leccionesList = lecciones || []
 
   function renderList(list) {
     return list.length ? list.map(f => `
       <div data-id="${f.id}" class="faq-item bg-white border border-[var(--blue-10)] rounded-xl px-4 py-3 flex items-start gap-3">
         <div class="flex-1 min-w-0">
-          <p class="font-bold text-sm text-[var(--blue-100)]">${escapeHtml(f.pregunta)}</p>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <p class="font-bold text-sm text-[var(--blue-100)]">${escapeHtml(f.pregunta)}</p>
+            ${f.leccion_id ? '<span class="text-[10px] font-bold bg-[var(--blue-10)] text-[var(--blue-100)] px-1.5 py-0.5 rounded-full">📚 Lección</span>' : ''}
+            ${f.link_url ? '<span class="text-[10px] font-bold bg-[var(--black-10)] text-[var(--black-60)] px-1.5 py-0.5 rounded-full">🔗 Link</span>' : ''}
+          </div>
           <p class="text-xs text-[var(--black-60)] mt-0.5 line-clamp-2">${escapeHtml(f.respuesta)}</p>
         </div>
         <div class="flex gap-1.5 shrink-0">
           <button data-id="${f.id}" data-pregunta="${escapeHtml(f.pregunta)}" data-respuesta="${escapeHtml(f.respuesta)}"
+            data-leccion-id="${f.leccion_id || ''}" data-link-url="${escapeHtml(f.link_url || '')}"
             class="edit-faq px-3 py-1.5 text-xs font-bold rounded-lg bg-[var(--blue-10)] text-[var(--blue-100)] hover:bg-[var(--blue-20)]">Editar</button>
           <button data-id="${f.id}" data-pregunta="${escapeHtml(f.pregunta)}"
             class="del-faq px-3 py-1.5 text-xs font-bold rounded-lg bg-[var(--coral-10)] text-[var(--coral-100)] hover:bg-[var(--coral-30)]">Eliminar</button>
@@ -1143,6 +1152,13 @@ async function renderFaqPanel() {
       <input id="faqPregunta" placeholder="Pregunta frecuente" required class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] mb-2">
       <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Respuesta</label>
       <textarea id="faqRespuesta" placeholder="Respuesta" rows="3" required class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] resize-none mb-2"></textarea>
+      <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1 mt-1">Lección relacionada (opcional)</label>
+      <select id="faqLeccionId" class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] mb-2 bg-white">
+        <option value="">— Ninguna —</option>
+        ${leccionesList.map(l => `<option value="${l.id}">${escapeHtml(l.titulo)}</option>`).join('')}
+      </select>
+      <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Link externo (opcional)</label>
+      <input id="faqLinkUrl" type="url" placeholder="https://..." class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] mb-2">
       <p id="faqFormError" class="hidden text-red-500 text-xs mb-2"></p>
       <div class="flex gap-2">
         <button id="cancelFaq" class="flex-1 py-2 rounded-xl border border-[var(--blue-20)] text-sm font-bold text-[var(--black-60)]">Cancelar</button>
@@ -1159,10 +1175,12 @@ async function renderFaqPanel() {
     bindFaqActions()
   })
 
-  function showFaqForm(id = '', pregunta = '', respuesta = '') {
+  function showFaqForm(id = '', pregunta = '', respuesta = '', leccionId = '', linkUrl = '') {
     document.getElementById('faqId').value = id
     document.getElementById('faqPregunta').value = pregunta
     document.getElementById('faqRespuesta').value = respuesta
+    document.getElementById('faqLeccionId').value = leccionId
+    document.getElementById('faqLinkUrl').value = linkUrl
     document.getElementById('faqFormError').classList.add('hidden')
     document.getElementById('faqFormInline').classList.remove('hidden')
     document.getElementById('faqPregunta').focus()
@@ -1172,7 +1190,7 @@ async function renderFaqPanel() {
 
   function bindFaqActions() {
     document.querySelectorAll('.edit-faq').forEach(b => b.addEventListener('click', () =>
-      showFaqForm(b.dataset.id, b.dataset.pregunta, b.dataset.respuesta)))
+      showFaqForm(b.dataset.id, b.dataset.pregunta, b.dataset.respuesta, b.dataset.leccionId || '', b.dataset.linkUrl || '')))
     document.querySelectorAll('.del-faq').forEach(b => b.addEventListener('click', async () => {
       if (!confirm(`¿Eliminar "${b.dataset.pregunta}"?`)) return
       await supabase.from('preguntas_frecuentes').delete().eq('id', b.dataset.id)
@@ -1193,12 +1211,14 @@ async function renderFaqPanel() {
     const id = document.getElementById('faqId').value
     const pregunta = document.getElementById('faqPregunta').value.trim()
     const respuesta = document.getElementById('faqRespuesta').value.trim()
+    const leccion_id = document.getElementById('faqLeccionId').value || null
+    const link_url = document.getElementById('faqLinkUrl').value.trim() || null
     if (!pregunta || !respuesta) { errorEl.textContent = 'La pregunta y respuesta son requeridas.'; errorEl.classList.remove('hidden'); return }
     btn.disabled = true; btn.textContent = 'Guardando...'
     let savedId = id
     const { data: saved, error } = id
-      ? await supabase.from('preguntas_frecuentes').update({ pregunta, respuesta }).eq('id', id).select('id').single()
-      : await supabase.from('preguntas_frecuentes').insert({ pregunta, respuesta }).select('id').single()
+      ? await supabase.from('preguntas_frecuentes').update({ pregunta, respuesta, leccion_id, link_url }).eq('id', id).select('id').single()
+      : await supabase.from('preguntas_frecuentes').insert({ pregunta, respuesta, leccion_id, link_url }).select('id').single()
     if (error) { errorEl.textContent = 'Error: ' + error.message; errorEl.classList.remove('hidden'); btn.disabled = false; btn.textContent = 'Guardar'; return }
     if (saved?.id) savedId = saved.id
     logActivity(id ? 'update' : 'create', 'preguntas_frecuentes', pregunta)
