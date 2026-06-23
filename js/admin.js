@@ -1097,12 +1097,17 @@ async function embedGlosarioTerm(id, termino, definicion) {
 
 async function renderFaqPanel() {
   const el = document.getElementById('panel-faq')
-  const [{ data }, { data: lecciones }] = await Promise.all([
-    supabase.from('preguntas_frecuentes').select('*').order('orden').order('created_at'),
-    supabase.from('lecciones').select('id,titulo').eq('active', true).order('orden')
-  ])
-  const items = data || []
-  const leccionesList = lecciones || []
+  let items = [], leccionesList = []
+  try {
+    const [{ data }, { data: lecciones }] = await Promise.all([
+      supabase.from('preguntas_frecuentes').select('*').order('orden').order('created_at'),
+      supabase.from('lecciones').select('id,titulo').eq('active', true).order('orden')
+    ])
+    items = data || []
+    leccionesList = lecciones || []
+  } catch (err) {
+    console.error('[renderFaqPanel] Error cargando datos:', err)
+  }
 
   function renderList(list) {
     return list.length ? list.map(f => `
@@ -1110,8 +1115,8 @@ async function renderFaqPanel() {
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-1.5 flex-wrap">
             <p class="font-bold text-sm text-[var(--blue-100)]">${escapeHtml(f.pregunta)}</p>
-            ${f.leccion_id ? '<span class="text-[10px] font-bold bg-[var(--blue-10)] text-[var(--blue-100)] px-1.5 py-0.5 rounded-full">📚 Lección</span>' : ''}
-            ${f.link_url ? '<span class="text-[10px] font-bold bg-[var(--black-10)] text-[var(--black-60)] px-1.5 py-0.5 rounded-full">🔗 Link</span>' : ''}
+            ${f.leccion_id ? '<span aria-label="Tiene lección relacionada" class="text-[10px] font-bold bg-[var(--blue-10)] text-[var(--blue-100)] px-1.5 py-0.5 rounded-full">📚 Lección</span>' : ''}
+            ${f.link_url ? '<span aria-label="Tiene link externo" class="text-[10px] font-bold bg-[var(--black-10)] text-[var(--black-60)] px-1.5 py-0.5 rounded-full">🔗 Link</span>' : ''}
           </div>
           <p class="text-xs text-[var(--black-60)] mt-0.5 line-clamp-2">${escapeHtml(f.respuesta)}</p>
         </div>
