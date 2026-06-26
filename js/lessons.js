@@ -9,10 +9,13 @@ async function renderLessons() {
 
   container.innerHTML = '<div class="flex items-center justify-center h-full text-[var(--black-60)] text-sm">Cargando lecciones...</div>'
 
-  const [{ data: lessons, error }, { data: cats }] = await Promise.all([
+  const [lessonsRes, catsRes] = await Promise.all([
     supabase.from('lecciones').select('*').eq('active', true).order('orden'),
     supabase.from('categorias').select('*').order('orden'),
   ])
+  let lessons = lessonsRes.data || []
+  const error = lessonsRes.error
+  const cats  = catsRes.data
   const CATEGORIES = (cats || []).map(c => ({ key: c.nombre, emoji: c.emoji }))
 
   if (error) console.error('[lessons] Supabase error:', error)
@@ -319,6 +322,46 @@ async function renderLessons() {
     }
   })
 
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  function showToast(msg) {
+    const existing = document.getElementById('ls-toast')
+    if (existing) existing.remove()
+    const toast = document.createElement('div')
+    toast.id = 'ls-toast'
+    toast.style.cssText = 'position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:50;padding:6px 16px;border-radius:999px;font-size:11px;font-weight:700;color:#fff;background:var(--blue-100);box-shadow:0 2px 8px rgba(0,0,0,.15);pointer-events:none;white-space:nowrap'
+    toast.textContent = msg
+    container.appendChild(toast)
+    setTimeout(() => toast.remove(), 3000)
+  }
+
+  // ── Realtime refresh ──────────────────────────────────────────────────────
+  async function refreshLessons() {
+    const { data: freshLessons, error: err } = await supabase
+      .from('lecciones').select('*').eq('active', true).order('orden')
+    if (err || !freshLessons) return
+
+    lessons = freshLessons
+
+    // Rebuild grouped in-place (keeps CATEGORIES reference intact)
+    for (const key of Object.keys(grouped)) delete grouped[key]
+    for (const cat of CATEGORIES) grouped[cat.key] = []
+    for (const l of lessons) {
+      const cat = l.categoria || CATEGORIES[0]?.key || 'General'
+      if (!grouped[cat]) grouped[cat] = []
+      grouped[cat].push(l)
+    }
+
+    // If active lesson was removed/disabled, clear the content panel
+    if (activeLesson && !lessons.find(l => l.id === activeLesson.id)) {
+      activeLesson = null
+      renderDeskContent()
+    }
+
+    renderAccordion()
+    renderMobileCatList()
+    renderMobileLessonList()
+  }
+
   // ── Initialize ────────────────────────────────────────────────────────────
   renderMobileCatList()
   renderMobileLessonList()
@@ -342,6 +385,20 @@ async function renderLessons() {
     const mobContent = document.getElementById('ls-mob-content')
     if (mobContent) renderLessonContent(mobContent, lesson)
     showScreen('content')
+  }
+
+  // ── Supabase Realtime ─────────────────────────────────────────────────────
+  const channel = supabase
+    .channel('lessons-realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'lecciones' }, async () => {
+      await refreshLessons()
+      showToast('Lecciones actualizadas ✓')
+    })
+    .subscribe()
+
+  window.lessonsCleanup = () => {
+    supabase.removeChannel(channel)
+    window.lessonsCleanup = null
   }
 }
 

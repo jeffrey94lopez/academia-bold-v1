@@ -18,6 +18,7 @@ import { supabase } from './supabase.js'
 })()
 
 function switchTab(tab) {
+  if (tab !== 'lessons') window.lessonsCleanup?.()
   document.querySelectorAll('[id^="section-"]').forEach(s => s.classList.add('hidden'))
   document.getElementById(`section-${tab}`).classList.remove('hidden')
 
