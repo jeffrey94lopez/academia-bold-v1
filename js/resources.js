@@ -156,6 +156,10 @@ async function loadGlossary() {
   }
 
   const render = (items) => {
+    if (!items.length) {
+      list.innerHTML = '<p class="text-[var(--black-60)] text-sm text-center py-8">No hay resultados.</p>'
+      return
+    }
     list.innerHTML = items.map(g => `
       <div class="p-3 rounded-xl border border-[var(--blue-10)] bg-white">
         <p class="font-black text-sm text-[var(--blue-100)]">${escapeHtml(g.termino)}</p>
