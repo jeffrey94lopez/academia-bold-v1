@@ -216,7 +216,9 @@ async function loadMaterial() {
   return (q) => {
     const lower = q ? q.toLowerCase() : ''
     render(lower
-      ? data.filter(m => m.titulo.toLowerCase().includes(lower) || m.tipo.toLowerCase().includes(lower))
+      ? data.filter(m =>
+          (m.titulo || '').toLowerCase().includes(lower) || (m.tipo || '').toLowerCase().includes(lower)
+        )
       : data)
   }
 }
