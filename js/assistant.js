@@ -11,6 +11,21 @@ const FALLBACK_CHIPS = [
   '¿Cómo configuro mi cuenta?',
 ]
 
+let cachedFaqs = []
+
+async function loadFaqContext() {
+  try {
+    const { data } = await supabase
+      .from('preguntas_frecuentes')
+      .select('pregunta, respuesta')
+      .order('orden')
+      .order('created_at')
+    cachedFaqs = data || []
+  } catch (_) {
+    cachedFaqs = []
+  }
+}
+
 async function loadChips() {
   try {
     const { data, error } = await supabase
@@ -516,7 +531,7 @@ async function sendMessage(text) {
     const res  = await fetch(N8N_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, history })
+      body: JSON.stringify({ message: text, history, faq_context: cachedFaqs })
     })
     const data = await res.json()
     typing.classList.add('hidden')
@@ -569,4 +584,5 @@ function appendBubble(role, content) {
   box.appendChild(div)
 }
 
+loadFaqContext()
 renderAssistant().catch(err => console.error('[bolbot POS] Failed to render assistant:', err))
