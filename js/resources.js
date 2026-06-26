@@ -2,6 +2,10 @@
 
 let activeSubTab = 'faq'
 
+let filterFaq      = (_q) => {}
+let filterGlossary = (_q) => {}
+let filterMaterial = (_q) => {}
+
 async function renderResources() {
   const container = document.getElementById('section-resources')
   container.innerHTML = `
@@ -15,8 +19,8 @@ async function renderResources() {
         </div>
       </div>
 
-      <div id="faqSearchWrapper" class="px-4 pb-2 shrink-0">
-        <input id="faqStudentSearch" type="text" placeholder="Buscar pregunta..."
+      <div class="px-4 pb-2 shrink-0">
+        <input id="resourceSearch" type="text" placeholder="Buscar pregunta..."
           class="w-full px-4 py-2 rounded-xl bg-[var(--background-page)] text-sm outline-none focus:ring-2 focus:ring-[var(--blue-100)]">
       </div>
 
@@ -27,10 +31,6 @@ async function renderResources() {
       </div>
 
       <div id="subGlossary" class="hidden flex-1 overflow-y-auto custom-scroll px-4 pb-4">
-        <div class="mb-3">
-          <input id="searchGlossary" type="text" placeholder="Buscar término..."
-            class="w-full px-4 py-2 rounded-xl bg-[var(--background-page)] text-sm outline-none focus:ring-2 focus:ring-[var(--blue-100)]">
-        </div>
         <div id="glossaryList" class="space-y-2">
           <p class="text-[var(--black-60)] text-sm text-center py-8">Cargando glosario...</p>
         </div>
@@ -68,18 +68,28 @@ async function renderResources() {
     else if (materialEnabled) switchSubTab('material')
   }
 
-  await Promise.all([loadFaq(), loadGlossary(), loadMaterial()])
+  const [faqFn, glossaryFn, materialFn] = await Promise.all([loadFaq(), loadGlossary(), loadMaterial()])
+  filterFaq      = faqFn      ?? ((_q) => {})
+  filterGlossary = glossaryFn ?? ((_q) => {})
+  filterMaterial = materialFn ?? ((_q) => {})
+
+  document.getElementById('resourceSearch').addEventListener('input', e => {
+    const q = e.target.value
+    if (activeSubTab === 'faq')           filterFaq(q)
+    else if (activeSubTab === 'glossary') filterGlossary(q)
+    else                                  filterMaterial(q)
+  })
+
   bindResourceEvents()
 }
 
 async function loadFaq() {
   const { data, error } = await supabase.from('preguntas_frecuentes').select('*').order('orden').order('created_at')
   const list = document.getElementById('faqList')
-  const searchInput = document.getElementById('faqStudentSearch')
 
   if (error || !data?.length) {
     list.innerHTML = '<p class="text-[var(--black-60)] text-sm text-center py-8">No hay preguntas frecuentes aún.</p>'
-    return
+    return (_q) => {}
   }
 
   const actionBtn = (f) => {
@@ -128,13 +138,12 @@ async function loadFaq() {
 
   renderFaqList(data)
 
-  searchInput?.addEventListener('input', () => {
-    const q = searchInput.value.toLowerCase()
-    const filtered = q ? data.filter(f =>
-      f.pregunta.toLowerCase().includes(q) || f.respuesta.toLowerCase().includes(q)
-    ) : data
-    renderFaqList(filtered)
-  })
+  return (q) => {
+    const lower = q ? q.toLowerCase() : ''
+    renderFaqList(lower
+      ? data.filter(f => f.pregunta.toLowerCase().includes(lower) || f.respuesta.toLowerCase().includes(lower))
+      : data)
+  }
 }
 
 async function loadGlossary() {
@@ -143,7 +152,7 @@ async function loadGlossary() {
 
   if (error || !data?.length) {
     list.innerHTML = '<p class="text-[var(--black-60)] text-sm text-center py-8">No hay términos en el glosario aún.</p>'
-    return
+    return (_q) => {}
   }
 
   const render = (items) => {
@@ -157,10 +166,12 @@ async function loadGlossary() {
 
   render(data)
 
-  document.getElementById('searchGlossary').addEventListener('input', e => {
-    const q = e.target.value.toLowerCase()
-    render(data.filter(g => g.termino.toLowerCase().includes(q) || g.definicion.toLowerCase().includes(q)))
-  })
+  return (q) => {
+    const lower = q ? q.toLowerCase() : ''
+    render(lower
+      ? data.filter(g => g.termino.toLowerCase().includes(lower) || g.definicion.toLowerCase().includes(lower))
+      : data)
+  }
 }
 
 async function loadMaterial() {
@@ -169,27 +180,41 @@ async function loadMaterial() {
 
   if (error || !data?.length) {
     list.innerHTML = '<p class="text-[var(--black-60)] text-sm text-center py-8 col-span-2">No hay material disponible aún.</p>'
-    return
+    return (_q) => {}
   }
 
   const iconMap  = { pdf: 'file-text', link: 'link', video: 'play-circle' }
   const colorMap = { pdf: 'text-[var(--blue-100)]', link: 'text-[var(--info-100)]', video: 'text-[var(--blue-60)]' }
 
-  list.innerHTML = data.map(m => `
-    <a href="${escapeHtml(m.url)}" target="_blank" rel="noopener"
-      class="flex items-center gap-3 p-4 rounded-2xl border border-[var(--blue-20)] bg-white hover:border-[var(--blue-100)] transition-colors group">
-      <div class="w-10 h-10 rounded-xl bg-[var(--black-10)] flex items-center justify-center shrink-0">
-        <i data-lucide="${iconMap[m.tipo] || 'file'}" class="w-5 h-5 ${colorMap[m.tipo] || 'text-[var(--black-60)]'}"></i>
-      </div>
-      <div class="min-w-0">
-        <p class="font-bold text-sm truncate group-hover:text-[var(--blue-100)] transition-colors">${escapeHtml(m.titulo)}</p>
-        <p class="text-[10px] font-bold text-[var(--black-60)] uppercase">${escapeHtml(m.tipo)}</p>
-      </div>
-      <i data-lucide="external-link" class="w-4 h-4 text-[var(--black-40)] ml-auto shrink-0"></i>
-    </a>
-  `).join('')
+  const render = (items) => {
+    if (!items.length) {
+      list.innerHTML = '<p class="text-[var(--black-60)] text-sm text-center py-8 col-span-2">No hay resultados.</p>'
+      return
+    }
+    list.innerHTML = items.map(m => `
+      <a href="${escapeHtml(m.url)}" target="_blank" rel="noopener"
+        class="flex items-center gap-3 p-4 rounded-2xl border border-[var(--blue-20)] bg-white hover:border-[var(--blue-100)] transition-colors group">
+        <div class="w-10 h-10 rounded-xl bg-[var(--black-10)] flex items-center justify-center shrink-0">
+          <i data-lucide="${iconMap[m.tipo] || 'file'}" class="w-5 h-5 ${colorMap[m.tipo] || 'text-[var(--black-60)]'}"></i>
+        </div>
+        <div class="min-w-0">
+          <p class="font-bold text-sm truncate group-hover:text-[var(--blue-100)] transition-colors">${escapeHtml(m.titulo)}</p>
+          <p class="text-[10px] font-bold text-[var(--black-60)] uppercase">${escapeHtml(m.tipo)}</p>
+        </div>
+        <i data-lucide="external-link" class="w-4 h-4 text-[var(--black-40)] ml-auto shrink-0"></i>
+      </a>
+    `).join('')
+    lucide.createIcons()
+  }
 
-  lucide.createIcons()
+  render(data)
+
+  return (q) => {
+    const lower = q ? q.toLowerCase() : ''
+    render(lower
+      ? data.filter(m => m.titulo.toLowerCase().includes(lower) || m.tipo.toLowerCase().includes(lower))
+      : data)
+  }
 }
 
 function bindResourceEvents() {
@@ -200,10 +225,23 @@ function bindResourceEvents() {
 
 function switchSubTab(tab) {
   activeSubTab = tab
-  document.getElementById('faqSearchWrapper').classList.toggle('hidden', tab !== 'faq')
+
+  const search = document.getElementById('resourceSearch')
+  if (search) {
+    search.value = ''
+    const placeholders = { faq: 'Buscar pregunta...', glossary: 'Buscar término...', material: 'Buscar material...' }
+    search.placeholder = placeholders[tab] || 'Buscar...'
+  }
+
+  // Reset the active tab to its full list
+  if (tab === 'faq')           filterFaq('')
+  else if (tab === 'glossary') filterGlossary('')
+  else                         filterMaterial('')
+
   document.getElementById('subFaq').classList.toggle('hidden', tab !== 'faq')
   document.getElementById('subGlossary').classList.toggle('hidden', tab !== 'glossary')
   document.getElementById('subMaterial').classList.toggle('hidden', tab !== 'material')
+
   const active   = 'sub-tab shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-[var(--blue-100)] text-white'
   const inactive = 'sub-tab shrink-0 px-4 py-1.5 rounded-full text-xs font-bold text-[var(--black-60)] bg-[var(--black-10)]'
   document.getElementById('tabFaq').className      = tab === 'faq'      ? active : inactive
