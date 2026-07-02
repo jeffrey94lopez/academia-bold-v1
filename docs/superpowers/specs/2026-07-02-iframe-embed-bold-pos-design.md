@@ -115,3 +115,12 @@ analytics depende del storage).
   del embed perdería historial de chat/tema. Aceptado (mejor esfuerzo).
 - **Login dentro del iframe:** no aplica hoy (la parte embebida no tiene login). Si
   algún día se embebe una superficie con Supabase Auth, habrá que revisar este spec.
+
+## Corrección post-implementación (2026-07-02)
+
+La revisión final encontró que `js/theme-init.js` no era cargado por ningún HTML
+(código muerto): se eliminó en lugar de protegerlo. Además, `frame-ancestors`
+relajado quedaba aplicado también a `/admin`; se agregó una regla de headers
+específica para `/admin(.*)` con `frame-ancestors 'self'`, y se protegió con
+try/catch el `JSON.parse` del historial de chat que corría al cargar
+`js/assistant.js`.

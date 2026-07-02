@@ -41,7 +41,8 @@ async function loadChips() {
   }
 }
 
-let history         = JSON.parse(storageGet('bold_chat_history') || '[]')
+let history = []
+try { history = JSON.parse(storageGet('bold_chat_history') || '[]') } catch { history = [] }
 let conversationId  = null
 let _creating       = false
 let sessionMessages = []
