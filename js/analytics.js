@@ -1,9 +1,10 @@
 // js/analytics.js
 import { supabase } from './supabase.js'
+import { storageGet } from './storage.js'
 
 export function track(eventType, payload = {}) {
-  const session_id = localStorage.getItem('bold_session_id') || null
-  const mode = localStorage.getItem('bold_mode') || (session_id ? 'course' : null)
+  const session_id = storageGet('bold_session_id') || null
+  const mode = storageGet('bold_mode') || (session_id ? 'course' : null)
 
   supabase
     .from('analytics_events')

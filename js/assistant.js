@@ -1,5 +1,6 @@
 ﻿import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js'
 import { escapeHtml } from './utils.js'
+import { storageGet, storageSet, storageRemove } from './storage.js'
 
 const N8N_URL     = '/api/chat'
 const ABANDON_URL = 'https://n8n.mplasesores.com/webhook/bodi-abandon'
@@ -40,7 +41,7 @@ async function loadChips() {
   }
 }
 
-let history         = JSON.parse(localStorage.getItem('bold_chat_history') || '[]')
+let history         = JSON.parse(storageGet('bold_chat_history') || '[]')
 let conversationId  = null
 let _creating       = false
 let sessionMessages = []
@@ -48,8 +49,8 @@ let sessionMessages = []
 async function createConversation() {
   if (_creating) return
   _creating = true
-  const sessionId = localStorage.getItem('bold_session_id') || crypto.randomUUID()
-  localStorage.setItem('bold_session_id', sessionId)
+  const sessionId = storageGet('bold_session_id') || crypto.randomUUID()
+  storageSet('bold_session_id', sessionId)
   const id = crypto.randomUUID()
   try {
     const { error } = await supabase
@@ -77,7 +78,7 @@ async function upsertConversation(patch) {
           'apikey': SUPABASE_ANON_KEY,
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
           'Prefer': 'return=minimal',
-          'x-student-id': localStorage.getItem('bold_session_id') || ''
+          'x-student-id': storageGet('bold_session_id') || ''
         },
         body: JSON.stringify(patch)
       }
@@ -495,7 +496,7 @@ function bindAssistantEvents() {
   sendBtn.addEventListener('click', () => sendMessage(input.value.trim()))
 
   clearBtn.addEventListener('click', () => {
-    localStorage.removeItem('bold_chat_history')
+    storageRemove('bold_chat_history')
     conversationId  = null
     sessionMessages = []
     history         = []
@@ -552,7 +553,7 @@ async function sendMessage(text) {
     appendResolutionButtons()
 
     history.push({ role: 'assistant', content: reply })
-    localStorage.setItem('bold_chat_history', JSON.stringify(history.slice(-20)))
+    storageSet('bold_chat_history', JSON.stringify(history.slice(-20)))
     sessionMessages.push({ role: 'user', content: text })
     sessionMessages.push({ role: 'assistant', content: reply })
 
