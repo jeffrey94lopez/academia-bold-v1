@@ -42,10 +42,12 @@ function armDeferredReload() {
 
 async function startVersionWatcher() {
   bootVersion = await fetchVersion()
-  if (!bootVersion) return // desarrollo local o fetch fallido: chequeo desactivado
   setInterval(async () => {
     if (reloadPending) return
     const v = await fetchVersion()
+    // Si el fetch de arranque falló (red o dev local), adoptar la primera
+    // versión vista como base en lugar de quedar apagado toda la sesión.
+    if (!bootVersion) { bootVersion = v; return }
     const action = computeReloadAction({ currentVersion: bootVersion, newVersion: v, busy: botIsBusy() })
     if (action === 'reload') doReload()
     else if (action === 'defer') armDeferredReload()
