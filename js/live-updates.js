@@ -2,6 +2,9 @@
 // Mantiene la sesión al día: recarga ante deploys nuevos (poll a /version.json)
 // y refresca contenido vía Supabase Realtime (se agrega en startRealtime).
 import { computeReloadAction } from './reload-policy.js'
+import { supabase } from './supabase.js'
+import { loadFaqContext, rerenderChips } from './assistant.js'
+import { renderResources } from './resources.js'
 
 const VERSION_POLL_MS = 60_000
 const DEFER_CHECK_MS  = 2_000
@@ -54,6 +57,29 @@ async function startVersionWatcher() {
   }, VERSION_POLL_MS)
 }
 
+function debounce(fn, ms) {
+  let t
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms) }
+}
+
+// Debounce de 1.5 s: si el admin guarda varias filas seguidas, un solo refresh.
+// (`lecciones` no se suscribe aquí: lessons.js ya tiene su propio canal.)
+const onFaqChange   = debounce(() => { loadFaqContext(); renderResources().catch(() => {}) }, 1500)
+const onChipsChange = debounce(() => { rerenderChips().catch(() => {}) }, 1500)
+
+function startRealtime() {
+  const channel = supabase.channel('live-content')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'preguntas_frecuentes' }, onFaqChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'bot_sugerencias' }, onChipsChange)
+    .subscribe(status => {
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.warn('[live-updates] Realtime desconectado, reintento en 30 s')
+        setTimeout(() => { supabase.removeChannel(channel); startRealtime() }, 30_000)
+      }
+    })
+}
+
 export function startLiveUpdates() {
   startVersionWatcher()
+  startRealtime()
 }

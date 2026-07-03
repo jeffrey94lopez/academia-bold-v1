@@ -6,7 +6,7 @@ let filterFaq      = (_q) => {}
 let filterGlossary = (_q) => {}
 let filterMaterial = (_q) => {}
 
-async function renderResources() {
+export async function renderResources() {
   const container = document.getElementById('section-resources')
   container.innerHTML = `
     <div class="h-full flex flex-col overflow-hidden">

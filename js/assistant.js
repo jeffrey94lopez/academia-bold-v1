@@ -14,7 +14,7 @@ const FALLBACK_CHIPS = [
 
 let cachedFaqs = []
 
-async function loadFaqContext() {
+export async function loadFaqContext() {
   try {
     const { data } = await supabase
       .from('preguntas_frecuentes')
@@ -39,6 +39,20 @@ async function loadChips() {
   } catch {
     return FALLBACK_CHIPS
   }
+}
+
+// Re-dibuja los chips de sugerencias (solo si el chat sigue en estado
+// inicial: con conversación en curso no movemos la UI debajo del usuario).
+export async function rerenderChips() {
+  const wrap = document.getElementById('quickQueries')
+  if (!wrap || history.length > 0) return
+  const chips = await loadChips()
+  wrap.innerHTML = chips.map(q => `
+    <button class="quick-query shrink-0 text-xs font-bold px-3 py-1.5 rounded-full border border-[var(--blue-20)] hover:border-[var(--blue-100)] transition-colors whitespace-nowrap">${escapeHtml(q)}</button>
+  `).join('')
+  wrap.querySelectorAll('.quick-query').forEach(btn => {
+    btn.addEventListener('click', () => sendMessage(btn.textContent))
+  })
 }
 
 let history = []
