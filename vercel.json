@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npx tailwindcss -i css/input.css -o css/tw.css --minify",
+  "buildCommand": "npx tailwindcss -i css/input.css -o css/tw.css --minify && node -e \"require('fs').writeFileSync('version.json', JSON.stringify({v: process.env.VERCEL_GIT_COMMIT_SHA || Date.now().toString()}))\"",
   "outputDirectory": ".",
   "rewrites": [
     { "source": "/admin", "destination": "/admin.html" }

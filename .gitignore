@@ -30,3 +30,6 @@ desktop.ini
 # Build artifacts
 node_modules/
 css/tw.css
+
+# Generado por el build de Vercel
+version.json

@@ -115,9 +115,6 @@ async function renderAssistant() {
           <img src="assets/bolbot%20pos%20light.png" alt="bolbot POS" class="h-9 w-auto" />
         </div>
         <div class="flex items-center gap-3">
-          <button id="refreshApp" class="text-xs text-[var(--black-60)] hover:text-[var(--blue-100)] font-bold flex items-center gap-1" title="Actualizar la app">
-            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Actualizar
-          </button>
           <button id="clearChat" class="text-xs text-[var(--black-60)] hover:text-[var(--blue-100)] font-bold flex items-center gap-1">
             <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Limpiar
           </button>
@@ -475,12 +472,6 @@ function bindAssistantEvents() {
   const input    = document.getElementById('chatInput')
   const sendBtn  = document.getElementById('sendBtn')
   const clearBtn   = document.getElementById('clearChat')
-  const refreshBtn = document.getElementById('refreshApp')
-
-  refreshBtn.addEventListener('click', () => {
-    // Force reload bypassing browser cache
-    window.location.href = window.location.origin + window.location.pathname + '?v=' + Date.now()
-  })
 
   input.addEventListener('input', () => {
     input.style.height = 'auto'

@@ -2,6 +2,9 @@ import './assistant.js'
 import './lessons.js'
 import './resources.js'
 import { supabase } from './supabase.js'
+import { startLiveUpdates } from './live-updates.js'
+
+startLiveUpdates()
 
 ;(async () => {
   const { data } = await supabase.from('app_settings').select('key,value')
