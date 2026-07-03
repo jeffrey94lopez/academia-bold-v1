@@ -64,6 +64,7 @@ let _creating       = false
 let sessionMessages = []
 let followScroll  = true   // el usuario está al fondo → el scroll acompaña
 let skipAll       = false  // "Mostrar todo": revela el resto sin animar
+let sending       = false  // evita envíos concurrentes que se pisarían la animación
 
 async function createConversation() {
   if (_creating) return
@@ -540,6 +541,8 @@ function bindAssistantEvents() {
   sendBtn.addEventListener('click', () => sendMessage(input.value.trim()))
 
   clearBtn.addEventListener('click', () => {
+    skipActiveTypewriter()
+    hideSkipButton()
     storageRemove('bold_chat_history')
     conversationId  = null
     sessionMessages = []
@@ -561,7 +564,10 @@ function bindAssistantEvents() {
 // ── Send message ──────────────────────────────────────────────────────────────
 
 async function sendMessage(text) {
-  if (!text) return
+  if (!text || sending) return
+  sending = true
+
+  try {
 
   if (!conversationId) await createConversation()
 
@@ -602,8 +608,7 @@ async function sendMessage(text) {
     if (segments) {
       const observer = new MutationObserver(() => { markFirst(); observer.disconnect() })
       observer.observe(box, { childList: true })
-      await appendSegments(segments)
-      observer.disconnect()
+      try { await appendSegments(segments) } finally { observer.disconnect() }
     } else {
       const p = appendBotAnimated(reply)
       markFirst()
@@ -630,6 +635,11 @@ async function sendMessage(text) {
     typing.classList.add('hidden')
     hideSkipButton()
     appendBubble('bot', 'Error de conexión. Verifica tu internet e intenta de nuevo.')
+    scrollToBottom()
+  }
+
+  } finally {
+    sending = false
   }
 }
 
