@@ -6,7 +6,7 @@ let filterFaq      = (_q) => {}
 let filterGlossary = (_q) => {}
 let filterMaterial = (_q) => {}
 
-export async function renderResources() {
+async function renderResources() {
   const container = document.getElementById('section-resources')
   container.innerHTML = `
     <div class="h-full flex flex-col overflow-hidden">
@@ -81,6 +81,20 @@ export async function renderResources() {
   })
 
   bindResourceEvents()
+}
+
+// Refresco en vivo (Realtime): re-renderiza conservando sub-tab activa y búsqueda.
+export async function refreshResources() {
+  const search = document.getElementById('resourceSearch')
+  const savedQuery = search ? search.value : ''
+  const savedTab = activeSubTab
+  await renderResources()
+  if (savedTab !== 'faq') switchSubTab(savedTab)
+  const restored = document.getElementById('resourceSearch')
+  if (restored && savedQuery) {
+    restored.value = savedQuery
+    restored.dispatchEvent(new Event('input'))
+  }
 }
 
 async function loadFaq() {

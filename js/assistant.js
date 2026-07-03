@@ -107,6 +107,7 @@ async function upsertConversation(patch) {
 }
 
 async function resolveConversation(resolved, btnsEl) {
+  skipAll = false // los mensajes de cierre son cortos: animarlos aunque el usuario haya saltado la respuesta anterior
   btnsEl.remove()
   await appendBotAnimated(resolved
     ? '¡Me alegra haber podido ayudarte! Escríbeme cuando tengas otra duda.'
@@ -336,7 +337,6 @@ async function appendSegments(segments) {
   if (!box || !Array.isArray(segments)) return
   segments = normalizeSegments(segments)
   let textBuffer = []
-  let hadText = false
 
   async function flushText() {
     if (!textBuffer.length) return
@@ -347,7 +347,6 @@ async function appendSegments(segments) {
 
   for (const seg of segments) {
     if (seg.type === 'text' && seg.content) {
-      hadText = true
       textBuffer.push(seg.content)
     } else if (seg.type === 'image' && seg.url) {
       await flushText()
@@ -448,7 +447,7 @@ function appendSupportCTA() {
       Hablar con Soporte Bold POS
     </a>`
   box.appendChild(cta)
-  scrollToBottom()
+  if (followScroll) scrollToBottom()
 }
 
 function appendResolutionButtons() {
@@ -473,7 +472,7 @@ function appendResolutionButtons() {
   btns.querySelector('.res-yes').onclick = () => resolveConversation(true, btns)
   btns.querySelector('.res-no').onclick  = () => resolveConversation(false, btns)
   box.appendChild(btns)
-  scrollToBottom()
+  if (followScroll) scrollToBottom()
 }
 
 // ── Lightbox ──────────────────────────────────────────────────────────────────

@@ -4,7 +4,7 @@
 import { computeReloadAction } from './reload-policy.js'
 import { supabase } from './supabase.js'
 import { loadFaqContext, rerenderChips } from './assistant.js'
-import { renderResources } from './resources.js'
+import { refreshResources } from './resources.js'
 
 const VERSION_POLL_MS = 60_000
 const DEFER_CHECK_MS  = 2_000
@@ -64,15 +64,17 @@ function debounce(fn, ms) {
 
 // Debounce de 1.5 s: si el admin guarda varias filas seguidas, un solo refresh.
 // (`lecciones` no se suscribe aquí: lessons.js ya tiene su propio canal.)
-const onFaqChange   = debounce(() => { loadFaqContext(); renderResources().catch(() => {}) }, 1500)
+const onFaqChange   = debounce(() => { loadFaqContext(); refreshResources().catch(() => {}) }, 1500)
 const onChipsChange = debounce(() => { rerenderChips().catch(() => {}) }, 1500)
 
 function startRealtime() {
+  let retryScheduled = false // el callback de status se dispara en cada reintento fallido; reprogramar solo una vez
   const channel = supabase.channel('live-content')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'preguntas_frecuentes' }, onFaqChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'bot_sugerencias' }, onChipsChange)
     .subscribe(status => {
-      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+      if ((status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') && !retryScheduled) {
+        retryScheduled = true
         console.warn('[live-updates] Realtime desconectado, reintento en 30 s')
         setTimeout(() => { supabase.removeChannel(channel); startRealtime() }, 30_000)
       }
