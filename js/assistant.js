@@ -1,6 +1,8 @@
 ﻿import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js'
 import { escapeHtml } from './utils.js'
 import { storageGet, storageSet, storageRemove } from './storage.js'
+import { typewrite, skipActiveTypewriter } from './typewriter.js'
+import { isNearBottom } from './reload-policy.js'
 
 const N8N_URL     = '/api/chat'
 const ABANDON_URL = 'https://n8n.mplasesores.com/webhook/bodi-abandon'
@@ -60,6 +62,8 @@ try { history = JSON.parse(storageGet('bold_chat_history') || '[]') } catch { hi
 let conversationId  = null
 let _creating       = false
 let sessionMessages = []
+let followScroll  = true   // el usuario está al fondo → el scroll acompaña
+let skipAll       = false  // "Mostrar todo": revela el resto sin animar
 
 async function createConversation() {
   if (_creating) return
@@ -103,7 +107,7 @@ async function upsertConversation(patch) {
 
 async function resolveConversation(resolved, btnsEl) {
   btnsEl.remove()
-  appendBubble('bot', resolved
+  await appendBotAnimated(resolved
     ? '¡Me alegra haber podido ayudarte! Escríbeme cuando tengas otra duda.'
     : 'Entendido. Para una ayuda más detallada puedes contactar a [Soporte Bold POS](https://api.whatsapp.com/send?phone=573171109500&text=Hola%20,%20necesito%20su%20ayuda%20en%20Bold%20POS.).')
   await upsertConversation({ resolved, status: 'completed', ended_at: new Date().toISOString() })
@@ -122,7 +126,7 @@ async function renderAssistant() {
   const chips = await loadChips()
   const container = document.getElementById('section-assistant')
   container.innerHTML = `
-    <div class="flex flex-col h-full">
+    <div class="flex flex-col h-full relative">
       <!-- Chat header -->
       <div class="px-4 py-3 border-b border-[var(--blue-10)] flex items-center justify-between shrink-0">
         <div class="flex items-center">
@@ -229,6 +233,29 @@ function scrollToBottom() {
   if (box) box.scrollTop = box.scrollHeight
 }
 
+function onTypeTick() {
+  if (followScroll) scrollToBottom()
+}
+
+function scrollToMessageTop(el) {
+  const box = document.getElementById('chatMessages')
+  box.scrollTop = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 8
+}
+
+function showSkipButton() {
+  if (document.getElementById('twSkipBtn')) return
+  const btn = document.createElement('button')
+  btn.id = 'twSkipBtn'
+  btn.textContent = 'Mostrar todo ↓'
+  btn.style.cssText = 'position:absolute;bottom:88px;right:16px;z-index:20;background:var(--blue-100);color:#fff;font-size:11px;font-weight:700;padding:6px 12px;border-radius:9999px;box-shadow:0 2px 8px rgba(0,0,0,.18);font-family:var(--font-family);'
+  btn.onclick = () => { skipAll = true; skipActiveTypewriter() }
+  document.getElementById('section-assistant').firstElementChild.appendChild(btn)
+}
+
+function hideSkipButton() {
+  document.getElementById('twSkipBtn')?.remove()
+}
+
 // ── Media y botones resolución ────────────────────────────────────────────────
 
 function appendMedia(mediaItems) {
@@ -303,22 +330,18 @@ function normalizeSegments(segments) {
   return out
 }
 
-function appendSegments(segments) {
+async function appendSegments(segments) {
   const box = document.getElementById('chatMessages')
   if (!box || !Array.isArray(segments)) return
   segments = normalizeSegments(segments)
   let textBuffer = []
   let hadText = false
 
-  function flushText() {
+  async function flushText() {
     if (!textBuffer.length) return
     const content = textBuffer.join('\n\n')
-    const div = document.createElement('div')
-    div.className = 'flex justify-start'
-    div.innerHTML = `<div class="msg-bot text-sm">${renderMarkdown(content)}</div>`
-    box.appendChild(div)
     textBuffer = []
-    scrollToBottom()
+    await appendBotAnimated(content)
   }
 
   for (const seg of segments) {
@@ -326,7 +349,7 @@ function appendSegments(segments) {
       hadText = true
       textBuffer.push(seg.content)
     } else if (seg.type === 'image' && seg.url) {
-      flushText()
+      await flushText()
       const imgEl = document.createElement('img')
       imgEl.src = seg.url
       imgEl.alt = seg.caption || ''
@@ -344,9 +367,14 @@ function appendSegments(segments) {
         d.appendChild(cap)
       }
       box.appendChild(d)
-      scrollToBottom()
+      if (!skipAll) {
+        d.style.visibility = 'hidden'
+        await new Promise(r => setTimeout(r, 150))
+        d.style.visibility = ''
+      }
+      onTypeTick()
     } else if (seg.type === 'video' && seg.url) {
-      flushText()
+      await flushText()
       let videoId = null
       try {
         const u = new URL(seg.url)
@@ -372,10 +400,15 @@ function appendSegments(segments) {
         }
         d.appendChild(videoWrap)
         box.appendChild(d)
-        scrollToBottom()
+        if (!skipAll) {
+          d.style.visibility = 'hidden'
+          await new Promise(r => setTimeout(r, 150))
+          d.style.visibility = ''
+        }
+        onTypeTick()
       }
     } else if (seg.type === 'link' && seg.url) {
-      flushText()
+      await flushText()
       const safeUrl = escapeHtml(seg.url)
       const safeLabel = escapeHtml(seg.label || seg.url)
       const wrap = document.createElement('div')
@@ -388,10 +421,15 @@ function appendSegments(segments) {
       </a>`
       wrap.appendChild(d)
       box.appendChild(wrap)
-      scrollToBottom()
+      if (!skipAll) {
+        wrap.style.visibility = 'hidden'
+        await new Promise(r => setTimeout(r, 150))
+        wrap.style.visibility = ''
+      }
+      onTypeTick()
     }
   }
-  flushText()
+  await flushText()
 }
 
 function appendSupportCTA() {
@@ -512,6 +550,12 @@ function bindAssistantEvents() {
   document.querySelectorAll('.quick-query').forEach(btn => {
     btn.addEventListener('click', () => sendMessage(btn.textContent))
   })
+
+  const box = document.getElementById('chatMessages')
+  box.addEventListener('scroll', () => { followScroll = isNearBottom(box) })
+  box.addEventListener('click', e => {
+    if (e.target.closest('.tw-running')) { skipAll = true; skipActiveTypewriter() }
+  })
 }
 
 // ── Send message ──────────────────────────────────────────────────────────────
@@ -549,12 +593,24 @@ async function sendMessage(text) {
     if (!segments && /\[(IMAGEN|VIDEO|LINK)\s+url=/.test(reply)) {
       segments = [{ type: 'text', content: reply }]
     }
+    skipAll = false
+    showSkipButton()
+    let firstBubbleEl = null
+    const box = document.getElementById('chatMessages')
+    const markFirst = () => { if (!firstBubbleEl) { firstBubbleEl = box.lastElementChild; scrollToMessageTop(firstBubbleEl); followScroll = isNearBottom(box) } }
+
     if (segments) {
-      appendSegments(segments)
+      const observer = new MutationObserver(() => { markFirst(); observer.disconnect() })
+      observer.observe(box, { childList: true })
+      await appendSegments(segments)
+      observer.disconnect()
     } else {
-      appendBubble('bot', reply)
+      const p = appendBotAnimated(reply)
+      markFirst()
+      await p
       if (data.media?.length) appendMedia(data.media)
     }
+    hideSkipButton()
     if (data.support_redirected) appendSupportCTA()
     appendResolutionButtons()
 
@@ -572,10 +628,9 @@ async function sendMessage(text) {
     })
   } catch {
     typing.classList.add('hidden')
+    hideSkipButton()
     appendBubble('bot', 'Error de conexión. Verifica tu internet e intenta de nuevo.')
   }
-
-  scrollToBottom()
 }
 
 function appendBubble(role, content) {
@@ -589,6 +644,19 @@ function appendBubble(role, content) {
     div.innerHTML = `<div class="${wide ? 'msg-bot-wide' : 'msg-bot'} text-sm">${renderMarkdown(content)}</div>`
   }
   box.appendChild(div)
+}
+
+// Crea la burbuja del bot con el HTML completo y la anima (o la muestra
+// entera si el usuario ya pidió "Mostrar todo" en esta respuesta).
+async function appendBotAnimated(content) {
+  const box = document.getElementById('chatMessages')
+  const div = document.createElement('div')
+  div.className = 'flex justify-start'
+  const wide = hasMedia(content)
+  div.innerHTML = `<div class="${wide ? 'msg-bot-wide' : 'msg-bot'} text-sm">${renderMarkdown(content)}</div>`
+  box.appendChild(div)
+  if (!skipAll) await typewrite(div.firstElementChild, { onTick: onTypeTick })
+  return div
 }
 
 loadFaqContext()
