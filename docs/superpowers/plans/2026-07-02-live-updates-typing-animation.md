@@ -20,7 +20,7 @@
 - Velocidad de escritura ~190 caracteres/seg (3 chars cada 16 ms).
 - El historial restaurado de localStorage NUNCA se anima.
 
-**Nota de desviación del spec:** el spec dice que la sección de lecciones "se recargará sola al navegar" si está oculta — eso es incorrecto: las secciones se renderizan UNA vez al cargar la página (`main.js` solo alterna `hidden`). Por eso los handlers de Realtime re-renderizan la sección siempre (debounced), esté visible u oculta.
+**Nota de desviación del spec:** el spec pedía suscribir también `lecciones`, pero `js/lessons.js:390-402` YA tiene su propia suscripción Realtime a `lecciones` (de un plan anterior: refresca en sitio preservando la lección activa y muestra toast). Este plan NO la duplica: el Realtime nuevo cubre solo `preguntas_frecuentes` y `bot_sugerencias`. La publicación de Supabase ya incluye `lecciones` (esa feature funciona en producción); la migración solo agrega las dos tablas nuevas. Limitación preexistente conocida (LOW, fuera de alcance): al salir de la pestaña Lecciones se remueve el canal y no se re-suscribe al volver.
 
 ---
 
@@ -247,23 +247,23 @@ git commit -m "feat(live-updates): auto-recarga ante deploys nuevos via version.
 - Create: `supabase/migrations/enable_realtime_content.sql`
 - Modify: `js/assistant.js:17-42` (exports de contexto/chips)
 - Modify: `js/resources.js:9` (export)
-- Modify: `js/lessons.js:7` (export)
 - Modify: `js/live-updates.js` (suscripciones)
 
 **Interfaces:**
 - Consumes: `startLiveUpdates()` existente (Task 2); `loadChips()` y `sendMessage()` internos de `assistant.js`.
-- Produces: `loadFaqContext()` y `rerenderChips()` exportados de `js/assistant.js`; `renderResources()` exportado de `js/resources.js`; `renderLessons()` exportado de `js/lessons.js`; `startRealtime()` interno de `live-updates.js` llamado por `startLiveUpdates()`.
+- Produces: `loadFaqContext()` y `rerenderChips()` exportados de `js/assistant.js`; `renderResources()` exportado de `js/resources.js`; `startRealtime()` interno de `live-updates.js` llamado por `startLiveUpdates()`.
+- NO tocar `js/lessons.js`: su Realtime de `lecciones` (líneas 390-402) ya cubre esa tabla.
 
 - [ ] **Step 1: Crear la migración SQL**
 
 ```sql
 -- supabase/migrations/enable_realtime_content.sql
 -- Habilita Supabase Realtime (postgres_changes) para el contenido que el
--- portal del cliente refresca en vivo. Ejecutar UNA sola vez en el SQL Editor
--- del proyecto Supabase (falla con "already member" si se repite: ignorar).
+-- portal del cliente refresca en vivo. (`lecciones` ya está en la publicación
+-- desde la feature de realtime de lecciones.) Ejecutar UNA sola vez en el SQL
+-- Editor del proyecto Supabase (falla con "already member" si se repite: ignorar).
 alter publication supabase_realtime add table public.preguntas_frecuentes;
 alter publication supabase_realtime add table public.bot_sugerencias;
-alter publication supabase_realtime add table public.lecciones;
 ```
 
 - [ ] **Step 2: Exportar los hooks de contenido en assistant.js**
@@ -289,12 +289,11 @@ export async function rerenderChips() {
 }
 ```
 
-- [ ] **Step 3: Exportar los renders de secciones**
+- [ ] **Step 3: Exportar el render de recursos**
 
 - `js/resources.js:9`: `async function renderResources()` → `export async function renderResources()`
-- `js/lessons.js:7`: `async function renderLessons()` → `export async function renderLessons()`
 
-(Ambos módulos ya se auto-ejecutan al final del archivo; eso no cambia.)
+(El módulo ya se auto-ejecuta al final del archivo; eso no cambia. NO tocar `js/lessons.js`.)
 
 - [ ] **Step 4: Suscripciones Realtime en live-updates.js**
 
@@ -304,7 +303,6 @@ Agregar a `js/live-updates.js`:
 import { supabase } from './supabase.js'
 import { loadFaqContext, rerenderChips } from './assistant.js'
 import { renderResources } from './resources.js'
-import { renderLessons } from './lessons.js'
 
 function debounce(fn, ms) {
   let t
@@ -312,15 +310,14 @@ function debounce(fn, ms) {
 }
 
 // Debounce de 1.5 s: si el admin guarda varias filas seguidas, un solo refresh.
-const onFaqChange     = debounce(() => { loadFaqContext(); renderResources().catch(() => {}) }, 1500)
-const onChipsChange   = debounce(() => { rerenderChips().catch(() => {}) }, 1500)
-const onLessonsChange = debounce(() => { renderLessons().catch(() => {}) }, 1500)
+// (`lecciones` no se suscribe aquí: lessons.js ya tiene su propio canal.)
+const onFaqChange   = debounce(() => { loadFaqContext(); renderResources().catch(() => {}) }, 1500)
+const onChipsChange = debounce(() => { rerenderChips().catch(() => {}) }, 1500)
 
 function startRealtime() {
   const channel = supabase.channel('live-content')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'preguntas_frecuentes' }, onFaqChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'bot_sugerencias' }, onChipsChange)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'lecciones' }, onLessonsChange)
     .subscribe(status => {
       if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
         console.warn('[live-updates] Realtime desconectado, reintento en 30 s')
@@ -357,8 +354,8 @@ Expected: en ≤2 s el chip del chat cambia sin recargar. En consola no hay erro
 - [ ] **Step 8: Commit**
 
 ```bash
-git add supabase/migrations/enable_realtime_content.sql js/assistant.js js/resources.js js/lessons.js js/live-updates.js
-git commit -m "feat(live-updates): contenido en tiempo real via Supabase Realtime (FAQs, chips, lecciones)"
+git add supabase/migrations/enable_realtime_content.sql js/assistant.js js/resources.js js/live-updates.js
+git commit -m "feat(live-updates): contenido en tiempo real via Supabase Realtime (FAQs y chips)"
 ```
 
 ---
