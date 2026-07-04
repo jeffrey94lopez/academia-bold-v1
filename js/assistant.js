@@ -47,7 +47,7 @@ async function loadChips() {
 // inicial: con conversación en curso no movemos la UI debajo del usuario).
 export async function rerenderChips() {
   const wrap = document.getElementById('quickQueries')
-  if (!wrap || history.length > 0) return
+  if (!wrap) return
   const chips = await loadChips()
   wrap.innerHTML = chips.map(q => `
     <button class="quick-query shrink-0 text-xs font-bold px-3 py-1.5 rounded-full border border-[var(--blue-20)] hover:border-[var(--blue-100)] transition-colors whitespace-nowrap">${escapeHtml(q)}</button>
@@ -159,8 +159,9 @@ async function renderAssistant() {
         </div>
       </div>
 
-      <!-- Quick queries -->
-      <div id="quickQueries" class="px-4 pb-2 flex gap-2 overflow-x-auto shrink-0 ${history.length > 0 ? 'hidden' : ''}">
+      <!-- Quick queries: fila horizontal única (scroll lateral, nunca vertical);
+           visible también con historial — se ocultan solo mientras responde el bot -->
+      <div id="quickQueries" class="px-4 pb-2 flex gap-2 overflow-x-auto overflow-y-hidden shrink-0">
         ${chips.map(q => `
           <button class="quick-query shrink-0 text-xs font-bold px-3 py-1.5 rounded-full border border-[var(--blue-20)] hover:border-[var(--blue-100)] transition-colors whitespace-nowrap">${escapeHtml(q)}</button>
         `).join('')}
@@ -169,14 +170,15 @@ async function renderAssistant() {
       <!-- Input -->
       <div class="px-4 py-3 border-t border-[var(--blue-10)] shrink-0">
         <div class="flex gap-2 items-end">
+          <!-- En móvil: texto 16px (evita el zoom de iOS) y más alto; en desktop igual que antes -->
           <textarea
             id="chatInput"
             rows="1"
             placeholder="Escribe tu pregunta sobre Bold POS..."
-            class="flex-1 resize-none bg-[var(--background-page)] px-4 py-2.5 text-sm max-h-28 overflow-y-auto"
+            class="flex-1 resize-none bg-[var(--background-page)] px-4 py-3 md:py-2.5 text-base md:text-sm max-h-28 overflow-y-auto"
           ></textarea>
-          <button id="sendBtn" class="w-10 h-10 flex items-center justify-center shrink-0 hover:scale-105 transition-transform">
-            <i data-lucide="send" class="w-4 h-4 text-white"></i>
+          <button id="sendBtn" class="w-12 h-12 md:w-10 md:h-10 flex items-center justify-center shrink-0 hover:scale-105 transition-transform">
+            <i data-lucide="send" class="w-5 h-5 md:w-4 md:h-4 text-white"></i>
           </button>
         </div>
       </div>
@@ -620,6 +622,8 @@ async function sendMessage(text) {
     hideSkipButton()
     if (data.support_redirected) appendSupportCTA()
     appendResolutionButtons()
+    // Las sugerencias vuelven a aparecer después de cada respuesta del bot
+    document.getElementById('quickQueries')?.classList.remove('hidden')
 
     history.push({ role: 'assistant', content: reply })
     storageSet('bold_chat_history', JSON.stringify(history.slice(-20)))
@@ -637,6 +641,7 @@ async function sendMessage(text) {
     typing.classList.add('hidden')
     hideSkipButton()
     appendBubble('bot', 'Error de conexión. Verifica tu internet e intenta de nuevo.')
+    document.getElementById('quickQueries')?.classList.remove('hidden')
     scrollToBottom()
   }
 

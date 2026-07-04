@@ -4,6 +4,10 @@ import { track } from './analytics.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml } from './utils.js'
 
+// Las categorías se muestran sin emojis (pueden venir en la columna emoji o
+// incrustados en el nombre); las claves internas de agrupación no se tocan.
+const stripEmoji = s => (s || '').replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '').trim()
+
 async function renderLessons() {
   const container = document.getElementById('section-lessons')
 
@@ -45,6 +49,13 @@ async function renderLessons() {
         <div class="px-4 py-3 border-b border-[var(--blue-10)] shrink-0">
           <h2 class="font-black text-base">Centro de Ayuda</h2>
         </div>
+        <!-- Búsqueda global: filtra lecciones de todas las categorías desde la pantalla inicial -->
+        <div class="px-3 py-2 border-b border-[var(--blue-10)] shrink-0">
+          <div class="flex items-center gap-2 bg-[var(--background-page)] rounded-xl px-3 py-2">
+            <span class="text-[var(--black-60)] text-sm">🔍</span>
+            <input id="ls-cat-search" placeholder="Buscar lección..." class="bg-transparent text-base flex-1 outline-none">
+          </div>
+        </div>
         <div id="ls-cat-list" class="flex-1 overflow-y-auto"></div>
       </div>
 
@@ -56,7 +67,7 @@ async function renderLessons() {
         <div class="px-3 py-2 border-b border-[var(--blue-10)] shrink-0">
           <div class="flex items-center gap-2 bg-[var(--background-page)] rounded-xl px-3 py-2">
             <span class="text-[var(--black-60)] text-sm">🔍</span>
-            <input id="ls-mob-search" placeholder="Buscar lección..." class="bg-transparent text-sm flex-1 outline-none">
+            <input id="ls-mob-search" placeholder="Buscar lección..." class="bg-transparent text-base flex-1 outline-none">
           </div>
         </div>
         <div id="ls-lesson-list" class="flex-1 overflow-y-auto"></div>
@@ -115,7 +126,7 @@ async function renderLessons() {
 
     const metaEl = document.createElement('p')
     metaEl.className = 'text-xs text-[var(--black-60)] mb-4'
-    metaEl.textContent = `${lesson.categoria || ''} · Lección ${lessonIdx}`
+    metaEl.textContent = `${stripEmoji(lesson.categoria || '')} · Lección ${lessonIdx}`
 
     panel.append(titleEl, metaEl)
 
@@ -180,7 +191,7 @@ async function renderLessons() {
         return `
           <div>
             <button class="acc-cat w-full flex items-center justify-between px-3 py-2.5 border-b border-[var(--blue-10)] hover:bg-[var(--black-10)] transition-colors" data-cat="${escapeHtml(cat.key)}">
-              <span class="text-xs font-black ${isOpen ? 'text-[var(--blue-100)]' : 'text-[var(--black-60)]'}">${escapeHtml(cat.key)}</span>
+              <span class="text-xs font-black ${isOpen ? 'text-[var(--blue-100)]' : 'text-[var(--black-60)]'}">${escapeHtml(stripEmoji(cat.key))}</span>
               <span class="text-[10px] ${isOpen ? 'text-[var(--blue-100)]' : 'text-[var(--black-40)]'}">${isOpen ? '▾' : '▸'}</span>
             </button>
             ${lessonRows}
@@ -250,7 +261,7 @@ async function renderLessons() {
       const btn = document.createElement('button')
       btn.className = 'w-full flex items-center gap-3 px-4 py-3.5 border-b border-[var(--blue-10)] text-left hover:bg-[var(--black-10)] transition-colors'
       btn.innerHTML = `
-        <span class="font-bold text-sm flex-1 text-[var(--black-100)]">${escapeHtml(cat.key)}</span>
+        <span class="font-bold text-sm flex-1 text-[var(--black-100)]">${escapeHtml(stripEmoji(cat.key))}</span>
         <span class="text-[var(--black-40)] text-xl">›</span>`
       btn.addEventListener('click', () => {
         activeCategory = cat.key
@@ -265,9 +276,8 @@ async function renderLessons() {
     const list = document.getElementById('ls-lesson-list')
     if (!list) return
 
-    const catObj = CATEGORIES.find(c => c.key === activeCategory)
     const titleEl = document.getElementById('ls-mob-cat-title')
-    if (titleEl) titleEl.textContent = `${catObj?.emoji || ''} ${activeCategory}`
+    if (titleEl) titleEl.textContent = stripEmoji(activeCategory)
 
     const q = document.getElementById('ls-mob-search')?.value?.toLowerCase() || ''
     const filtered = (grouped[activeCategory] || []).filter(l =>
@@ -303,6 +313,61 @@ async function renderLessons() {
       list.append(empty)
     }
   }
+
+  // Búsqueda global desde la pantalla de categorías: muestra lecciones de
+  // cualquier categoría; al tocar una se abre directo su contenido.
+  function renderMobileCatSearchResults(q) {
+    const list = document.getElementById('ls-cat-list')
+    if (!list) return
+    if (!q) { renderMobileCatList(); return }
+
+    const matches = lessons.filter(l =>
+      l.titulo.toLowerCase().includes(q) || (l.descripcion || '').toLowerCase().includes(q))
+
+    list.innerHTML = ''
+    matches.forEach(l => {
+      const btn = document.createElement('button')
+      btn.className = 'w-full text-left px-4 py-3.5 border-b border-[var(--blue-10)] hover:bg-[var(--black-10)] transition-colors'
+      const title = document.createElement('p')
+      title.className = 'text-sm font-medium text-[var(--black-100)]'
+      title.textContent = l.titulo
+      const meta = document.createElement('p')
+      meta.className = 'text-xs text-[var(--black-60)] mt-0.5'
+      meta.textContent = stripEmoji(l.categoria || '')
+      btn.append(title, meta)
+      btn.addEventListener('click', () => {
+        activeCategory = l.categoria || firstCat
+        activeLesson = l
+        renderMobileLessonList()
+        const titleSpan = document.getElementById('ls-mob-lesson-title')
+        if (titleSpan) titleSpan.textContent = l.titulo
+        renderLessonContent(document.getElementById('ls-mob-content'), l)
+        showScreen('content')
+      })
+      list.append(btn)
+    })
+
+    if (!matches.length) {
+      const empty = document.createElement('p')
+      empty.className = 'text-[var(--black-60)] text-sm px-4 py-4'
+      empty.textContent = 'Sin resultados.'
+      list.append(empty)
+    }
+  }
+
+  let catSearchDebounce = null
+  document.getElementById('ls-cat-search')?.addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase()
+    renderMobileCatSearchResults(q)
+    clearTimeout(catSearchDebounce)
+    if (q) {
+      catSearchDebounce = setTimeout(() => {
+        const count = lessons.filter(l =>
+          l.titulo.toLowerCase().includes(q) || (l.descripcion || '').toLowerCase().includes(q)).length
+        track('lesson_search', { term: q, results_count: count })
+      }, 600)
+    }
+  })
 
   document.getElementById('ls-back-cats')?.addEventListener('click', () => showScreen('categories'))
   document.getElementById('ls-back-lessons')?.addEventListener('click', () => showScreen('lessons'))

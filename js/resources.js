@@ -21,7 +21,7 @@ async function renderResources() {
 
       <div class="px-4 pb-2 shrink-0">
         <input id="resourceSearch" type="text" placeholder="Buscar pregunta..."
-          class="w-full px-4 py-2 rounded-xl bg-[var(--background-page)] text-sm outline-none focus:ring-2 focus:ring-[var(--blue-100)]">
+          class="w-full px-4 py-2 rounded-xl bg-[var(--background-page)] text-base md:text-sm outline-none focus:ring-2 focus:ring-[var(--blue-100)]">
       </div>
 
       <div id="subFaq" class="flex-1 overflow-y-auto custom-scroll px-4 pb-4">
@@ -97,6 +97,81 @@ export async function refreshResources() {
   }
 }
 
+// ── Bottom sheet de respuesta FAQ ─────────────────────────────────────────────
+
+function closeFaqSheet() {
+  const overlay = document.getElementById('faqSheetOverlay')
+  if (!overlay) return
+  const sheet = overlay.querySelector('.faq-sheet')
+  if (sheet) sheet.style.transform = 'translate(-50%, 100%)'
+  overlay.style.opacity = '0'
+  setTimeout(() => overlay.remove(), 250)
+}
+
+function openFaqSheet(f) {
+  document.getElementById('faqSheetOverlay')?.remove()
+  const host = document.getElementById('section-resources')
+  if (!host) return
+
+  const overlay = document.createElement('div')
+  overlay.id = 'faqSheetOverlay'
+  overlay.style.cssText = 'position:absolute;inset:0;z-index:30;transition:opacity .25s ease;opacity:0'
+
+  const backdrop = document.createElement('div')
+  backdrop.style.cssText = 'position:absolute;inset:0;background:rgba(18,30,108,.35)'
+  backdrop.addEventListener('click', closeFaqSheet)
+
+  const sheet = document.createElement('div')
+  sheet.className = 'faq-sheet'
+  sheet.style.cssText = 'position:absolute;bottom:0;left:50%;transform:translate(-50%,100%);width:100%;max-width:520px;max-height:75%;overflow-y:auto;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -4px 24px rgba(0,0,0,.18);padding:16px 16px 24px;transition:transform .25s ease'
+
+  const head = document.createElement('div')
+  head.style.cssText = 'display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px'
+  const title = document.createElement('p')
+  title.style.cssText = 'font-weight:800;font-size:14px;color:var(--black-100);flex:1'
+  title.textContent = f.pregunta
+  const closeBtn = document.createElement('button')
+  closeBtn.setAttribute('aria-label', 'Cerrar')
+  closeBtn.style.cssText = 'flex-shrink:0;width:28px;height:28px;border-radius:9999px;background:var(--black-10);color:var(--black-60);font-size:14px;font-weight:700;border:none;cursor:pointer'
+  closeBtn.textContent = '✕'
+  closeBtn.addEventListener('click', closeFaqSheet)
+  head.append(title, closeBtn)
+
+  const body = document.createElement('p')
+  body.style.cssText = 'font-size:13px;color:var(--black-60);line-height:1.6;white-space:pre-line'
+  body.textContent = f.respuesta
+
+  sheet.append(head, body)
+
+  if (f.leccion_id) {
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.style.cssText = 'margin-top:12px;font-size:12px;font-weight:700;color:var(--blue-100);background:none;border:none;cursor:pointer;padding:0'
+    btn.textContent = 'Ver lección →'
+    btn.addEventListener('click', () => {
+      closeFaqSheet()
+      document.querySelector('[data-tab="lessons"]')?.click()
+      setTimeout(() => window.openLessonById?.(f.leccion_id), 150)
+    })
+    sheet.append(btn)
+  } else if (f.link_url && /^https?:\/\//i.test(f.link_url)) {
+    const a = document.createElement('a')
+    a.href = f.link_url
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    a.style.cssText = 'display:inline-block;margin-top:12px;font-size:12px;font-weight:700;color:var(--blue-100);text-decoration:none'
+    a.textContent = 'Más información →'
+    sheet.append(a)
+  }
+
+  overlay.append(backdrop, sheet)
+  host.appendChild(overlay)
+  requestAnimationFrame(() => {
+    overlay.style.opacity = '1'
+    sheet.style.transform = 'translate(-50%, 0)'
+  })
+}
+
 async function loadFaq() {
   const { data, error } = await supabase.from('preguntas_frecuentes').select('*').order('orden').order('created_at')
   const list = document.getElementById('faqList')
@@ -106,47 +181,24 @@ async function loadFaq() {
     return (_q) => {}
   }
 
-  const actionBtn = (f) => {
-    if (f.leccion_id) {
-      return `<button type="button" class="faq-lesson-btn mt-2 text-xs font-bold text-[var(--blue-100)] hover:underline" data-lesson-id="${f.leccion_id}">Ver lección →</button>`
-    } else if (f.link_url && /^https?:\/\//i.test(f.link_url)) {
-      return `<a href="${escapeHtml(f.link_url)}" target="_blank" rel="noopener noreferrer" class="mt-2 inline-block text-xs font-bold text-[var(--blue-100)] hover:underline">Más información →</a>`
-    }
-    return ''
-  }
-
+  // Lista fija de preguntas: la respuesta se abre en un panel deslizante
+  // (bottom sheet), así la lista nunca se desplaza al consultar una pregunta.
   function renderFaqList(items) {
     if (!items.length) {
       list.innerHTML = '<p class="text-[var(--black-60)] text-sm text-center py-8">No hay resultados.</p>'
       return
     }
-    list.innerHTML = items.map(f => `
-      <details class="rounded-xl border border-[var(--blue-10)] bg-white overflow-hidden">
-        <summary class="flex items-center justify-between gap-2 p-3 cursor-pointer list-none font-bold text-sm select-none">
-          <span>${escapeHtml(f.pregunta)}</span>
-          <i data-lucide="chevron-down" class="w-4 h-4 shrink-0 text-[var(--black-60)] transition-transform faq-chevron"></i>
-        </summary>
-        <div class="px-3 pb-3 text-xs text-[var(--black-60)] border-t border-[var(--blue-10)] pt-2 mt-0">
-          ${escapeHtml(f.respuesta)}
-          ${actionBtn(f)}
-        </div>
-      </details>
+    list.innerHTML = items.map((f, i) => `
+      <button type="button" class="faq-item w-full flex items-center justify-between gap-2 p-3 rounded-xl border border-[var(--blue-10)] bg-white text-left hover:border-[var(--blue-100)] transition-colors" data-idx="${i}">
+        <span class="font-bold text-sm">${escapeHtml(f.pregunta)}</span>
+        <i data-lucide="chevron-right" class="w-4 h-4 shrink-0 text-[var(--black-60)]"></i>
+      </button>
     `).join('')
 
     lucide.createIcons()
 
-    list.querySelectorAll('details').forEach(d => {
-      d.addEventListener('toggle', () => {
-        const icon = d.querySelector('.faq-chevron')
-        if (icon) icon.style.transform = d.open ? 'rotate(180deg)' : ''
-      })
-    })
-
-    list.querySelectorAll('.faq-lesson-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelector('[data-tab="lessons"]')?.click()
-        setTimeout(() => window.openLessonById?.(btn.dataset.lessonId), 150)
-      })
+    list.querySelectorAll('.faq-item').forEach(btn => {
+      btn.addEventListener('click', () => openFaqSheet(items[Number(btn.dataset.idx)]))
     })
   }
 
