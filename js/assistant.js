@@ -43,8 +43,8 @@ async function loadChips() {
   }
 }
 
-// Re-dibuja los chips de sugerencias (solo si el chat sigue en estado
-// inicial: con conversación en curso no movemos la UI debajo del usuario).
+// Re-dibuja los chips de sugerencias (visibles también con conversación en
+// curso: reaparecen después de cada respuesta del bot).
 export async function rerenderChips() {
   const wrap = document.getElementById('quickQueries')
   if (!wrap) return
