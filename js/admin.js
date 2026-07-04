@@ -2237,6 +2237,15 @@ async function renderProfilePanel() {
               <span id="toggleResourcesKnob" class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"></span>
             </button>
           </div>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-bold text-[var(--black-100)]">Curso</p>
+              <p class="text-xs text-[var(--black-60)] mt-0.5">Muestra u oculta la pestaña Curso (registro, exámenes y certificado)</p>
+            </div>
+            <button id="toggleCurso" class="relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none" aria-pressed="false">
+              <span id="toggleCursoKnob" class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"></span>
+            </button>
+          </div>
         </div>
         <p id="toggleSettingsMsg" class="text-xs mt-3 hidden"></p>
       </div>
@@ -2279,6 +2288,7 @@ async function renderProfilePanel() {
   const setFaq       = wireToggle('toggleFaq',       'toggleFaqKnob',       'faq_enabled',       'P. frecuentes activadas.',         'P. frecuentes desactivadas.')
   const setGlossary  = wireToggle('toggleGlossary',  'toggleGlossaryKnob',  'glossary_enabled',  'Glosario activado.',               'Glosario desactivado.')
   const setResources = wireToggle('toggleResources',  'toggleResourcesKnob', 'resources_enabled', 'Material de apoyo activado.',      'Material de apoyo desactivado.')
+  const setCurso     = wireToggle('toggleCurso',      'toggleCursoKnob',     'curso_enabled',     'Curso activado.',                  'Curso desactivado.')
 
   const { data: allSettings } = await supabase.from('app_settings').select('key,value')
   const settingsMap = allSettings ? Object.fromEntries(allSettings.map(r => [r.key, r.value])) : {}
@@ -2287,6 +2297,8 @@ async function renderProfilePanel() {
   setFaq(settingsMap.faq_enabled !== 'false')
   setGlossary(settingsMap.glossary_enabled !== 'false')
   setResources(settingsMap.resources_enabled !== 'false')
+  // Curso: a diferencia de las demás, arranca APAGADA hasta que se active
+  setCurso(settingsMap.curso_enabled === 'true')
 
   document.getElementById('saveProfileInfo').addEventListener('click', async () => {
     const newName = document.getElementById('profileName').value.trim()

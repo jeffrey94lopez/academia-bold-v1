@@ -12,11 +12,11 @@ function escHtml(t) {
 
 // ── Session management ─────────────────────────────────────────────────────
 
-export async function registerStudent(nombre, apellido) {
+export async function registerStudent(nombre, apellido, correo) {
   const id = crypto.randomUUID()
   const { error } = await supabase
     .from('progreso_estudiantes')
-    .insert({ id, nombre, apellido, progreso: {}, completado: false })
+    .insert({ id, nombre, apellido, correo, progreso: {}, completado: false })
 
   if (error) throw error
 
@@ -40,10 +40,6 @@ export async function loadSession() {
   }
 
   return data
-}
-
-export function setExploreMode() {
-  localStorage.setItem('bold_mode', 'explore')
 }
 
 export function clearSession() {
@@ -90,115 +86,6 @@ export async function checkAndMarkCourseComplete(student, allLessonIds) {
   student.fecha_completado = fecha_completado
 
   return true
-}
-
-// ── Mode-selection screen ──────────────────────────────────────────────────
-
-export function renderModeSelection(container, { onCourse, onExplore }) {
-  container.innerHTML = `
-    <div class="min-h-full flex items-center justify-center p-6 bg-slate-50">
-      <div class="w-full max-w-md space-y-4">
-
-        <!-- Brand header -->
-        <div class="text-center mb-6">
-          <div class="inline-flex items-center justify-center w-14 h-14 bg-[#E92129] rounded-2xl shadow-lg mb-3">
-            <span class="text-white font-black italic text-2xl">B</span>
-          </div>
-          <h1 class="font-black text-2xl text-slate-900 uppercase tracking-tight">Bold POS Academy</h1>
-          <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Academia Oficial de Bold POS</p>
-        </div>
-
-        <!-- Block 1: Hacer el curso -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <p class="font-black text-base text-slate-900 mb-1">Hacer el curso</p>
-          <p class="text-xs text-slate-500 mb-4">Registra tu progreso y obtén tu certificado al completar todas las lecciones.</p>
-
-          <div class="space-y-3">
-            <div>
-              <label class="block text-xs font-bold text-slate-600 mb-1">Nombre</label>
-              <input
-                id="cm-nombre"
-                type="text"
-                placeholder="Tu nombre"
-                class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-[#E92129] focus:border-transparent transition"
-              >
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-slate-600 mb-1">Apellido</label>
-              <input
-                id="cm-apellido"
-                type="text"
-                placeholder="Tu apellido"
-                class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-[#E92129] focus:border-transparent transition"
-              >
-            </div>
-          </div>
-
-          <p id="cm-error" class="hidden text-xs font-bold text-[#E92129] mt-2"></p>
-
-          <button
-            id="cm-start"
-            class="mt-4 w-full bg-[#E92129] hover:bg-red-700 text-white font-black text-sm py-3 rounded-xl transition-colors"
-          >
-            Comenzar →
-          </button>
-        </div>
-
-        <!-- Block 2: Solo explorar -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <p class="font-black text-base text-slate-900 mb-1">Solo explorar</p>
-          <p class="text-xs text-slate-500 mb-4">Navega por las lecciones y recursos sin registrar progreso.</p>
-
-          <button
-            id="cm-explore"
-            class="w-full border border-slate-200 hover:border-[#E92129] hover:text-[#E92129] text-slate-600 font-black text-sm py-3 rounded-xl transition-colors"
-          >
-            Entrar sin registro
-          </button>
-        </div>
-
-      </div>
-    </div>
-  `
-
-  // ── Handlers ──────────────────────────────────────────────────────────────
-  container.querySelector('#cm-start').addEventListener('click', async () => {
-    const nombre   = container.querySelector('#cm-nombre').value.trim()
-    const apellido = container.querySelector('#cm-apellido').value.trim()
-    const errEl    = container.querySelector('#cm-error')
-    const btn      = container.querySelector('#cm-start')
-
-    errEl.classList.add('hidden')
-    errEl.textContent = ''
-
-    if (!nombre || !apellido) {
-      errEl.textContent = 'Por favor ingresa tu nombre y apellido.'
-      errEl.classList.remove('hidden')
-      return
-    }
-
-    btn.disabled = true
-    btn.textContent = 'Registrando...'
-
-    try {
-      const id = await registerStudent(nombre, apellido)
-      const student = { id, nombre, apellido, progreso: {}, completado: false }
-      track('mode_selected', { mode: 'course' })
-      onCourse(student)
-    } catch (err) {
-      console.error('[course] registerStudent error:', err)
-      errEl.textContent = 'Ocurrió un error al registrarte. Intenta de nuevo.'
-      errEl.classList.remove('hidden')
-      btn.disabled = false
-      btn.textContent = 'Comenzar →'
-    }
-  })
-
-  container.querySelector('#cm-explore').addEventListener('click', () => {
-    setExploreMode()
-    track('mode_selected', { mode: 'explore' })
-    onExplore()
-  })
 }
 
 // ── Exam modal ─────────────────────────────────────────────────────────────

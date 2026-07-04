@@ -3,6 +3,7 @@ import './lessons.js'
 import './resources.js'
 import { supabase } from './supabase.js'
 import { startLiveUpdates } from './live-updates.js'
+import { initCourseTab } from './course-tab.js'
 
 startLiveUpdates()
 
@@ -17,6 +18,15 @@ startLiveUpdates()
   if (s.lessons_enabled === 'false') {
     document.querySelectorAll('[data-tab="lessons"]').forEach(el => el.classList.add('hidden'))
     document.getElementById('section-lessons')?.classList.add('hidden')
+  }
+  // Curso: apagado por defecto (solo aparece si el admin lo activó)
+  if (s.curso_enabled === 'true') {
+    document.querySelectorAll('[data-tab="course"]').forEach(el => {
+      el.classList.remove('hidden')
+      el.style.display = 'flex'
+    })
+    lucide.createIcons()
+    initCourseTab()
   }
 })()
 

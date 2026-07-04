@@ -33,6 +33,7 @@
     <div id="section-assistant" class="absolute inset-0 section-enter"></div>
     <div id="section-lessons" class="absolute inset-0 section-enter hidden"></div>
     <div id="section-resources" class="absolute inset-0 section-enter hidden"></div>
+    <div id="section-course" class="absolute inset-0 section-enter hidden"></div>
   </main>
 
   <!-- Bottom nav (móvil) -->
@@ -49,6 +50,11 @@
       <i data-lucide="help-circle" class="w-5 h-5"></i>
       <span>P. Frecuentes</span>
     </button>
+    <!-- Oculta por defecto: se muestra si curso_enabled === 'true' (main.js) -->
+    <button data-tab="course" class="nav-tab hidden flex-col items-center gap-1 text-[10px] font-bold text-[var(--black-60)]" style="display:none">
+      <i data-lucide="graduation-cap" class="w-5 h-5"></i>
+      <span>Curso</span>
+    </button>
   </nav>
 
   <!-- Desktop sidebar -->
@@ -62,6 +68,10 @@
     </button>
     <button data-tab="resources" class="nav-tab-desk flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--blue-100)] hover:bg-[var(--black-10)]">
       <i data-lucide="help-circle" class="w-4 h-4"></i> P. Frecuentes
+    </button>
+    <!-- Oculta por defecto: se muestra si curso_enabled === 'true' (main.js) -->
+    <button data-tab="course" class="nav-tab-desk hidden items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--blue-100)] hover:bg-[var(--black-10)]" style="display:none">
+      <i data-lucide="graduation-cap" class="w-4 h-4"></i> Curso
     </button>
     <div class="mt-auto pt-3 border-t border-[var(--blue-10)]">
       <a href="https://api.whatsapp.com/send?phone=573171109500&text=Hola%20,%20necesito%20su%20ayuda" target="_blank" rel="noopener noreferrer"
