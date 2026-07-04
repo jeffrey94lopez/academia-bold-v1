@@ -328,6 +328,15 @@ async function renderLessonsPanel() {
                   class="w-full px-3 py-2.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] bg-white">
                 </select>
               </div>
+              <div>
+                <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Dispositivo</label>
+                <select id="lessonDispositivo"
+                  class="w-full px-3 py-2.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] bg-white">
+                  <option value="web">Web</option>
+                  <option value="app">App</option>
+                  <option value="datafono">Datáfono</option>
+                </select>
+              </div>
             </div>
             <p class="text-[10px] font-black uppercase text-[var(--black-40)] tracking-wide mb-2">Contenido</p>
             <div id="blockList" class="space-y-2 mb-3"></div>
@@ -520,6 +529,7 @@ async function renderLessonsPanel() {
       contenido: JSON.stringify(currentBlocks),
       orden,
       categoria: document.getElementById('lessonCategoria').value,
+      dispositivo: document.getElementById('lessonDispositivo').value || 'web',
       notas: document.getElementById('lessonNotas').value.trim() || null,
       examen: currentQuestions.length ? { preguntas: currentQuestions } : null,
     }
@@ -800,6 +810,7 @@ function openLessonForm(lesson = null) {
     `<option value="${escapeHtml(c.nombre)}">${escapeHtml(c.emoji)} ${escapeHtml(c.nombre)}</option>`
   ).join('')
   catSelect.value = lesson?.categoria || (currentCategories[0]?.nombre || '')
+  document.getElementById('lessonDispositivo').value = lesson?.dispositivo || 'web'
 
   try {
     currentBlocks = lesson?.contenido ? JSON.parse(lesson.contenido) : []

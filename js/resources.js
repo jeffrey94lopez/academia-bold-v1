@@ -104,7 +104,10 @@ function closeFaqSheet() {
   const overlay = document.getElementById('faqSheetOverlay')
   if (!overlay) return
   const sheet = overlay.querySelector('.faq-sheet')
-  if (sheet) sheet.style.transform = 'translate(-50%, 100%)'
+  if (sheet) {
+    sheet.style.transform = sheet.dataset.hiddenTransform || 'translate(-50%, 100%)'
+    sheet.style.opacity = sheet.dataset.fades ? '0' : sheet.style.opacity
+  }
   overlay.style.opacity = '0'
   setTimeout(() => overlay.remove(), 250)
 }
@@ -122,9 +125,20 @@ function openFaqSheet(f) {
   backdrop.style.cssText = 'position:absolute;inset:0;background:rgba(18,30,108,.35)'
   backdrop.addEventListener('click', closeFaqSheet)
 
+  // Móvil: bottom sheet que sube desde abajo. Desktop: modal centrado.
+  const desktop = window.matchMedia('(min-width: 768px)').matches
   const sheet = document.createElement('div')
   sheet.className = 'faq-sheet'
-  sheet.style.cssText = 'position:absolute;bottom:0;left:50%;transform:translate(-50%,100%);width:100%;max-width:520px;max-height:75%;overflow-y:auto;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -4px 24px rgba(0,0,0,.18);padding:16px 16px 24px;transition:transform .25s ease'
+  if (desktop) {
+    sheet.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-46%);opacity:0;width:90%;max-width:560px;max-height:70%;overflow-y:auto;background:#fff;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.25);padding:20px 20px 24px;transition:transform .22s ease,opacity .22s ease'
+    sheet.dataset.hiddenTransform = 'translate(-50%,-46%)'
+    sheet.dataset.shownTransform  = 'translate(-50%,-50%)'
+    sheet.dataset.fades = '1'
+  } else {
+    sheet.style.cssText = 'position:absolute;bottom:0;left:50%;transform:translate(-50%,100%);width:100%;max-width:520px;max-height:75%;overflow-y:auto;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -4px 24px rgba(0,0,0,.18);padding:16px 16px 24px;transition:transform .25s ease'
+    sheet.dataset.hiddenTransform = 'translate(-50%,100%)'
+    sheet.dataset.shownTransform  = 'translate(-50%,0)'
+  }
 
   const head = document.createElement('div')
   head.style.cssText = 'display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px'
@@ -169,7 +183,8 @@ function openFaqSheet(f) {
   host.appendChild(overlay)
   requestAnimationFrame(() => {
     overlay.style.opacity = '1'
-    sheet.style.transform = 'translate(-50%, 0)'
+    sheet.style.opacity = '1'
+    sheet.style.transform = sheet.dataset.shownTransform
   })
 }
 
