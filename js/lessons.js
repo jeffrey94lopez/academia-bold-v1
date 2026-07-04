@@ -8,6 +8,17 @@ import { escapeHtml } from './utils.js'
 // incrustados en el nombre); las claves internas de agrupación no se tocan.
 const stripEmoji = s => (s || '').replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '').trim()
 
+// Modo staff: se activa una vez con ?staff=1 en la URL (queda recordado en el
+// navegador) y se desactiva con ?staff=0. Controla herramientas internas.
+function isStaff() {
+  try {
+    const p = new URLSearchParams(window.location.search)
+    if (p.get('staff') === '1') localStorage.setItem('bold_staff', '1')
+    else if (p.get('staff') === '0') localStorage.removeItem('bold_staff')
+    return localStorage.getItem('bold_staff') === '1'
+  } catch { return false }
+}
+
 async function renderLessons() {
   const container = document.getElementById('section-lessons')
 
@@ -41,6 +52,8 @@ async function renderLessons() {
   let activeCategory = firstCat
   let activeLesson = grouped[firstCat]?.[0] || null
   let searchQuery = ''
+  // Acordeón desktop: categorías abiertas (toggle manual, varias a la vez)
+  const openCats = new Set(firstCat ? [firstCat] : [])
 
   container.innerHTML = `
     <!-- MOBILE: 3-screen stack (hidden on md+) -->
@@ -104,6 +117,11 @@ async function renderLessons() {
     panel.innerHTML = ''
     track('lesson_open', { lesson_id: lesson.id, lesson_title: lesson.titulo || '', category: lesson.categoria || '' })
 
+    // Columna de lectura centrada: líneas más cortas cansan menos la vista
+    const inner = document.createElement('div')
+    inner.style.cssText = 'max-width:720px;margin:0 auto'
+    panel.appendChild(inner)
+
     const catLessons = grouped[lesson.categoria || CATEGORIES[0]?.key] || []
     const idx = catLessons.findIndex(l => l.id === lesson.id)
     const lessonIdx = idx >= 0 ? idx + 1 : '?'
@@ -118,7 +136,7 @@ async function renderLessons() {
 
     let topVideo = null, restBlocks = blocks
     if (blocks[0]?.type === 'video') { topVideo = blocks[0]; restBlocks = blocks.slice(1) }
-    if (topVideo) panel.appendChild(renderBlocks([topVideo]))
+    if (topVideo) inner.appendChild(renderBlocks([topVideo]))
 
     const titleEl = document.createElement('h2')
     titleEl.className = 'font-black text-base text-[var(--blue-100)] mb-0.5'
@@ -128,14 +146,14 @@ async function renderLessons() {
     metaEl.className = 'text-xs text-[var(--black-60)] mb-4'
     metaEl.textContent = `${stripEmoji(lesson.categoria || '')} · Lección ${lessonIdx}`
 
-    panel.append(titleEl, metaEl)
+    inner.append(titleEl, metaEl)
 
     if (restBlocks.length > 0) {
-      panel.appendChild(renderBlocks(restBlocks))
+      inner.appendChild(renderBlocks(restBlocks))
     } else if (isLegacy && lesson.contenido) {
       const div = document.createElement('div')
       div.innerHTML = lesson.contenido
-      panel.append(div)
+      inner.append(div)
     }
 
     if (lesson.notas) {
@@ -148,14 +166,18 @@ async function renderLessons() {
       notasText.style.cssText = 'font-size:12px;color:var(--warning-200);line-height:1.5'
       notasText.textContent = lesson.notas
       notasWrap.append(notasTitle, notasText)
-      panel.append(notasWrap)
+      inner.append(notasWrap)
     }
 
-    const waBtn = document.createElement('button')
-    waBtn.style.cssText = 'margin-top:12px;width:100%;padding:10px;border-radius:12px;background:#25D366;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;border:none'
-    waBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> Copiar para WhatsApp'
-    waBtn.addEventListener('click', () => copyLessonToWhatsApp(lesson, waBtn))
-    panel.append(waBtn)
+    // Herramienta interna: visible solo para el equipo (abrir el portal una vez
+    // con ?staff=1; ?staff=0 lo desactiva). Botón compacto y centrado.
+    if (isStaff()) {
+      const waBtn = document.createElement('button')
+      waBtn.style.cssText = 'margin:16px auto 0;padding:8px 18px;border-radius:9999px;background:#25D366;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;border:none'
+      waBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> Copiar para WhatsApp'
+      waBtn.addEventListener('click', () => copyLessonToWhatsApp(lesson, waBtn))
+      inner.append(waBtn)
+    }
   }
 
   // ── Desktop: accordion ────────────────────────────────────────────────────
@@ -166,7 +188,6 @@ async function renderLessons() {
     accordion.innerHTML = CATEGORIES
       .filter(c => grouped[c.key]?.length > 0)
       .map(cat => {
-        const isOpen = cat.key === activeCategory
         const catLessons = grouped[cat.key] || []
         const q = searchQuery.toLowerCase()
         const filtered = q
@@ -174,6 +195,9 @@ async function renderLessons() {
               l.titulo.toLowerCase().includes(q) ||
               (l.descripcion || '').toLowerCase().includes(q))
           : catLessons
+        // Buscando: se abren las categorías con resultados; sin búsqueda,
+        // cada categoría se abre/cierra manualmente (toggle).
+        const isOpen = q ? filtered.length > 0 : openCats.has(cat.key)
 
         const lessonRows = isOpen ? `
           <div>
@@ -200,10 +224,9 @@ async function renderLessons() {
 
     accordion.querySelectorAll('.acc-cat').forEach(btn => {
       btn.addEventListener('click', () => {
-        activeCategory = btn.dataset.cat
-        searchQuery = ''
-        const searchEl = document.getElementById('ls-desk-search')
-        if (searchEl) searchEl.value = ''
+        const key = btn.dataset.cat
+        if (openCats.has(key)) openCats.delete(key)
+        else { openCats.add(key); activeCategory = key }
         renderAccordion()
       })
     })
@@ -440,6 +463,7 @@ async function renderLessons() {
     activeLesson = lesson
     // Sync activeCategory for mobile back navigation
     activeCategory = lesson.categoria || firstCat
+    openCats.add(activeCategory)
     // Desktop
     renderAccordion()
     renderDeskContent()

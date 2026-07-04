@@ -33,11 +33,16 @@ export function renderBlocks(blocks) {
       if (validUrl && !/^https?:\/\//i.test(block.url)) validUrl = false
       if (!validUrl) continue
       const wrap = document.createElement('div')
-      wrap.style.cssText = 'border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:14px'
+      wrap.style.cssText = 'border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:14px;background:#fff'
+      // Tamaño medio para convivir con el texto; clic abre el lightbox a
+      // pantalla completa (definido globalmente en assistant.js).
       const img = document.createElement('img')
       img.src = block.url
       img.alt = block.caption || ''
-      img.style.cssText = 'width:100%;display:block'
+      img.title = 'Clic para ampliar'
+      img.loading = 'lazy'
+      img.style.cssText = 'max-height:340px;max-width:100%;display:block;margin:0 auto;cursor:zoom-in'
+      img.addEventListener('click', () => window.openLightbox?.(block.url, block.caption || ''))
       wrap.append(img)
       if (block.caption) {
         const cap = document.createElement('p')
