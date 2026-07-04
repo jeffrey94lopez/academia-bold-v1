@@ -439,6 +439,12 @@ body {
   outline: none;
   box-shadow: none;
 }
+/* Placeholder más pequeño y discreto (el texto escrito conserva su tamaño;
+   los 16px del input en móvil siguen evitando el zoom automático de iOS) */
+#chatInput::placeholder {
+  font-size: 13px;
+  color: var(--black-40);
+}
 
 /* ── Sidebar submenu lesson items ── */
 .acc-lesson span {
