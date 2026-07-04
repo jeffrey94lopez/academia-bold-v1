@@ -11,7 +11,7 @@ async function renderResources() {
   container.innerHTML = `
     <div class="h-full flex flex-col overflow-hidden">
       <div class="px-4 pt-4 pb-2 shrink-0">
-        <h2 class="text-lg font-black mb-3">Preguntas Frecuentes</h2>
+        <h2 class="text-lg font-black mb-3 text-[var(--blue-100)]">Preguntas Frecuentes</h2>
         <!-- Móvil: pestañas apiladas en vertical; desktop: fila horizontal -->
         <div class="flex flex-col md:flex-row gap-2 md:overflow-x-auto">
           <button id="tabFaq" class="sub-tab w-full md:w-auto shrink-0 px-4 py-2 md:py-1.5 rounded-full text-xs font-bold bg-[var(--blue-100)] text-white">Preguntas frecuentes</button>
@@ -129,7 +129,7 @@ function openFaqSheet(f) {
   const head = document.createElement('div')
   head.style.cssText = 'display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px'
   const title = document.createElement('p')
-  title.style.cssText = 'font-weight:800;font-size:14px;color:var(--black-100);flex:1'
+  title.style.cssText = 'font-weight:800;font-size:14px;color:var(--blue-100);flex:1'
   title.textContent = f.pregunta
   const closeBtn = document.createElement('button')
   closeBtn.setAttribute('aria-label', 'Cerrar')
@@ -191,7 +191,7 @@ async function loadFaq() {
     }
     list.innerHTML = items.map((f, i) => `
       <button type="button" class="faq-item w-full flex items-center justify-between gap-2 p-3 rounded-xl border border-[var(--blue-10)] bg-white text-left hover:border-[var(--blue-100)] transition-colors" data-idx="${i}">
-        <span class="font-bold text-sm">${escapeHtml(f.pregunta)}</span>
+        <span class="font-bold text-sm text-[var(--blue-100)]">${escapeHtml(f.pregunta)}</span>
         <i data-lucide="chevron-right" class="w-4 h-4 shrink-0 text-[var(--black-60)]"></i>
       </button>
     `).join('')

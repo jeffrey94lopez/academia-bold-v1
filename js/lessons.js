@@ -47,7 +47,7 @@ async function renderLessons() {
     <div class="md:hidden absolute inset-0">
       <div id="ls-screen-categories" class="absolute inset-0 flex flex-col bg-white">
         <div class="px-4 py-3 border-b border-[var(--blue-10)] shrink-0">
-          <h2 class="font-black text-base">Centro de Ayuda</h2>
+          <h2 class="font-black text-base text-[var(--blue-100)]">Centro de Ayuda</h2>
         </div>
         <!-- Búsqueda global: filtra lecciones de todas las categorías desde la pantalla inicial -->
         <div class="px-3 py-2 border-b border-[var(--blue-10)] shrink-0">
@@ -121,7 +121,7 @@ async function renderLessons() {
     if (topVideo) panel.appendChild(renderBlocks([topVideo]))
 
     const titleEl = document.createElement('h2')
-    titleEl.className = 'font-black text-base text-[var(--black-100)] mb-0.5'
+    titleEl.className = 'font-black text-base text-[var(--blue-100)] mb-0.5'
     titleEl.textContent = lesson.titulo
 
     const metaEl = document.createElement('p')
