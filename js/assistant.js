@@ -1,5 +1,5 @@
 ﻿import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js'
-import { escapeHtml } from './utils.js'
+import { escapeHtml, getYouTubeId } from './utils.js'
 import { storageGet, storageSet, storageRemove } from './storage.js'
 import { typewrite, skipActiveTypewriter } from './typewriter.js'
 import { isNearBottom } from './reload-policy.js'
@@ -215,12 +215,18 @@ function renderMarkdown(text) {
     </div>`
   })
 
+  // Links de YouTube en cualquier formato (watch, youtu.be, shorts, live…);
+  // si no se puede extraer el ID, el link cae al render genérico de <a>.
   text = text.replace(
-    /\[([^\]]+)\]\((https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})[^)]*)\)/g,
-    (_, label, _url, videoId) => `<div class="my-2">
+    /\[([^\]]+)\]\((https?:\/\/[^)]*(?:youtube\.com|youtu\.be)[^)]*)\)/g,
+    (match, label, url) => {
+      const videoId = getYouTubeId(url)
+      if (!videoId) return match
+      return `<div class="my-2">
       <p class="text-xs font-bold mb-1.5 flex items-center gap-1">▶ ${escapeHtml(label)}</p>
       <div class="chat-video-wrap"><iframe src="https://www.youtube.com/embed/${videoId}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
     </div>`
+    }
   )
 
   text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
@@ -278,13 +284,14 @@ function appendMedia(mediaItems) {
         ${safeAlt ? `<p class="text-[10px] text-[var(--black-60)] mt-1 italic">${safeAlt}</p>` : ''}`
       wrap.appendChild(d)
     } else if (item.type === 'video' && item.url) {
-      let videoId = null
-      try {
-        const u = new URL(item.url)
-        if (u.hostname.includes('youtube.com') && u.searchParams.get('v')) videoId = u.searchParams.get('v')
-        else if (u.hostname === 'youtu.be') videoId = u.pathname.slice(1)
-      } catch (_) {}
-      if (!videoId) return
+      const videoId = getYouTubeId(item.url)
+      if (!videoId) {
+        const d = document.createElement('div')
+        d.className = 'my-2'
+        d.innerHTML = `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer" class="chat-link-btn">▶ ${escapeHtml(item.label || 'Ver video')}</a>`
+        wrap.appendChild(d)
+        return
+      }
       const safeLabel = escapeHtml(item.label || '')
       const d = document.createElement('div')
       d.className = 'my-2'
@@ -377,13 +384,21 @@ async function appendSegments(segments) {
       onTypeTick()
     } else if (seg.type === 'video' && seg.url) {
       await flushText()
-      let videoId = null
-      try {
-        const u = new URL(seg.url)
-        if (u.hostname.includes('youtube.com') && u.searchParams.get('v')) videoId = u.searchParams.get('v')
-        else if (u.hostname === 'youtu.be') videoId = u.pathname.slice(1)
-      } catch (_) {}
-      if (videoId) {
+      const videoId = getYouTubeId(seg.url)
+      // Sin ID extraíble (no es YouTube o formato raro): botón al video en
+      // lugar de omitirlo en silencio.
+      if (!videoId) {
+        const wrap = document.createElement('div')
+        wrap.className = 'flex justify-start'
+        wrap.innerHTML = `<div class="my-2"><a href="${escapeHtml(seg.url)}" target="_blank" rel="noopener noreferrer" class="chat-link-btn">▶ ${escapeHtml(seg.label || 'Ver video')}</a></div>`
+        box.appendChild(wrap)
+        if (!skipAll) {
+          wrap.style.visibility = 'hidden'
+          await new Promise(r => setTimeout(r, 150))
+          wrap.style.visibility = ''
+        }
+        onTypeTick()
+      } else {
         const iframe = document.createElement('iframe')
         iframe.src = `https://www.youtube.com/embed/${videoId}`
         iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'

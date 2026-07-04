@@ -12,10 +12,11 @@ async function renderResources() {
     <div class="h-full flex flex-col overflow-hidden">
       <div class="px-4 pt-4 pb-2 shrink-0">
         <h2 class="text-lg font-black mb-3">Preguntas Frecuentes</h2>
-        <div class="flex gap-2 overflow-x-auto">
-          <button id="tabFaq" class="sub-tab shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-[var(--blue-100)] text-white">Preguntas frecuentes</button>
-          <button id="tabGlossary" class="sub-tab shrink-0 px-4 py-1.5 rounded-full text-xs font-bold text-[var(--black-60)] bg-[var(--black-10)]">Glosario</button>
-          <button id="tabMaterial" class="sub-tab shrink-0 px-4 py-1.5 rounded-full text-xs font-bold text-[var(--black-60)] bg-[var(--black-10)]">Material de apoyo</button>
+        <!-- Móvil: pestañas apiladas en vertical; desktop: fila horizontal -->
+        <div class="flex flex-col md:flex-row gap-2 md:overflow-x-auto">
+          <button id="tabFaq" class="sub-tab w-full md:w-auto shrink-0 px-4 py-2 md:py-1.5 rounded-full text-xs font-bold bg-[var(--blue-100)] text-white">Preguntas frecuentes</button>
+          <button id="tabGlossary" class="sub-tab w-full md:w-auto shrink-0 px-4 py-2 md:py-1.5 rounded-full text-xs font-bold text-[var(--black-60)] bg-[var(--black-10)]">Glosario</button>
+          <button id="tabMaterial" class="sub-tab w-full md:w-auto shrink-0 px-4 py-2 md:py-1.5 rounded-full text-xs font-bold text-[var(--black-60)] bg-[var(--black-10)]">Material de apoyo</button>
         </div>
       </div>
 
@@ -314,8 +315,8 @@ function switchSubTab(tab) {
   document.getElementById('subGlossary').classList.toggle('hidden', tab !== 'glossary')
   document.getElementById('subMaterial').classList.toggle('hidden', tab !== 'material')
 
-  const active   = 'sub-tab shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-[var(--blue-100)] text-white'
-  const inactive = 'sub-tab shrink-0 px-4 py-1.5 rounded-full text-xs font-bold text-[var(--black-60)] bg-[var(--black-10)]'
+  const active   = 'sub-tab w-full md:w-auto shrink-0 px-4 py-2 md:py-1.5 rounded-full text-xs font-bold bg-[var(--blue-100)] text-white'
+  const inactive = 'sub-tab w-full md:w-auto shrink-0 px-4 py-2 md:py-1.5 rounded-full text-xs font-bold text-[var(--black-60)] bg-[var(--black-10)]'
   document.getElementById('tabFaq').className      = tab === 'faq'      ? active : inactive
   document.getElementById('tabGlossary').className = tab === 'glossary' ? active : inactive
   document.getElementById('tabMaterial').className = tab === 'material' ? active : inactive

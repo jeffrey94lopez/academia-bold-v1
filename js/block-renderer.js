@@ -1,4 +1,5 @@
 import { renderStepText } from './step-formatter.js'
+import { getYouTubeId } from './utils.js'
 
 export function renderBlocks(blocks) {
   if (!Array.isArray(blocks)) return document.createDocumentFragment()
@@ -47,16 +48,25 @@ export function renderBlocks(blocks) {
       frag.append(wrap)
 
     } else if (block.type === 'video') {
-      let videoId = null
-      try {
-        const u = new URL(block.url)
-        if (u.hostname.includes('youtube.com')) videoId = u.searchParams.get('v')
-        else if (u.hostname === 'youtu.be') videoId = u.pathname.slice(1)
-      } catch (_) {}
-      if (!videoId) continue
+      const videoId = getYouTubeId(block.url)
 
       const wrap = document.createElement('div')
       wrap.style.cssText = 'margin-bottom:14px'
+
+      // Si el link no es de YouTube (o no se pudo extraer el ID), mostrar un
+      // botón al video en lugar de omitirlo en silencio.
+      if (!videoId) {
+        if (!block.url) continue
+        const a = document.createElement('a')
+        a.href = block.url
+        a.target = '_blank'
+        a.rel = 'noopener noreferrer'
+        a.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:9999px;border:1.5px solid var(--blue-100);color:var(--blue-100);font-size:12px;font-weight:700;text-decoration:none'
+        a.textContent = '▶ ' + (block.label || 'Ver video')
+        wrap.append(a)
+        frag.append(wrap)
+        continue
+      }
 
       const iframe = document.createElement('iframe')
       iframe.src = `https://www.youtube.com/embed/${videoId}`
