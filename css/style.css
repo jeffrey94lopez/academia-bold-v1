@@ -232,6 +232,10 @@ body {
 .custom-scroll::-webkit-scrollbar { width: 4px; }
 .custom-scroll::-webkit-scrollbar-thumb { background: var(--black-10); border-radius: 10px; }
 
+/* Scroll sin barra visible (el contenido sigue siendo desplazable) */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* ── Bot bubble wide ── */
 .msg-bot-wide { max-width: 90%; }
 

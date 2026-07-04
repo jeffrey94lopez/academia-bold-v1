@@ -50,7 +50,7 @@ export async function rerenderChips() {
   if (!wrap) return
   const chips = await loadChips()
   wrap.innerHTML = chips.map(q => `
-    <button class="quick-query shrink-0 text-xs font-bold px-3 py-1.5 rounded-full border border-[var(--blue-20)] hover:border-[var(--blue-100)] transition-colors whitespace-nowrap">${escapeHtml(q)}</button>
+    <button class="quick-query w-full md:w-auto shrink-0 text-xs font-bold px-3 py-2 md:py-1.5 rounded-full border border-[var(--blue-20)] hover:border-[var(--blue-100)] transition-colors whitespace-normal md:whitespace-nowrap">${escapeHtml(q)}</button>
   `).join('')
   wrap.querySelectorAll('.quick-query').forEach(btn => {
     btn.addEventListener('click', () => sendMessage(btn.textContent))
@@ -159,11 +159,12 @@ async function renderAssistant() {
         </div>
       </div>
 
-      <!-- Quick queries: fila horizontal única (scroll lateral, nunca vertical);
-           visible también con historial — se ocultan solo mientras responde el bot -->
-      <div id="quickQueries" class="px-4 pb-2 flex gap-2 overflow-x-auto overflow-y-hidden shrink-0">
+      <!-- Quick queries: en móvil apiladas en vertical (scroll interno sin barra
+           visible si son muchas); en desktop fila horizontal. Reaparecen después
+           de cada respuesta del bot. -->
+      <div id="quickQueries" class="px-4 pb-2 flex flex-col md:flex-row gap-2 max-h-44 md:max-h-none overflow-y-auto md:overflow-x-auto no-scrollbar shrink-0">
         ${chips.map(q => `
-          <button class="quick-query shrink-0 text-xs font-bold px-3 py-1.5 rounded-full border border-[var(--blue-20)] hover:border-[var(--blue-100)] transition-colors whitespace-nowrap">${escapeHtml(q)}</button>
+          <button class="quick-query w-full md:w-auto shrink-0 text-xs font-bold px-3 py-2 md:py-1.5 rounded-full border border-[var(--blue-20)] hover:border-[var(--blue-100)] transition-colors whitespace-normal md:whitespace-nowrap">${escapeHtml(q)}</button>
         `).join('')}
       </div>
 
@@ -175,7 +176,7 @@ async function renderAssistant() {
             id="chatInput"
             rows="1"
             placeholder="Escribe tu pregunta sobre Bold POS..."
-            class="flex-1 resize-none bg-[var(--background-page)] px-4 py-3 md:py-2.5 text-base md:text-sm max-h-28 overflow-y-auto"
+            class="flex-1 resize-none bg-[var(--background-page)] px-4 py-3 md:py-2.5 text-base md:text-sm max-h-40 overflow-y-auto no-scrollbar"
           ></textarea>
           <button id="sendBtn" class="w-12 h-12 md:w-10 md:h-10 flex items-center justify-center shrink-0 hover:scale-105 transition-transform">
             <i data-lucide="send" class="w-5 h-5 md:w-4 md:h-4 text-white"></i>
