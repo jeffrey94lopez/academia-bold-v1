@@ -15,7 +15,8 @@
 <body class="bg-[var(--black-0)] text-[var(--black-100)] flex flex-col overflow-hidden" style="height: 100dvh;">
 
   <!-- Header -->
-  <header class="h-14 border-b border-[var(--blue-10)] flex items-center justify-between px-4 shrink-0 bg-white z-10">
+  <!-- Oculto en móvil: sin logo ni botón "Abrir Bold POS" (el header queda vacío) -->
+  <header class="h-14 border-b border-[var(--blue-10)] hidden md:flex items-center justify-between px-4 shrink-0 bg-white z-10">
     <div class="flex items-center gap-2.5">
       <a href="https://bold.co/sistema-pos" target="_blank" rel="noopener noreferrer">
         <img src="assets/Bold%20POS.png" alt="Bold POS" class="h-8 w-auto" />

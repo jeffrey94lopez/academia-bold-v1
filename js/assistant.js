@@ -409,6 +409,9 @@ async function appendSegments(segments) {
       }
     } else if (seg.type === 'link' && seg.url) {
       await flushText()
+      // Los links de WhatsApp de soporte se muestran solo como el botón verde
+      // de appendSupportCTA (evita duplicar CTA rojo + verde en la escalación).
+      if (/api\.whatsapp\.com|wa\.me\//i.test(seg.url)) { appendSupportCTA(); continue }
       const safeUrl = escapeHtml(seg.url)
       const safeLabel = escapeHtml(seg.label || seg.url)
       const wrap = document.createElement('div')
