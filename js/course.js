@@ -131,7 +131,7 @@ export function showExamModal(lesson, student, allLessonIds, { onPass, onDismiss
         </div>
         <!-- Progress bar -->
         <div class="w-full bg-slate-100 rounded-full h-1.5">
-          <div class="bg-[#E92129] h-1.5 rounded-full transition-all duration-300" style="width:${pct}%"></div>
+          <div class="bg-[#121e6c] h-1.5 rounded-full transition-all duration-300" style="width:${pct}%"></div>
         </div>
       </div>
 
@@ -145,7 +145,7 @@ export function showExamModal(lesson, student, allLessonIds, { onPass, onDismiss
               <button
                 class="exam-opt w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-colors
                   ${isSelected
-                    ? 'border-[#E92129] bg-red-50 text-[#E92129] font-bold'
+                    ? 'border-[#121e6c] bg-[var(--blue-10)] text-[#121e6c] font-bold'
                     : 'border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'}"
                 data-idx="${i}"
               >${escHtml(op)}</button>`
@@ -160,7 +160,7 @@ export function showExamModal(lesson, student, allLessonIds, { onPass, onDismiss
           ${selected === null ? 'disabled' : ''}
           class="w-full py-3 rounded-xl font-black text-sm transition-colors
             ${selected !== null
-              ? 'bg-[#E92129] text-white hover:bg-red-700'
+              ? 'bg-[#121e6c] text-white hover:bg-[#0d1650]'
               : 'bg-slate-100 text-slate-400 cursor-not-allowed'}"
         >${isLast ? 'Enviar respuestas' : 'Siguiente →'}</button>
       </div>
@@ -225,12 +225,12 @@ export function showExamModal(lesson, student, allLessonIds, { onPass, onDismiss
     card.innerHTML = `
       <div class="text-5xl mb-4">🎉</div>
       <h2 class="font-black text-xl text-slate-900 mb-1">¡Lección completada!</h2>
-      ${courseComplete ? `<p class="text-xs font-bold text-[#E92129] uppercase tracking-wide mb-4">🏆 ¡Curso completado!</p>` : ''}
+      ${courseComplete ? `<p class="text-xs font-bold text-[#121e6c] uppercase tracking-wide mb-4">🏆 ¡Curso completado!</p>` : ''}
       <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-50 border-4 border-green-400 mx-auto my-4">
         <span class="font-black text-2xl text-green-600">${puntaje}%</span>
       </div>
       <p class="text-sm text-slate-500 mb-6">Obtuviste <strong>${puntaje}%</strong> en el examen. ¡Buen trabajo!</p>
-      <button id="exam-continue" class="w-full bg-[#E92129] hover:bg-red-700 text-white font-black text-sm py-3 rounded-xl transition-colors">
+      <button id="exam-continue" class="w-full bg-[#121e6c] hover:bg-[#0d1650] text-white font-black text-sm py-3 rounded-xl transition-colors">
         Continuar
       </button>
     `
@@ -254,20 +254,20 @@ export function showExamModal(lesson, student, allLessonIds, { onPass, onDismiss
     card.innerHTML = `
       <div class="text-5xl text-center mb-4">😔</div>
       <h2 class="font-black text-xl text-slate-900 text-center mb-1">Necesitas repasar</h2>
-      <div class="flex items-center justify-center w-20 h-20 rounded-full bg-red-50 border-4 border-[#E92129] mx-auto my-4">
-        <span class="font-black text-2xl text-[#E92129]">${puntaje}%</span>
+      <div class="flex items-center justify-center w-20 h-20 rounded-full bg-red-50 border-4 border-[#dc2626] mx-auto my-4">
+        <span class="font-black text-2xl text-[#dc2626]">${puntaje}%</span>
       </div>
       <p class="text-sm text-slate-500 text-center mb-4">Necesitas al menos <strong>70%</strong> para aprobar. Revisa las siguientes preguntas:</p>
       <ul class="space-y-2 mb-6 text-left">
         ${wrongTexts.map(t => `
           <li class="flex items-start gap-2 text-xs text-slate-600">
-            <span class="text-[#E92129] font-black mt-0.5 shrink-0">✗</span>
+            <span class="text-[#dc2626] font-black mt-0.5 shrink-0">✗</span>
             <span>${escHtml(t)}</span>
           </li>
         `).join('')}
       </ul>
       <div class="flex gap-3">
-        <button id="exam-retry" class="flex-1 bg-[#E92129] hover:bg-red-700 text-white font-black text-sm py-3 rounded-xl transition-colors">
+        <button id="exam-retry" class="flex-1 bg-[#121e6c] hover:bg-[#0d1650] text-white font-black text-sm py-3 rounded-xl transition-colors">
           Intentar de nuevo
         </button>
         <button id="exam-close" class="flex-1 border border-slate-200 hover:border-slate-300 text-slate-600 font-bold text-sm py-3 rounded-xl transition-colors">

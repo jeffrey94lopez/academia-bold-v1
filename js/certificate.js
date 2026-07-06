@@ -69,15 +69,15 @@ export function renderCertificate(student) {
   diplomaWrap.className = 'p-6'
 
   const diploma = document.createElement('div')
-  diploma.className = 'border-4 border-[#E92129] rounded-xl p-6 text-center'
+  diploma.className = 'border-4 border-[#121e6c] rounded-xl p-6 text-center'
 
   // Inner decorative border
   const inner = document.createElement('div')
-  inner.className = 'border border-red-300 rounded-lg p-5 flex flex-col items-center gap-3'
+  inner.className = 'border border-[#d2d4e1] rounded-lg p-5 flex flex-col items-center gap-3'
 
   inner.innerHTML = `
     <!-- Logo -->
-    <div class="w-14 h-14 rounded-full bg-[#E92129] flex items-center justify-center
+    <div class="w-14 h-14 rounded-full bg-[#121e6c] flex items-center justify-center
                 text-white text-2xl font-bold shadow-md">B</div>
 
     <!-- Labels -->
@@ -87,12 +87,12 @@ export function renderCertificate(student) {
     <p class="text-xl font-bold text-slate-800">Bold POS Academy</p>
     <p class="text-sm text-slate-500">Academia Oficial de Bold POS</p>
 
-    <hr class="w-16 border-[#E92129] border-t-2 my-1">
+    <hr class="w-16 border-[#121e6c] border-t-2 my-1">
 
     <p class="text-sm text-slate-600">Este certificado acredita que</p>
 
     <!-- Student name -->
-    <p class="text-2xl font-serif italic text-[#E92129] leading-tight">${fullName}</p>
+    <p class="text-2xl font-serif italic text-[#121e6c] leading-tight">${fullName}</p>
 
     <p class="text-sm text-slate-600 max-w-xs">
       completó exitosamente el curso de capacitación Bold POS
@@ -120,7 +120,7 @@ export function renderCertificate(student) {
 
   const printBtn = document.createElement('button')
   printBtn.id        = 'certPrintBtn'
-  printBtn.className = 'mt-4 w-full bg-[#E92129] hover:bg-red-700 text-white font-semibold ' +
+  printBtn.className = 'mt-4 w-full bg-[#121e6c] hover:bg-[#0d1650] text-white font-semibold ' +
                        'py-3 rounded-xl transition-colors text-sm'
   printBtn.textContent = '🖨️ Imprimir certificado'
 
@@ -179,7 +179,7 @@ export function printCertificate(student) {
     .diploma {
       width: 100%;
       max-width: 24cm;
-      border: 6px solid #E92129;
+      border: 6px solid #121e6c;
       border-radius: 16px;
       padding: 40px;
       text-align: center;
@@ -197,7 +197,7 @@ export function printCertificate(student) {
       width: 64px;
       height: 64px;
       border-radius: 50%;
-      background: #E92129;
+      background: #121e6c;
       color: #ffffff;
       font-size: 28px;
       font-family: Arial, sans-serif;
@@ -228,7 +228,7 @@ export function printCertificate(student) {
     .divider {
       width: 64px;
       border: none;
-      border-top: 2px solid #E92129;
+      border-top: 2px solid #121e6c;
       margin: 4px 0;
     }
     .acredita {
@@ -238,7 +238,7 @@ export function printCertificate(student) {
     .student-name {
       font-size: 30px;
       font-style: italic;
-      color: #E92129;
+      color: #121e6c;
       line-height: 1.2;
     }
     .course-desc {
