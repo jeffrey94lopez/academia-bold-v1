@@ -2,9 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Dos toggles en el admin (tabla `bot_settings` de Supabase) que controlan si los chips de preguntas sugeridas se muestran al abrir el chat y si reaparecen tras cada respuesta del bot.
+> **Revisión 2026-07-07:** la base ya tenía `app_settings (key text, value text)` con RLS, lectura anónima y patrón de flags en el admin. Se reutiliza esa tabla en lugar de crear `bot_settings`. La migración original `create_bot_settings.sql` fue reemplazada por `enable_realtime_app_settings.sql`.
 
-**Architecture:** Tabla clave-valor `bot_settings` con RLS (lectura pública, escritura autenticados) y realtime. El portal (`js/assistant.js`) carga los valores a un estado de módulo con fallback a `true`; `js/live-updates.js` los recarga en vivo; el admin (`js/admin.js`) muestra dos switches en el panel "Sugerencias Bot" que hacen update directo.
+**Goal:** Dos toggles en el admin (claves en la tabla existente `app_settings`) que controlan si los chips de preguntas sugeridas se muestran al abrir el chat y si reaparecen tras cada respuesta del bot.
+
+**Architecture:** Claves `chips_inicio` y `chips_tras_respuesta` en `app_settings` (valores texto `'true'`/`'false'`; clave ausente = activado, igual que los flags existentes). El portal (`js/assistant.js`) las carga a estado de módulo con fallback a activado; `js/live-updates.js` las recarga por realtime; el admin (`js/admin.js`) muestra dos switches en el panel "Sugerencias Bot" que hacen upsert directo.
 
 **Tech Stack:** Vanilla JS (ES modules), Supabase (PostgREST + Realtime), Tailwind por clases utilitarias, sitio estático (sin framework ni suite de tests — verificación manual según el spec).
 
@@ -12,8 +14,8 @@
 
 ## Global Constraints
 
-- Claves exactas de settings: `chips_inicio` y `chips_tras_respuesta` (default `true`).
-- Ante cualquier fallo leyendo `bot_settings`, el portal asume ambos valores `true` (comportamiento actual).
+- Claves exactas en `app_settings`: `chips_inicio` y `chips_tras_respuesta`. Valores texto: se escribe `String(boolean)`; se lee con la convención existente `map.clave !== 'false'` (clave ausente o error ⇒ activado).
+- Ante cualquier fallo leyendo `app_settings`, el portal asume ambos toggles activados (comportamiento actual).
 - Textos del admin en español: "Mostrar sugerencias al abrir el chat" y "Reaparecer después de cada respuesta".
 - El proyecto no tiene suite de tests: cada task cierra con verificación manual concreta (curl o navegador).
 - Los commits siguen convención en español tipo `feat(scope): descripción` (ver `git log`).
@@ -21,99 +23,66 @@
 
 ---
 
-### Task 1: Migración `bot_settings`
+### Task 1: Migración realtime de `app_settings` — COMPLETADA POR EL CONTROLLER
 
 **Files:**
-- Create: `supabase/migrations/create_bot_settings.sql`
+- Delete: `supabase/migrations/create_bot_settings.sql` (obsoleta, nunca ejecutada en la BD)
+- Create: `supabase/migrations/enable_realtime_app_settings.sql`
 
 **Interfaces:**
-- Produces: tabla `public.bot_settings (clave text pk, valor boolean)` con filas `chips_inicio` y `chips_tras_respuesta`, legible con el anon key vía `GET /rest/v1/bot_settings`.
+- Produces: eventos realtime `postgres_changes` para `public.app_settings` (consumidos por Task 3).
 
-- [ ] **Step 1: Escribir la migración**
+- [x] **Step 1: Reemplazar la migración**
 
 ```sql
--- supabase/migrations/create_bot_settings.sql
--- Configuración del comportamiento del bot editable desde el admin.
--- Ejecutar UNA sola vez en el SQL Editor del proyecto Supabase.
-create table if not exists public.bot_settings (
-  clave text primary key,
-  valor boolean not null default true
-);
-
-insert into public.bot_settings (clave, valor) values
-  ('chips_inicio', true),
-  ('chips_tras_respuesta', true)
-on conflict (clave) do nothing;
-
-alter table public.bot_settings enable row level security;
-
-create policy "bot_settings lectura publica"
-  on public.bot_settings for select using (true);
-
-create policy "bot_settings escritura autenticados"
-  on public.bot_settings for all
-  using (auth.role() = 'authenticated')
-  with check (auth.role() = 'authenticated');
-
--- Realtime para que el portal reaccione sin recargar
-alter publication supabase_realtime add table public.bot_settings;
+-- supabase/migrations/enable_realtime_app_settings.sql
+-- Habilita realtime para app_settings (toggles de chips del bot en vivo).
+-- Ejecutar UNA sola vez en el SQL Editor; si reporta "already member of
+-- publication" es benigno (solo pasa al re-ejecutar).
+alter publication supabase_realtime add table public.app_settings;
 ```
 
-- [ ] **Step 2: Pedir al usuario ejecutarla**
+- [x] **Step 2: El usuario la ejecuta en el SQL Editor** (única línea de SQL de toda la feature).
 
-Este entorno no tiene service key: pide al usuario que ejecute el contenido del archivo en el SQL Editor de Supabase y confirme. (Si reporta "already member of publication", es benigno: solo aplica si se re-ejecuta.)
+- [x] **Step 3: Verificar por REST que las claves se leen con anon** (la tabla ya existe; smoke check):
 
-- [ ] **Step 3: Verificar por REST que la tabla existe y tiene las 2 filas**
-
-Run (Bash; el anon key es el de `js/supabase.js`):
 ```bash
 KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjemNuZ2ZodWVuZG1sZGFmYnJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MzQ0OTIsImV4cCI6MjA5NTMxMDQ5Mn0.YuKwq-ooL9noU6FXDDPzJbaj-h7rhZli1s4Zji-uCXQ'
-curl -s "https://tczcngfhuendmldafbrc.supabase.co/rest/v1/bot_settings?select=*" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+curl -s "https://tczcngfhuendmldafbrc.supabase.co/rest/v1/app_settings?select=*" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
 ```
-Expected: `[{"clave":"chips_inicio","valor":true},{"clave":"chips_tras_respuesta","valor":true}]` (orden puede variar).
+Expected: JSON con los flags existentes (p. ej. `resources_enabled`); las claves de chips pueden no existir aún (= activado).
 
-También verificar que el anon NO puede escribir:
-```bash
-curl -s -X PATCH "https://tczcngfhuendmldafbrc.supabase.co/rest/v1/bot_settings?clave=eq.chips_inicio" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -d '{"valor": false}' -i | head -1
-```
-Expected: la fila NO cambia (re-consultar devuelve `valor:true`; PostgREST responde 2xx con 0 filas afectadas por RLS).
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add supabase/migrations/create_bot_settings.sql
-git commit -m "feat(bot): migración bot_settings para toggles de chips sugeridos"
-```
+- [x] **Step 4: Commit** (`git add -A supabase/migrations docs && git commit -m "refactor(bot): reutilizar app_settings para toggles de chips (sin tabla nueva)"`)
 
 ---
 
 ### Task 2: Portal — respetar los toggles en `js/assistant.js`
 
 **Files:**
-- Modify: `js/assistant.js` (líneas de referencia: 32-58 chips, 127-192 `renderAssistant`, 641-642 y 656-661 en `sendMessage`, 694-696 bootstrap)
+- Modify: `js/assistant.js` (líneas de referencia: 32-58 chips, 127-192 `renderAssistant`, 641-642 y 656-661 en `sendMessage`)
 
 **Interfaces:**
-- Consumes: tabla `bot_settings` (Task 1).
-- Produces: `export async function loadChipSettings()` — recarga el estado interno `chipSettings = { inicio: boolean, tras_respuesta: boolean }`; sin parámetros, sin retorno útil. Task 3 la importa.
+- Consumes: tabla `app_settings` existente.
+- Produces: `export async function loadChipSettings()` — recarga el estado interno `chipSettings = { inicio: boolean, tras_respuesta: boolean }`; sin parámetros, sin retorno útil. Task 3 la importa desde `./assistant.js`.
 
 - [ ] **Step 1: Agregar estado y `loadChipSettings()` junto a `loadChips` (después de la línea 44)**
 
 ```js
-// Toggles administrados desde el admin (tabla bot_settings). Ante cualquier
-// fallo se asumen ambos en true: el comportamiento histórico del chat.
+// Toggles administrados desde el admin (claves en app_settings). Convención
+// del proyecto: clave ausente o error ⇒ activado (comportamiento histórico).
 let chipSettings = { inicio: true, tras_respuesta: true }
 
 export async function loadChipSettings() {
   try {
     const { data, error } = await supabase
-      .from('bot_settings')
-      .select('clave, valor')
-      .in('clave', ['chips_inicio', 'chips_tras_respuesta'])
-    if (error || !data?.length) return
-    const map = Object.fromEntries(data.map(r => [r.clave, r.valor]))
+      .from('app_settings')
+      .select('key, value')
+      .in('key', ['chips_inicio', 'chips_tras_respuesta'])
+    if (error) return
+    const map = Object.fromEntries((data || []).map(r => [r.key, r.value]))
     chipSettings = {
-      inicio:         map.chips_inicio         ?? true,
-      tras_respuesta: map.chips_tras_respuesta ?? true,
+      inicio:         map.chips_inicio         !== 'false',
+      tras_respuesta: map.chips_tras_respuesta !== 'false',
     }
   } catch (_) { /* mantener valores actuales */ }
 }
@@ -128,7 +97,7 @@ async function renderAssistant() {
   const [chips] = await Promise.all([loadChips(), loadChipSettings()])
 ```
 
-Y en el HTML del contenedor (línea 165), agregar `hidden` condicional:
+Y en el HTML del contenedor `#quickQueries` (línea 165), agregar `hidden` condicional al inicio de la clase:
 
 ```js
       <div id="quickQueries" class="${chipSettings.inicio ? '' : 'hidden '}px-4 pb-2 flex flex-col md:flex-row gap-2 max-h-44 md:max-h-none overflow-y-auto md:overflow-x-auto no-scrollbar shrink-0">
@@ -144,7 +113,7 @@ Línea 641-642 (éxito) queda:
     if (chipSettings.tras_respuesta) document.getElementById('quickQueries')?.classList.remove('hidden')
 ```
 
-Línea 660 (catch de error de conexión) queda:
+Línea 660 (dentro del catch de error de conexión) queda:
 
 ```js
     if (chipSettings.tras_respuesta) document.getElementById('quickQueries')?.classList.remove('hidden')
@@ -154,10 +123,10 @@ Línea 660 (catch de error de conexión) queda:
 
 Run: `python -m http.server 8080` en la raíz del repo y abrir `http://localhost:8080`.
 
-1. Con ambas filas en `true` (estado tras Task 1): chips visibles al abrir; enviar "¿Cómo creo una cotización?"; chips reaparecen tras la respuesta. (Sin regresión.)
-2. En Supabase SQL Editor (o pidiéndole al usuario): `update bot_settings set valor=false where clave='chips_inicio';` → recargar portal → chips ocultos al abrir → enviar un mensaje → chips aparecen tras la respuesta.
-3. `update bot_settings set valor=false where clave='chips_tras_respuesta';` → recargar → enviar mensaje → los chips NO reaparecen.
-4. Restaurar: `update bot_settings set valor=true;`
+1. Estado inicial (claves ausentes): chips visibles al abrir; enviar "¿Cómo creo una cotización?"; chips reaparecen tras la respuesta. (Sin regresión.)
+2. Crear la clave apagada vía REST con la sesión del admin no es posible desde curl anon; usar el SQL Editor: `insert into app_settings (key, value) values ('chips_inicio','false') on conflict (key) do update set value='false';` → recargar portal → chips ocultos al abrir → enviar mensaje → chips aparecen tras la respuesta.
+3. `insert into app_settings (key, value) values ('chips_tras_respuesta','false') on conflict (key) do update set value='false';` → recargar → enviar mensaje → los chips NO reaparecen.
+4. Restaurar: `update app_settings set value='true' where key in ('chips_inicio','chips_tras_respuesta');`
 
 Expected: los 4 puntos se comportan como se describe y no hay errores en la consola.
 
@@ -176,7 +145,7 @@ git commit -m "feat(bot): portal respeta toggles chips_inicio y chips_tras_respu
 - Modify: `js/live-updates.js` (líneas 6, 64-75)
 
 **Interfaces:**
-- Consumes: `loadChipSettings` de `js/assistant.js` (Task 2).
+- Consumes: `loadChipSettings` de `js/assistant.js` (Task 2); realtime de `app_settings` (Task 1).
 
 - [ ] **Step 1: Importar y suscribir**
 
@@ -186,7 +155,7 @@ Línea 6, ampliar el import:
 import { loadFaqContext, rerenderChips, loadChipSettings } from './assistant.js'
 ```
 
-Junto a los debounce existentes (línea 67-68), agregar:
+Junto a los debounce existentes (líneas 67-68), agregar:
 
 ```js
 const onSettingsChange = debounce(() => { loadChipSettings().catch(() => {}) }, 1500)
@@ -195,19 +164,21 @@ const onSettingsChange = debounce(() => { loadChipSettings().catch(() => {}) }, 
 Y en el canal `live-content` (después de la línea 74):
 
 ```js
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'bot_settings' }, onSettingsChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, onSettingsChange)
 ```
+
+Nota: los cambios de otros flags de `app_settings` (p. ej. `curso_enabled`) también dispararán el handler; es inofensivo — solo recarga los dos valores de chips.
 
 - [ ] **Step 2: Verificar en navegador**
 
-Con el portal abierto en `http://localhost:8080` (sin recargar): cambiar `chips_tras_respuesta` a `false` en Supabase, esperar ~2 s, enviar un mensaje al bot.
-Expected: los chips no reaparecen tras la respuesta (el valor llegó por realtime). Restaurar a `true` y repetir: sí reaparecen.
+Con el portal abierto en `http://localhost:8080` (sin recargar): en el SQL Editor, `update app_settings set value='false' where key='chips_tras_respuesta';`, esperar ~2 s, enviar un mensaje al bot.
+Expected: los chips no reaparecen tras la respuesta (el valor llegó por realtime). Restaurar con `value='true'` y repetir: sí reaparecen.
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add js/live-updates.js
-git commit -m "feat(bot): recarga en vivo de bot_settings vía realtime"
+git commit -m "feat(bot): recarga en vivo de toggles de chips vía realtime de app_settings"
 ```
 
 ---
@@ -218,7 +189,7 @@ git commit -m "feat(bot): recarga en vivo de bot_settings vía realtime"
 - Modify: `js/admin.js` (función `renderSuggestionsPanel`, líneas 1928-2061)
 
 **Interfaces:**
-- Consumes: tabla `bot_settings` (Task 1); helpers existentes `showToast(msg, tipo)` y `logActivity(action, entity, detail)` de `js/admin.js`.
+- Consumes: tabla `app_settings`; helpers existentes `showToast(msg, tipo)` y `logActivity(action, entity, detail)` de `js/admin.js`.
 
 - [ ] **Step 1: Leer settings y renderizar la tarjeta "Comportamiento"**
 
@@ -227,9 +198,10 @@ Al inicio de `renderSuggestionsPanel()` (línea 1930), leer también los setting
 ```js
   const { data } = await supabase.from('bot_sugerencias').select('*').order('orden')
   const { data: settingsRows, error: settingsError } = await supabase
-    .from('bot_settings')
-    .select('clave, valor')
-  const settings = Object.fromEntries((settingsRows || []).map(r => [r.clave, r.valor]))
+    .from('app_settings')
+    .select('key, value')
+    .in('key', ['chips_inicio', 'chips_tras_respuesta'])
+  const settings = Object.fromEntries((settingsRows || []).map(r => [r.key, r.value]))
 ```
 
 En el template, inmediatamente después del bloque del encabezado (tras el `</div>` que cierra el `flex items-center justify-between mb-4`, línea 1941) insertar:
@@ -241,17 +213,17 @@ En el template, inmediatamente después del bloque del encabezado (tras el `</di
       <div class="space-y-3">
         <label class="flex items-center justify-between gap-3 ${settingsError ? 'opacity-50' : 'cursor-pointer'}">
           <span class="text-sm font-bold">Mostrar sugerencias al abrir el chat</span>
-          <input type="checkbox" data-setting="chips_inicio" class="setting-toggle w-4 h-4 accent-[var(--blue-100)]" ${settingsError ? 'disabled' : ''} ${settings.chips_inicio !== false ? 'checked' : ''}>
+          <input type="checkbox" data-setting="chips_inicio" class="setting-toggle w-4 h-4 accent-[var(--blue-100)]" ${settingsError ? 'disabled' : ''} ${settings.chips_inicio !== 'false' ? 'checked' : ''}>
         </label>
         <label class="flex items-center justify-between gap-3 ${settingsError ? 'opacity-50' : 'cursor-pointer'}">
           <span class="text-sm font-bold">Reaparecer después de cada respuesta</span>
-          <input type="checkbox" data-setting="chips_tras_respuesta" class="setting-toggle w-4 h-4 accent-[var(--blue-100)]" ${settingsError ? 'disabled' : ''} ${settings.chips_tras_respuesta !== false ? 'checked' : ''}>
+          <input type="checkbox" data-setting="chips_tras_respuesta" class="setting-toggle w-4 h-4 accent-[var(--blue-100)]" ${settingsError ? 'disabled' : ''} ${settings.chips_tras_respuesta !== 'false' ? 'checked' : ''}>
         </label>
       </div>
     </div>
 ```
 
-- [ ] **Step 2: Guardar al cambiar (update directo, revert si falla)**
+- [ ] **Step 2: Guardar al cambiar (upsert directo, revert si falla)**
 
 Junto a los demás listeners del panel (después de la línea 1990):
 
@@ -259,7 +231,7 @@ Junto a los demás listeners del panel (después de la línea 1990):
   document.querySelectorAll('.setting-toggle').forEach(t => t.addEventListener('change', async () => {
     const clave = t.dataset.setting
     const valor = t.checked
-    const { error } = await supabase.from('bot_settings').update({ valor }).eq('clave', clave)
+    const { error } = await supabase.from('app_settings').upsert({ key: clave, value: String(valor) })
     if (error) {
       t.checked = !valor // revertir el switch al estado anterior
       showToast('Error al guardar: ' + error.message, 'error')
@@ -276,20 +248,20 @@ Nota: verificar la firma real de `showToast` en `js/admin.js` antes de usarla (l
 
 Abrir `http://localhost:8080/admin.html`, iniciar sesión y entrar al panel "Sugerencias Bot".
 
-1. Se ve la tarjeta "Comportamiento" con ambos switches encendidos (estado de la tabla).
-2. Apagar "Reaparecer después de cada respuesta" → toast de éxito → verificar por curl que la fila quedó `false`:
+1. Se ve la tarjeta "Comportamiento" con ambos switches encendidos (claves ausentes o en 'true').
+2. Apagar "Reaparecer después de cada respuesta" → toast de éxito → verificar por curl que la clave quedó `'false'`:
 ```bash
 KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjemNuZ2ZodWVuZG1sZGFmYnJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MzQ0OTIsImV4cCI6MjA5NTMxMDQ5Mn0.YuKwq-ooL9noU6FXDDPzJbaj-h7rhZli1s4Zji-uCXQ'
-curl -s "https://tczcngfhuendmldafbrc.supabase.co/rest/v1/bot_settings?clave=eq.chips_tras_respuesta" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+curl -s "https://tczcngfhuendmldafbrc.supabase.co/rest/v1/app_settings?key=eq.chips_tras_respuesta" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
 ```
-Expected: `[{"clave":"chips_tras_respuesta","valor":false}]`
+Expected: `[{"key":"chips_tras_respuesta","value":"false"}]`
 3. Con el portal abierto en otra pestaña, enviar un mensaje al bot: los chips no reaparecen (integración con Task 3).
-4. Volver a encender el switch → curl devuelve `valor:true`.
+4. Volver a encender el switch → curl devuelve `value:"true"`.
 5. El resto del panel (crear/editar/eliminar sugerencias, límite de 6 activas) sigue funcionando.
 
 - [ ] **Step 4: Verificación end-to-end del spec (los 5 escenarios)**
 
-Repetir la lista de "Pruebas" del spec de corrido: escenarios 1-4 ya cubiertos arriba; escenario 5 (tabla sin filas ⇒ portal como hoy) se simula en SQL Editor con `delete from bot_settings;` → recargar portal → chips visibles al abrir y tras respuesta → restaurar con el `insert ... on conflict do nothing` de la migración.
+Repetir la lista de "Pruebas" del spec de corrido: escenarios 1-4 ya cubiertos arriba; escenario 5 (claves ausentes ⇒ portal como hoy) se simula en SQL Editor con `delete from app_settings where key in ('chips_inicio','chips_tras_respuesta');` → recargar portal → chips visibles al abrir y tras respuesta.
 Expected: los 5 escenarios del spec pasan.
 
 - [ ] **Step 5: Commit**
