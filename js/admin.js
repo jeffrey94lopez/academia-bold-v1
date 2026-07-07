@@ -122,7 +122,8 @@ async function renderHomePanel() {
   const actionLabel = { create: 'Creado', update: 'Editado', delete: 'Eliminado' }
   const entityLabel = {
     lecciones: 'Lección', preguntas_frecuentes: 'FAQ',
-    glosario: 'Término', material_apoyo: 'Material'
+    glosario: 'Término', material_apoyo: 'Material',
+    bot_suggestion: 'Sugerencia bot', bot_setting: 'Config. bot'
   }
 
   el.innerHTML = `
