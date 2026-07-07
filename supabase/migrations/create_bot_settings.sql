@@ -13,10 +13,14 @@ on conflict (clave) do nothing;
 
 alter table public.bot_settings enable row level security;
 
-create policy "bot_settings lectura publica"
+-- Nombres de política sin comillas: al copiar el SQL desde un chat/editor las
+-- comillas dobles pueden volverse tipográficas y romper el parseo.
+drop policy if exists bot_settings_lectura_publica on public.bot_settings;
+create policy bot_settings_lectura_publica
   on public.bot_settings for select using (true);
 
-create policy "bot_settings escritura autenticados"
+drop policy if exists bot_settings_escritura_autenticados on public.bot_settings;
+create policy bot_settings_escritura_autenticados
   on public.bot_settings for all
   using (auth.role() = 'authenticated')
   with check (auth.role() = 'authenticated');
