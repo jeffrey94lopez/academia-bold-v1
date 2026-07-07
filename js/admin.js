@@ -1928,6 +1928,11 @@ async function renderMaterialApoyoPanel() {
 async function renderSuggestionsPanel() {
   const el = document.getElementById('panel-suggestions')
   const { data } = await supabase.from('bot_sugerencias').select('*').order('orden')
+  const { data: settingsRows, error: settingsError } = await supabase
+    .from('app_settings')
+    .select('key, value')
+    .in('key', ['chips_inicio', 'chips_tras_respuesta'])
+  const settings = Object.fromEntries((settingsRows || []).map(r => [r.key, r.value]))
 
   el.innerHTML = `
     <div class="flex items-center justify-between mb-4">
@@ -1938,6 +1943,20 @@ async function renderSuggestionsPanel() {
       <button id="addSuggestion" class="bg-[var(--blue-100)] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:scale-105 transition-transform">
         <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nueva sugerencia
       </button>
+    </div>
+    <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4 mb-4">
+      <h3 class="text-sm font-black mb-3">Comportamiento</h3>
+      ${settingsError ? '<p class="text-xs text-red-500 mb-2">No se pudo cargar la configuración. Recarga la página.</p>' : ''}
+      <div class="space-y-3">
+        <label class="flex items-center justify-between gap-3 ${settingsError ? 'opacity-50' : 'cursor-pointer'}">
+          <span class="text-sm font-bold">Mostrar sugerencias al abrir el chat</span>
+          <input type="checkbox" data-setting="chips_inicio" class="setting-toggle w-4 h-4 accent-[var(--blue-100)]" ${settingsError ? 'disabled' : ''} ${settings.chips_inicio !== 'false' ? 'checked' : ''}>
+        </label>
+        <label class="flex items-center justify-between gap-3 ${settingsError ? 'opacity-50' : 'cursor-pointer'}">
+          <span class="text-sm font-bold">Reaparecer después de cada respuesta</span>
+          <input type="checkbox" data-setting="chips_tras_respuesta" class="setting-toggle w-4 h-4 accent-[var(--blue-100)]" ${settingsError ? 'disabled' : ''} ${settings.chips_tras_respuesta !== 'false' ? 'checked' : ''}>
+        </label>
+      </div>
     </div>
     <div class="space-y-2">
       ${(data || []).map(s => `
@@ -1988,6 +2007,19 @@ async function renderSuggestionsPanel() {
     document.getElementById('sugError').classList.add('hidden')
     document.getElementById('sugForm').classList.remove('hidden')
   })
+
+  document.querySelectorAll('.setting-toggle').forEach(t => t.addEventListener('change', async () => {
+    const clave = t.dataset.setting
+    const valor = t.checked
+    const { error } = await supabase.from('app_settings').upsert({ key: clave, value: String(valor) })
+    if (error) {
+      t.checked = !valor // revertir el switch al estado anterior
+      showToast('Error al guardar: ' + error.message, 'error')
+      return
+    }
+    logActivity('update', 'bot_setting', clave)
+    showToast('Configuración guardada')
+  }))
 
   document.querySelectorAll('.edit-sug').forEach(b => b.addEventListener('click', () => {
     document.getElementById('sugId').value = b.dataset.id
