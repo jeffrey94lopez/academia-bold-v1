@@ -43,6 +43,25 @@ async function loadChips() {
   }
 }
 
+// Toggles administrados desde el admin (claves en app_settings). Convención
+// del proyecto: clave ausente o error ⇒ activado (comportamiento histórico).
+let chipSettings = { inicio: true, tras_respuesta: true }
+
+export async function loadChipSettings() {
+  try {
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('key, value')
+      .in('key', ['chips_inicio', 'chips_tras_respuesta'])
+    if (error) return
+    const map = Object.fromEntries((data || []).map(r => [r.key, r.value]))
+    chipSettings = {
+      inicio:         map.chips_inicio         !== 'false',
+      tras_respuesta: map.chips_tras_respuesta !== 'false',
+    }
+  } catch (_) { /* mantener valores actuales */ }
+}
+
 // Re-dibuja los chips de sugerencias (visibles también con conversación en
 // curso: reaparecen después de cada respuesta del bot).
 export async function rerenderChips() {
@@ -125,7 +144,7 @@ window.addEventListener('beforeunload', () => {
 // ── Render ────────────────────────────────────────────────────────────────────
 
 async function renderAssistant() {
-  const chips = await loadChips()
+  const [chips] = await Promise.all([loadChips(), loadChipSettings()])
   const container = document.getElementById('section-assistant')
   container.innerHTML = `
     <div class="flex flex-col h-full relative">
@@ -162,7 +181,7 @@ async function renderAssistant() {
       <!-- Quick queries: en móvil apiladas en vertical (scroll interno sin barra
            visible si son muchas); en desktop fila horizontal. Reaparecen después
            de cada respuesta del bot. -->
-      <div id="quickQueries" class="px-4 pb-2 flex flex-col md:flex-row gap-2 max-h-44 md:max-h-none overflow-y-auto md:overflow-x-auto no-scrollbar shrink-0">
+      <div id="quickQueries" class="${chipSettings.inicio ? '' : 'hidden '}px-4 pb-2 flex flex-col md:flex-row gap-2 max-h-44 md:max-h-none overflow-y-auto md:overflow-x-auto no-scrollbar shrink-0">
         ${chips.map(q => `
           <button class="quick-query w-full md:w-auto shrink-0 text-xs font-bold px-3 py-2 md:py-1.5 rounded-full border border-[var(--blue-20)] hover:border-[var(--blue-100)] transition-colors whitespace-normal md:whitespace-nowrap">${escapeHtml(q)}</button>
         `).join('')}
@@ -639,7 +658,8 @@ async function sendMessage(text) {
     if (data.support_redirected) appendSupportCTA()
     appendResolutionButtons()
     // Las sugerencias vuelven a aparecer después de cada respuesta del bot
-    document.getElementById('quickQueries')?.classList.remove('hidden')
+    // solo si el toggle del admin lo permite
+    if (chipSettings.tras_respuesta) document.getElementById('quickQueries')?.classList.remove('hidden')
 
     history.push({ role: 'assistant', content: reply })
     storageSet('bold_chat_history', JSON.stringify(history.slice(-20)))
@@ -657,7 +677,7 @@ async function sendMessage(text) {
     typing.classList.add('hidden')
     hideSkipButton()
     appendBubble('bot', 'Error de conexión. Verifica tu internet e intenta de nuevo.')
-    document.getElementById('quickQueries')?.classList.remove('hidden')
+    if (chipSettings.tras_respuesta) document.getElementById('quickQueries')?.classList.remove('hidden')
     scrollToBottom()
   }
 
