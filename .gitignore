@@ -19,6 +19,9 @@ desktop.ini
 # Git worktrees
 .worktrees/
 
+# Respaldos locales de Supabase (contenido + storage)
+backups/
+
 # Superpowers brainstorming
 .superpowers/
 

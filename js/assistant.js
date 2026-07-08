@@ -530,32 +530,17 @@ window.openLightbox = function(url, caption = '') {
       <img src="${url}" alt="${escapeHtml(caption)}">
       ${caption ? `<p id="lb-caption">${escapeHtml(caption)}</p>` : ''}
       <div id="lb-actions">
-        <button id="lb-download">⬇ Descargar</button>
+        <button id="lb-open">↗ Abrir en nueva pestaña</button>
         <button id="lb-close">✕ Cerrar</button>
       </div>
     </div>`
   lb.classList.add('open')
   lb.querySelector('#lb-backdrop').onclick = () => lb.classList.remove('open')
   lb.querySelector('#lb-close').onclick    = () => lb.classList.remove('open')
-  lb.querySelector('#lb-download').onclick = () => downloadImage(url, caption || 'imagen')
+  lb.querySelector('#lb-open').onclick     = () => window.open(url, '_blank', 'noopener')
   document.addEventListener('keydown', function esc(e) {
     if (e.key === 'Escape') { lb.classList.remove('open'); document.removeEventListener('keydown', esc) }
   })
-}
-
-async function downloadImage(url, name) {
-  try {
-    const res  = await fetch(url)
-    const blob = await res.blob()
-    const ext  = blob.type.split('/')[1] || 'jpg'
-    const a    = document.createElement('a')
-    a.href     = URL.createObjectURL(blob)
-    a.download = name.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.' + ext
-    a.click()
-    URL.revokeObjectURL(a.href)
-  } catch (_) {
-    window.open(url, '_blank')
-  }
 }
 
 // ── Events ────────────────────────────────────────────────────────────────────
