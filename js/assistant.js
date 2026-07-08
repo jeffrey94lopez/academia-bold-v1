@@ -530,14 +530,13 @@ window.openLightbox = function(url, caption = '') {
       <img src="${url}" alt="${escapeHtml(caption)}">
       ${caption ? `<p id="lb-caption">${escapeHtml(caption)}</p>` : ''}
       <div id="lb-actions">
-        <button id="lb-open">↗ Abrir en nueva pestaña</button>
+        <a id="lb-open" href="${url}" target="_blank" rel="noopener noreferrer">↗ Abrir en nueva pestaña</a>
         <button id="lb-close">✕ Cerrar</button>
       </div>
     </div>`
   lb.classList.add('open')
   lb.querySelector('#lb-backdrop').onclick = () => lb.classList.remove('open')
   lb.querySelector('#lb-close').onclick    = () => lb.classList.remove('open')
-  lb.querySelector('#lb-open').onclick     = () => window.open(url, '_blank', 'noopener')
   document.addEventListener('keydown', function esc(e) {
     if (e.key === 'Escape') { lb.classList.remove('open'); document.removeEventListener('keydown', esc) }
   })
