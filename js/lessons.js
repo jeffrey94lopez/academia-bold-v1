@@ -541,8 +541,19 @@ async function renderLessons() {
   renderDeskContent()
 
   window.openLessonById = (id) => {
-    const lesson = lessons.find(l => String(l.id) === String(id))
+    // Las FAQs (js/resources.js) son compartidas entre verticales/plataformas
+    // y pueden enlazar una lección fuera de la selección activa. Por eso la
+    // búsqueda parte de `allLessons` (sin filtrar) en vez de `lessons`.
+    const lesson = allLessons.find(l => String(l.id) === String(id))
     if (!lesson) { console.warn('[openLessonById] Lección no encontrada:', id); return }
+    const lessonVertical = lesson.vertical || 'retail'
+    const lessonPlataforma = lesson.plataforma || 'web'
+    if (lessonVertical !== sel.vertical || lessonPlataforma !== sel.plataforma) {
+      // Cambia de contexto: persiste la selección, refiltra `lessons`/`grouped`
+      // y re-renderiza los selectores. Deja activeLesson en null y la pantalla
+      // en 'categories'; la lógica de abajo la reemplaza abriendo la lección.
+      applySeleccion({ vertical: lessonVertical, plataforma: lessonPlataforma })
+    }
     activeLesson = lesson
     // Sync activeCategory for mobile back navigation
     activeCategory = lesson.categoria || firstCat
