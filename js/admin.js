@@ -767,7 +767,7 @@ function lessonCardGridHtml(l) {
       </div>
       ${l.descripcion ? `<p class="text-xs text-[var(--black-40)] line-clamp-2">${escapeHtml(l.descripcion)}</p>` : ''}
       ${cat ? `<span class="self-start text-[10px] font-bold text-[var(--black-40)] bg-[var(--background-page)] px-2 py-0.5 rounded-full">${escapeHtml(cat.emoji)} ${escapeHtml(cat.nombre)}</span>` : ''}
-      <span class="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-[var(--black-40)] bg-[var(--background-page)] px-1.5 py-0.5 rounded-full">
+      <span class="self-start shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-[var(--black-40)] bg-[var(--background-page)] px-1.5 py-0.5 rounded-full">
         <i data-lucide="${(l.vertical || 'retail') === 'retail' ? 'store' : 'utensils'}" class="w-3 h-3"></i>
         ${(l.vertical || 'retail') === 'retail' ? 'Retail' : 'Restaurantes'} · ${(l.plataforma || 'web') === 'web' ? 'Web' : 'Mobile'}
       </span>
