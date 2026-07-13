@@ -44,6 +44,8 @@ let currentCategories = []
 let materialView = localStorage.getItem('admin_material_view') || 'grid'
 let _materialCurrentFiles = []
 let lessonListView = localStorage.getItem('admin_lesson_list_view') || 'list'
+let adminVertical = 'retail'      // filtro de vertical del panel de lecciones
+let adminPlataforma = 'all'       // 'all' | 'web' | 'mobile'
 let currentFolderPath = ''
 let lessonPreviewVisible = localStorage.getItem('admin_lesson_preview') !== 'false'
 
@@ -261,6 +263,23 @@ async function renderLessonsPanel() {
       </div>
     </div>
 
+    <div class="flex items-center gap-2 mb-4 flex-wrap">
+      <div class="flex gap-1.5">
+        <button data-adm-vertical="retail" class="adm-vertical flex items-center gap-1.5 px-3 py-1.5 rounded-xl border-[1.5px] text-xs font-bold transition-colors">
+          <i data-lucide="store" class="w-3.5 h-3.5"></i> Retail
+        </button>
+        <button data-adm-vertical="restaurantes" class="adm-vertical flex items-center gap-1.5 px-3 py-1.5 rounded-xl border-[1.5px] text-xs font-bold transition-colors">
+          <i data-lucide="utensils" class="w-3.5 h-3.5"></i> Restaurantes
+        </button>
+      </div>
+      <div class="w-px h-5 bg-[var(--blue-20)]"></div>
+      <div class="flex gap-1.5">
+        <button data-adm-plataforma="all" class="adm-plataforma px-3 py-1.5 rounded-full border text-xs font-bold transition-colors">Todas</button>
+        <button data-adm-plataforma="web" class="adm-plataforma px-3 py-1.5 rounded-full border text-xs font-bold transition-colors">Web</button>
+        <button data-adm-plataforma="mobile" class="adm-plataforma px-3 py-1.5 rounded-full border text-xs font-bold transition-colors">Mobile</button>
+      </div>
+    </div>
+
     <div id="catManager" class="hidden mb-4 bg-white rounded-2xl border border-[var(--blue-20)] p-4">
       <div class="flex items-center justify-between mb-3">
         <p class="text-[10px] font-black uppercase text-[var(--black-40)] tracking-wide">Categorías</p>
@@ -413,6 +432,36 @@ async function renderLessonsPanel() {
   document.getElementById('lessonSearch').addEventListener('input', e => {
     renderGroupedLessons(allLessons, e.target.value)
   })
+
+  function paintAdminFilters() {
+    el.querySelectorAll('.adm-vertical').forEach(b => {
+      const on = b.dataset.admVertical === adminVertical
+      b.classList.toggle('border-[var(--blue-100)]', on)
+      b.classList.toggle('bg-[var(--blue-10)]', on)
+      b.classList.toggle('text-[var(--blue-100)]', on)
+      b.classList.toggle('border-[var(--blue-20)]', !on)
+      b.classList.toggle('text-[var(--black-60)]', !on)
+    })
+    el.querySelectorAll('.adm-plataforma').forEach(b => {
+      const on = b.dataset.admPlataforma === adminPlataforma
+      b.classList.toggle('bg-[var(--blue-100)]', on)
+      b.classList.toggle('border-[var(--blue-100)]', on)
+      b.classList.toggle('text-white', on)
+      b.classList.toggle('border-[var(--blue-20)]', !on)
+      b.classList.toggle('text-[var(--black-60)]', !on)
+    })
+  }
+  paintAdminFilters()
+  el.querySelectorAll('.adm-vertical').forEach(b => b.addEventListener('click', () => {
+    adminVertical = b.dataset.admVertical
+    paintAdminFilters()
+    renderGroupedLessons(allLessons, document.getElementById('lessonSearch')?.value || '')
+  }))
+  el.querySelectorAll('.adm-plataforma').forEach(b => b.addEventListener('click', () => {
+    adminPlataforma = b.dataset.admPlataforma
+    paintAdminFilters()
+    renderGroupedLessons(allLessons, document.getElementById('lessonSearch')?.value || '')
+  }))
 
   document.getElementById('manageCatsBtn').addEventListener('click', () => {
     document.getElementById('catManager').classList.toggle('hidden')
@@ -571,11 +620,14 @@ async function renderLessonsPanel() {
 function renderGroupedLessons(allLessons, searchQuery) {
   const list = document.getElementById('lessonsList')
   if (!list) return
+  const porVertical = allLessons.filter(l =>
+    (l.vertical || 'retail') === adminVertical &&
+    (adminPlataforma === 'all' || (l.plataforma || 'web') === adminPlataforma))
   const q = searchQuery.toLowerCase().trim()
   const filtered = q
-    ? allLessons.filter(l =>
+    ? porVertical.filter(l =>
         l.titulo.toLowerCase().includes(q) || (l.descripcion || '').toLowerCase().includes(q))
-    : allLessons
+    : porVertical
 
   if (!filtered.length && q) {
     list.innerHTML = `
@@ -583,6 +635,17 @@ function renderGroupedLessons(allLessons, searchQuery) {
         <i data-lucide="search-x" class="w-10 h-10 text-[var(--black-40)] mb-3"></i>
         <p class="font-bold text-[var(--black-60)] mb-1">Sin resultados</p>
         <p class="text-xs text-[var(--black-40)]">Ninguna lección coincide con "<span class="font-medium">${escapeHtml(q)}</span>"</p>
+      </div>`
+    lucide.createIcons()
+    return
+  }
+
+  if (!filtered.length && !q && allLessons.length) {
+    list.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-12 text-center">
+        <i data-lucide="filter-x" class="w-10 h-10 text-[var(--black-40)] mb-3"></i>
+        <p class="font-bold text-[var(--black-60)] mb-1">Sin lecciones en este filtro</p>
+        <p class="text-xs text-[var(--black-40)]">Cambia de vertical o plataforma, o crea una lección nueva.</p>
       </div>`
     lucide.createIcons()
     return
@@ -661,6 +724,10 @@ function lessonCardHtml(l) {
         <div class="flex items-center gap-2">
           <p class="font-bold text-sm text-[var(--black-100)] truncate">${escapeHtml(l.titulo)}</p>
           <span class="shrink-0 text-[10px] text-[var(--black-40)]">#${escapeHtml(String(l.orden))}</span>
+          <span class="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-[var(--black-40)] bg-[var(--background-page)] px-1.5 py-0.5 rounded-full">
+            <i data-lucide="${(l.vertical || 'retail') === 'retail' ? 'store' : 'utensils'}" class="w-3 h-3"></i>
+            ${(l.vertical || 'retail') === 'retail' ? 'Retail' : 'Restaurantes'} · ${(l.plataforma || 'web') === 'web' ? 'Web' : 'Mobile'}
+          </span>
           ${l.active === false ? '<span class="shrink-0 text-[10px] font-bold text-[var(--black-40)] bg-[var(--black-10)] px-1.5 py-0.5 rounded-full">Oculta</span>' : ''}
           ${!l.embedding ? '<span class="shrink-0 text-[10px] font-bold text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-full">Sin IA</span>' : ''}
         </div>
@@ -700,6 +767,10 @@ function lessonCardGridHtml(l) {
       </div>
       ${l.descripcion ? `<p class="text-xs text-[var(--black-40)] line-clamp-2">${escapeHtml(l.descripcion)}</p>` : ''}
       ${cat ? `<span class="self-start text-[10px] font-bold text-[var(--black-40)] bg-[var(--background-page)] px-2 py-0.5 rounded-full">${escapeHtml(cat.emoji)} ${escapeHtml(cat.nombre)}</span>` : ''}
+      <span class="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-[var(--black-40)] bg-[var(--background-page)] px-1.5 py-0.5 rounded-full">
+        <i data-lucide="${(l.vertical || 'retail') === 'retail' ? 'store' : 'utensils'}" class="w-3 h-3"></i>
+        ${(l.vertical || 'retail') === 'retail' ? 'Retail' : 'Restaurantes'} · ${(l.plataforma || 'web') === 'web' ? 'Web' : 'Mobile'}
+      </span>
       <div class="flex gap-1 mt-auto pt-2 border-t border-[var(--blue-10)]">
         <button data-id="${l.id}" data-active="${l.active === false ? 'false' : 'true'}" class="toggle-lesson flex-1 flex items-center justify-center py-1 rounded-lg transition-colors ${l.active === false ? 'text-[var(--black-40)] hover:text-[var(--success-150)]' : 'text-[var(--success-150)] hover:text-[var(--black-40)]'}" title="${l.active === false ? 'Mostrar a estudiantes' : 'Ocultar a estudiantes'}">
           <i data-lucide="${l.active === false ? 'eye-off' : 'eye'}" class="w-3.5 h-3.5"></i>
