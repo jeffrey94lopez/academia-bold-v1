@@ -3,6 +3,7 @@ import { renderBlocks } from './block-renderer.js'
 import { track } from './analytics.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml } from './utils.js'
+import { VERTICALES, PLATAFORMAS, getSeleccion, setSeleccion, filtrarPorSeleccion } from './vertical.js'
 
 // Las categorías se muestran sin emojis (pueden venir en la columna emoji o
 // incrustados en el nombre); las claves internas de agrupación no se tocan.
@@ -28,24 +29,55 @@ async function renderLessons() {
     supabase.from('lecciones').select('*').eq('active', true).order('orden'),
     supabase.from('categorias').select('*').order('orden'),
   ])
-  let lessons = lessonsRes.data || []
+  let allLessons = lessonsRes.data || []
+  let sel = getSeleccion()
+  let lessons = filtrarPorSeleccion(allLessons, sel)
   const error = lessonsRes.error
   const cats  = catsRes.data
   const CATEGORIES = (cats || []).map(c => ({ key: c.nombre, emoji: c.emoji }))
 
   if (error) console.error('[lessons] Supabase error:', error)
-  if (error || !lessons?.length) {
+  if (error || !allLessons.length) {
     container.innerHTML = '<p class="text-[var(--black-60)] text-sm text-center pt-16">No hay lecciones disponibles.</p>'
     return
   }
 
   // Group by category
   const grouped = {}
-  for (const cat of CATEGORIES) grouped[cat.key] = []
-  for (const l of lessons) {
-    const cat = l.categoria || CATEGORIES[0]?.key || 'General'
-    if (!grouped[cat]) grouped[cat] = []
-    grouped[cat].push(l)
+  function rebuildGrouped() {
+    for (const key of Object.keys(grouped)) delete grouped[key]
+    for (const cat of CATEGORIES) grouped[cat.key] = []
+    for (const l of lessons) {
+      const cat = l.categoria || CATEGORIES[0]?.key || 'General'
+      if (!grouped[cat]) grouped[cat] = []
+      grouped[cat].push(l)
+    }
+  }
+  rebuildGrouped()
+
+  // Selector de vertical (tarjetas con icono) + plataforma (chips).
+  // Mismo markup en móvil y desktop; se regenera al cambiar la selección.
+  function selectorHtml() {
+    return `
+      <div class="px-3 pt-3 pb-2 border-b border-[var(--blue-10)] bg-white">
+        <div class="flex gap-2">
+          ${VERTICALES.map(v => `
+            <button data-vertical="${v.key}"
+              class="sel-vertical flex-1 rounded-xl border-[1.5px] px-2 py-2 text-center transition-colors ${v.key === sel.vertical
+                ? 'border-[var(--blue-100)] bg-[var(--blue-10)] text-[var(--blue-100)]'
+                : 'border-[var(--blue-20)] text-[var(--black-60)] hover:border-[var(--blue-100)]'}">
+              <i data-lucide="${v.icon}" class="w-4 h-4 mx-auto mb-0.5"></i>
+              <span class="block text-[11px] font-black">${v.label}</span>
+            </button>`).join('')}
+        </div>
+        <div class="flex gap-2 mt-2">
+          ${PLATAFORMAS.map(p => `
+            <button data-plataforma="${p.key}"
+              class="sel-plataforma px-4 py-1 rounded-full text-[11px] font-bold border transition-colors ${p.key === sel.plataforma
+                ? 'bg-[var(--blue-100)] border-[var(--blue-100)] text-white'
+                : 'border-[var(--blue-20)] text-[var(--black-60)] hover:border-[var(--blue-100)]'}">${p.label}</button>`).join('')}
+        </div>
+      </div>`
   }
 
   const firstCat = CATEGORIES.find(c => grouped[c.key]?.length > 0)?.key || CATEGORIES[0]?.key
@@ -62,6 +94,7 @@ async function renderLessons() {
         <div class="px-4 py-3 border-b border-[var(--blue-10)] shrink-0">
           <h2 class="font-black text-base text-[var(--blue-100)]">Centro de Ayuda</h2>
         </div>
+        <div id="ls-selector-mob"></div>
         <!-- Búsqueda global: filtra lecciones de todas las categorías desde la pantalla inicial -->
         <div class="px-3 py-2 border-b border-[var(--blue-10)] shrink-0">
           <div class="flex items-center gap-2 bg-[var(--background-page)] rounded-xl px-3 py-2">
@@ -98,6 +131,7 @@ async function renderLessons() {
     <!-- DESKTOP: sidebar + content panel (hidden below md) -->
     <div class="hidden md:flex absolute inset-0">
       <div class="w-48 bg-white border-r border-[var(--blue-10)] flex flex-col shrink-0">
+        <div id="ls-selector-desk"></div>
         <div class="p-2.5 border-b border-[var(--blue-10)] shrink-0">
           <div class="flex items-center gap-2 bg-[var(--background-page)] rounded-xl px-3 py-2">
             <span class="text-[var(--black-60)] text-xs">🔍</span>
@@ -110,12 +144,12 @@ async function renderLessons() {
     </div>
   `
 
-  track('page_view', { page: 'lessons' })
+  track('page_view', { page: 'lessons', ...sel })
 
   // ── Render lesson content ─────────────────────────────────────────────────
   function renderLessonContent(panel, lesson) {
     panel.innerHTML = ''
-    track('lesson_open', { lesson_id: lesson.id, lesson_title: lesson.titulo || '', category: lesson.categoria || '' })
+    track('lesson_open', { lesson_id: lesson.id, lesson_title: lesson.titulo || '', category: lesson.categoria || '', ...sel })
 
     // Columna de lectura centrada: líneas más cortas cansan menos la vista
     const inner = document.createElement('div')
@@ -184,6 +218,13 @@ async function renderLessons() {
   function renderAccordion() {
     const accordion = document.getElementById('ls-accordion')
     if (!accordion) return
+
+    if (!lessons.length) {
+      accordion.innerHTML = emptyStateHtml()
+      accordion.querySelector('[data-goto-plataforma]')?.addEventListener('click', e =>
+        applySeleccion({ plataforma: e.currentTarget.dataset.gotoPlataforma }))
+      return
+    }
 
     accordion.innerHTML = CATEGORIES
       .filter(c => grouped[c.key]?.length > 0)
@@ -280,6 +321,12 @@ async function renderLessons() {
     const list = document.getElementById('ls-cat-list')
     if (!list) return
     list.innerHTML = ''
+    if (!lessons.length) {
+      list.innerHTML = emptyStateHtml()
+      list.querySelector('[data-goto-plataforma]')?.addEventListener('click', e =>
+        applySeleccion({ plataforma: e.currentTarget.dataset.gotoPlataforma }))
+      return
+    }
     CATEGORIES.filter(c => grouped[c.key]?.length > 0).forEach(cat => {
       const btn = document.createElement('button')
       btn.className = 'w-full flex items-center gap-3 px-4 py-3.5 border-b border-[var(--blue-10)] text-left hover:bg-[var(--black-10)] transition-colors'
@@ -293,6 +340,48 @@ async function renderLessons() {
       })
       list.append(btn)
     })
+  }
+
+  // Estado vacío por combinación: mensaje + salto a la otra plataforma.
+  function emptyStateHtml() {
+    const otra = PLATAFORMAS.find(p => p.key !== sel.plataforma)
+    const vLabel = VERTICALES.find(v => v.key === sel.vertical)?.label || ''
+    return `
+      <div class="flex flex-col items-center justify-center py-14 px-4 text-center">
+        <p class="font-bold text-sm text-[var(--black-100)] mb-1">Aún no hay lecciones aquí</p>
+        <p class="text-xs text-[var(--black-60)] mb-4">Estamos preparando el contenido de ${escapeHtml(vLabel)} para ${escapeHtml(sel.plataforma === 'web' ? 'Web' : 'la app móvil')}.</p>
+        <button data-goto-plataforma="${otra.key}" class="px-4 py-2 rounded-full bg-[var(--blue-100)] text-white text-xs font-bold">Ver lecciones de ${otra.label}</button>
+      </div>`
+  }
+
+  function renderSelectors() {
+    for (const id of ['ls-selector-mob', 'ls-selector-desk']) {
+      const el = document.getElementById(id)
+      if (!el) continue
+      el.innerHTML = selectorHtml()
+      el.querySelectorAll('.sel-vertical').forEach(b =>
+        b.addEventListener('click', () => applySeleccion({ vertical: b.dataset.vertical })))
+      el.querySelectorAll('.sel-plataforma').forEach(b =>
+        b.addEventListener('click', () => applySeleccion({ plataforma: b.dataset.plataforma })))
+    }
+    if (window.lucide) lucide.createIcons()
+  }
+
+  function applySeleccion(cambio) {
+    setSeleccion(cambio)
+    sel = getSeleccion()
+    lessons = filtrarPorSeleccion(allLessons, sel)
+    rebuildGrouped()
+    activeLesson = null
+    activeCategory = CATEGORIES.find(c => grouped[c.key]?.length > 0)?.key || CATEGORIES[0]?.key
+    openCats.clear()
+    if (activeCategory) openCats.add(activeCategory)
+    renderSelectors()
+    renderAccordion()
+    renderMobileCatList()
+    renderDeskContent()
+    showScreen('categories')
+    track('vertical_change', { vertical: sel.vertical, plataforma: sel.plataforma })
   }
 
   function renderMobileLessonList() {
@@ -428,16 +517,9 @@ async function renderLessons() {
       .from('lecciones').select('*').eq('active', true).order('orden')
     if (err || !freshLessons) return
 
-    lessons = freshLessons
-
-    // Rebuild grouped in-place (keeps CATEGORIES reference intact)
-    for (const key of Object.keys(grouped)) delete grouped[key]
-    for (const cat of CATEGORIES) grouped[cat.key] = []
-    for (const l of lessons) {
-      const cat = l.categoria || CATEGORIES[0]?.key || 'General'
-      if (!grouped[cat]) grouped[cat] = []
-      grouped[cat].push(l)
-    }
+    allLessons = freshLessons
+    lessons = filtrarPorSeleccion(allLessons, sel)
+    rebuildGrouped()
 
     // If active lesson was removed/disabled, clear the content panel
     if (activeLesson && !lessons.find(l => l.id === activeLesson.id)) {
@@ -451,6 +533,7 @@ async function renderLessons() {
   }
 
   // ── Initialize ────────────────────────────────────────────────────────────
+  renderSelectors()
   renderMobileCatList()
   renderMobileLessonList()
   showScreen('categories')
