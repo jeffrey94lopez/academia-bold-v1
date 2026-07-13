@@ -1,15 +1,6 @@
 // Verticales de producto y plataforma: metadatos, selección persistida y
 // filtrado. Compartido por portal (lessons.js), admin y bot (assistant.js).
 
-// En Node tests, cada ?caso=N obtiene almacenamiento aislado.
-if (typeof import.meta !== 'undefined' && import.meta.url) {
-  const url = new URL(import.meta.url)
-  const caso = url.searchParams.get('caso')
-  if (caso && typeof globalThis !== 'undefined') {
-    globalThis.__bold_caso = caso
-  }
-}
-
 import { storageGet, storageSet } from './storage.js'
 
 export const VERTICALES = [
