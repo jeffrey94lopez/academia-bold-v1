@@ -330,13 +330,24 @@ async function renderLessonsPanel() {
                 </select>
               </div>
               <div>
-                <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Dispositivo</label>
-                <select id="lessonDispositivo"
-                  class="w-full px-3 py-2.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] bg-white">
-                  <option value="web">Web</option>
-                  <option value="app">App</option>
-                  <option value="datafono">Datáfono</option>
-                </select>
+                <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Vertical</label>
+                <div id="lessonVertical" class="flex gap-2">
+                  <button type="button" data-value="retail" class="choice-opt flex-1 rounded-xl border-[1.5px] border-[var(--blue-20)] px-2 py-2 text-center text-[var(--black-60)] transition-colors">
+                    <i data-lucide="store" class="w-4 h-4 mx-auto mb-0.5"></i>
+                    <span class="block text-[11px] font-black">Retail</span>
+                  </button>
+                  <button type="button" data-value="restaurantes" class="choice-opt flex-1 rounded-xl border-[1.5px] border-[var(--blue-20)] px-2 py-2 text-center text-[var(--black-60)] transition-colors">
+                    <i data-lucide="utensils" class="w-4 h-4 mx-auto mb-0.5"></i>
+                    <span class="block text-[11px] font-black">Restaurantes</span>
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Plataforma</label>
+                <div id="lessonPlataforma" class="flex gap-2">
+                  <button type="button" data-value="web" class="choice-opt px-4 py-1.5 rounded-full text-xs font-bold border border-[var(--blue-20)] text-[var(--black-60)] transition-colors">Web</button>
+                  <button type="button" data-value="mobile" class="choice-opt px-4 py-1.5 rounded-full text-xs font-bold border border-[var(--blue-20)] text-[var(--black-60)] transition-colors">Mobile</button>
+                </div>
               </div>
             </div>
             <p class="text-[10px] font-black uppercase text-[var(--black-40)] tracking-wide mb-2">Contenido</p>
@@ -513,6 +524,10 @@ async function renderLessonsPanel() {
     renderQuestionList()
   })
 
+  document.querySelectorAll('#lessonVertical button, #lessonPlataforma button').forEach(b => {
+    b.addEventListener('click', () => setChoice(b.parentElement.id, b.dataset.value))
+  })
+
   document.getElementById('saveLessonBtn').addEventListener('click', async () => {
     const titulo = document.getElementById('lessonTitulo').value.trim()
     const orden = parseInt(document.getElementById('lessonOrden').value)
@@ -530,7 +545,8 @@ async function renderLessonsPanel() {
       contenido: JSON.stringify(currentBlocks),
       orden,
       categoria: document.getElementById('lessonCategoria').value,
-      dispositivo: document.getElementById('lessonDispositivo').value || 'web',
+      vertical: getChoice('lessonVertical') || 'retail',
+      plataforma: getChoice('lessonPlataforma') || 'web',
       notas: document.getElementById('lessonNotas').value.trim() || null,
       examen: currentQuestions.length ? { preguntas: currentQuestions } : null,
     }
@@ -796,6 +812,26 @@ function applyPreviewState() {
   lucide.createIcons()
 }
 
+// Grupo de botones tipo radio: marca data-selected y estilos activos.
+function setChoice(containerId, value) {
+  const cont = document.getElementById(containerId)
+  if (!cont) return
+  cont.querySelectorAll('button').forEach(b => {
+    const on = b.dataset.value === value
+    b.dataset.selected = on ? 'true' : 'false'
+    b.classList.toggle('border-[var(--blue-100)]', on)
+    b.classList.toggle('bg-[var(--blue-10)]', on)
+    b.classList.toggle('text-[var(--blue-100)]', on)
+    b.classList.toggle('border-[var(--blue-20)]', !on)
+    b.classList.toggle('text-[var(--black-60)]', !on)
+  })
+}
+
+function getChoice(containerId) {
+  return document.getElementById(containerId)
+    ?.querySelector('button[data-selected="true"]')?.dataset.value
+}
+
 function openLessonForm(lesson = null) {
   document.getElementById('lessonFormTitle').textContent = lesson ? 'Editar lección' : 'Nueva lección'
   document.getElementById('lessonId').value = lesson?.id || ''
@@ -811,7 +847,8 @@ function openLessonForm(lesson = null) {
     `<option value="${escapeHtml(c.nombre)}">${escapeHtml(c.emoji)} ${escapeHtml(c.nombre)}</option>`
   ).join('')
   catSelect.value = lesson?.categoria || (currentCategories[0]?.nombre || '')
-  document.getElementById('lessonDispositivo').value = lesson?.dispositivo || 'web'
+  setChoice('lessonVertical', lesson?.vertical || 'retail')
+  setChoice('lessonPlataforma', lesson?.plataforma || 'web')
 
   try {
     currentBlocks = lesson?.contenido ? JSON.parse(lesson.contenido) : []
