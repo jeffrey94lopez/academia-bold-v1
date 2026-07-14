@@ -3,6 +3,7 @@ import { escapeHtml, getYouTubeId } from './utils.js'
 import { storageGet, storageSet, storageRemove } from './storage.js'
 import { typewrite, skipActiveTypewriter } from './typewriter.js'
 import { isNearBottom } from './reload-policy.js'
+import { getSeleccion } from './vertical.js'
 
 const N8N_URL     = '/api/chat'
 const ABANDON_URL = 'https://n8n.mplasesores.com/webhook/bodi-abandon'
@@ -611,7 +612,7 @@ async function sendMessage(text) {
     const res  = await fetch(N8N_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, history, faq_context: cachedFaqs })
+      body: JSON.stringify({ message: text, history, faq_context: cachedFaqs, ...getSeleccion() })
     })
     const data = await res.json()
     typing.classList.add('hidden')
