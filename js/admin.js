@@ -125,7 +125,8 @@ async function renderHomePanel() {
   const entityLabel = {
     lecciones: 'Lección', preguntas_frecuentes: 'FAQ',
     glosario: 'Término', material_apoyo: 'Material',
-    bot_suggestion: 'Sugerencia bot', bot_setting: 'Config. bot'
+    bot_suggestion: 'Sugerencia bot', bot_setting: 'Config. bot',
+    portal_setting: 'Config. portal'
   }
 
   el.innerHTML = `
@@ -227,12 +228,16 @@ async function renderLessonsPanel() {
   quillInstances = {}
   const el = document.getElementById('panel-lessons')
 
-  const [{ data: cats }, { data: lessons }] = await Promise.all([
+  const [{ data: cats }, { data: lessons }, { data: settingsRows }] = await Promise.all([
     supabase.from('categorias').select('*').order('orden'),
     supabase.from('lecciones').select('*').order('orden'),
+    supabase.from('app_settings').select('key,value'),
   ])
   currentCategories = cats || []
   const allLessons = lessons || []
+  const portalSettings = Object.fromEntries((settingsRows || []).map(r => [r.key, r.value]))
+  const verticalLabels = { retail: 'Retail', restaurantes: 'Restaurantes' }
+  const plataformaLabels = { web: 'Web', mobile: 'Mobile' }
 
   el.innerHTML = `
     <div class="flex items-center justify-between mb-4">
@@ -266,17 +271,35 @@ async function renderLessonsPanel() {
     <div class="flex items-center gap-2 mb-4 flex-wrap">
       <div class="flex gap-1.5">
         <button data-adm-vertical="retail" class="adm-vertical flex items-center gap-1.5 px-3 py-1.5 rounded-xl border-[1.5px] text-xs font-bold transition-colors">
-          <i data-lucide="store" class="w-3.5 h-3.5"></i> Retail
+          <i data-lucide="store" class="w-3.5 h-3.5"></i>
+          <span class="adm-vertical-label transition-opacity">Retail</span>
+          <span data-vertical-switch="retail" role="switch" aria-checked="true" tabindex="0" class="vert-switch ml-0.5 w-7 h-4 rounded-full relative transition-colors shrink-0" aria-label="Habilitar vertical Retail en el portal">
+            <span class="absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform"></span>
+          </span>
         </button>
         <button data-adm-vertical="restaurantes" class="adm-vertical flex items-center gap-1.5 px-3 py-1.5 rounded-xl border-[1.5px] text-xs font-bold transition-colors">
-          <i data-lucide="utensils" class="w-3.5 h-3.5"></i> Restaurantes
+          <i data-lucide="utensils" class="w-3.5 h-3.5"></i>
+          <span class="adm-vertical-label transition-opacity">Restaurantes</span>
+          <span data-vertical-switch="restaurantes" role="switch" aria-checked="true" tabindex="0" class="vert-switch ml-0.5 w-7 h-4 rounded-full relative transition-colors shrink-0" aria-label="Habilitar vertical Restaurantes en el portal">
+            <span class="absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform"></span>
+          </span>
         </button>
       </div>
       <div class="w-px h-5 bg-[var(--blue-20)]"></div>
       <div class="flex gap-1.5">
         <button data-adm-plataforma="all" class="adm-plataforma px-3 py-1.5 rounded-full border text-xs font-bold transition-colors">Todas</button>
-        <button data-adm-plataforma="web" class="adm-plataforma px-3 py-1.5 rounded-full border text-xs font-bold transition-colors">Web</button>
-        <button data-adm-plataforma="mobile" class="adm-plataforma px-3 py-1.5 rounded-full border text-xs font-bold transition-colors">Mobile</button>
+        <button data-adm-plataforma="web" class="adm-plataforma flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold transition-colors">
+          <span class="adm-plataforma-label transition-opacity">Web</span>
+          <span data-plataforma-switch="web" role="switch" aria-checked="true" tabindex="0" class="plat-switch w-7 h-4 rounded-full relative transition-colors shrink-0" aria-label="Habilitar plataforma Web en el portal">
+            <span class="absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform"></span>
+          </span>
+        </button>
+        <button data-adm-plataforma="mobile" class="adm-plataforma flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold transition-colors">
+          <span class="adm-plataforma-label transition-opacity">Mobile</span>
+          <span data-plataforma-switch="mobile" role="switch" aria-checked="true" tabindex="0" class="plat-switch w-7 h-4 rounded-full relative transition-colors shrink-0" aria-label="Habilitar plataforma Mobile en el portal">
+            <span class="absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform"></span>
+          </span>
+        </button>
       </div>
     </div>
 
@@ -433,6 +456,17 @@ async function renderLessonsPanel() {
     renderGroupedLessons(allLessons, e.target.value)
   })
 
+  const HIDE_TITLE = 'Oculta para estudiantes en el portal'
+
+  function paintMiniSwitch(sw, enabled) {
+    if (!sw) return
+    sw.setAttribute('aria-checked', String(enabled))
+    sw.classList.toggle('bg-[var(--success-150)]', enabled)
+    sw.classList.toggle('bg-[var(--black-40)]', !enabled)
+    const knob = sw.querySelector('span')
+    if (knob) knob.style.transform = enabled ? 'translateX(12px)' : 'translateX(0)'
+  }
+
   function paintAdminFilters() {
     el.querySelectorAll('.adm-vertical').forEach(b => {
       const on = b.dataset.admVertical === adminVertical
@@ -441,6 +475,15 @@ async function renderLessonsPanel() {
       b.classList.toggle('text-[var(--blue-100)]', on)
       b.classList.toggle('border-[var(--blue-20)]', !on)
       b.classList.toggle('text-[var(--black-60)]', !on)
+
+      const v = b.dataset.admVertical
+      const enabled = portalSettings[`vertical_${v}_enabled`] !== 'false'
+      const label = b.querySelector('.adm-vertical-label')
+      if (label) {
+        label.classList.toggle('opacity-50', !enabled)
+        label.title = enabled ? '' : HIDE_TITLE
+      }
+      paintMiniSwitch(b.querySelector('.vert-switch'), enabled)
     })
     el.querySelectorAll('.adm-plataforma').forEach(b => {
       const on = b.dataset.admPlataforma === adminPlataforma
@@ -449,6 +492,17 @@ async function renderLessonsPanel() {
       b.classList.toggle('text-white', on)
       b.classList.toggle('border-[var(--blue-20)]', !on)
       b.classList.toggle('text-[var(--black-60)]', !on)
+
+      const p = b.dataset.admPlataforma
+      if (p !== 'all') {
+        const enabled = portalSettings[`plataforma_${adminVertical}_${p}_enabled`] !== 'false'
+        const label = b.querySelector('.adm-plataforma-label')
+        if (label) {
+          label.classList.toggle('opacity-50', !enabled)
+          label.title = enabled ? '' : HIDE_TITLE
+        }
+        paintMiniSwitch(b.querySelector('.plat-switch'), enabled)
+      }
     })
   }
   paintAdminFilters()
@@ -462,6 +516,46 @@ async function renderLessonsPanel() {
     paintAdminFilters()
     renderGroupedLessons(allLessons, document.getElementById('lessonSearch')?.value || '')
   }))
+
+  async function togglePortalSetting(key, wasEnabled, label) {
+    const newEnabled = !wasEnabled
+    const { error } = await supabase.from('app_settings').upsert({ key, value: String(newEnabled) })
+    if (error) {
+      showToast('Error al guardar: ' + error.message, 'error')
+      return
+    }
+    portalSettings[key] = String(newEnabled)
+    logActivity('update', 'portal_setting', `${label}: ${newEnabled ? 'visible' : 'oculta'} en portal`)
+    showToast(`${label}: ${newEnabled ? 'visible' : 'oculta'} en el portal`)
+    paintAdminFilters()
+  }
+
+  el.querySelectorAll('.vert-switch').forEach(sw => {
+    const activate = e => {
+      e.stopPropagation()
+      const v = sw.dataset.verticalSwitch
+      const key = `vertical_${v}_enabled`
+      const enabled = portalSettings[key] !== 'false'
+      togglePortalSetting(key, enabled, `Vertical ${verticalLabels[v]}`)
+    }
+    sw.addEventListener('click', activate)
+    sw.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(e) }
+    })
+  })
+  el.querySelectorAll('.plat-switch').forEach(sw => {
+    const activate = e => {
+      e.stopPropagation()
+      const p = sw.dataset.plataformaSwitch
+      const key = `plataforma_${adminVertical}_${p}_enabled`
+      const enabled = portalSettings[key] !== 'false'
+      togglePortalSetting(key, enabled, `${verticalLabels[adminVertical]} ${plataformaLabels[p]}`)
+    }
+    sw.addEventListener('click', activate)
+    sw.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(e) }
+    })
+  })
 
   document.getElementById('manageCatsBtn').addEventListener('click', () => {
     document.getElementById('catManager').classList.toggle('hidden')
