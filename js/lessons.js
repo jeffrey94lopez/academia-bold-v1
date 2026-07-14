@@ -370,6 +370,11 @@ async function renderLessons() {
   function applySeleccion(cambio) {
     setSeleccion(cambio)
     sel = getSeleccion()
+    searchQuery = ''
+    for (const id of ['ls-desk-search', 'ls-cat-search', 'ls-mob-search']) {
+      const inp = document.getElementById(id)
+      if (inp) inp.value = ''
+    }
     lessons = filtrarPorSeleccion(allLessons, sel)
     rebuildGrouped()
     activeLesson = null
