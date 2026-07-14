@@ -66,7 +66,18 @@ Para que el bot no confunda lecciones de Web con Mobile ni de verticales distint
 - **Workflow n8n** («Bold POS Chat»): ajustar el prompt/consulta para usar esos campos. Este cambio vive fuera del repo; el plan lo lista como tarea manual coordinada.
 - **Fase futura (fuera de alcance)**: que el bot pregunte al cliente su vertical cuando no la conozca y la recuerde durante la conversación.
 
-## 6. Verificación
+## 6. Visibilidad y habilitación de verticales/plataformas (ampliación 2026-07-13)
+
+Aprobado por el usuario antes del primer deploy:
+
+- **Auto-ocultar**: una vertical sin lecciones (en ninguna plataforma habilitada) no aparece en el portal. Hoy Restaurantes está vacía → el portal se ve como antes del proyecto.
+- **Interruptores manuales por vertical** en `app_settings` (convención existente: ausente = habilitado, `'false'` = deshabilitado):
+  - `vertical_retail_enabled`, `vertical_restaurantes_enabled`
+  - `plataforma_retail_web_enabled`, `plataforma_retail_mobile_enabled`, `plataforma_restaurantes_web_enabled`, `plataforma_restaurantes_mobile_enabled`
+- **Reglas del portal**: vertical visible ⇔ habilitada Y tiene ≥1 lección en alguna plataforma habilitada. Chips = plataformas habilitadas de la vertical activa (una habilitada sin lecciones mantiene el estado vacío existente). Si queda 1 sola vertical visible, la fila de tarjetas se oculta; si queda 1 sola plataforma habilitada, la fila de chips se oculta. Selección guardada inválida (vertical oculta o plataforma deshabilitada) → fallback a la primera vertical visible y su primera plataforma habilitada con lecciones.
+- **Admin**: switches en la barra de filtro del panel Lecciones — uno por tarjeta de vertical y uno en cada chip Web/Mobile (aplican a la vertical seleccionada en el filtro). Escriben a `app_settings` (upsert, mismo patrón que los toggles del bot). El admin siempre ve todas las lecciones; los switches solo afectan al portal.
+
+## 7. Verificación
 
 - Tests con `node --test` para la lógica pura que se extraiga (p. ej. mapeo dispositivo→plataforma si queda en JS, filtrado/agrupación de lecciones por selección) — siguiendo el patrón de `tests/storage.test.mjs`.
 - Verificación manual end-to-end: portal (cambiar vertical/plataforma, persistencia al recargar, estado vacío, búsqueda), admin (filtrar, crear/editar lección con toggle+selector, badges correctos), y bot (webhook recibe vertical/plataforma).

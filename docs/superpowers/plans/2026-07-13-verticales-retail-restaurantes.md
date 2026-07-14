@@ -812,3 +812,40 @@ git push origin sandbox:master
 ```
 
 El push a `master` dispara el deploy de producción vía la integración GitHub→Vercel. Verificar el estado del deployment y hacer un smoke test en https://academia.localizadoc.com.
+
+---
+
+### Task 8: Visibilidad configurable — helpers en `js/vertical.js` (TDD) [ampliación]
+
+**Files:**
+- Modify: `js/vertical.js`
+- Test: `tests/vertical.test.mjs` (agregar tests)
+
+**Interfaces:**
+- Consumes: `VERTICALES`, `PLATAFORMAS` existentes.
+- Produces (funciones puras; `settings` es un objeto `{key: value}` con strings de app_settings; convención: ausente = habilitado, `'false'` = deshabilitado):
+  - `plataformasHabilitadas(settings, vertical)` → array de keys de plataformas habilitadas para esa vertical (`plataforma_<v>_<p>_enabled`).
+  - `verticalesVisibles(lecciones, settings)` → array de keys de verticales con `vertical_<v>_enabled !== 'false'` Y ≥1 lección en alguna plataforma habilitada.
+  - `resolverSeleccion(lecciones, settings, seleccion)` → `{vertical, plataforma}` válida: si la guardada es visible/habilitada se respeta; si no, primera vertical visible + primera plataforma habilitada con lecciones (o la primera habilitada si ninguna tiene). Si no hay verticales visibles devuelve la selección con defaults (el portal mostrará "sin lecciones").
+
+Steps: tests primero (casos: todo habilitado; vertical sin lecciones oculta; vertical deshabilitada por switch; plataforma deshabilitada excluida de chips y del cálculo de visibilidad; fallback de selección inválida), verificar fallo, implementar, 18+N/18+N verde, commit `feat(verticales): helpers de visibilidad configurable por app_settings`.
+
+### Task 9: Portal — selector condicionado por visibilidad [ampliación]
+
+**Files:**
+- Modify: `js/lessons.js`
+
+**Interfaces:**
+- Consumes: helpers de Task 8; tabla `app_settings` (select key,value, igual que `js/main.js:11`).
+
+Comportamiento: cargar `app_settings` en el `Promise.all` inicial y construir `settings`; `sel = resolverSeleccion(allLessons, settings, getSeleccion())`; `selectorHtml()` renderiza la fila de tarjetas solo si `verticalesVisibles(...).length >= 2` y la fila de chips solo si `plataformasHabilitadas(settings, sel.vertical).length >= 2` (chips = solo plataformas habilitadas); `applySeleccion` re-resuelve con los helpers; `refreshLessons` re-aplica `resolverSeleccion`. Si `live-updates.js` expone la suscripción a `app_settings` con un hook reutilizable, refrescar settings en vivo; si no, documentar que aplica al recargar. Verificación: portal actual (Restaurantes vacía) se ve SIN selector; commit `feat(portal): selector visible solo con verticales/plataformas disponibles`.
+
+### Task 10: Admin — switches de habilitación en la barra de filtro [ampliación]
+
+**Files:**
+- Modify: `js/admin.js`
+
+**Interfaces:**
+- Consumes: patrón upsert existente `supabase.from('app_settings').upsert({ key, value: String(valor) })` (js/admin.js:2123); claves del spec §6.
+
+Comportamiento: en la barra de filtro del panel Lecciones, cada tarjeta de vertical lleva un switch (estado desde app_settings; ausente = ON) que upsertea `vertical_<v>_enabled`; los chips Web/Mobile llevan switch que upsertea `plataforma_<vertical seleccionada>_<p>_enabled` (el chip "Todas" no lleva). Los switches NO afectan el filtro ni la lista del admin (solo el portal); indicar visualmente OFF (p. ej. opacidad + tooltip "Oculta para estudiantes"). Registrar en logActivity con etiqueta legible. Cargar los settings al render del panel. Commit `feat(admin): switches para habilitar verticales y plataformas del portal`.
