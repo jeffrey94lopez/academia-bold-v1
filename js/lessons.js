@@ -3,7 +3,7 @@ import { renderBlocks } from './block-renderer.js'
 import { track } from './analytics.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml } from './utils.js'
-import { VERTICALES, PLATAFORMAS, getSeleccion, setSeleccion, filtrarPorSeleccion } from './vertical.js'
+import { VERTICALES, PLATAFORMAS, getSeleccion, setSeleccion, filtrarPorSeleccion, plataformasHabilitadas, verticalesVisibles, resolverSeleccion } from './vertical.js'
 
 // Las categorías se muestran sin emojis (pueden venir en la columna emoji o
 // incrustados en el nombre); las claves internas de agrupación no se tocan.
@@ -25,12 +25,18 @@ async function renderLessons() {
 
   container.innerHTML = '<div class="flex items-center justify-center h-full text-[var(--black-60)] text-sm">Cargando lecciones...</div>'
 
-  const [lessonsRes, catsRes] = await Promise.all([
+  const [lessonsRes, catsRes, settingsRes] = await Promise.all([
     supabase.from('lecciones').select('*').eq('active', true).order('orden'),
     supabase.from('categorias').select('*').order('orden'),
+    supabase.from('app_settings').select('key,value'),
   ])
   let allLessons = lessonsRes.data || []
-  let sel = getSeleccion()
+  let settings = Object.fromEntries((settingsRes.data || []).map(r => [r.key, r.value]))
+  const seleccionGuardada = getSeleccion()
+  let sel = resolverSeleccion(allLessons, settings, seleccionGuardada)
+  if (sel.vertical !== seleccionGuardada.vertical || sel.plataforma !== seleccionGuardada.plataforma) {
+    setSeleccion(sel)
+  }
   let lessons = filtrarPorSeleccion(allLessons, sel)
   const error = lessonsRes.error
   const cats  = catsRes.data
@@ -58,10 +64,18 @@ async function renderLessons() {
   // Selector de vertical (tarjetas con icono) + plataforma (chips).
   // Mismo markup en móvil y desktop; se regenera al cambiar la selección.
   function selectorHtml() {
+    const verticalesShown  = VERTICALES.filter(v => verticalesVisibles(allLessons, settings).includes(v.key))
+    const plataformasShown = PLATAFORMAS.filter(p => plataformasHabilitadas(settings, sel.vertical).includes(p.key))
+    const showVerticales  = verticalesShown.length >= 2
+    const showPlataformas = plataformasShown.length >= 2
+
+    if (!showVerticales && !showPlataformas) return ''
+
     return `
       <div class="px-3 pt-3 pb-2 border-b border-[var(--blue-10)] bg-white">
+        ${showVerticales ? `
         <div class="flex gap-2">
-          ${VERTICALES.map(v => `
+          ${verticalesShown.map(v => `
             <button data-vertical="${v.key}"
               class="sel-vertical flex-1 rounded-xl border-[1.5px] px-2 py-2 text-center transition-colors ${v.key === sel.vertical
                 ? 'border-[var(--blue-100)] bg-[var(--blue-10)] text-[var(--blue-100)]'
@@ -69,14 +83,15 @@ async function renderLessons() {
               <i data-lucide="${v.icon}" class="w-4 h-4 mx-auto mb-0.5"></i>
               <span class="block text-[11px] font-black">${v.label}</span>
             </button>`).join('')}
-        </div>
-        <div class="flex gap-2 mt-2">
-          ${PLATAFORMAS.map(p => `
+        </div>` : ''}
+        ${showPlataformas ? `
+        <div class="flex gap-2 ${showVerticales ? 'mt-2' : ''}">
+          ${plataformasShown.map(p => `
             <button data-plataforma="${p.key}"
               class="sel-plataforma px-4 py-1 rounded-full text-[11px] font-bold border transition-colors ${p.key === sel.plataforma
                 ? 'bg-[var(--blue-100)] border-[var(--blue-100)] text-white'
                 : 'border-[var(--blue-20)] text-[var(--black-60)] hover:border-[var(--blue-100)]'}">${p.label}</button>`).join('')}
-        </div>
+        </div>` : ''}
       </div>`
   }
 
@@ -344,13 +359,14 @@ async function renderLessons() {
 
   // Estado vacío por combinación: mensaje + salto a la otra plataforma.
   function emptyStateHtml() {
-    const otra = PLATAFORMAS.find(p => p.key !== sel.plataforma)
+    const habilitadas = plataformasHabilitadas(settings, sel.vertical)
+    const otra = PLATAFORMAS.find(p => p.key !== sel.plataforma && habilitadas.includes(p.key))
     const vLabel = VERTICALES.find(v => v.key === sel.vertical)?.label || ''
     return `
       <div class="flex flex-col items-center justify-center py-14 px-4 text-center">
         <p class="font-bold text-sm text-[var(--black-100)] mb-1">Aún no hay lecciones aquí</p>
         <p class="text-xs text-[var(--black-60)] mb-4">Estamos preparando el contenido de ${escapeHtml(vLabel)} para ${escapeHtml(sel.plataforma === 'web' ? 'Web' : 'la app móvil')}.</p>
-        <button data-goto-plataforma="${otra.key}" class="px-4 py-2 rounded-full bg-[var(--blue-100)] text-white text-xs font-bold">Ver lecciones de ${otra.label}</button>
+        ${otra ? `<button data-goto-plataforma="${otra.key}" class="px-4 py-2 rounded-full bg-[var(--blue-100)] text-white text-xs font-bold">Ver lecciones de ${otra.label}</button>` : ''}
       </div>`
   }
 
@@ -369,7 +385,7 @@ async function renderLessons() {
 
   function applySeleccion(cambio) {
     setSeleccion(cambio)
-    sel = getSeleccion()
+    sel = resolverSeleccion(allLessons, settings, getSeleccion())
     searchQuery = ''
     for (const id of ['ls-desk-search', 'ls-cat-search', 'ls-mob-search']) {
       const inp = document.getElementById(id)
@@ -523,6 +539,7 @@ async function renderLessons() {
     if (err || !freshLessons) return
 
     allLessons = freshLessons
+    sel = resolverSeleccion(allLessons, settings, sel)
     lessons = filtrarPorSeleccion(allLessons, sel)
     rebuildGrouped()
 
@@ -532,6 +549,7 @@ async function renderLessons() {
       renderDeskContent()
     }
 
+    renderSelectors()
     renderAccordion()
     renderMobileCatList()
     renderMobileLessonList()
