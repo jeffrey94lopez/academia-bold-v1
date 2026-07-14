@@ -41,3 +41,43 @@ export function etiqueta(l) {
   const p = PLATAFORMAS.find(x => x.key === (l.plataforma || 'web')) || PLATAFORMAS[0]
   return { icon: v.icon, texto: `${v.label} · ${p.label}` }
 }
+
+// --- Visibilidad configurable por app_settings ---
+// Convención existente en el proyecto (ver js/admin.js wireToggle): clave
+// ausente o valor distinto de 'false' = habilitado.
+function habilitado(settings, key) {
+  if (!settings) return true
+  return settings[key] !== 'false'
+}
+
+export function plataformasHabilitadas(settings, vertical) {
+  return P_KEYS.filter(p => habilitado(settings, `plataforma_${vertical}_${p}_enabled`))
+}
+
+export function verticalesVisibles(lecciones, settings) {
+  const ls = lecciones || []
+  return V_KEYS.filter(v => {
+    if (!habilitado(settings, `vertical_${v}_enabled`)) return false
+    const plats = plataformasHabilitadas(settings, v)
+    return ls.some(l =>
+      (l.vertical || 'retail') === v &&
+      plats.includes(l.plataforma || 'web'))
+  })
+}
+
+export function resolverSeleccion(lecciones, settings, seleccion = {}) {
+  const visibles = verticalesVisibles(lecciones, settings)
+  const { vertical, plataforma } = seleccion
+  if (visibles.includes(vertical) &&
+      plataformasHabilitadas(settings, vertical).includes(plataforma)) {
+    return { vertical, plataforma }
+  }
+  if (visibles.length === 0) return seleccion
+
+  const v = visibles[0]
+  const plats = plataformasHabilitadas(settings, v)
+  const ls = lecciones || []
+  const conLecciones = plats.find(p =>
+    ls.some(l => (l.vertical || 'retail') === v && (l.plataforma || 'web') === p))
+  return { vertical: v, plataforma: conLecciones || plats[0] }
+}
