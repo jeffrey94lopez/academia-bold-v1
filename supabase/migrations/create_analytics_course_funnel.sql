@@ -2,6 +2,7 @@
 -- Etapas: entró al curso -> abrió una lección -> presentó examen -> aprobó ->
 -- vio certificado. Todas cuentan session_id distintos dentro del rango, para
 -- que las etapas sean comparables. Ejecutar UNA sola vez en el SQL Editor.
+drop function if exists public.analytics_course_funnel(timestamptz, timestamptz);
 create or replace function public.analytics_course_funnel(
   p_from timestamptz,
   p_to   timestamptz

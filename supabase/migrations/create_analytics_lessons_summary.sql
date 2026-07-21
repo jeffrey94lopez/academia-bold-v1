@@ -3,7 +3,10 @@
 -- del rango previo [p_prev_from, p_prev_to] para calcular deltas. Devuelve un
 -- único jsonb; el admin ya no baja miles de filas de analytics_events.
 -- security definer: corre con privilegios del owner y solo expone agregados.
+-- Los buckets de día usan la zona horaria de negocio (America/Tegucigalpa,
+-- UTC-6) para coincidir con el dashboard actual, que agrupaba en hora local.
 -- Ejecutar UNA sola vez en el SQL Editor del proyecto Supabase.
+drop function if exists public.analytics_lessons_summary(timestamptz, timestamptz, timestamptz, timestamptz);
 create or replace function public.analytics_lessons_summary(
   p_from      timestamptz,
   p_to        timestamptz,
@@ -39,7 +42,7 @@ as $$
     'visits_by_day', (
       select coalesce(jsonb_agg(jsonb_build_object('day', d, 'count', c) order by d), '[]'::jsonb)
       from (
-        select date_trunc('day', created_at)::date as d, count(*) as c
+        select date_trunc('day', created_at at time zone 'America/Tegucigalpa')::date as d, count(*) as c
         from cur where event_type = 'page_view' group by 1
       ) t
     ),

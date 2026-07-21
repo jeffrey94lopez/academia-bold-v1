@@ -2,7 +2,13 @@
 -- BolBot para un rango [p_from, p_to]. La resolución usa resolution_status
 -- (3 estados) con fallback al booleano legacy 'resolved'; la categoría usa
 -- 'category' con fallback al 'topic' libre. Devuelve un único jsonb.
+-- El heatmap agrupa hora/día-de-semana en zona de negocio (America/Tegucigalpa)
+-- para coincidir con el dashboard actual (hora local, no UTC).
+-- grant a 'authenticated': hoy solo el admin se autentica vía Supabase Auth; si
+-- en el futuro los estudiantes pasan a auth real (Anon Auth+RLS), revisar estos
+-- grants para que estas RPCs de agregación no queden expuestas a cualquier logueado.
 -- Ejecutar UNA sola vez en el SQL Editor del proyecto Supabase.
+drop function if exists public.analytics_bot_summary(timestamptz, timestamptz);
 create or replace function public.analytics_bot_summary(
   p_from timestamptz,
   p_to   timestamptz
@@ -40,6 +46,8 @@ as $$
       ),
       'abandoned',   (select count(*) from res where status = 'abandoned'),
       'support',     (select count(*) from res where support_redirected),
+      -- % de conversaciones que NO escalaron a soporte (resueltas por el bot
+      -- sin intervención humana), sobre el total. Es el reverso de support/total.
       'resolved_without_support_pct', (
         select round(100.0 * count(*) filter (where not coalesce(support_redirected, false))
                       / nullif(count(*), 0))
@@ -74,10 +82,10 @@ as $$
       ) t
     ),
     'heatmap', (
-      select coalesce(jsonb_agg(jsonb_build_object('dow', dow, 'hour', hr, 'count', c)), '[]'::jsonb)
+      select coalesce(jsonb_agg(jsonb_build_object('dow', dow, 'hour', hr, 'count', c) order by dow, hr), '[]'::jsonb)
       from (
-        select extract(dow from started_at)::int as dow,
-               extract(hour from started_at)::int as hr,
+        select extract(dow from started_at at time zone 'America/Tegucigalpa')::int as dow,
+               extract(hour from started_at at time zone 'America/Tegucigalpa')::int as hr,
                count(*) as c
         from res group by 1, 2
       ) t
