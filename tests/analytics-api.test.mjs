@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   fetchLessonsSummary, fetchBotSummary, fetchCourseFunnel, fetchBotTrend,
+  getSupabaseClient, _resetAnalyticsClientCache,
 } from '../js/analytics-api.js'
 
 function fakeClient(captured) {
@@ -58,4 +59,17 @@ test('lanza Error cuando la RPC devuelve error', async () => {
     () => fetchBotSummary(new Date(), new Date(), errorClient()),
     /boom/,
   )
+})
+
+test('getSupabaseClient resuelve vía loader y cachea el singleton', async () => {
+  _resetAnalyticsClientCache()
+  let calls = 0
+  const fake = { rpc() {} }
+  const loader = () => { calls++; return Promise.resolve({ supabase: fake }) }
+  const a = await getSupabaseClient(loader)
+  const b = await getSupabaseClient(loader)
+  assert.equal(a, fake)
+  assert.equal(b, fake)
+  assert.equal(calls, 1) // solo carga una vez (cache)
+  _resetAnalyticsClientCache()
 })

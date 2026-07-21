@@ -1,15 +1,29 @@
 // Capa de acceso a las RPCs de analytics. Devuelve el jsonb agregado por el
 // servidor; los dashboards (② y ③) consumen estas funciones y no tocan
 // analytics_events / bodi_conversations directamente.
+//
+// Las funciones son async y resuelven el cliente Supabase de forma perezosa
+// (import dinámico) A PROPÓSITO: js/supabase.js importa supabase-js desde una
+// URL CDN (https://…). Un `import { supabase }` a nivel de módulo cargaría esa
+// URL al importar este archivo y rompe el runner de tests de Node
+// (ERR_UNSUPPORTED_ESM_URL_SCHEME). NO lo conviertas de vuelta a import
+// estático / funciones síncronas. Para los consumidores no cambia nada:
+// devuelven Promise<object> y se usan con await.
 
 let supabaseInstance = null
 
-async function getSupabaseClient() {
+// loader inyectable solo para tests; en producción usa el import dinámico real.
+export async function getSupabaseClient(loader = () => import('./supabase.js')) {
   if (!supabaseInstance) {
-    const { supabase } = await import('./supabase.js')
+    const { supabase } = await loader()
     supabaseInstance = supabase
   }
   return supabaseInstance
+}
+
+// Solo para tests: limpia el singleton cacheado entre casos.
+export function _resetAnalyticsClientCache() {
+  supabaseInstance = null
 }
 
 async function callRpc(client, name, params) {
