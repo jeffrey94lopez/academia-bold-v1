@@ -212,7 +212,7 @@ function switchPanel(panel) {
   if (bc) bc.textContent = labels[panel] || panel
 
   if (panel === 'home') renderHomePanel()
-  if (panel === 'lessons') renderLessonsPanel()
+  if (panel === 'lessons') { renderLessonsPanel(); maybePrefillNewLesson() }
   if (panel === 'faq') renderFaqPanel()
   if (panel === 'glossary') renderGlossaryPanel()
   if (panel === 'material') { currentFolderPath = ''; renderMaterialPanel() }
@@ -222,6 +222,21 @@ function switchPanel(panel) {
   if (panel === 'analytics') renderAnalytics()
   if (panel === 'activity') renderActivityLogPanel()
   if (panel === 'profile') renderProfilePanel()
+}
+
+// Puente bot→lección: si el dashboard del BolBot pidió crear una lección para
+// un tema (localStorage 'prefill_lesson_categoria'), abre el editor de lección
+// nueva y preselecciona esa categoría si ya existe como opción.
+function maybePrefillNewLesson() {
+  const cat = localStorage.getItem('prefill_lesson_categoria')
+  if (!cat) return
+  localStorage.removeItem('prefill_lesson_categoria')
+  setTimeout(() => {
+    if (!document.getElementById('lessonFormModal')) return
+    openLessonForm()
+    const sel = document.getElementById('lessonCategoria')
+    if (sel && [...sel.options].some(o => o.value === cat)) sel.value = cat
+  }, 400)
 }
 
 async function renderLessonsPanel() {
