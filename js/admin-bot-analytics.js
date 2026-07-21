@@ -60,10 +60,12 @@ export async function renderBotAnalytics(from = null, to = null) {
         gapNoLesson ? `data-gap-cat="${escapeHtml(gapNoLesson.category)}"` : '')}
       ${attentionCard('😟', 'Tema con sentimiento negativo',
         negCat ? `"${escapeHtml(negCat.category)}" — ${negCat.negative_pct}% negativo.` : 'Nada crítico.',
-        negCat ? '→ Revisar respuesta / lección' : '', 'error', '')}
+        negCat ? '→ Revisar respuesta / lección' : '', 'error',
+        negCat ? `data-edit-cat="${escapeHtml(negCat.category)}"` : '')}
       ${attentionCard('↗', 'Escala mucho a soporte',
         supCat ? `"${escapeHtml(supCat.category)}" escala en ${supCat.support_pct}%.` : 'Bajo escalamiento.',
-        supCat ? '→ Reforzar contenido' : '', 'blue', '')}
+        supCat ? '→ Reforzar contenido' : '', 'blue',
+        supCat ? `data-edit-cat="${escapeHtml(supCat.category)}"` : '')}
       ${attentionCard('🔴', 'Dudas recurrentes no resueltas ' + llmNote(),
         'Se prioriza con clustering del LLM (①c). Hoy: ver explorador filtrado por "No resuelta".',
         '', 'error', '')}
@@ -109,6 +111,11 @@ export async function renderBotAnalytics(from = null, to = null) {
   wireExplorer(el, convs, from, to)
   el.querySelector('[data-gap-cat]')?.addEventListener('click', ev => {
     goToCreateLesson(ev.currentTarget.getAttribute('data-gap-cat'))
+  })
+  el.querySelectorAll('[data-edit-cat]').forEach(btn => {
+    btn.addEventListener('click', ev => {
+      goToEditLessonByCategory(ev.currentTarget.getAttribute('data-edit-cat'))
+    })
   })
 }
 
@@ -252,6 +259,14 @@ function exportBotCsv(convs) {
 function goToCreateLesson(categoria) {
   // Puente bot→lección: guarda la categoría sugerida y abre el panel de lecciones.
   localStorage.setItem('prefill_lesson_categoria', categoria || '')
+  localStorage.setItem('admin_panel', 'lessons')
+  location.reload()
+}
+
+function goToEditLessonByCategory(categoria) {
+  // Revisar respuesta / reforzar contenido: abre la lección existente de esa
+  // categoría para editarla. Si no hay lección, cae a crear una nueva.
+  localStorage.setItem('edit_lesson_categoria', categoria || '')
   localStorage.setItem('admin_panel', 'lessons')
   location.reload()
 }
