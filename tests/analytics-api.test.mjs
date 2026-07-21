@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   fetchLessonsSummary, fetchBotSummary, fetchCourseFunnel, fetchBotTrend,
   getSupabaseClient, _resetAnalyticsClientCache,
+  fetchBotConversations, fetchContentGaps,
 } from '../js/analytics-api.js'
 
 function fakeClient(captured) {
@@ -72,4 +73,32 @@ test('getSupabaseClient resuelve vía loader y cachea el singleton', async () =>
   assert.equal(b, fake)
   assert.equal(calls, 1) // solo carga una vez (cache)
   _resetAnalyticsClientCache()
+})
+
+test('fetchBotConversations mapea filtros a params (undefined -> null)', async () => {
+  const cap = {}
+  const from = new Date('2026-06-01T00:00:00Z')
+  const to = new Date('2026-06-30T00:00:00Z')
+  await fetchBotConversations(from, to, { status: 'no_resuelta', support: true }, fakeClient(cap))
+  assert.equal(cap.name, 'analytics_bot_conversations')
+  assert.equal(cap.params.p_from, from.toISOString())
+  assert.equal(cap.params.p_status, 'no_resuelta')
+  assert.equal(cap.params.p_support, true)
+  assert.equal(cap.params.p_sentiment, null)
+  assert.equal(cap.params.p_category, null)
+  assert.equal(cap.params.p_search, null)
+})
+
+test('fetchBotConversations sin filtros manda todos null y limit por defecto', async () => {
+  const cap = {}
+  await fetchBotConversations(new Date('2026-06-01T00:00:00Z'), new Date('2026-06-30T00:00:00Z'), {}, fakeClient(cap))
+  assert.equal(cap.params.p_status, null)
+  assert.equal(cap.params.p_limit, null)
+})
+
+test('fetchContentGaps usa analytics_content_gaps', async () => {
+  const cap = {}
+  await fetchContentGaps(new Date('2026-06-01T00:00:00Z'), new Date('2026-06-30T00:00:00Z'), fakeClient(cap))
+  assert.equal(cap.name, 'analytics_content_gaps')
+  assert.equal(cap.params.p_from, new Date('2026-06-01T00:00:00Z').toISOString())
 })

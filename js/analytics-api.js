@@ -62,3 +62,25 @@ export async function fetchBotTrend(months = 6, client) {
   if (!client) client = await getSupabaseClient()
   return callRpc(client, 'analytics_bot_trend', { p_months: months })
 }
+
+export async function fetchBotConversations(from, to, filters = {}, client) {
+  if (!client) client = await getSupabaseClient()
+  return callRpc(client, 'analytics_bot_conversations', {
+    p_from: from.toISOString(),
+    p_to: to.toISOString(),
+    p_status: filters.status ?? null,
+    p_sentiment: filters.sentiment ?? null,
+    p_support: filters.support ?? null,
+    p_category: filters.category ?? null,
+    p_search: filters.search ?? null,
+    p_limit: filters.limit ?? null,
+  })
+}
+
+export async function fetchContentGaps(from, to, client) {
+  if (!client) client = await getSupabaseClient()
+  return callRpc(client, 'analytics_content_gaps', {
+    p_from: from.toISOString(),
+    p_to: to.toISOString(),
+  })
+}
