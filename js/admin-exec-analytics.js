@@ -30,56 +30,94 @@ export async function renderExecAnalytics(from = null, to = null) {
 
   const k = bot.kpis
   const lk = lessons.kpis
-  const hero = `
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-      ${kpiCard('Conversaciones', k.total)}
-      ${kpiCard('Resolución real ' + llmNote(), (k.resolved_pct ?? 0) + '%')}
-      ${kpiCard('Resuelto sin soporte', (k.resolved_without_support_pct ?? 0) + '%', `${k.total - k.support} sin humano`)}
-      ${kpiCard('Sentimiento neto', (k.sentiment_net > 0 ? '+' : '') + (k.sentiment_net ?? 0))}
+  const sinHumano = (k.total ?? 0) - (k.support ?? 0)
+
+  // Titular de impacto — la historia que la pestaña operativa no cuenta.
+  const headline = `
+    <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-5">
+      <div class="flex flex-wrap items-end gap-x-10 gap-y-4">
+        <div>
+          <p class="text-4xl font-black text-[var(--blue-100)] leading-none">${k.total ?? 0}</p>
+          <p class="text-xs text-[var(--black-60)] mt-1">conversaciones atendidas</p>
+        </div>
+        <div>
+          <p class="text-4xl font-black text-[var(--success-150)] leading-none">${sinHumano} <span class="text-lg font-bold">(${k.resolved_without_support_pct ?? 0}%)</span></p>
+          <p class="text-xs text-[var(--black-60)] mt-1">resueltas por el bot sin intervención humana</p>
+        </div>
+        <div>
+          <p class="text-4xl font-black text-[var(--black-40)] leading-none">${k.support ?? 0}</p>
+          <p class="text-xs text-[var(--black-60)] mt-1">pasaron a un agente</p>
+        </div>
+      </div>
     </div>`
 
-  const lessonsMini = `
-    <div class="grid grid-cols-3 gap-3 mt-3">
-      ${kpiCard('Estudiantes en curso', lk.new_students)}
-      ${kpiCard('Visitas', lk.visits)}
-      ${kpiCard('Certificados', lk.cert_views)}
-    </div>`
-
+  // Tendencia 6 meses — protagonista (BolBot no la muestra).
   const maxConv = Math.max(1, ...trend.map(t => t.conversations))
   const trendBars = trend.map(t => `
     <div class="flex flex-col items-center gap-1 flex-1">
-      <div class="w-full flex items-end justify-center" style="height:80px">
-        <div class="w-6 bg-[var(--blue-100)] rounded-t" style="height:${Math.round(80 * t.conversations / maxConv)}px" title="${t.conversations} conv · ${t.resolved_pct ?? '—'}% resuelto"></div>
+      <span class="text-[10px] text-[var(--black-60)] font-bold">${t.conversations}</span>
+      <div class="w-full flex items-end justify-center" style="height:120px">
+        <div class="w-8 bg-[var(--blue-100)] rounded-t" style="height:${Math.round(120 * t.conversations / maxConv)}px" title="${t.month}: ${t.conversations} conversaciones"></div>
       </div>
-      <span class="text-[9px] text-[var(--black-40)]">${t.month.slice(5)}</span>
+      <span class="text-[10px] text-[var(--black-40)]">${t.month.slice(5)}</span>
     </div>`).join('')
+  const trendPanel = `
+    <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4">
+      <p class="text-sm font-bold text-[var(--black-100)] mb-3">Conversaciones por mes (6 meses)</p>
+      <div class="flex items-end gap-2">${trendBars || '<span class="text-xs text-[var(--black-40)]">Sin datos</span>'}</div>
+    </div>`
 
-  const gapItems = gaps.slice(0, 3).map(g => `
+  // Satisfacción — con barra y base explícita.
+  const s = k.sentiment
+  const sentTotal = (s.positivo + s.neutro + s.negativo) || 1
+  const satPanel = `
+    <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4">
+      <p class="text-sm font-bold text-[var(--black-100)]">Satisfacción</p>
+      <p class="text-[11px] text-[var(--black-40)] mb-2">sentimiento neto = % positivas − % negativas</p>
+      <p class="text-3xl font-black text-[var(--black-100)] leading-none">${k.sentiment_net > 0 ? '+' : ''}${k.sentiment_net ?? 0}</p>
+      <div class="flex h-4 rounded-full overflow-hidden mt-3">
+        <div style="width:${Math.round(100 * s.positivo / sentTotal)}%" class="bg-[var(--success-150)]"></div>
+        <div style="width:${Math.round(100 * s.neutro / sentTotal)}%" class="bg-[var(--black-10)]"></div>
+        <div style="width:${Math.round(100 * s.negativo / sentTotal)}%" class="bg-[var(--error-100)]"></div>
+      </div>
+      <p class="text-[10px] text-[var(--black-60)] mt-2">${s.positivo} positivas · ${s.neutro} neutras · ${s.negativo} negativas</p>
+    </div>`
+
+  // Insights bot↔lecciones — exclusivo del Resumen.
+  const gapItems = gaps.slice(0, 4).map(g => `
     <div class="flex gap-2 p-2 rounded-lg bg-[var(--background-page)] border-l-2 border-[var(--warning-150)] mb-2">
       <span>${g.has_lesson ? '🔴' : '🔗'}</span>
       <div><p class="text-xs font-bold text-[var(--black-100)]">${escapeHtml(g.category)} (${g.total})</p>
         <p class="text-[11px] text-[var(--black-60)]">${g.has_lesson ? `resuelve ${g.resolved_pct ?? '—'}% — revisar lección` : 'sin lección — oportunidad de contenido'}</p></div>
     </div>`).join('') || '<p class="text-xs text-[var(--black-40)]">Sin huecos en el rango.</p>'
+  const insightsPanel = `
+    <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4">
+      <p class="text-sm font-bold text-[var(--black-100)] mb-2">Insights bot ↔ lecciones ${llmNote()}</p>
+      ${gapItems}
+    </div>`
+
+  // Formación — compacto abajo.
+  const lessonsMini = `
+    <div class="grid grid-cols-3 gap-3">
+      ${kpiCard('Estudiantes en curso', lk.new_students ?? 0)}
+      ${kpiCard('Certificados', lk.cert_views ?? 0)}
+      ${kpiCard('Visitas', lk.visits ?? 0)}
+    </div>`
 
   el.innerHTML = `
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
       ${rangeControlsHtml('exec', from, to)}
       <button id="exec-export" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-[var(--coral-100)] text-white">⬇ Exportar resumen</button>
     </div>
-    <p class="text-[10px] font-bold text-[var(--black-40)] uppercase tracking-wide mb-2">El BolBot</p>
-    ${hero}
+    <p class="text-[10px] font-bold text-[var(--black-40)] uppercase tracking-wide mb-2">El BolBot este mes</p>
+    ${headline}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
+      ${trendPanel}
+      ${satPanel}
+    </div>
+    <div class="mt-3">${insightsPanel}</div>
     <p class="text-[10px] font-bold text-[var(--black-40)] uppercase tracking-wide mt-6 mb-2">Formación / lecciones</p>
-    ${lessonsMini}
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-6">
-      <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-3">
-        <p class="text-sm font-bold text-[var(--black-100)] mb-2">Volumen del bot (6 meses)</p>
-        <div class="flex items-end gap-1">${trendBars || '<span class="text-xs text-[var(--black-40)]">Sin datos</span>'}</div>
-      </div>
-      <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-3">
-        <p class="text-sm font-bold text-[var(--black-100)] mb-2">Insights bot ↔ lecciones ${llmNote()}</p>
-        ${gapItems}
-      </div>
-    </div>`
+    ${lessonsMini}`
 
   wireRangeControls(el, 'exec', (f, t) => renderExecAnalytics(f, t))
   el.querySelector('#exec-export')?.addEventListener('click', () => {
