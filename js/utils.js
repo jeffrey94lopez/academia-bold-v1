@@ -23,3 +23,25 @@ export function getYouTubeId(url) {
     return id && /^[A-Za-z0-9_-]{6,}$/.test(id) ? id : null
   } catch { return null }
 }
+
+// Escapa y neutraliza una celda para CSV. Antepone ' a fórmulas (= + - @)
+// para que Excel/Sheets no las ejecute (CSV injection), y entrecomilla si hay
+// comas, comillas o saltos de línea (RFC 4180).
+export function csvCell(value) {
+  let s = String(value ?? '')
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+}
+
+export function exportCSV(rows, filename, columns) {
+  const header = columns.map(c => csvCell(c.label)).join(',')
+  const body = rows
+    .map(row => columns.map(c => csvCell(c.getValue(row))).join(','))
+    .join('\n')
+  const blob = new Blob(['﻿' + header + '\n' + body], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(a.href)
+}

@@ -1,5 +1,5 @@
 ﻿import { supabase } from './supabase.js'
-import { escapeHtml } from './utils.js'
+import { escapeHtml, exportCSV } from './utils.js'
 
 export async function renderResultsPanel() {
   const el = document.getElementById('panel-results')
@@ -818,22 +818,4 @@ async function renderBodiAnalytics(from = null, to = null) {
       if (msgs) msgs.classList.toggle('hidden')
     })
   })
-}
-
-function exportCSV(rows, filename, columns) {
-  const header = columns.map(c => c.label).join(',')
-  const body = rows.map(row =>
-    columns.map(c => {
-      const v = c.getValue(row)
-      const s = String(v ?? '')
-      return s.includes(',') || s.includes('"') || s.includes('\n')
-        ? `"${s.replace(/"/g, '""')}"` : s
-    }).join(',')
-  ).join('\n')
-  const blob = new Blob(['﻿' + header + '\n' + body], { type: 'text/csv;charset=utf-8' })
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(a.href)
 }
