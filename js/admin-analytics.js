@@ -1,5 +1,6 @@
 ﻿import { supabase } from './supabase.js'
 import { escapeHtml, exportCSV } from './utils.js'
+import { rangeControlsHtml, wireRangeControls } from './analytics-ui.js'
 
 export async function renderResultsPanel() {
   const el = document.getElementById('panel-results')
@@ -60,7 +61,7 @@ export async function renderAnalyticsPanel(from = null, to = null) {
   if (!from) { from = new Date(now); from.setHours(0, 0, 0, 0) }
   if (!to)   { to   = new Date(now); to.setHours(23, 59, 59, 999) }
 
-  const el = document.getElementById('panel-analytics')
+  const el = document.getElementById('analytics-content')
   if (!el) return
   el.innerHTML = '<p class="text-[var(--black-40)] text-sm">Cargando analytics...</p>'
 
@@ -101,53 +102,17 @@ export async function renderAnalyticsPanel(from = null, to = null) {
   const certViews  = count(ev, 'certificate_view')
   const certPrints = count(ev, 'certificate_print')
 
-  function preset(label, f, t) {
-    return `<button class="analytics-preset px-3 py-1.5 rounded-lg text-xs font-bold bg-[var(--black-10)] text-[var(--black-60)] hover:bg-[var(--black-10)]"
-      data-from="${f.toISOString()}" data-to="${t.toISOString()}">${label}</button>`
-  }
-  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0)
-  const todayEnd   = new Date(now); todayEnd.setHours(23, 59, 59, 999)
-  function daysAgo(n) { const d = new Date(todayStart); d.setDate(d.getDate() - n); return d }
-  function monthStart() { return new Date(now.getFullYear(), now.getMonth(), 1) }
-  function yearStart()  { return new Date(now.getFullYear(), 0, 1) }
   const fmtDate = d => d.toISOString().split('T')[0]
 
   el.innerHTML = `
     <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
-      <div class="flex items-center gap-3">
-        <h2 class="text-lg font-black">Analytics</h2>
-        <div class="flex text-xs font-bold border border-[var(--blue-20)] rounded-xl overflow-hidden">
-          <button id="analytics-tab-lecciones" class="px-3 py-1.5 bg-[var(--blue-100)] text-white">Lecciones</button>
-          <button id="analytics-tab-bodi" class="px-3 py-1.5 text-[var(--black-60)] hover:bg-[var(--background-page)]">bolbot POS</button>
-        </div>
-      </div>
+      <h2 class="text-lg font-black">Analytics</h2>
       <div class="flex items-center gap-2 flex-wrap">
-        ${preset('Hoy', todayStart, todayEnd)}
-        ${preset('7 días', daysAgo(6), todayEnd)}
-        ${preset('30 días', daysAgo(29), todayEnd)}
-        ${preset('Este mes', monthStart(), todayEnd)}
-        ${preset('Este año', yearStart(), todayEnd)}
+        ${rangeControlsHtml('analytics', from, to)}
         <button id="analytics-export-csv" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[var(--blue-20)] text-[var(--black-60)] hover:border-slate-300">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           CSV
         </button>
-        <div class="relative">
-          <button id="analytics-cal-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[var(--blue-20)] text-[var(--black-60)] hover:border-slate-300">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            Personalizado
-          </button>
-          <div id="analytics-cal-dropdown" class="hidden absolute right-0 mt-1 bg-white border border-[var(--blue-20)] rounded-xl shadow-xl p-4 z-20 flex gap-3 items-end" style="min-width:280px">
-            <div class="flex flex-col gap-2 flex-1">
-              <label class="text-xs font-bold text-[var(--black-60)]">Desde</label>
-              <input id="analytics-from-input" type="date" value="${fmtDate(from)}"
-                class="px-2 py-1.5 border border-[var(--blue-20)] rounded-lg text-xs outline-none focus:border-[var(--blue-100)]">
-              <label class="text-xs font-bold text-[var(--black-60)]">Hasta</label>
-              <input id="analytics-to-input" type="date" value="${fmtDate(to)}"
-                class="px-2 py-1.5 border border-[var(--blue-20)] rounded-lg text-xs outline-none focus:border-[var(--blue-100)]">
-            </div>
-            <button id="analytics-apply-btn" class="px-3 py-1.5 bg-[var(--blue-100)] text-white text-xs font-bold rounded-lg">Aplicar</button>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -177,26 +142,7 @@ export async function renderAnalyticsPanel(from = null, to = null) {
     <div id="analytics-body"></div>
   `
 
-  el.querySelectorAll('.analytics-preset').forEach(btn => {
-    btn.addEventListener('click', () => {
-      renderAnalyticsPanel(new Date(btn.dataset.from), new Date(btn.dataset.to))
-    })
-  })
-
-  const calBtn = el.querySelector('#analytics-cal-btn')
-  const calDrop = el.querySelector('#analytics-cal-dropdown')
-  calBtn.addEventListener('click', e => {
-    e.stopPropagation()
-    calDrop.classList.toggle('hidden')
-  })
-  document.addEventListener('click', () => calDrop.classList.add('hidden'), { once: true })
-  el.querySelector('#analytics-apply-btn').addEventListener('click', () => {
-    const f = new Date(el.querySelector('#analytics-from-input').value)
-    const t = new Date(el.querySelector('#analytics-to-input').value)
-    t.setHours(23, 59, 59, 999)
-    if (isNaN(f) || isNaN(t) || f > t) return
-    renderAnalyticsPanel(f, t)
-  })
+  wireRangeControls(el, 'analytics', (f, t) => renderAnalyticsPanel(f, t))
 
   el.querySelector('#analytics-export-csv')?.addEventListener('click', () => {
     exportCSV(ev, `lecciones-analytics-${fmtDate(from)}-${fmtDate(to)}.csv`, [
@@ -211,14 +157,6 @@ export async function renderAnalyticsPanel(from = null, to = null) {
       { label: 'Modo',              getValue: r => r.payload?.mode || '' },
       { label: 'Session ID',        getValue: r => r.session_id || '' }
     ])
-  })
-
-  el.querySelector('#analytics-tab-bodi')?.addEventListener('click', () => {
-    renderBodiAnalytics(from, to)
-  })
-
-  el.querySelector('#analytics-tab-lecciones')?.addEventListener('click', () => {
-    renderAnalyticsPanel(from, to)
   })
 
   renderAnalyticsBody(el.querySelector('#analytics-body'), ev, from, to)
@@ -483,339 +421,4 @@ function renderExamsSection(container, ev) {
       </table>
     </div>
   `
-}
-
-async function renderBodiAnalytics(from = null, to = null) {
-  const now = new Date()
-  if (!from) { from = new Date(now); from.setHours(0, 0, 0, 0) }
-  if (!to)   { to   = new Date(now); to.setHours(23, 59, 59, 999) }
-
-  const el = document.getElementById('panel-analytics')
-  if (!el) return
-  el.innerHTML = '<p class="text-[var(--black-40)] text-sm p-6">Cargando analytics de bolbot POS...</p>'
-
-  const { data: convs, error } = await supabase
-    .from('bodi_conversations')
-    .select('*')
-    .gte('started_at', from.toISOString())
-    .lte('started_at', to.toISOString())
-    .limit(2000)
-    .order('started_at', { ascending: false })
-
-  if (error) { el.innerHTML = '<p class="text-red-400 text-sm p-6">Error al cargar datos de bolbot POS.</p>'; return }
-
-  const rows = convs || []
-  const total = rows.length
-  const withAnswer = rows.filter(r => r.resolved !== null)
-  const resolved = rows.filter(r => r.resolved === true).length
-  const unresolved = rows.filter(r => r.resolved === false)
-  const abandoned = rows.filter(r => r.status === 'abandoned').length
-  const support = rows.filter(r => r.support_redirected).length
-  const resolvedPct = withAnswer.length ? Math.round(resolved / withAnswer.length * 100) : 0
-  const abandonedPct = total ? Math.round(abandoned / total * 100) : 0
-
-  const moduleStats = {}
-  const globalSent = { positivo: 0, neutro: 0, negativo: 0 }
-  rows.forEach(r => {
-    const t = r.topic || 'Sin módulo'
-    if (!moduleStats[t]) moduleStats[t] = { total: 0, resolved: 0, withAnswer: 0, abandoned: 0, support: 0, positivo: 0, neutro: 0, negativo: 0 }
-    const m = moduleStats[t]
-    m.total++
-    if (r.resolved !== null) m.withAnswer++
-    if (r.resolved === true) m.resolved++
-    if (r.status === 'abandoned') m.abandoned++
-    if (r.support_redirected) m.support++
-    if (r.sentiment === 'positivo') { m.positivo++; globalSent.positivo++ }
-    else if (r.sentiment === 'negativo') { m.negativo++; globalSent.negativo++ }
-    else { m.neutro++; globalSent.neutro++ }
-  })
-  const moduleEntries = Object.entries(moduleStats).sort((a, b) => b[1].total - a[1].total)
-  const sentimentTotal = globalSent.positivo + globalSent.neutro + globalSent.negativo || 1
-  const maxModuleTotal = Math.max(...moduleEntries.map(e => e[1].total), 1)
-
-  const heat = Array.from({ length: 7 }, () => new Array(24).fill(0))
-  rows.forEach(r => {
-    const d = new Date(r.started_at)
-    const dayMon = (d.getDay() + 6) % 7
-    const hour = d.getHours()
-    heat[dayMon][hour]++
-  })
-  const maxHeat = Math.max(...heat.flat(), 1)
-  const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
-
-  // Header row: empty corner + 7 day labels
-  let heatCells = `<div></div>` + dayNames.map(d =>
-    `<div class="text-[9px] text-[var(--black-60)] text-center font-bold pb-0.5">${d}</div>`
-  ).join('')
-
-  for (let h = 0; h < 24; h++) {
-    heatCells += `<div class="text-[9px] text-[var(--black-40)] flex items-center justify-end pr-1 leading-none">${String(h).padStart(2,'0')}h</div>`
-    for (let d = 0; d < 7; d++) {
-      const count = heat[d][h]
-      const opacity = count ? (0.12 + 0.88 * count / maxHeat).toFixed(2) : '0'
-      heatCells += `<div style="background:rgba(18,30,108,${opacity});border-radius:2px;min-height:10px" title="${dayNames[d]} ${String(h).padStart(2,'0')}:00 — ${count} conv."></div>`
-    }
-  }
-
-  const fmtDate = d => d.toISOString().split('T')[0]
-  const todayStart = new Date(now); todayStart.setHours(0,0,0,0)
-  const todayEnd   = new Date(now); todayEnd.setHours(23,59,59,999)
-  function daysAgo(n) { const d = new Date(todayStart); d.setDate(d.getDate()-n); return d }
-  function preset(label, f, t) {
-    return `<button class="bodi-preset px-3 py-1.5 rounded-lg text-xs font-bold bg-[var(--black-10)] text-[var(--black-60)] hover:bg-[var(--black-10)]"
-      data-from="${f.toISOString()}" data-to="${t.toISOString()}">${label}</button>`
-  }
-
-  el.innerHTML = `
-    ${rows.length >= 1000 ? `<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#856404;">Mostrando los primeros ${rows.length} registros. Usa filtros de fecha para ver rangos más específicos.</div>` : ''}
-    <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
-      <div class="flex items-center gap-3">
-        <h2 class="text-lg font-black">Analytics</h2>
-        <div class="flex text-xs font-bold border border-[var(--blue-20)] rounded-xl overflow-hidden">
-          <button id="bodi-tab-lecciones" class="px-3 py-1.5 text-[var(--black-60)] hover:bg-[var(--background-page)]">Lecciones</button>
-          <button id="bodi-tab-bodi" class="px-3 py-1.5 bg-[var(--blue-100)] text-white">bolbot POS</button>
-        </div>
-      </div>
-      <div class="flex items-center gap-2 flex-wrap">
-        ${preset('Hoy', todayStart, todayEnd)}
-        ${preset('7 días', daysAgo(6), todayEnd)}
-        ${preset('30 días', daysAgo(29), todayEnd)}
-        <button id="bodi-export-csv" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-[var(--blue-20)] text-[var(--black-60)] hover:border-slate-300">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          CSV
-        </button>
-      </div>
-    </div>
-
-    <div class="grid grid-cols-5 gap-3 mb-5">
-      ${[
-        ['Total conv.', total],
-        ['Resueltas', resolvedPct + '%'],
-        ['Abandonadas', abandonedPct + '%'],
-        ['A soporte', support],
-        ['Sin resolver', unresolved.length]
-      ].map(([label, val]) => `
-        <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4">
-          <p class="text-[10px] font-bold text-[var(--black-40)] uppercase tracking-wide mb-1">${label}</p>
-          <p class="text-2xl font-black text-[var(--black-100)]">${val}</p>
-        </div>`).join('')}
-    </div>
-
-    <div class="bg-white rounded-2xl border border-[var(--blue-10)] overflow-hidden mb-5">
-      <div class="px-4 py-3 border-b border-[var(--blue-10)]">
-        <p class="text-xs font-bold text-[var(--black-100)]">Conversaciones por módulo</p>
-      </div>
-      ${moduleEntries.length === 0
-        ? '<p class="text-[var(--black-40)] text-xs p-4">Sin datos en el período</p>'
-        : `<div class="overflow-x-auto"><table class="w-full border-collapse text-xs">
-          <thead><tr class="border-b border-[var(--blue-10)] bg-[var(--background-page)]">
-            <th class="px-4 py-2 text-left text-[10px] font-bold text-[var(--black-40)] uppercase">Módulo</th>
-            <th class="px-4 py-2 text-right text-[10px] font-bold text-[var(--black-40)] uppercase">Total</th>
-            <th class="px-4 py-2 text-right text-[10px] font-bold text-[var(--black-40)] uppercase">Resueltas</th>
-            <th class="px-4 py-2 text-right text-[10px] font-bold text-[var(--black-40)] uppercase">Abandon.</th>
-            <th class="px-4 py-2 text-right text-[10px] font-bold text-[var(--black-40)] uppercase">Soporte</th>
-            <th class="px-4 py-2 text-left text-[10px] font-bold text-[var(--black-40)] uppercase">Sentimiento</th>
-            <th class="px-4 py-2 text-left text-[10px] font-bold text-[var(--black-40)] uppercase">Volumen</th>
-          </tr></thead>
-          <tbody>
-            ${moduleEntries.map(([topic, m]) => {
-              const resolvedPctM = m.withAnswer ? Math.round(m.resolved / m.withAnswer * 100) : 0
-              const abandonedPctM = m.total ? Math.round(m.abandoned / m.total * 100) : 0
-              const supportPctM = m.total ? Math.round(m.support / m.total * 100) : 0
-              const dominantSent = m.positivo >= m.negativo && m.positivo >= m.neutro ? 'positivo'
-                : m.negativo >= m.neutro ? 'negativo' : 'neutro'
-              const sentColor = dominantSent === 'positivo' ? '#22c55e' : dominantSent === 'negativo' ? '#ef4444' : '#94a3b8'
-              const sentLabel = dominantSent === 'positivo' ? 'Positivo' : dominantSent === 'negativo' ? 'Negativo' : 'Neutro'
-              const barPct = Math.round(m.total / maxModuleTotal * 100)
-              return `<tr class="border-b border-slate-50 hover:bg-[var(--background-page)]">
-                <td class="px-4 py-2.5 font-bold text-[var(--black-100)]">${escapeHtml(topic)}</td>
-                <td class="px-4 py-2.5 text-right font-black text-[var(--blue-100)]">${m.total}</td>
-                <td class="px-4 py-2.5 text-right text-[var(--black-60)]">${resolvedPctM}%</td>
-                <td class="px-4 py-2.5 text-right text-[var(--black-60)]">${abandonedPctM}%</td>
-                <td class="px-4 py-2.5 text-right text-[var(--black-60)]">${supportPctM}%</td>
-                <td class="px-4 py-2.5">
-                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="color:${sentColor};background:${sentColor}18">${sentLabel}</span>
-                </td>
-                <td class="px-4 py-2.5 min-w-[80px]">
-                  <div class="h-1.5 bg-[var(--black-10)] rounded-full">
-                    <div class="h-1.5 bg-[var(--blue-100)] rounded-full" style="width:${barPct}%"></div>
-                  </div>
-                </td>
-              </tr>`
-            }).join('')}
-          </tbody>
-        </table></div>`}
-    </div>
-
-    <div class="grid gap-4 mb-5" style="grid-template-columns:1fr auto">
-    <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4">
-      <p class="text-xs font-bold text-[var(--black-100)] mb-3">Mapa de calor — hora × día de la semana</p>
-      <div class="overflow-x-auto">
-        <div class="grid gap-0.5" style="grid-template-columns:36px repeat(7,minmax(28px,1fr));min-width:240px;max-width:480px">
-          ${heatCells}
-        </div>
-      </div>
-      <p class="text-[10px] text-[var(--black-40)] mt-2">Más rojo = más conversaciones. Cada celda = una hora del día.</p>
-    </div>
-    <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4" style="min-width:140px">
-      <p class="text-xs font-bold text-[var(--black-100)] mb-3">Sentimiento</p>
-      ${[['Positivo','positivo','#22c55e'],['Neutro','neutro','#94a3b8'],['Negativo','negativo','#ef4444']].map(([label, key, color]) => {
-        const cnt = globalSent[key]
-        const pct = Math.round(cnt / sentimentTotal * 100)
-        return `<div class="mb-3">
-          <div class="flex justify-between mb-0.5">
-            <span class="text-xs text-[var(--black-100)]">${label}</span>
-            <span class="text-xs font-bold" style="color:${color}">${pct}%</span>
-          </div>
-          <div class="h-1.5 bg-[var(--black-10)] rounded-full">
-            <div class="h-1.5 rounded-full" style="width:${pct}%;background:${color}"></div>
-          </div>
-          <p class="text-[10px] text-[var(--black-40)] mt-0.5">${cnt} conv.</p>
-        </div>`
-      }).join('')}
-      ${total === 0 ? '<p class="text-[10px] text-[var(--black-40)]">Sin datos</p>' : ''}
-    </div>
-    </div>
-
-    <div class="bg-white rounded-2xl border border-[var(--blue-10)] overflow-hidden mb-5">
-      <div class="px-4 py-3 border-b border-[var(--blue-10)]">
-        <p class="text-xs font-bold text-[var(--black-100)]">Conversaciones sin resolver (${unresolved.length})</p>
-      </div>
-      ${unresolved.length === 0
-        ? '<p class="text-[var(--black-40)] text-xs p-4">Ninguna — ¡todo resuelto!</p>'
-        : unresolved.slice(0, 20).map(r => `
-          <div class="border-b border-slate-50 last:border-0">
-            <button class="bodi-expand w-full text-left px-4 py-2.5 hover:bg-[var(--background-page)] flex items-center justify-between gap-2" data-id="${escapeHtml(r.id)}">
-              <div class="flex items-center gap-3 min-w-0">
-                <span class="text-xs text-[var(--black-60)] shrink-0">${new Date(r.started_at).toLocaleDateString('es-CO')}</span>
-                <span class="text-xs font-bold text-[var(--black-100)] truncate">${escapeHtml(r.topic || '—')}</span>
-                <span class="text-[10px] px-2 py-0.5 rounded-full ${r.sentiment === 'negativo' ? 'bg-[var(--blue-10)] text-red-600' : 'bg-[var(--black-10)] text-[var(--black-60)]'}">${escapeHtml(r.sentiment || '—')}</span>
-              </div>
-              <svg class="w-3.5 h-3.5 text-[var(--black-40)] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <div class="bodi-messages hidden px-4 pb-3 space-y-1.5" data-id="${escapeHtml(r.id)}">
-              ${(r.messages || []).map(m => `
-                <div class="text-xs ${m.role === 'user' ? 'text-blue-700 bg-blue-50' : 'text-[var(--black-100)] bg-[var(--background-page)]'} rounded-lg px-3 py-1.5">
-                  <span class="font-bold">${m.role === 'user' ? 'Usuario' : 'bolbot POS'}:</span> ${escapeHtml(m.content || '')}
-                </div>`).join('')}
-            </div>
-          </div>`).join('')}
-    </div>
-
-    <div class="bg-white rounded-2xl border border-[var(--blue-10)] overflow-hidden">
-      <div class="px-4 py-3 border-b border-[var(--blue-10)]">
-        <p class="text-xs font-bold text-[var(--black-100)]">Conversaciones recientes</p>
-        <p class="text-[10px] text-[var(--black-40)] mt-0.5">Clic en una fila para ver el detalle</p>
-      </div>
-      ${rows.length === 0
-        ? '<p class="text-[var(--black-40)] text-xs p-4">Sin conversaciones en el período</p>'
-        : `<div class="overflow-x-auto"><table class="w-full border-collapse text-xs">
-          <thead><tr class="border-b border-[var(--blue-10)]">
-            <th class="px-4 py-2 text-left text-[10px] font-bold text-[var(--black-40)] uppercase">Fecha</th>
-            <th class="px-4 py-2 text-left text-[10px] font-bold text-[var(--black-40)] uppercase">Primera pregunta</th>
-            <th class="px-4 py-2 text-left text-[10px] font-bold text-[var(--black-40)] uppercase">Módulo</th>
-            <th class="px-4 py-2 text-left text-[10px] font-bold text-[var(--black-40)] uppercase">Sentimiento</th>
-            <th class="px-4 py-2 text-left text-[10px] font-bold text-[var(--black-40)] uppercase">Estado</th>
-            <th class="px-4 py-2 text-left text-[10px] font-bold text-[var(--black-40)] uppercase">Resuelto</th>
-          </tr></thead>
-          <tbody>
-            ${rows.slice(0, 50).map(r => {
-              const firstQ = (r.messages || []).find(m => m.role === 'user')
-              const preview = firstQ ? (firstQ.content.length > 65 ? firstQ.content.slice(0, 65) + '…' : firstQ.content) : '—'
-              const msgRows = (r.messages || []).map(m => `
-                <div class="text-xs ${m.role === 'user' ? 'text-blue-700 bg-blue-50' : 'text-[var(--black-100)] bg-[var(--background-page)]'} rounded-lg px-3 py-1.5 mb-1">
-                  <span class="font-bold mr-1">${m.role === 'user' ? 'Usuario:' : 'bolbot POS:'}</span>${escapeHtml(m.content || '')}
-                </div>`).join('')
-              return `
-              <tr class="border-b border-slate-50 hover:bg-[var(--background-page)] cursor-pointer bodi-conv-row" data-id="${escapeHtml(r.id)}">
-                <td class="px-4 py-2 text-[var(--black-60)] shrink-0 whitespace-nowrap">${new Date(r.started_at).toLocaleString('es-CO', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })}</td>
-                <td class="px-4 py-2 text-[var(--black-60)] max-w-[220px]"><span class="line-clamp-1">${escapeHtml(preview)}</span></td>
-                <td class="px-4 py-2 font-medium text-[var(--black-100)] whitespace-nowrap">${escapeHtml(r.topic || '—')}</td>
-                <td class="px-4 py-2 text-[var(--black-60)] whitespace-nowrap">${escapeHtml(r.sentiment || '—')}</td>
-                <td class="px-4 py-2 whitespace-nowrap">
-                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'completed' ? 'bg-green-50 text-green-700' : r.status === 'abandoned' ? 'bg-orange-50 text-orange-700' : 'bg-[var(--black-10)] text-[var(--black-60)]'}">${escapeHtml(r.status || '')}</span>
-                </td>
-                <td class="px-4 py-2 font-bold whitespace-nowrap ${r.resolved === true ? 'text-green-600' : r.resolved === false ? 'text-red-500' : 'text-[var(--black-40)]'}">
-                  ${r.resolved === true ? 'Sí' : r.resolved === false ? 'No' : '—'}
-                </td>
-              </tr>
-              <tr class="bodi-conv-detail hidden" data-id="${escapeHtml(r.id)}">
-                <td colspan="6" class="px-4 py-3 bg-[var(--background-page)] border-b border-[var(--blue-10)]">
-                  ${(r.lessons_used && r.lessons_used.length)
-                    ? `<p class="text-[10px] font-bold text-[var(--black-40)] uppercase mb-1.5">Lecciones consultadas</p>
-                       <div class="flex flex-wrap gap-1 mb-3">
-                         ${r.lessons_used.map(l => `<span class="text-[10px] bg-[var(--blue-10)] text-red-700 px-2 py-0.5 rounded-full font-medium">${escapeHtml(l)}</span>`).join('')}
-                       </div>`
-                    : r.topic
-                      ? `<div class="bodi-lessons-container" data-topic="${escapeHtml(r.topic)}" data-loaded="false"></div>`
-                      : ''}
-                  ${msgRows ? `<p class="text-[10px] font-bold text-[var(--black-40)] uppercase mb-1.5">Conversación</p>${msgRows}` : '<p class="text-xs text-[var(--black-40)]">Sin mensajes registrados</p>'}
-                </td>
-              </tr>`
-            }).join('')}
-          </tbody>
-        </table></div>`}
-    </div>
-  `
-
-  el.querySelectorAll('.bodi-preset').forEach(btn => {
-    btn.addEventListener('click', () => renderBodiAnalytics(new Date(btn.dataset.from), new Date(btn.dataset.to)))
-  })
-
-  el.querySelectorAll('.bodi-conv-row').forEach(row => {
-    row.addEventListener('click', async () => {
-      const detail = el.querySelector(`.bodi-conv-detail[data-id="${row.dataset.id}"]`)
-      if (!detail) return
-      detail.classList.toggle('hidden')
-      row.classList.toggle('bg-[var(--black-10)]')
-
-      if (detail.classList.contains('hidden')) return
-
-      const container = detail.querySelector('.bodi-lessons-container')
-      if (!container || container.dataset.loaded !== 'false') return
-
-      container.dataset.loaded = 'loading'
-      const topic = container.dataset.topic
-      if (!topic) { container.dataset.loaded = 'true'; return }
-
-      const { data: topicLessons } = await supabase
-        .from('lecciones').select('titulo').eq('categoria', topic).order('orden')
-
-      container.dataset.loaded = 'true'
-      if (!topicLessons?.length) return
-
-      container.innerHTML = `
-        <p class="text-[10px] font-bold text-[var(--black-40)] uppercase mb-1.5">Lecciones del módulo "${escapeHtml(topic)}"</p>
-        <div class="flex flex-wrap gap-1 mb-3">
-          ${topicLessons.map(l => `<span class="text-[10px] bg-[var(--blue-10)] text-red-700 px-2 py-0.5 rounded-full font-medium">${escapeHtml(l.titulo)}</span>`).join('')}
-        </div>`
-    })
-  })
-
-  el.querySelector('#bodi-export-csv')?.addEventListener('click', () => {
-    exportCSV(rows, `bodi-conversaciones-${fmtDate(from)}-${fmtDate(to)}.csv`, [
-      { label: 'ID',                getValue: r => r.id },
-      { label: 'Session ID',        getValue: r => r.session_id },
-      { label: 'Fecha inicio',      getValue: r => new Date(r.started_at).toLocaleString('es-CO') },
-      { label: 'Fecha fin',         getValue: r => r.ended_at ? new Date(r.ended_at).toLocaleString('es-CO') : '' },
-      { label: 'Duración (min)',     getValue: r => r.ended_at ? Math.round((new Date(r.ended_at) - new Date(r.started_at)) / 60000) : '' },
-      { label: 'Módulo',            getValue: r => r.topic || '' },
-      { label: 'Sentimiento',       getValue: r => r.sentiment || '' },
-      { label: 'Resuelto',          getValue: r => r.resolved === true ? 'Sí' : r.resolved === false ? 'No' : 'Sin respuesta' },
-      { label: 'Estado',            getValue: r => r.status || '' },
-      { label: 'Soporte',           getValue: r => r.support_redirected ? 'Sí' : 'No' },
-      { label: 'Mensajes (JSON)',    getValue: r => JSON.stringify(r.messages || []) }
-    ])
-  })
-
-  el.querySelector('#bodi-tab-lecciones')?.addEventListener('click', () => renderAnalyticsPanel(from, to))
-  el.querySelector('#bodi-tab-bodi')?.addEventListener('click', () => renderBodiAnalytics(from, to))
-
-  el.querySelectorAll('.bodi-expand').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.dataset.id
-      const msgs = el.querySelector(`.bodi-messages[data-id="${CSS.escape(id)}"]`)
-      if (msgs) msgs.classList.toggle('hidden')
-    })
-  })
 }

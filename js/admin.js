@@ -4,7 +4,8 @@ import { uploadFile, listFiles, deleteFile, renameFile, createFolder, moveFile }
 import { renderBlocks } from './block-renderer.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml } from './utils.js'
-import { renderResultsPanel, renderAnalyticsPanel } from './admin-analytics.js'
+import { renderResultsPanel } from './admin-analytics.js'
+import { renderAnalytics } from './analytics-shell.js'
 import { logActivity } from './activity.js'
 
 const EMBED_WEBHOOK = 'https://n8n.mplasesores.com/webhook/embed-lesson'
@@ -218,7 +219,7 @@ function switchPanel(panel) {
   if (panel === 'material-apoyo') renderMaterialApoyoPanel()
   if (panel === 'suggestions') renderSuggestionsPanel()
   if (panel === 'results') renderResultsPanel()
-  if (panel === 'analytics') renderAnalyticsPanel()
+  if (panel === 'analytics') renderAnalytics()
   if (panel === 'activity') renderActivityLogPanel()
   if (panel === 'profile') renderProfilePanel()
 }
