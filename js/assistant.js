@@ -4,6 +4,7 @@ import { storageGet, storageSet, storageRemove } from './storage.js'
 import { typewrite, skipActiveTypewriter } from './typewriter.js'
 import { isNearBottom } from './reload-policy.js'
 import { getSeleccion } from './vertical.js'
+import { nextClarifyCount, chatRequestBody } from './clarify.js'
 
 const N8N_URL     = '/api/chat'
 const ABANDON_URL = 'https://n8n.mplasesores.com/webhook/bodi-abandon'
@@ -82,6 +83,7 @@ try { history = JSON.parse(storageGet('bold_chat_history') || '[]') } catch { hi
 let conversationId  = null
 let _creating       = false
 let sessionMessages = []
+let clarifyCount    = 0   // indagaciones seguidas del bot en esta sesión (tope 2, ver clarify.js)
 let followScroll  = true   // el usuario está al fondo → el scroll acompaña
 let skipAll       = false  // "Mostrar todo": revela el resto sin animar
 let sending       = false  // evita envíos concurrentes que se pisarían la animación
@@ -571,6 +573,7 @@ function bindAssistantEvents() {
     conversationId  = null
     sessionMessages = []
     history         = []
+    clarifyCount    = 0
     renderAssistant()
   })
 
@@ -612,7 +615,10 @@ async function sendMessage(text) {
     const res  = await fetch(N8N_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, history, faq_context: cachedFaqs, ...getSeleccion() })
+      body: JSON.stringify(chatRequestBody({
+        message: text, history, faqContext: cachedFaqs,
+        clarifyCount, seleccion: getSeleccion(),
+      }))
     })
     const data = await res.json()
     typing.classList.add('hidden')
@@ -650,13 +656,16 @@ async function sendMessage(text) {
     storageSet('bold_chat_history', JSON.stringify(history.slice(-20)))
     sessionMessages.push({ role: 'user', content: text })
     sessionMessages.push({ role: 'assistant', content: reply })
+    clarifyCount = nextClarifyCount(clarifyCount, data)
 
     await upsertConversation({
       messages: sessionMessages,
       topic: data.topic || null,
       sentiment: data.sentiment ?? 'neutro',
       support_redirected: data.support_redirected || false,
-      lessons_used: data.lessons_used || []
+      lessons_used: data.lessons_used || [],
+      bot_no_info: data.knowledge_gap || false,
+      bot_asked_clarification: data.asked_clarification || false,
     })
   } catch {
     typing.classList.add('hidden')
