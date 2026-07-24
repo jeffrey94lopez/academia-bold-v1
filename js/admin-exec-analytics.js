@@ -2,7 +2,7 @@ import {
   fetchBotSummary, fetchBotTrend, fetchLessonsSummary, fetchContentGaps,
 } from './analytics-api.js'
 import {
-  rangeControlsHtml, wireRangeControls, computeRange, kpiCard, llmNote,
+  rangeControlsHtml, wireRangeControls, computeRange, kpiCard, llmNote, sentimentBar,
 } from './analytics-ui.js'
 import { escapeHtml, exportCSV } from './utils.js'
 
@@ -67,20 +67,14 @@ export async function renderExecAnalytics(from = null, to = null) {
       <div class="flex items-end gap-2">${trendBars || '<span class="text-xs text-[var(--black-40)]">Sin datos</span>'}</div>
     </div>`
 
-  // Satisfacción — con barra y base explícita.
+  // Satisfacción — con barra (conteos dentro) y base explícita.
   const s = k.sentiment
-  const sentTotal = (s.positivo + s.neutro + s.negativo) || 1
   const satPanel = `
     <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4">
       <p class="text-sm font-bold text-[var(--black-100)]">Satisfacción</p>
       <p class="text-[11px] text-[var(--black-40)] mb-2">sentimiento neto = % positivas − % negativas</p>
       <p class="text-3xl font-black text-[var(--black-100)] leading-none">${k.sentiment_net > 0 ? '+' : ''}${k.sentiment_net ?? 0}</p>
-      <div class="flex h-4 rounded-full overflow-hidden mt-3">
-        <div style="width:${Math.round(100 * s.positivo / sentTotal)}%" class="bg-[var(--success-150)]"></div>
-        <div style="width:${Math.round(100 * s.neutro / sentTotal)}%" class="bg-[var(--black-10)]"></div>
-        <div style="width:${Math.round(100 * s.negativo / sentTotal)}%" class="bg-[var(--error-100)]"></div>
-      </div>
-      <p class="text-[10px] text-[var(--black-60)] mt-2">${s.positivo} positivas · ${s.neutro} neutras · ${s.negativo} negativas</p>
+      <div class="mt-3">${sentimentBar(s)}</div>
     </div>`
 
   // Insights bot↔lecciones — exclusivo del Resumen.

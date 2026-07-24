@@ -2,7 +2,7 @@ import {
   fetchBotSummary, fetchBotConversations, fetchContentGaps,
 } from './analytics-api.js'
 import {
-  rangeControlsHtml, wireRangeControls, computeRange, kpiCard, llmNote,
+  rangeControlsHtml, wireRangeControls, computeRange, kpiCard, llmNote, sentimentBar,
 } from './analytics-ui.js'
 import { escapeHtml, exportCSV } from './utils.js'
 import { pickContentToReinforce } from './bot-attention.js'
@@ -29,7 +29,6 @@ export async function renderBotAnalytics(from = null, to = null) {
 
   const k = summary.kpis
   const s = k.sentiment
-  const sentTotal = (s.positivo + s.neutro + s.negativo) || 1
 
   // Capa ① — KPIs
   const kpis = `
@@ -40,12 +39,7 @@ export async function renderBotAnalytics(from = null, to = null) {
       <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4">
         <p class="text-[10px] font-bold text-[var(--black-40)] uppercase tracking-wide mb-1">Sentimiento neto</p>
         <p class="text-2xl font-black text-[var(--black-100)]">${k.sentiment_net > 0 ? '+' : ''}${k.sentiment_net ?? 0}</p>
-        <div class="flex h-3 rounded-full overflow-hidden mt-2">
-          <div style="width:${Math.round(100 * s.positivo / sentTotal)}%" class="bg-[var(--success-150)]"></div>
-          <div style="width:${Math.round(100 * s.neutro / sentTotal)}%" class="bg-[var(--black-10)]"></div>
-          <div style="width:${Math.round(100 * s.negativo / sentTotal)}%" class="bg-[var(--error-100)]"></div>
-        </div>
-        <p class="text-[10px] text-[var(--black-40)] mt-1">${s.positivo} pos · ${s.neutro} neu · ${s.negativo} neg</p>
+        <div class="mt-2">${sentimentBar(s)}</div>
       </div>
     </div>`
 
