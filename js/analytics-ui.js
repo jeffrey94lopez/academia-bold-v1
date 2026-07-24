@@ -72,3 +72,19 @@ export function kpiCard(label, value, sub = '') {
 export function llmNote() {
   return `<span class="text-[10px] text-[var(--blue-40)] font-semibold">✨ se afina con LLM</span>`
 }
+
+// Barra apilada de sentimiento con los conteos DENTRO de cada segmento.
+// Pura (sin DOM), reusada por el Resumen ejecutivo y el dashboard BolBot.
+// Devuelve solo la barra (sin margen); el consumidor la envuelve con su spacing.
+export function sentimentBar(sentiment) {
+  const s = sentiment || {}
+  const pos = s.positivo || 0
+  const neu = s.neutro || 0
+  const neg = s.negativo || 0
+  const total = (pos + neu + neg) || 1
+  const seg = (count, label, colorClass, textClass) => `
+      <div class="flex items-center justify-center ${colorClass} ${textClass} text-[10px] font-bold overflow-hidden whitespace-nowrap" style="width:${Math.round(100 * count / total)}%" title="${count} ${label}">${count > 0 ? count : ''}</div>`
+  return `
+    <div class="flex h-5 rounded-full overflow-hidden">${seg(pos, 'positivas', 'bg-[var(--success-150)]', 'text-white')}${seg(neu, 'neutras', 'bg-[var(--black-10)]', 'text-[var(--black-60)]')}${seg(neg, 'negativas', 'bg-[var(--error-100)]', 'text-white')}
+    </div>`
+}

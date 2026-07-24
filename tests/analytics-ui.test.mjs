@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { computeRange } from '../js/analytics-ui.js'
+import { computeRange, sentimentBar } from '../js/analytics-ui.js'
 
 const now = new Date('2026-07-20T15:30:00') // hora local
 
@@ -35,4 +35,27 @@ test('computeRange year: 1 de enero del año actual', () => {
   const { from } = computeRange('year', now)
   assert.equal(from.getMonth(), 0)
   assert.equal(from.getDate(), 1)
+})
+
+test('muestra los tres conteos dentro de la barra', () => {
+  const html = sentimentBar({ positivo: 12, neutro: 5, negativo: 3 })
+  assert.match(html, />12</)
+  assert.match(html, />5</)
+  assert.match(html, />3</)
+})
+
+test('calcula los anchos sobre el total', () => {
+  const html = sentimentBar({ positivo: 2, neutro: 1, negativo: 1 })
+  assert.match(html, /width:50%/)
+  assert.match(html, /width:25%/)
+})
+
+test('base cero: no lanza y produce anchos 0%', () => {
+  let html
+  assert.doesNotThrow(() => { html = sentimentBar({ positivo: 0, neutro: 0, negativo: 0 }) })
+  assert.match(html, /width:0%/)
+})
+
+test('entrada indefinida no lanza', () => {
+  assert.doesNotThrow(() => sentimentBar(undefined))
 })
