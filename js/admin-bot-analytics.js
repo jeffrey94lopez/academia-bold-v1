@@ -5,6 +5,7 @@ import {
   rangeControlsHtml, wireRangeControls, computeRange, kpiCard, llmNote,
 } from './analytics-ui.js'
 import { escapeHtml, exportCSV } from './utils.js'
+import { pickContentToReinforce } from './bot-attention.js'
 
 const DOW = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
@@ -50,22 +51,21 @@ export async function renderBotAnalytics(from = null, to = null) {
 
   // Capa ② — Requiere atención (señales accionables)
   const negCat = summary.by_category.filter(c => c.negative_pct >= 30).sort((a, b) => b.negative_pct - a.negative_pct)[0]
-  const supCat = summary.by_category.filter(c => c.support_pct >= 40).sort((a, b) => b.support_pct - a.support_pct)[0]
-  const gapNoLesson = gaps.find(g => !g.has_lesson)
+  const reinforce = pickContentToReinforce(summary.by_category, gaps)
   const attention = `
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-      ${attentionCard('🔗', 'Contenido faltante ' + llmNote(),
-        gapNoLesson ? `"${escapeHtml(gapNoLesson.category)}" (${gapNoLesson.total} consultas) no tiene lección.` : 'Sin huecos detectados en el rango.',
-        gapNoLesson ? '→ Crear lección' : '', 'warning',
-        gapNoLesson ? `data-gap-cat="${escapeHtml(gapNoLesson.category)}"` : '')}
+      ${reinforce
+        ? attentionCard('📚', 'Contenido por reforzar',
+            `"${escapeHtml(reinforce.category)}": ${reinforce.noInfo} sin-info · ${reinforce.supportPct}% escala a soporte.`,
+            reinforce.action === 'create' ? '→ Crear lección' : '→ Reforzar contenido', 'warning',
+            reinforce.action === 'create'
+              ? `data-gap-cat="${escapeHtml(reinforce.category)}"`
+              : `data-edit-cat="${escapeHtml(reinforce.category)}"`)
+        : attentionCard('📚', 'Contenido por reforzar', 'Sin huecos de información en el rango.', '', 'warning', '')}
       ${attentionCard('😟', 'Tema con sentimiento negativo',
         negCat ? `"${escapeHtml(negCat.category)}" — ${negCat.negative_pct}% negativo.` : 'Nada crítico.',
         negCat ? '→ Revisar respuesta / lección' : '', 'error',
         negCat ? `data-edit-cat="${escapeHtml(negCat.category)}"` : '')}
-      ${attentionCard('↗', 'Escala mucho a soporte',
-        supCat ? `"${escapeHtml(supCat.category)}" escala en ${supCat.support_pct}%.` : 'Bajo escalamiento.',
-        supCat ? '→ Reforzar contenido' : '', 'blue',
-        supCat ? `data-edit-cat="${escapeHtml(supCat.category)}"` : '')}
       ${attentionCard('🔴', 'Dudas recurrentes no resueltas ' + llmNote(),
         'Se prioriza con clustering del LLM (①c). Hoy: ver explorador filtrado por "No resuelta".',
         '', 'error', '')}
@@ -179,6 +179,7 @@ function convRows(convs) {
       <span class="flex-1 text-[var(--black-100)]">${escapeHtml((c.first_user_msg || '(sin mensaje)').slice(0, 90))}</span>
       ${c.sentiment === 'negativo' ? '<span class="text-[10px] px-2 rounded-full border border-[var(--error-100)] text-[var(--error-100)]">Neg</span>' : ''}
       ${c.support_redirected ? '<span class="text-[10px] px-2 rounded-full border border-[var(--warning-150)] text-[var(--warning-150)]">Escaló</span>' : ''}
+      ${c.bot_no_info ? '<span class="text-[10px] px-2 rounded-full border border-[var(--warning-150)] text-[var(--warning-150)]">Sin info</span>' : ''}
       <span class="text-[var(--black-40)]">${escapeHtml(c.cat)}</span>
     </div>
     <div class="bot-conv-detail hidden px-3 py-2 bg-[var(--background-page)] text-xs" data-detail="${i}"></div>`).join('')
