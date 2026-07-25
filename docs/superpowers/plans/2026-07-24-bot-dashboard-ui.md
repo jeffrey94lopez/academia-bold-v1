@@ -35,7 +35,7 @@
 **Interfaces:**
 - Produces: `sentimentBar(sentiment) => string`. `sentiment = { positivo:number, neutro:number, negativo:number }` (campos opcionales; faltantes → 0). Devuelve el HTML de la barra apilada (un `<div class="flex h-5 …">` con 3 segmentos, cada uno con su conteo centrado dentro y `title`), sin margen externo. Consumido por Tasks 2.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `tests/analytics-ui.test.mjs`:
 
@@ -68,12 +68,12 @@ test('entrada indefinida no lanza', () => {
 })
 ```
 
-- [ ] **Step 2: Correr el test para verificar que falla**
+- [x] **Step 2: Correr el test para verificar que falla**
 
 Run: `node --test tests/analytics-ui.test.mjs`
 Expected: FAIL — `sentimentBar` no es una función exportada / import error.
 
-- [ ] **Step 3: Escribir la implementación mínima**
+- [x] **Step 3: Escribir la implementación mínima**
 
 En `js/analytics-ui.js`, agregar al final del archivo (después de `llmNote`):
 
@@ -96,17 +96,17 @@ export function sentimentBar(sentiment) {
 }
 ```
 
-- [ ] **Step 4: Correr el test para verificar que pasa**
+- [x] **Step 4: Correr el test para verificar que pasa**
 
 Run: `node --test tests/analytics-ui.test.mjs`
 Expected: PASS — 4 tests.
 
-- [ ] **Step 5: Correr la suite completa**
+- [x] **Step 5: Correr la suite completa**
 
 Run: `node --test tests/*.test.mjs`
 Expected: PASS — todos los archivos verdes.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add js/analytics-ui.js tests/analytics-ui.test.mjs
@@ -128,7 +128,7 @@ Reemplazar la barra apilada + la línea de conteos de abajo por `sentimentBar` e
 
 > **Nota:** ambos archivos usan `document`/`localStorage`/`location` y no son import-safe en Node → esta tarea no lleva unit test propio (la lógica testeable vive en Task 1). Verificación = `node --check` + suite verde + navegador.
 
-- [ ] **Step 1: Importar `sentimentBar` en exec**
+- [x] **Step 1: Importar `sentimentBar` en exec**
 
 En `js/admin-exec-analytics.js`, agregar `sentimentBar` al import existente de `./analytics-ui.js`:
 
@@ -138,7 +138,7 @@ import {
 } from './analytics-ui.js'
 ```
 
-- [ ] **Step 2: Reemplazar `satPanel` y borrar `sentTotal` en exec**
+- [x] **Step 2: Reemplazar `satPanel` y borrar `sentTotal` en exec**
 
 En `js/admin-exec-analytics.js`, el bloque actual (~L70-84) es:
 
@@ -174,7 +174,7 @@ Reemplazarlo por (se borra `sentTotal`, la barra manual y la línea de abajo):
     </div>`
 ```
 
-- [ ] **Step 3: Importar `sentimentBar` en bot**
+- [x] **Step 3: Importar `sentimentBar` en bot**
 
 En `js/admin-bot-analytics.js`, agregar `sentimentBar` al import existente de `./analytics-ui.js`:
 
@@ -184,7 +184,7 @@ import {
 } from './analytics-ui.js'
 ```
 
-- [ ] **Step 4: Reemplazar la card "Sentimiento neto" y borrar `sentTotal` en bot**
+- [x] **Step 4: Reemplazar la card "Sentimiento neto" y borrar `sentTotal` en bot**
 
 En `js/admin-bot-analytics.js`, borrar la línea (~L31):
 
@@ -219,12 +219,12 @@ Reemplazarlo por:
       </div>
 ```
 
-- [ ] **Step 5: Verificar sintaxis y suite**
+- [x] **Step 5: Verificar sintaxis y suite**
 
 Run: `node --check js/admin-exec-analytics.js && node --check js/admin-bot-analytics.js && node --test tests/*.test.mjs`
 Expected: sin error de sintaxis; suite verde.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add js/admin-exec-analytics.js js/admin-bot-analytics.js
@@ -245,7 +245,7 @@ Dentro del mismo panel, separar las categorías sin lección (🔗 huecos) de la
 
 > **Nota:** archivo no import-safe en Node → verificación = `node --check` + suite verde + navegador.
 
-- [ ] **Step 1: Reemplazar `gapItems` + `insightsPanel`**
+- [x] **Step 1: Reemplazar `gapItems` + `insightsPanel`**
 
 En `js/admin-exec-analytics.js`, el bloque actual (~L86-97) es:
 
@@ -289,12 +289,12 @@ Reemplazarlo por (mismo estilo de ítem, ahora en dos bloques rotulados):
 
 (El botón "Exportar resumen" del final sigue usando `gaps` sin cambios.)
 
-- [ ] **Step 2: Verificar sintaxis y suite**
+- [x] **Step 2: Verificar sintaxis y suite**
 
 Run: `node --check js/admin-exec-analytics.js && node --test tests/*.test.mjs`
 Expected: sin error de sintaxis; suite verde.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add js/admin-exec-analytics.js
