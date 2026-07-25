@@ -5,9 +5,9 @@ import { typewrite, skipActiveTypewriter } from './typewriter.js'
 import { isNearBottom } from './reload-policy.js'
 import { getSeleccion } from './vertical.js'
 import { nextClarifyCount, chatRequestBody } from './clarify.js'
+import { inactivitySettings, isStaleConversation } from './inactivity.js'
 
 const N8N_URL     = '/api/chat'
-const ABANDON_URL = 'https://n8n.mplasesores.com/webhook/bodi-abandon'
 
 const FALLBACK_CHIPS = [
   '¿Cómo proceso un pago?',
@@ -64,6 +64,20 @@ export async function loadChipSettings() {
   } catch (_) { /* mantener valores actuales */ }
 }
 
+export async function loadInactivitySettings() {
+  try {
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('key, value')
+      .in('key', ['inactividad_aviso_min', 'inactividad_cierre_min'])
+    if (error) return
+    inactivity = inactivitySettings(data)
+    // Si el admin acaba de apagar el aviso, matar el temporizador ya armado:
+    // si no, el aviso pendiente igual saldría una última vez.
+    if (!inactivity.avisoMs) clearIdleTimer()
+  } catch (_) { /* mantener los defaults */ }
+}
+
 // Re-dibuja los chips de sugerencias (visibles también con conversación en
 // curso: reaparecen después de cada respuesta del bot).
 export async function rerenderChips() {
@@ -87,6 +101,14 @@ let clarifyCount    = 0   // indagaciones seguidas del bot en esta sesión (tope
 let followScroll  = true   // el usuario está al fondo → el scroll acompaña
 let skipAll       = false  // "Mostrar todo": revela el resto sin animar
 let sending       = false  // evita envíos concurrentes que se pisarían la animación
+
+// Rescate por inactividad (sub-proyecto B). El navegador solo AVISA; el cierre
+// lo hace el barrido de pg_cron. Cerrar en cliente fragmentaría una duda real
+// en varias filas (al cerrar, el próximo mensaje crea conversación nueva).
+let inactivity     = { avisoMs: 5 * 60000, cierreMs: 30 * 60000 }
+let lastActivityMs = 0
+let idleTimer      = null
+let idleNudged     = false   // el aviso sale UNA vez por conversación
 
 async function createConversation() {
   if (_creating) return
@@ -134,20 +156,19 @@ async function resolveConversation(resolved, btnsEl) {
   await appendBotAnimated(resolved
     ? '¡Me alegra haber podido ayudarte! Escríbeme cuando tengas otra duda.'
     : 'Entendido. Para una ayuda más detallada puedes contactar a [Soporte Bold POS](https://api.whatsapp.com/send?phone=573171109500&text=Hola%20,%20necesito%20su%20ayuda%20en%20Bold%20POS.).')
-  await upsertConversation({ resolved, status: 'completed', ended_at: new Date().toISOString() })
+  const nowIso = new Date().toISOString()
+  await upsertConversation({ resolved, status: 'completed', ended_at: nowIso, last_activity_at: nowIso })
+  clearIdleTimer()
+  removeIdleNotice()
   conversationId  = null
   sessionMessages = []
+  idleNudged      = false
 }
-
-window.addEventListener('beforeunload', () => {
-  if (!conversationId) return
-  navigator.sendBeacon(ABANDON_URL, new Blob([JSON.stringify({ conversationId })], { type: 'application/json' }))
-})
 
 // ── Render ────────────────────────────────────────────────────────────────────
 
 async function renderAssistant() {
-  const [chips] = await Promise.all([loadChips(), loadChipSettings()])
+  const [chips] = await Promise.all([loadChips(), loadChipSettings(), loadInactivitySettings()])
   const container = document.getElementById('section-assistant')
   container.innerHTML = `
     <div class="flex flex-col h-full relative">
@@ -493,6 +514,46 @@ function appendSupportCTA() {
   if (followScroll) scrollToBottom()
 }
 
+// ── Rescate por inactividad ──────────────────────────────────────────────────
+
+function clearIdleTimer() {
+  if (idleTimer) { clearTimeout(idleTimer); idleTimer = null }
+}
+
+function removeIdleNotice() {
+  document.querySelectorAll('.idle-notice').forEach(el => el.remove())
+}
+
+// Marca actividad y rearma el temporizador. Se llama al terminar cada
+// intercambio y cuando el usuario dice que sigue ahí.
+function registerActivity() {
+  lastActivityMs = Date.now()
+  clearIdleTimer()
+  if (!inactivity.avisoMs || idleNudged || !conversationId) return
+  idleTimer = setTimeout(appendIdleNotice, inactivity.avisoMs)
+}
+
+// Separador de sistema. NO se persiste en messages: es UI, no conversación —
+// si se guardara contaminaría el historial que se le manda al LLM.
+function appendIdleNotice() {
+  const box = document.getElementById('chatMessages')
+  if (!box || sending) return   // nunca interrumpir una respuesta en curso
+  removeIdleNotice()
+  idleNudged = true
+  const notice = document.createElement('div')
+  notice.className = 'idle-notice'
+  notice.innerHTML = `
+    <div class="idle-divider"><span>⏱ ¿Sigues ahí?</span></div>
+    <p class="idle-sub">El chat se cierra solo en un rato</p>
+    <div class="idle-actions"><button class="idle-still-here">Sí, sigo aquí</button></div>`
+  notice.querySelector('.idle-still-here').onclick = () => {
+    removeIdleNotice()
+    registerActivity()
+  }
+  box.appendChild(notice)
+  if (followScroll) scrollToBottom()
+}
+
 function appendResolutionButtons() {
   const box = document.getElementById('chatMessages')
   if (!box) return
@@ -596,6 +657,17 @@ async function sendMessage(text) {
 
   try {
 
+  // Si el hueco de inactividad superó el umbral de cierre, el barrido pudo
+  // haber marcado esta conversación como abandonada: no le escribimos encima
+  // (la resucitaría con mensajes nuevos y el dato quedaría mentiroso).
+  if (conversationId && isStaleConversation(lastActivityMs, Date.now(), inactivity.cierreMs)) {
+    conversationId  = null
+    sessionMessages = []
+    idleNudged      = false
+  }
+  clearIdleTimer()
+  removeIdleNotice()
+
   if (!conversationId) await createConversation()
 
   const input = document.getElementById('chatInput')
@@ -666,7 +738,9 @@ async function sendMessage(text) {
       lessons_used: data.lessons_used || [],
       bot_no_info: data.knowledge_gap || false,
       bot_asked_clarification: data.asked_clarification || false,
+      last_activity_at: new Date().toISOString(),
     })
+    registerActivity()
   } catch {
     typing.classList.add('hidden')
     hideSkipButton()

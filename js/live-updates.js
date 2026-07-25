@@ -3,7 +3,7 @@
 // y refresca contenido vía Supabase Realtime (se agrega en startRealtime).
 import { computeReloadAction } from './reload-policy.js'
 import { supabase } from './supabase.js'
-import { loadFaqContext, rerenderChips, loadChipSettings } from './assistant.js'
+import { loadFaqContext, rerenderChips, loadChipSettings, loadInactivitySettings } from './assistant.js'
 import { refreshResources } from './resources.js'
 
 const VERSION_POLL_MS = 60_000
@@ -66,7 +66,10 @@ function debounce(fn, ms) {
 // (`lecciones` no se suscribe aquí: lessons.js ya tiene su propio canal.)
 const onFaqChange       = debounce(() => { loadFaqContext(); refreshResources().catch(() => {}) }, 1500)
 const onChipsChange     = debounce(() => { rerenderChips().catch(() => {}) }, 1500)
-const onSettingsChange  = debounce(() => { loadChipSettings().catch(() => {}) }, 1500)
+const onSettingsChange  = debounce(() => {
+  loadChipSettings().catch(() => {})
+  loadInactivitySettings().catch(() => {})
+}, 1500)
 
 function startRealtime() {
   let retryScheduled = false // el callback de status se dispara en cada reintento fallido; reprogramar solo una vez

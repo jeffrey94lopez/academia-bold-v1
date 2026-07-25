@@ -457,3 +457,56 @@ body {
 .acc-lesson span::first-letter {
   text-transform: uppercase;
 }
+
+/* ── Aviso de inactividad (separador de sistema, sub-proyecto B) ─────────────
+   NO es una burbuja: corta el hilo para que se lea como aviso del sistema y
+   no como un mensaje del bot. */
+.idle-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-2) 0;
+}
+.idle-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.idle-divider::before,
+.idle-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--blue-20);
+}
+.idle-divider span {
+  font-family: var(--font-family);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--black-60);
+  white-space: nowrap;
+}
+.idle-sub {
+  text-align: center;
+  font-family: var(--font-family);
+  font-size: 11px;
+  color: var(--black-40);
+}
+.idle-actions {
+  display: flex;
+  justify-content: center;
+}
+.idle-still-here {
+  font-family: var(--font-family);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--blue-100);
+  background: transparent;
+  border: 1.5px solid var(--blue-100);
+  border-radius: var(--radius-full);
+  padding: 4px 14px;
+  cursor: pointer;
+}
+.idle-still-here:hover { background: var(--blue-10); }
