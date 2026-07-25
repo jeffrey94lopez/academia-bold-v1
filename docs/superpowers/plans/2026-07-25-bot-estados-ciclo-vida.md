@@ -286,7 +286,9 @@ grant  execute on function public.analytics_bot_summary(timestamptz, timestamptz
 
 - [ ] **Step 2: Escribir la migración del explorador**
 
-Crear `supabase/migrations/update_analytics_bot_conversations_lifecycle.sql`. Ojo con dos cosas: el `drop function` lleva la firma **vieja** (8 parámetros) y el `p_lifecycle` nuevo va **al final**; y la expresión `case` se repite en el `where` porque en SQL no se puede filtrar por un alias del mismo `select` (es el mismo patrón que ya usa `p_status`):
+Crear `supabase/migrations/update_analytics_bot_conversations_lifecycle.sql`. Dos cosas para no equivocarse: el `drop function` lleva la firma **vieja** (8 parámetros) y el `p_lifecycle` nuevo va **al final** de la nueva.
+
+**El filtro de `p_lifecycle` NO va en el `where` del CTE**, a diferencia de los demás. Va en el `select * from res` interno, que sí puede referenciar el alias `lifecycle` del CTE. Semántica idéntica (filtra antes del `limit`) y evita escribir la expresión `case` dos veces — que es lo que hace hoy `p_status`, y no hay razón para repetir esa duplicación en código nuevo.
 
 ```sql
 -- analytics_bot_conversations + lifecycle por fila y filtro p_lifecycle
@@ -336,14 +338,14 @@ as $$
       and (p_status   is null or coalesce(resolution_status,
              case when resolved is true then 'resuelta'
                   when resolved is false then 'no_resuelta' end) = p_status)
-      and (p_lifecycle is null or
-             case when support_redirected   then 'escalada'
-                  when status = 'completed' then 'cerrada_cliente'
-                  when status = 'abandoned' then 'abandonada'
-                  else 'en_curso' end = p_lifecycle)
   )
   select coalesce(jsonb_agg(to_jsonb(r) order by r.started_at desc), '[]'::jsonb)
-  from (select * from res order by started_at desc limit p_limit) r;
+  from (
+    select * from res
+     where p_lifecycle is null or lifecycle = p_lifecycle
+     order by started_at desc
+     limit p_limit
+  ) r;
 $$;
 revoke execute on function public.analytics_bot_conversations(timestamptz, timestamptz, text, text, boolean, text, text, int, text) from public, anon;
 grant  execute on function public.analytics_bot_conversations(timestamptz, timestamptz, text, text, boolean, text, text, int, text) to authenticated;
@@ -918,14 +920,20 @@ git commit -m "feat: minutos de aviso y cierre por inactividad configurables en 
 
 ---
 
-### Task 6: Builder puro `lifecycleBar` + tests
+### Task 6: `lifecycleBar` sobre un helper compartido con `sentimentBar` + tests
+
+`lifecycleBar` es la misma barra apilada que `sentimentBar` con otros colores y etiquetas. En vez de duplicarla, se extrae un helper interno `stackedBar(segments)` y **las dos** pasan a usarlo.
+
+**Decisión del usuario (pre-flight scan, 2026-07-25):** extraer el helper aunque toque `sentimentBar`, que ya está en producción. La red de seguridad son sus 4 tests existentes: el refactor debe dejar su salida **byte-idéntica**, así que si pasan sin tocarlos, el refactor es correcto. **No modificar los tests de `sentimentBar`** — si hay que cambiarlos para que pasen, el refactor está mal.
 
 **Files:**
-- Modify: `js/analytics-ui.js` — agregar al final, después de `sentimentBar`.
-- Test: `tests/analytics-ui.test.mjs` — agregar casos (el archivo ya existe con 4 tests de `sentimentBar`).
+- Modify: `js/analytics-ui.js` — extraer `stackedBar` (interno, sin exportar), reescribir `sentimentBar` sobre él, agregar `lifecycleBar`.
+- Test: `tests/analytics-ui.test.mjs` — agregar casos (el archivo ya existe con 4 tests de `sentimentBar` que NO se tocan).
 
 **Interfaces:**
-- Produces: `lifecycleBar(lifecycle) => string` (HTML). `lifecycle = { cerrada_cliente, abandonada, escalada, en_curso }` (campos opcionales; faltantes ⇒ 0). Devuelve la barra apilada de **tres** segmentos sin margen externo. `en_curso` se **excluye** del total y de la barra. Consumido por Task 7.
+- Produces: `lifecycleBar(lifecycle) => string` (HTML). `lifecycle = { cerrada_cliente, abandonada, escalada, en_curso }` (campos opcionales; faltantes ⇒ 0). Devuelve la barra apilada de **tres** segmentos sin margen externo. `en_curso` se **excluye** del total y de la barra (no está entre los segmentos). Consumido por Task 7.
+- Interno (no exportar): `stackedBar(segments) => string`, con `segments = [{ count, label, colorClass, textClass }]`. El total es la suma de los `count` con `|| 1` para evitar división por cero.
+- `sentimentBar(sentiment) => string` **no cambia de firma ni de salida**.
 
 - [ ] **Step 1: Escribir los tests que fallan**
 
@@ -970,32 +978,52 @@ Expected: FAIL — `lifecycleBar` no es una función exportada.
 
 - [ ] **Step 3: Escribir la implementación mínima**
 
-En `js/analytics-ui.js`, agregar al final del archivo (después de `sentimentBar`):
+En `js/analytics-ui.js`, **reemplazar la función `sentimentBar` completa** (desde su comentario de cabecera hasta su `}` de cierre, hoy las últimas líneas del archivo) por este bloque de tres funciones.
+
+El `stackedBar` produce **exactamente** el mismo HTML que hoy: cada segmento arranca con salto de línea + 6 espacios, y `segments.map(seg).join('')` concatena igual que la interpolación de los tres `seg(...)` seguidos. Por eso los tests de `sentimentBar` pasan sin tocarse.
 
 ```js
+// Barra apilada genérica con los conteos DENTRO de cada segmento. Interna: la
+// comparten sentimentBar y lifecycleBar, que solo difieren en colores y
+// etiquetas. Devuelve solo la barra (sin margen); el consumidor la envuelve
+// con su propio spacing.
+function stackedBar(segments) {
+  const total = segments.reduce((sum, s) => sum + s.count, 0) || 1
+  const seg = s => `
+      <div class="flex items-center justify-center ${s.colorClass} ${s.textClass} text-[10px] font-bold overflow-hidden whitespace-nowrap" style="width:${Math.round(100 * s.count / total)}%" title="${s.count} ${s.label}">${s.count > 0 ? s.count : ''}</div>`
+  return `
+    <div class="flex h-5 rounded-full overflow-hidden">${segments.map(seg).join('')}
+    </div>`
+}
 
-// Barra apilada de cómo terminan las conversaciones, con los conteos DENTRO.
-// Mismo patrón que sentimentBar. en_curso NO es segmento: se excluye del total
-// (son las conversaciones vivas de la ventana de cierre) y el consumidor lo
-// muestra como nota al pie.
+// Sentimiento (pos/neu/neg), reusada por el Resumen ejecutivo y el dashboard
+// BolBot.
+export function sentimentBar(sentiment) {
+  const s = sentiment || {}
+  return stackedBar([
+    { count: s.positivo || 0, label: 'positivas', colorClass: 'bg-[var(--success-150)]', textClass: 'text-white' },
+    { count: s.neutro   || 0, label: 'neutras',   colorClass: 'bg-[var(--black-10)]',    textClass: 'text-[var(--black-60)]' },
+    { count: s.negativo || 0, label: 'negativas', colorClass: 'bg-[var(--error-100)]',   textClass: 'text-white' },
+  ])
+}
+
+// Cómo terminan las conversaciones. en_curso NO es segmento: se excluye del
+// total (son las vivas de la ventana de cierre) y el consumidor lo muestra
+// como nota al pie.
 export function lifecycleBar(lifecycle) {
   const l = lifecycle || {}
-  const cer = l.cerrada_cliente || 0
-  const aba = l.abandonada || 0
-  const esc = l.escalada || 0
-  const total = (cer + aba + esc) || 1
-  const seg = (count, label, colorClass, textClass) => `
-      <div class="flex items-center justify-center ${colorClass} ${textClass} text-[10px] font-bold overflow-hidden whitespace-nowrap" style="width:${Math.round(100 * count / total)}%" title="${count} ${label}">${count > 0 ? count : ''}</div>`
-  return `
-    <div class="flex h-5 rounded-full overflow-hidden">${seg(cer, 'cerradas por el cliente', 'bg-[var(--success-150)]', 'text-white')}${seg(aba, 'abandonadas', 'bg-[var(--black-10)]', 'text-[var(--black-60)]')}${seg(esc, 'escaladas a soporte', 'bg-[var(--warning-150)]', 'text-white')}
-    </div>`
+  return stackedBar([
+    { count: l.cerrada_cliente || 0, label: 'cerradas por el cliente', colorClass: 'bg-[var(--success-150)]', textClass: 'text-white' },
+    { count: l.abandonada      || 0, label: 'abandonadas',             colorClass: 'bg-[var(--black-10)]',    textClass: 'text-[var(--black-60)]' },
+    { count: l.escalada        || 0, label: 'escaladas a soporte',     colorClass: 'bg-[var(--warning-150)]', textClass: 'text-white' },
+  ])
 }
 ```
 
 - [ ] **Step 4: Correr el test para verificar que pasa**
 
 Run: `node --test tests/analytics-ui.test.mjs`
-Expected: PASS — 8 tests (4 de `sentimentBar` + 4 nuevos).
+Expected: PASS — 8 tests (4 de `sentimentBar` + 4 nuevos). **Los 4 de `sentimentBar` deben pasar sin haberlos modificado**: es la verificación de que el refactor dejó su salida intacta. Si alguno falla, arreglar `stackedBar` — no el test.
 
 - [ ] **Step 5: Correr la suite completa**
 
@@ -1006,7 +1034,7 @@ Expected: PASS — 72 tests.
 
 ```bash
 git add js/analytics-ui.js tests/analytics-ui.test.mjs
-git commit -m "feat: builder puro lifecycleBar (cómo terminan las conversaciones) + tests"
+git commit -m "feat: helper stackedBar compartido + lifecycleBar (cómo terminan las conversaciones) + tests"
 ```
 
 ---
