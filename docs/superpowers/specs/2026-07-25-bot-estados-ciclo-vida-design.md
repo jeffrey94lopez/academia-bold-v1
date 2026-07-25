@@ -92,14 +92,32 @@ Decisiones dentro de eso:
 
 **Prerrequisito manual:** prender `pg_cron` en Supabase → Database → Extensions. La migración incluye `create extension if not exists pg_cron` y si no tiene permiso **debe fallar ruidosamente** en esa línea, no aplicarse a medias dejando el barrido sin agendar.
 
-### 3. RPCs
+### 3. Qué pasa con las conversaciones ya existentes
+
+Todo el histórico queda clasificado, sin script de backfill aparte:
+
+| Fila histórica | Queda como | Cuándo |
+|---|---|---|
+| `support_redirected = true` | `escalada` | inmediato (el `lifecycle` derivado es retroactivo) |
+| `status = 'completed'` | `cerrada_cliente` | inmediato |
+| `status = 'abandoned'` | `abandonada` | hoy no existe ninguna fila así |
+| `status = 'active'` (el grueso del histórico) | `abandonada` | en la primera corrida del barrido |
+
+El último grupo es prácticamente todo el histórico y se resuelve solo: el backfill le pone `last_activity_at = coalesce(ended_at, started_at)` — una fecha pasada —, así que la primera corrida manual de `select close_stale_conversations()` justo después de la migración las cierra todas. **El barrido es el backfill.** Sin eso, esas filas aparecerían como `en_curso`, que es absurdo para una conversación de hace semanas.
+
+Dos advertencias para leer esos números:
+
+- **`abandonada` no significa insatisfecha.** Es gente que chateó y se fue sin cerrar, que es la definición literal; pero mucha probablemente obtuvo lo que quería y cerró la pestaña, porque hasta ahora no tuvo un botón de cierre que funcionara. El primer número de abandono va a salir alto y **no es evidencia de que el bot funcione mal**: es evidencia de que no se medía el cierre. Es comparable mes a mes recién a partir de esta migración.
+- **Duración 0 en las filas viejas.** A las históricas les queda `ended_at = started_at`, porque no hay mejor dato (los mensajes en `messages` no guardan timestamp). Hoy es inocuo: **ningún RPC ni dashboard calcula duración** — `ended_at` solo se selecciona y se pasa a la fila del explorador. Si en el futuro se agrega "duración promedio", hay que excluir las abandonadas anteriores a esta migración.
+
+### 4. RPCs
 
 - **`analytics_bot_summary`** — agrega `kpis.lifecycle = { cerrada_cliente, abandonada, escalada, en_curso }` (cuatro conteos sobre el `lifecycle` derivado en el CTE `res`). Se conserva `kpis.abandoned` para no romper consumidores.
 - **`analytics_bot_conversations`** — agrega `lifecycle` por fila y un parámetro nuevo `p_lifecycle text default null` al final de la firma.
 
 **Cuidado con el nombre:** `p_status` **ya significa calidad** (filtra sobre `resolution_status`). El filtro de ciclo de vida tiene que ser `p_lifecycle`, un parámetro aparte, o se pisan. Como `js/analytics-api.js` llama con parámetros nombrados, agregarlo al final no rompe las llamadas existentes; sí hay que actualizar el `drop function` con la firma completa.
 
-### 4. Rescate por inactividad en el chat
+### 5. Rescate por inactividad en el chat
 
 **Tiempos, ambos editables desde el admin:**
 
@@ -134,7 +152,7 @@ El temporizador en sí (`setTimeout`, insertar/quitar el nodo del separador) que
 
 **Código muerto que se va:** `ABANDON_URL` (`js/assistant.js:10`) y el listener `beforeunload` con `sendBeacon` (`js/assistant.js:142-145`). Con pg_cron son redundantes y hoy apuntan a un workflow apagado. El workflow `Bodi Abandon Webhook` de n8n queda para borrar.
 
-### 5. Admin — los dos campos numéricos
+### 6. Admin — los dos campos numéricos
 
 Van en la card "Comportamiento" del panel **Sugerencias Bot** (`renderSuggestionsPanel`, `js/admin.js:2163+`), donde ya viven `chips_inicio` y `chips_tras_respuesta`:
 
@@ -148,7 +166,7 @@ Comportamiento
 
 Hay que sumar un handler `.setting-number` análogo al `.setting-toggle` existente: `upsert` de `{key, value: String(n)}` al cambiar, con validación de entero ≥ 0, y en caso de error revertir el campo al valor anterior + `showToast`, igual que hace hoy el de checkbox.
 
-### 6. Dashboard
+### 7. Dashboard
 
 **Builder puro nuevo `lifecycleBar(lifecycle)`** en `js/analytics-ui.js`, misma barra apilada con conteos dentro que `sentimentBar` (sub-proyecto D):
 
