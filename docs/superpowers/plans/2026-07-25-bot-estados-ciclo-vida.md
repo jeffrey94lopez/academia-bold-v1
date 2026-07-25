@@ -721,6 +721,13 @@ function registerActivity() {
   if (!inactivity.avisoMs || idleNudged || !conversationId) return
   idleTimer = setTimeout(appendIdleNotice, inactivity.avisoMs)
 }
+```
+
+> **CORRECCIÓN DEL REVIEW FINAL (2026-07-25).** Este `registerActivity` único resultó ser un bug de corrección de datos: avanza `lastActivityMs` —el espejo local de la columna `last_activity_at`— incluso cuando no hubo ninguna escritura a la base. El invariante correcto es:
+>
+> **`lastActivityMs` solo puede avanzar cuando una escritura que efectivamente seteó `last_activity_at` tuvo éxito.**
+>
+> Se parte en dos: una función que marca **y** arma (solo después de una escritura exitosa) y otra que **solo arma**. Los sitios que arman sin escribir (el `catch` de `sendMessage`, el rearmado por cambio de settings en vivo) usan la segunda. Ver `final-fix-report.md` en el workspace del plan.
 
 // Separador de sistema. NO se persiste en messages: es UI, no conversación —
 // si se guardara contaminaría el historial que se le manda al LLM.
@@ -743,6 +750,10 @@ function appendIdleNotice() {
   if (followScroll) scrollToBottom()
 }
 ```
+
+> **CORRECCIÓN DEL REVIEW FINAL (2026-07-25) — decisión del usuario.** Este handler era el bloqueante del merge: avanzaba el espejo local sin escribir a la base, así que el guard de `sendMessage` medía de menos y terminaba escribiendo mensajes nuevos sobre una fila que el barrido ya había marcado como abandonada (ver la tabla 10:00 → 11:25 en `final-fix-report.md`).
+>
+> **Ruling:** el botón debe **extender de verdad** la conversación, no solo descartar el aviso. El handler pasa a ser `async` y: si la conversación ya está vencida al momento del click, suelta `conversationId`/`sessionMessages` y resetea el flag del aviso (el próximo mensaje abre fila nueva, sin tocar la muerta); si no, hace `await upsertConversation({ last_activity_at: ... })` y **solo entonces** avanza `lastActivityMs`.
 
 - [ ] **Step 5: Cablear `resolveConversation`**
 

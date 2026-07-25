@@ -2280,9 +2280,19 @@ async function renderSuggestionsPanel() {
     inp.addEventListener('change', async () => {
       const n   = parseInt(inp.value, 10)
       const min = inp.dataset.setting === 'inactividad_cierre_min' ? 1 : 0
+      const max = parseInt(inp.max, 10)
       if (!Number.isInteger(n) || n < min) {
         inp.value = prev
         showToast(`Debe ser un número entero de minutos (${min} o más)`, 'error')
+        return
+      }
+      // El navegador dispara `change` con lo tipeado aunque supere el max del
+      // input, así que el tope hay que hacerlo valer acá: un 99999 en el aviso se
+      // guardaría y setTimeout(…, 99999 * 60000) desborda el entero de 32 bits →
+      // el aviso saldría casi de inmediato, tras cada mensaje.
+      if (Number.isInteger(max) && n > max) {
+        inp.value = prev
+        showToast(`El máximo es ${max} minutos`, 'error')
         return
       }
       const clave = inp.dataset.setting

@@ -38,6 +38,13 @@ test('aviso en 0 apaga el aviso', () => {
   assert.equal(s.avisoMs, 0)
 })
 
+// El 0 en cierre es destructivo (cerraría toda conversación viva) y además
+// apagaría el guardia del navegador: cae al default como en admin.js y el SQL.
+test('cierre en 0 es inválido y cae al default de 30', () => {
+  const s = inactivitySettings([{ key: 'inactividad_cierre_min', value: '0' }])
+  assert.equal(s.cierreMs, 30 * MIN)
+})
+
 test('isStaleConversation: dentro del umbral es false', () => {
   const now = 1_000_000
   assert.equal(isStaleConversation(now - 10 * MIN, now, 30 * MIN), false)

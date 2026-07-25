@@ -74,7 +74,13 @@ export async function loadInactivitySettings() {
     inactivity = inactivitySettings(data)
     // Si el admin acaba de apagar el aviso, matar el temporizador ya armado:
     // si no, el aviso pendiente igual saldría una última vez.
-    if (!inactivity.avisoMs) clearIdleTimer()
+    if (!inactivity.avisoMs) { clearIdleTimer(); return }
+    // Si el retraso cambió con un temporizador ya armado, hay que rearmarlo: el
+    // setTimeout viejo sigue gobernando (subir 5→60 dispararía a los 5 min y
+    // quemaría el aviso único; bajar 60→5 no aplicaría hasta el próximo turno).
+    // Camino arm-only a propósito: acá no hubo escritura, así que la marca NO
+    // se toca.
+    if (idleTimer && !idleNudged) armIdleTimer()
   } catch (_) { /* mantener los defaults */ }
 }
 
@@ -122,6 +128,11 @@ async function createConversation() {
       .insert({ id, session_id: sessionId, messages: [], status: 'active' })
     if (error) throw new Error(error.message)
     conversationId = id
+    // El INSERT deja last_activity_at con el default now() de la columna: hay que
+    // espejarlo YA. Si quedara en 0, isStaleConversation devolvería false y el
+    // guardia estaría ciego durante todo el primer intercambio (y si el fetch al
+    // bot falla, el reintento posterior escribiría sobre una fila ya abandonada).
+    lastActivityMs = Date.now()
   } catch (e) {
     console.warn('[bolbot POS] createConversation failed:', e.message)
     conversationId = null
@@ -524,13 +535,24 @@ function removeIdleNotice() {
   document.querySelectorAll('.idle-notice').forEach(el => el.remove())
 }
 
-// Marca actividad y rearma el temporizador. Se llama al terminar cada
-// intercambio y cuando el usuario dice que sigue ahí.
-function registerActivity() {
-  lastActivityMs = Date.now()
+// Arma (o rearma) el temporizador del aviso SIN tocar la marca de actividad.
+// Es el camino que hay que usar cuando debe correr un temporizador pero NO hubo
+// escritura de last_activity_at (error de red, cambio de settings en caliente):
+// adelantar la marca sin escritura dejaría el espejo por delante de la columna y
+// el guardia de envío mediría de menos el hueco.
+function armIdleTimer() {
   clearIdleTimer()
   if (!inactivity.avisoMs || idleNudged || !conversationId) return
   idleTimer = setTimeout(appendIdleNotice, inactivity.avisoMs)
+}
+
+// Marca actividad y rearma el temporizador.
+// INVARIANTE: lastActivityMs es el espejo de la columna last_activity_at, así
+// que esto solo se llama DESPUÉS de una escritura exitosa que la incluyó, y con
+// el mismo instante que se escribió.
+function markActivity(atMs = Date.now()) {
+  lastActivityMs = atMs
+  armIdleTimer()
 }
 
 // Separador de sistema. NO se persiste en messages: es UI, no conversación —
@@ -546,9 +568,29 @@ function appendIdleNotice() {
     <div class="idle-divider"><span>⏱ ¿Sigues ahí?</span></div>
     <p class="idle-sub">El chat se cierra solo en un rato</p>
     <div class="idle-actions"><button class="idle-still-here">Sí, sigo aquí</button></div>`
-  notice.querySelector('.idle-still-here').onclick = () => {
+  // El pill EXTIENDE la conversación de verdad; no es solo un "descartar aviso".
+  // Si solo quitara el aviso y adelantara la marca, el espejo quedaría por
+  // delante de last_activity_at y el próximo mensaje se pegaría encima de una
+  // fila que el barrido ya cerró (abandoned con ended_at viejo y mensajes nuevos).
+  notice.querySelector('.idle-still-here').onclick = async () => {
     removeIdleNotice()
-    registerActivity()
+    if (!conversationId) { clearIdleTimer(); return }
+    if (isStaleConversation(lastActivityMs, Date.now(), inactivity.cierreMs)) {
+      // Ya venció al momento del clic: el barrido probablemente la cerró. No le
+      // escribimos encima; soltamos la fila para que el próximo mensaje abra una
+      // nueva. Mismo reset que hace el guardia de sendMessage.
+      clearIdleTimer()
+      conversationId  = null
+      sessionMessages = []
+      idleNudged      = false
+      return
+    }
+    // Persistir la extensión y SOLO ENTONCES avanzar el espejo, con el mismo
+    // instante que se escribió. (upsertConversation se come los errores: poner
+    // la marca después del await es la mejor garantía disponible acá.)
+    const nowIso = new Date().toISOString()
+    await upsertConversation({ last_activity_at: nowIso })
+    markActivity(Date.parse(nowIso))
   }
   box.appendChild(notice)
   if (followScroll) scrollToBottom()
@@ -737,6 +779,7 @@ async function sendMessage(text) {
     sessionMessages.push({ role: 'assistant', content: reply })
     clarifyCount = nextClarifyCount(clarifyCount, data)
 
+    const nowIso = new Date().toISOString()
     await upsertConversation({
       messages: sessionMessages,
       topic: data.topic || null,
@@ -745,15 +788,19 @@ async function sendMessage(text) {
       lessons_used: data.lessons_used || [],
       bot_no_info: data.knowledge_gap || false,
       bot_asked_clarification: data.asked_clarification || false,
-      last_activity_at: new Date().toISOString(),
+      last_activity_at: nowIso,
     })
-    registerActivity()
+    markActivity(Date.parse(nowIso))
   } catch {
     typing.classList.add('hidden')
     hideSkipButton()
     appendBubble('bot', 'Error de conexión. Verifica tu internet e intenta de nuevo.')
     if (chipSettings.tras_respuesta) document.getElementById('quickQueries')?.classList.remove('hidden')
     scrollToBottom()
+    // Rearmar el aviso: si no, tras un error de red no saldría ningún aviso hasta
+    // el próximo envío exitoso. Arm-only obligatorio: el PATCH no ocurrió, así que
+    // la marca no puede avanzar (avanzarla fabricaría una ventana de resurrección).
+    armIdleTimer()
   }
 
   } finally {

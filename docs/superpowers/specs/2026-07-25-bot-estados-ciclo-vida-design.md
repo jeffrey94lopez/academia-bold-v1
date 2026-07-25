@@ -136,6 +136,7 @@ Cada clave tiene **un único consumidor**, así que no hay semántica compartida
 - Al llegar a `inactividad_aviso_min` se inserta un separador centrado que corta el hilo — línea horizontal + `⏱ ¿SIGUES AHÍ?` + subtexto "El chat se cierra solo en un rato" + píldora "Sí, sigo aquí". **No es una burbuja**: queda claro que no habló el bot.
 - **Una sola vez por conversación.** Un aviso que reaparece cada 5 minutos es una molestia, no una ayuda. Si el usuario se va de nuevo, el cron cierra a los 30 y el chat no insiste.
 - Cualquier acción del usuario (tocar la píldora o escribir) **borra el aviso completo** del hilo. No queda una pregunta muerta en el historial.
+- **Tocar "Sí, sigo aquí" extiende de verdad la conversación** (decisión del usuario en el review final, 2026-07-25): persiste `last_activity_at` en la base para que el barrido reinicie su cuenta. Si al momento del click la conversación ya estaba vencida, arranca fila nueva en vez de escribirle a la que el barrido ya cerró. El invariante que lo sostiene: **la marca local de última actividad solo avanza cuando una escritura que seteó `last_activity_at` tuvo éxito** — avanzarla sin escribir hacía que el guard midiera de menos y resucitara filas abandonadas.
 - **El aviso NO se persiste en `messages`.** Es UI, no conversación: si se guardara, contaminaría el historial que se le manda al LLM y las métricas de mensajes.
 - Estilo: tokens existentes (`--black-60`, `--black-40`, `--blue-20`, `--blue-100`). Sin colores nuevos.
 
