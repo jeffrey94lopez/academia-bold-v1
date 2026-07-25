@@ -99,11 +99,16 @@ declare
   v_min   int;
   v_count int;
 begin
-  -- El guard del regex es deliberado: si alguien escribe "treinta" en el
-  -- admin, cae al default en vez de reventar y dejar de correr para siempre.
+  -- Dos guards deliberados. El regex: si alguien escribe "treinta" en el admin,
+  -- cae al default en vez de reventar y dejar de correr para siempre. El > 0:
+  -- un cierre de 0 minutos haría que make_interval(mins => 0) marcara como
+  -- abandonada TODA conversación activa, incluidas las de gente chateando en
+  -- ese momento. Un 0 en esa clave se ignora y cae al default.
   select coalesce(
     (select value::int from app_settings
-      where key = 'inactividad_cierre_min' and value ~ '^[0-9]+$'),
+      where key = 'inactividad_cierre_min'
+        and value ~ '^[0-9]+$'
+        and value::int > 0),
     30) into v_min;
 
   update bodi_conversations
@@ -880,15 +885,19 @@ En `js/admin.js`, dentro del `<div class="space-y-3">` de la card "Comportamient
 En `js/admin.js`, **inmediatamente después** del bloque `.setting-toggle` (que termina en `}))` en ~L2257), insertar:
 
 ```js
-  // Settings numéricos (minutos de inactividad). Valida entero ≥ 0 y revierte
-  // al valor anterior si falla, igual que el handler de los switches.
+  // Settings numéricos (minutos de inactividad). Revierte al valor anterior si
+  // falla, igual que el handler de los switches. El mínimo NO es el mismo para
+  // los dos campos: el aviso admite 0 (significa "no avisar"), pero un cierre
+  // de 0 haría que el barrido marcara como abandonada toda conversación activa,
+  // así que ahí el mínimo es 1. El barrido además se protege por su lado.
   document.querySelectorAll('.setting-number').forEach(inp => {
     let prev = inp.value
     inp.addEventListener('change', async () => {
-      const n = parseInt(inp.value, 10)
-      if (!Number.isInteger(n) || n < 0) {
+      const n   = parseInt(inp.value, 10)
+      const min = inp.dataset.setting === 'inactividad_cierre_min' ? 1 : 0
+      if (!Number.isInteger(n) || n < min) {
         inp.value = prev
-        showToast('Debe ser un número entero de minutos (0 o más)', 'error')
+        showToast(`Debe ser un número entero de minutos (${min} o más)`, 'error')
         return
       }
       const clave = inp.dataset.setting
