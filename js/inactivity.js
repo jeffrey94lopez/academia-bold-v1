@@ -1,0 +1,30 @@
+// Sub-proyecto B — lógica pura del rescate por inactividad del chat.
+// Import-safe (sin DOM, sin timers): el temporizador y el separador viven en
+// assistant.js. Acá solo vive lo que se puede testear en aislamiento.
+
+const AVISO_MIN_DEFAULT  = 5
+const CIERRE_MIN_DEFAULT = 30
+
+// Lee los minutos de app_settings y los devuelve en ms. Convención del
+// proyecto: clave ausente, vacía o no numérica ⇒ default (nunca reventar).
+// aviso = 0 apaga el aviso.
+export function inactivitySettings(rows) {
+  const map = Object.fromEntries((rows || []).map(r => [r.key, r.value]))
+  const minutes = (key, fallback) => {
+    const raw = map[key]
+    if (typeof raw !== 'string' || !/^\d+$/.test(raw.trim())) return fallback
+    return parseInt(raw.trim(), 10)
+  }
+  return {
+    avisoMs:  minutes('inactividad_aviso_min',  AVISO_MIN_DEFAULT)  * 60000,
+    cierreMs: minutes('inactividad_cierre_min', CIERRE_MIN_DEFAULT) * 60000,
+  }
+}
+
+// true si el hueco desde la última actividad ya alcanzó el umbral de cierre:
+// el cron pudo haberla marcado como abandonada, así que NO hay que escribirle
+// encima (la resucitaría con mensajes nuevos). Se arranca fila nueva.
+export function isStaleConversation(lastActivityMs, nowMs, cierreMs) {
+  if (!lastActivityMs || !cierreMs) return false
+  return (nowMs - lastActivityMs) >= cierreMs
+}
