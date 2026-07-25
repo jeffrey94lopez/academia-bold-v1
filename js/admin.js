@@ -2166,7 +2166,7 @@ async function renderSuggestionsPanel() {
   const { data: settingsRows, error: settingsError } = await supabase
     .from('app_settings')
     .select('key, value')
-    .in('key', ['chips_inicio', 'chips_tras_respuesta'])
+    .in('key', ['chips_inicio', 'chips_tras_respuesta', 'inactividad_aviso_min', 'inactividad_cierre_min'])
   const settings = Object.fromEntries((settingsRows || []).map(r => [r.key, r.value]))
 
   el.innerHTML = `
@@ -2190,6 +2190,20 @@ async function renderSuggestionsPanel() {
         <label class="flex items-center justify-between gap-3 ${settingsError ? 'opacity-50' : 'cursor-pointer'}">
           <span class="text-sm font-bold">Reaparecer después de cada respuesta</span>
           <input type="checkbox" data-setting="chips_tras_respuesta" class="setting-toggle w-4 h-4 accent-[var(--blue-100)]" ${settingsError ? 'disabled' : ''} ${settings.chips_tras_respuesta !== 'false' ? 'checked' : ''}>
+        </label>
+        <label class="flex items-center justify-between gap-3 ${settingsError ? 'opacity-50' : ''}">
+          <span class="text-sm font-bold">Avisar por inactividad a los <span class="font-normal text-[var(--black-40)]">(0 = no avisar)</span></span>
+          <span class="flex items-center gap-1 shrink-0">
+            <input type="number" min="0" max="240" data-setting="inactividad_aviso_min" class="setting-number w-16 px-2 py-1 rounded border border-[var(--blue-20)] text-xs text-right" ${settingsError ? 'disabled' : ''} value="${escapeHtml(settings.inactividad_aviso_min ?? '5')}">
+            <span class="text-xs text-[var(--black-40)]">min</span>
+          </span>
+        </label>
+        <label class="flex items-center justify-between gap-3 ${settingsError ? 'opacity-50' : ''}">
+          <span class="text-sm font-bold">Cerrar conversación inactiva a los</span>
+          <span class="flex items-center gap-1 shrink-0">
+            <input type="number" min="1" max="1440" data-setting="inactividad_cierre_min" class="setting-number w-16 px-2 py-1 rounded border border-[var(--blue-20)] text-xs text-right" ${settingsError ? 'disabled' : ''} value="${escapeHtml(settings.inactividad_cierre_min ?? '30')}">
+            <span class="text-xs text-[var(--black-40)]">min</span>
+          </span>
         </label>
       </div>
     </div>
@@ -2255,6 +2269,31 @@ async function renderSuggestionsPanel() {
     logActivity('update', 'bot_setting', clave)
     showToast('Configuración guardada')
   }))
+
+  // Settings numéricos (minutos de inactividad). Valida entero ≥ 0 y revierte
+  // al valor anterior si falla, igual que el handler de los switches.
+  document.querySelectorAll('.setting-number').forEach(inp => {
+    let prev = inp.value
+    inp.addEventListener('change', async () => {
+      const n = parseInt(inp.value, 10)
+      if (!Number.isInteger(n) || n < 0) {
+        inp.value = prev
+        showToast('Debe ser un número entero de minutos (0 o más)', 'error')
+        return
+      }
+      const clave = inp.dataset.setting
+      const { error } = await supabase.from('app_settings').upsert({ key: clave, value: String(n) })
+      if (error) {
+        inp.value = prev
+        showToast('Error al guardar: ' + error.message, 'error')
+        return
+      }
+      inp.value = String(n)
+      prev = String(n)
+      logActivity('update', 'bot_setting', clave)
+      showToast('Configuración guardada')
+    })
+  })
 
   document.querySelectorAll('.edit-sug').forEach(b => b.addEventListener('click', () => {
     document.getElementById('sugId').value = b.dataset.id
