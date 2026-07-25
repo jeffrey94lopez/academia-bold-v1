@@ -41,11 +41,17 @@ declare
   v_min   int;
   v_count int;
 begin
-  -- El guard del regex es deliberado: si alguien escribe "treinta" en el
-  -- admin, cae al default en vez de reventar y dejar de correr para siempre.
+  -- Dos muros de protección contra un 0 destructivo en inactividad_cierre_min:
+  -- (1) El frontend lo rechaza (min ≥ 1 en el handler de admin.js).
+  -- (2) Aquí también se requiere > 0: un 0 haría last_activity_at < now() - 0 min,
+  --     cierto para TODA conversación activa, marcándolas todas como abandonadas.
+  -- El guard del regex es deliberado: si alguien escribe "treinta" en el admin,
+  -- cae al default en vez de reventar y dejar de correr para siempre.
   select coalesce(
     (select value::int from app_settings
-      where key = 'inactividad_cierre_min' and value ~ '^[0-9]+$'),
+      where key = 'inactividad_cierre_min'
+        and value ~ '^[0-9]+$'
+        and value::int > 0),
     30) into v_min;
 
   update bodi_conversations

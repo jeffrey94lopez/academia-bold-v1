@@ -2270,15 +2270,19 @@ async function renderSuggestionsPanel() {
     showToast('Configuración guardada')
   }))
 
-  // Settings numéricos (minutos de inactividad). Valida entero ≥ 0 y revierte
-  // al valor anterior si falla, igual que el handler de los switches.
+  // Settings numéricos (minutos de inactividad). Valida entero según el campo:
+  // - inactividad_aviso_min: min ≥ 0 (0 = no avisar, es el único modo de desactivar)
+  // - inactividad_cierre_min: min ≥ 1 (0 es destructivo: marcaría TODAS las conversaciones
+  //   activas como abandonadas en el próximo barrido porque last_activity_at < now() - 0 min).
+  // La asimetría es deliberada. El SQL también guarda el >= 1 como segundo muro.
   document.querySelectorAll('.setting-number').forEach(inp => {
     let prev = inp.value
     inp.addEventListener('change', async () => {
-      const n = parseInt(inp.value, 10)
-      if (!Number.isInteger(n) || n < 0) {
+      const n   = parseInt(inp.value, 10)
+      const min = inp.dataset.setting === 'inactividad_cierre_min' ? 1 : 0
+      if (!Number.isInteger(n) || n < min) {
         inp.value = prev
-        showToast('Debe ser un número entero de minutos (0 o más)', 'error')
+        showToast(`Debe ser un número entero de minutos (${min} o más)`, 'error')
         return
       }
       const clave = inp.dataset.setting
