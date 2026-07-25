@@ -77,17 +77,23 @@ export async function renderExecAnalytics(from = null, to = null) {
       <div class="mt-3">${sentimentBar(s)}</div>
     </div>`
 
-  // Insights bot↔lecciones — exclusivo del Resumen.
-  const gapItems = gaps.slice(0, 4).map(g => `
+  // Insights bot↔lecciones — exclusivo del Resumen, partido en dos bloques.
+  const gapItem = g => `
     <div class="flex gap-2 p-2 rounded-lg bg-[var(--background-page)] border-l-2 border-[var(--warning-150)] mb-2">
       <span>${g.has_lesson ? '🔴' : '🔗'}</span>
       <div><p class="text-xs font-bold text-[var(--black-100)]">${escapeHtml(g.category)} (${g.total})</p>
         <p class="text-[11px] text-[var(--black-60)]">${g.has_lesson ? `resuelve ${g.resolved_pct ?? '—'}% — revisar lección` : 'sin lección — oportunidad de contenido'}</p></div>
-    </div>`).join('') || '<p class="text-xs text-[var(--black-40)]">Sin huecos en el rango.</p>'
+    </div>`
+  const sinLeccion = gaps.filter(g => !g.has_lesson).slice(0, 4)
+  const conLeccion = gaps.filter(g => g.has_lesson).slice(0, 4)
+  const insightsBlock = (title, items, empty) => `
+    <p class="text-[11px] font-bold text-[var(--black-40)] uppercase tracking-wide mb-1 mt-2">${title}</p>
+    ${items.length ? items.map(gapItem).join('') : `<p class="text-xs text-[var(--black-40)]">${empty}</p>`}`
   const insightsPanel = `
     <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4">
       <p class="text-sm font-bold text-[var(--black-100)] mb-2">Insights bot ↔ lecciones ${llmNote()}</p>
-      ${gapItems}
+      ${insightsBlock('🔗 Huecos de contenido', sinLeccion, 'Sin huecos en el rango.')}
+      ${insightsBlock('🔴 Lecciones a revisar', conLeccion, 'Sin lecciones que revisar.')}
     </div>`
 
   // Formación — compacto abajo.
