@@ -58,7 +58,9 @@ La clave del diseño es que **opera sobre el string crudo**, no sobre la estruct
 
 - **Un solo camino sirve para los dos formatos.** El moderno sigue siendo JSON válido después del reemplazo (una URL por otra dentro de un valor string); el legacy es texto y el reemplazo le arregla el link igual.
 - **Es imposible que vacíe contenido.** No hay ninguna rama que produzca `[]` ni `''`: o devuelve un string que contiene todo lo que había (con la URL cambiada), o devuelve `null` y la fila no se toca.
-- **La regla 3 es el fail-closed.** Cubre el caso de que `newUrl` traiga un `"` o un `\` que invalide el JSON. Las URLs de Supabase Storage vienen percent-encoded y no deberían traerlos, pero el guard no depende de ese supuesto.
+- **La regla 3 es el fail-closed.** Cubre por completo el caso de un `\` en `newUrl`, y los casos de `"` que **invalidan** el JSON. **No** cubre un `"` construido de forma que el resultado siga siendo JSON válido: JSON permite claves duplicadas y gana la última, así que una `newUrl` como `q","text":"` podría dejar en blanco un campo posterior del mismo bloque sin que el guard lo note. La fila igual **nunca queda vacía** —la propiedad central se mantiene—, pero la afirmación más fuerte "no se puede perder contenido" no aplica a ese caso.
+
+  Hoy es inalcanzable: `newUrl` sale solo de `supabase.storage.getPublicUrl` sobre una ruta armada con un nombre de archivo saneado a `[a-zA-Z0-9._-]` (`js/upload.js:9`) y una carpeta saneada a `[a-zA-Z0-9\-_]` (`js/admin.js:1780`), y `encodeURI` escapa `"` a `%22` de todos modos. El cierre completo sería una línea antes de la sustitución (`if (newUrl.includes('"') || newUrl.includes('\\')) return null`); quedó como follow-up, no como parte del hotfix.
 
 Nota sobre el reemplazo por substring: si `oldUrl` fuera prefijo de otra URL distinta (`foo.png` y `foo.png.bak`), el reemplazo tocaría las dos. Se acepta: las URLs de Storage son completas y específicas, y el modo de falla (un link apuntando al archivo movido) es incomparablemente menos grave que vaciar la lección.
 
