@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { computeRange, sentimentBar } from '../js/analytics-ui.js'
+import { computeRange, sentimentBar, lifecycleBar } from '../js/analytics-ui.js'
 
 const now = new Date('2026-07-20T15:30:00') // hora local
 
@@ -58,4 +58,28 @@ test('base cero: no lanza y produce anchos 0%', () => {
 
 test('entrada indefinida no lanza', () => {
   assert.doesNotThrow(() => sentimentBar(undefined))
+})
+
+test('lifecycleBar muestra los tres conteos dentro de la barra', () => {
+  const html = lifecycleBar({ cerrada_cliente: 120, abandonada: 45, escalada: 18 })
+  assert.match(html, />120</)
+  assert.match(html, />45</)
+  assert.match(html, />18</)
+})
+
+test('lifecycleBar excluye en_curso del cálculo de anchos', () => {
+  const html = lifecycleBar({ cerrada_cliente: 2, abandonada: 1, escalada: 1, en_curso: 96 })
+  assert.match(html, /width:50%/)
+  assert.match(html, /width:25%/)
+  assert.doesNotMatch(html, />96</)
+})
+
+test('lifecycleBar con base cero no lanza y produce anchos 0%', () => {
+  let html
+  assert.doesNotThrow(() => { html = lifecycleBar({ cerrada_cliente: 0, abandonada: 0, escalada: 0 }) })
+  assert.match(html, /width:0%/)
+})
+
+test('lifecycleBar con entrada indefinida no lanza', () => {
+  assert.doesNotThrow(() => lifecycleBar(undefined))
 })

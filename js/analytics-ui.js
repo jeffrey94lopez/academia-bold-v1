@@ -73,18 +73,38 @@ export function llmNote() {
   return `<span class="text-[10px] text-[var(--blue-40)] font-semibold">✨ se afina con LLM</span>`
 }
 
-// Barra apilada de sentimiento con los conteos DENTRO de cada segmento.
-// Pura (sin DOM), reusada por el Resumen ejecutivo y el dashboard BolBot.
-// Devuelve solo la barra (sin margen); el consumidor la envuelve con su spacing.
+// Barra apilada genérica con los conteos DENTRO de cada segmento. Interna: la
+// comparten sentimentBar y lifecycleBar, que solo difieren en colores y
+// etiquetas. Devuelve solo la barra (sin margen); el consumidor la envuelve
+// con su propio spacing.
+function stackedBar(segments) {
+  const total = segments.reduce((sum, s) => sum + s.count, 0) || 1
+  const seg = s => `
+      <div class="flex items-center justify-center ${s.colorClass} ${s.textClass} text-[10px] font-bold overflow-hidden whitespace-nowrap" style="width:${Math.round(100 * s.count / total)}%" title="${s.count} ${s.label}">${s.count > 0 ? s.count : ''}</div>`
+  return `
+    <div class="flex h-5 rounded-full overflow-hidden">${segments.map(seg).join('')}
+    </div>`
+}
+
+// Sentimiento (pos/neu/neg), reusada por el Resumen ejecutivo y el dashboard
+// BolBot.
 export function sentimentBar(sentiment) {
   const s = sentiment || {}
-  const pos = s.positivo || 0
-  const neu = s.neutro || 0
-  const neg = s.negativo || 0
-  const total = (pos + neu + neg) || 1
-  const seg = (count, label, colorClass, textClass) => `
-      <div class="flex items-center justify-center ${colorClass} ${textClass} text-[10px] font-bold overflow-hidden whitespace-nowrap" style="width:${Math.round(100 * count / total)}%" title="${count} ${label}">${count > 0 ? count : ''}</div>`
-  return `
-    <div class="flex h-5 rounded-full overflow-hidden">${seg(pos, 'positivas', 'bg-[var(--success-150)]', 'text-white')}${seg(neu, 'neutras', 'bg-[var(--black-10)]', 'text-[var(--black-60)]')}${seg(neg, 'negativas', 'bg-[var(--error-100)]', 'text-white')}
-    </div>`
+  return stackedBar([
+    { count: s.positivo || 0, label: 'positivas', colorClass: 'bg-[var(--success-150)]', textClass: 'text-white' },
+    { count: s.neutro   || 0, label: 'neutras',   colorClass: 'bg-[var(--black-10)]',    textClass: 'text-[var(--black-60)]' },
+    { count: s.negativo || 0, label: 'negativas', colorClass: 'bg-[var(--error-100)]',   textClass: 'text-white' },
+  ])
+}
+
+// Cómo terminan las conversaciones. en_curso NO es segmento: se excluye del
+// total (son las vivas de la ventana de cierre) y el consumidor lo muestra
+// como nota al pie.
+export function lifecycleBar(lifecycle) {
+  const l = lifecycle || {}
+  return stackedBar([
+    { count: l.cerrada_cliente || 0, label: 'cerradas por el cliente', colorClass: 'bg-[var(--success-150)]', textClass: 'text-white' },
+    { count: l.abandonada      || 0, label: 'abandonadas',             colorClass: 'bg-[var(--black-10)]',    textClass: 'text-[var(--black-60)]' },
+    { count: l.escalada        || 0, label: 'escaladas a soporte',     colorClass: 'bg-[var(--warning-150)]', textClass: 'text-white' },
+  ])
 }
