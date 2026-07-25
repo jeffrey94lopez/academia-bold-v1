@@ -7,6 +7,7 @@ import { escapeHtml } from './utils.js'
 import { renderResultsPanel } from './admin-analytics.js'
 import { renderAnalytics } from './analytics-shell.js'
 import { logActivity } from './activity.js'
+import { remapContentUrl } from './content-url.js'
 
 const EMBED_WEBHOOK = 'https://n8n.mplasesores.com/webhook/embed-lesson'
 const EMBED_TOKEN   = 'BoldBodi-2026-K9xMvP7q'
@@ -1613,16 +1614,16 @@ async function renderGlossaryPanel() {
   bindGlosarioActions()
 }
 
+// El `contenido` de las lecciones es un STRING (se guarda con JSON.stringify,
+// ver el update de guardarLeccion) y puede ser JSON de bloques o HTML legacy.
+// remapContentUrl decide qué escribir y devuelve null cuando no hay que tocar
+// la fila; esta función no interpreta el formato.
 async function cascadeUpdateUrl(oldUrl, newUrl) {
   const { data: lessons } = await supabase.from('lecciones').select('id, contenido')
-  const affected = (lessons || []).filter(l =>
-    l.contenido && JSON.stringify(l.contenido).includes(oldUrl)
-  )
-  for (const l of affected) {
-    const updated = (Array.isArray(l.contenido) ? l.contenido : []).map(b =>
-      b.url === oldUrl ? { ...b, url: newUrl } : b
-    )
-    await supabase.from('lecciones').update({ contenido: updated }).eq('id', l.id)
+  for (const l of (lessons || [])) {
+    const next = remapContentUrl(l.contenido, oldUrl, newUrl)
+    if (next === null) continue
+    await supabase.from('lecciones').update({ contenido: next }).eq('id', l.id)
   }
   await supabase.from('material_apoyo').update({ url: newUrl }).eq('url', oldUrl)
 }
