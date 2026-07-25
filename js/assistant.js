@@ -635,6 +635,13 @@ function bindAssistantEvents() {
     sessionMessages = []
     history         = []
     clarifyCount    = 0
+    // Limpiar el chat también termina la conversación actual: igual que en
+    // resolveConversation, hay que apagar el rescate por inactividad para no
+    // arrastrar un timer/aviso de la conversación que se acaba de borrar.
+    clearIdleTimer()
+    removeIdleNotice()
+    idleNudged      = false
+    lastActivityMs  = 0
     renderAssistant()
   })
 
