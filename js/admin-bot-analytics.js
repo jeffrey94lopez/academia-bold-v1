@@ -2,7 +2,7 @@ import {
   fetchBotSummary, fetchBotConversations, fetchContentGaps,
 } from './analytics-api.js'
 import {
-  rangeControlsHtml, wireRangeControls, computeRange, kpiCard, llmNote, sentimentBar,
+  rangeControlsHtml, wireRangeControls, computeRange, kpiCard, llmNote, sentimentBar, lifecycleBar,
 } from './analytics-ui.js'
 import { escapeHtml, exportCSV } from './utils.js'
 import { pickContentToReinforce } from './bot-attention.js'
@@ -41,6 +41,16 @@ export async function renderBotAnalytics(from = null, to = null) {
         <p class="text-2xl font-black text-[var(--black-100)]">${k.sentiment_net > 0 ? '+' : ''}${k.sentiment_net ?? 0}</p>
         <div class="mt-2">${sentimentBar(s)}</div>
       </div>
+    </div>`
+
+  // Cómo terminan las conversaciones (sub-proyecto B). en_curso va como nota
+  // al pie, no como segmento: son las vivas de la ventana de cierre.
+  const lc = k.lifecycle || {}
+  const lifecyclePanel = `
+    <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4 mt-4">
+      <p class="text-sm font-bold text-[var(--black-100)] mb-2">Cómo terminan las conversaciones</p>
+      ${lifecycleBar(lc)}
+      <p class="text-[10px] text-[var(--black-60)] mt-2">cerró el cliente · abandonó · escaló${lc.en_curso ? ` · ${lc.en_curso} en curso` : ''}</p>
     </div>`
 
   // Capa ② — Requiere atención (señales accionables)
@@ -85,6 +95,7 @@ export async function renderBotAnalytics(from = null, to = null) {
       <button id="bot-export-csv" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-[var(--black-10)] text-[var(--black-60)] hover:bg-[var(--blue-10)]">⬇ CSV</button>
     </div>
     ${kpis}
+    ${lifecyclePanel}
     <p class="text-[10px] font-bold text-[var(--black-40)] uppercase tracking-wide mt-6 mb-2">Requiere tu atención</p>
     ${attention}
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-6">
@@ -154,7 +165,7 @@ function renderExplorer(convs) {
         <input id="bot-search" placeholder="🔎 buscar en mensajes…" class="px-2 py-1 rounded border border-[var(--blue-20)] text-xs flex-1 min-w-[160px]">
         ${filterChips('estado', 'Estado', [['', 'Todas'], ['no_resuelta', 'No resuelta'], ['resuelta', 'Resuelta'], ['ambigua', 'Ambigua']])}
         ${filterChips('sent', 'Sentimiento', [['', 'Todos'], ['positivo', 'Positivo'], ['neutro', 'Neutro'], ['negativo', 'Negativo']])}
-        ${filterChips('sup', 'Soporte', [['', 'Todas'], ['true', 'Escaló'], ['false', 'No escaló']])}
+        ${filterChips('life', 'Cierre', [['', 'Todas'], ['cerrada_cliente', 'Cerró'], ['abandonada', 'Abandonó'], ['escalada', 'Escaló']])}
       </div>
     </div>
     <div id="bot-conv-list" class="border-t border-[var(--blue-10)]">${convRows(convs)}</div>
@@ -166,13 +177,28 @@ function filterChips(group, label, opts) {
   return `<div class="flex items-center gap-1"><span class="text-[10px] font-bold text-[var(--black-40)] uppercase">${label}</span>${chips}</div>`
 }
 
+const LIFECYCLE_BADGE = {
+  cerrada_cliente: ['Cerró',    'var(--success-150)'],
+  abandonada:      ['Abandonó', 'var(--black-40)'],
+  escalada:        ['Escaló',   'var(--warning-150)'],
+  en_curso:        ['En curso', 'var(--blue-100)'],
+}
+
+// Un solo badge para el cierre: bajo "escalada gana", lifecycle = 'escalada'
+// equivale a support_redirected, así que este badge reemplaza al de soporte.
+function lifecycleBadge(lifecycle) {
+  const b = LIFECYCLE_BADGE[lifecycle]
+  if (!b) return ''
+  return `<span class="text-[10px] px-2 rounded-full border" style="border-color:${b[1]};color:${b[1]}">${b[0]}</span>`
+}
+
 function convRows(convs) {
   if (!convs.length) return '<p class="p-3 text-xs text-[var(--black-40)]">Sin conversaciones en el rango/filtros.</p>'
   return convs.map((c, i) => `
     <div class="bot-conv-row px-3 py-2 border-b border-[var(--blue-10)] cursor-pointer text-xs flex items-center gap-2" data-idx="${i}">
       <span class="flex-1 text-[var(--black-100)]">${escapeHtml((c.first_user_msg || '(sin mensaje)').slice(0, 90))}</span>
       ${c.sentiment === 'negativo' ? '<span class="text-[10px] px-2 rounded-full border border-[var(--error-100)] text-[var(--error-100)]">Neg</span>' : ''}
-      ${c.support_redirected ? '<span class="text-[10px] px-2 rounded-full border border-[var(--warning-150)] text-[var(--warning-150)]">Escaló</span>' : ''}
+      ${lifecycleBadge(c.lifecycle)}
       ${c.bot_no_info ? '<span class="text-[10px] px-2 rounded-full border border-[var(--warning-150)] text-[var(--warning-150)]">Sin info</span>' : ''}
       <span class="text-[var(--black-40)]">${escapeHtml(c.cat)}</span>
     </div>
@@ -188,13 +214,13 @@ function wireExplorer(el, convs, from, to) {
     toggle.textContent = hidden ? 'Filtros ▾' : 'Filtros ▴'
   })
 
-  const state = { estado: '', sent: '', sup: '', search: '' }
+  const state = { estado: '', sent: '', life: '', search: '' }
   const summaryEl = el.querySelector('#bot-filter-summary')
   const refresh = async () => {
     const filters = { limit: 100 }
     if (state.estado) filters.status = state.estado
     if (state.sent) filters.sentiment = state.sent
-    if (state.sup) filters.support = state.sup === 'true'
+    if (state.life) filters.lifecycle = state.life
     if (state.search) filters.search = state.search
     const rows = await fetchBotConversations(from, to, filters)
     el.querySelector('#bot-conv-list').innerHTML = convRows(rows)
@@ -245,7 +271,7 @@ function exportBotCsv(convs) {
     { label: 'Categoría', getValue: r => r.cat },
     { label: 'Estado', getValue: r => r.eff_status || '' },
     { label: 'Sentimiento', getValue: r => r.sentiment || '' },
-    { label: 'Escaló', getValue: r => r.support_redirected ? 'Sí' : 'No' },
+    { label: 'Cómo terminó', getValue: r => r.lifecycle || '' },
     { label: 'Primera pregunta', getValue: r => r.first_user_msg || '' },
     { label: 'Mensajes (JSON)', getValue: r => JSON.stringify(r.messages || []) },
   ])
