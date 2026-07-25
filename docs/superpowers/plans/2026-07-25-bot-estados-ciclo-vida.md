@@ -32,8 +32,8 @@
 - `js/assistant.js` — **Modify:** temporizador, separador, `last_activity_at`, guard de conversación vencida; **borrar** `ABANDON_URL` y el `beforeunload`.
 - `js/live-updates.js` — **Modify:** recargar los minutos por realtime (import + `onSettingsChange`).
 - `js/admin.js` — **Modify:** los dos campos numéricos + handler `.setting-number`.
-- `js/analytics-ui.js` — **Modify:** agregar `lifecycleBar`.
-- `tests/analytics-ui.test.mjs` — **Modify:** tests de `lifecycleBar`.
+- `js/analytics-ui.js` — **Modify:** extraer `stackedBar` interno, reescribir `sentimentBar` sobre él, agregar `lifecycleBar`.
+- `tests/analytics-ui.test.mjs` — **Modify:** agregar tests de `lifecycleBar` (los 4 de `sentimentBar` NO se tocan).
 - `js/analytics-api.js` — **Modify:** pasar `p_lifecycle`.
 - `js/admin-bot-analytics.js` — **Modify:** card nueva, badge, chips de filtro, columna CSV.
 
