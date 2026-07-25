@@ -49,7 +49,7 @@ remapContentUrl(raw, oldUrl, newUrl) => string | null
 
 1. Si `raw` es falsy o no es string → `null`. Si `oldUrl` o `newUrl` no son strings no vacíos → `null`. Si `raw` no incluye `oldUrl` → `null`. (Nada que cambiar, o no hay con qué; no se toca la fila.)
 
-   El guard sobre `newUrl` no es decorativo: sin él, un `newUrl` `undefined` haría que `split().join()` escribiera literalmente la palabra `undefined` dentro del contenido, y uno vacío borraría la URL. Los dos casos son silenciosos.
+   El guard sobre `newUrl` no es decorativo: sin él, un `newUrl` `undefined` haría que `join()` cayera a su separador por defecto y devolviera los fragmentos unidos por comas —desarmando todo el contenido, no solo la URL—, y uno vacío borraría la URL dejando el resto intacto. Los dos casos son silenciosos.
 2. Reemplazar **todas** las ocurrencias de `oldUrl` por `newUrl` sobre el texto crudo.
 3. Si `raw` parseaba como JSON y el resultado **no** parsea → `null`. Se niega a escribir algo que acaba de romper.
 4. Si no, devolver el string nuevo.
