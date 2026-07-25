@@ -727,7 +727,7 @@ function registerActivity() {
 >
 > **`lastActivityMs` solo puede avanzar cuando una escritura que efectivamente seteó `last_activity_at` tuvo éxito.**
 >
-> Se parte en dos: una función que marca **y** arma (solo después de una escritura exitosa) y otra que **solo arma**. Los sitios que arman sin escribir (el `catch` de `sendMessage`, el rearmado por cambio de settings en vivo) usan la segunda. Ver `final-fix-report.md` en el workspace del plan.
+> Se parte en dos: `markActivity(atMs)` que marca **y** arma (solo después de una escritura exitosa, y recibe el instante exacto que se escribió en vez de un `Date.now()` posterior al `await`), y `armIdleTimer()` que **solo arma**. Los sitios que arman sin escribir usan la segunda. La tabla de prueba está al final de este documento.
 
 // Separador de sistema. NO se persiste en messages: es UI, no conversación —
 // si se guardara contaminaría el historial que se le manda al LLM.
@@ -1238,3 +1238,25 @@ git commit -m "feat: card 'Cómo terminan las conversaciones' + badge y filtro d
 **Fuera de alcance (no implementar):** tendencia de abandono en el tiempo; tocar `resolution_status`/`resolved`; auto-eval con LLM (①c); reabrir conversaciones cerradas; notificar al usuario que su conversación se cerró.
 
 **Pendiente manual del usuario, además de las migraciones:** borrar el workflow `Bodi Abandon Webhook` (id `x3sImBnivO1XAHxp`) de n8n, que quedó sin consumidor.
+
+---
+
+## Apéndice — tabla de prueba del invariante del espejo
+
+Verificada de forma independiente en el re-review del 2026-07-25. **Regla: toda fila que avanza el espejo tiene una escritura de `last_activity_at` detrás; toda fila que no escribe usa el camino que solo arma.** Sitios en `js/assistant.js`:
+
+| Sitio | ¿Avanza `lastActivityMs`? | ¿Escritura que lo respalde? |
+|---|---|---|
+| `sendMessage` con éxito | Sí — `markActivity(Date.parse(nowIso))` | Sí — el mismo `nowIso` va en el PATCH |
+| `sendMessage` en el `catch` | No — `armIdleTimer()` | No — el PATCH nunca corrió |
+| Píldora, no vencida | Sí — `markActivity(Date.parse(nowIso))` | Sí — `upsertConversation({last_activity_at: nowIso})` justo antes |
+| Píldora, ya vencida | No — suelta la fila | No — deliberadamente no se le escribe a la fila muerta |
+| Píldora sin `conversationId` | No | N/A |
+| Rearmado por settings en vivo | No — `armIdleTimer()` | No — solo cambiaron los settings |
+| Aviso apagado en settings | No — `clearIdleTimer()` | No |
+| `createConversation` tras el insert | Sí — `Date.now()` | Sí — el default `now()` de la columna (aproximación: reloj del cliente vs del servidor, inherente a no hacer un round-trip con `.select()`) |
+| `resolveConversation` | No — libera la fila y limpia el timer | Sí, el PATCH incluye `last_activity_at`, pero la conversación termina |
+| Botón "Limpiar" | Resetea a `0` | N/A — se descarta la conversación local |
+| Guard de vencida en `sendMessage` | No | N/A — libera la fila |
+
+**Línea de tiempo que motivó todo esto**, caminada sobre el código corregido: 10:00 el usuario escribe (espejo = columna = 10:00) → 10:05 aparece el separador → ~10:30 el cron abandona la fila con `ended_at=10:00` → 11:20 el usuario vuelve y toca la píldora: `isStaleConversation(10:00, 11:20, 30min)` da `true`, así que se suelta la fila **sin escribirle** → 11:25 escribe y se crea fila nueva. La fila de las 10:00 queda `abandoned` con `ended_at=10:00` y sin mensajes nuevos adentro.
