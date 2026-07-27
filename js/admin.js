@@ -3160,6 +3160,7 @@ function renderRevisionEnlaces({ rotas, noVerificables, usos }) {
           <p class="font-bold text-xs mb-1">${escapeHtml(displayName(url.split('/').pop()))}</p>
           <p class="text-[10px] text-[var(--black-40)] break-all mb-2">${escapeHtml(url)}</p>
           <ul class="list-disc pl-4 mb-2">${listaDeUsos(url)}</ul>
+          <button class="fix-link px-3 py-1.5 rounded-lg bg-[var(--blue-100)] text-white text-xs font-bold" data-url="${escapeHtml(url)}">Reemplazar…</button>
         </div>
       `).join('')}
     </div>` : ''
@@ -3177,6 +3178,28 @@ function renderRevisionEnlaces({ rotas, noVerificables, usos }) {
     </div>` : ''
 
   body.innerHTML = bloqueRotas + bloqueDudosas
+
+  // Solo las rotas confirmadas tienen botón: las "sin verificar" no ofrecen
+  // reemplazo a propósito (fail-closed).
+  body.querySelectorAll('.fix-link').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const rota = btn.dataset.url
+      openMediaLibrary(async nueva => {
+        if (!nueva || nueva === rota) return
+        btn.disabled = true
+        btn.textContent = 'Reemplazando...'
+        try {
+          await cascadeUpdateUrl(rota, nueva)
+          showToast('Enlace reemplazado')
+          await abrirRevisionEnlaces()
+        } catch (e) {
+          showToast('Error al reemplazar: ' + e.message, 'error')
+          btn.disabled = false
+          btn.textContent = 'Reemplazar…'
+        }
+      })
+    })
+  })
 }
 
 function openRenameModal(path, currentDisplayName) {
