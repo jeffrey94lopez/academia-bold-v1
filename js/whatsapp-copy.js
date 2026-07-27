@@ -1,3 +1,5 @@
+import { parseLessonBlocks } from './lesson-blocks.js'
+
 function htmlToWhatsApp(node) {
   if (node.nodeType === Node.TEXT_NODE) return node.textContent
 
@@ -37,11 +39,7 @@ export function lessonToWhatsApp(lesson) {
   if (lesson.descripcion) lines.push(`_${lesson.descripcion}_`)
   lines.push('')
 
-  let blocks = []
-  try {
-    const p = JSON.parse(lesson.contenido)
-    if (Array.isArray(p)) blocks = p
-  } catch (_) {}
+  const blocks = parseLessonBlocks(lesson.contenido)
 
   let stepNum = 0
   for (const b of blocks) {
@@ -51,6 +49,10 @@ export function lessonToWhatsApp(lesson) {
       const isHtml = /<[a-z]/i.test(b.text)
       const text = isHtml ? htmlStepToWhatsApp(b.text) : b.text
       lines.push(`${stepNum}. ${text}`)
+    } else if (b.type === 'html' && b.html) {
+      // Contenido legacy: se convierte con el mismo traductor que los steps
+      // con HTML, pero sin numerarlo (no es un paso).
+      lines.push(htmlStepToWhatsApp(String(b.html)))
     } else if (b.type === 'video' && b.url) {
       const label = b.label ? `${b.label}: ` : ''
       lines.push(`▶ ${label}${b.url}`)
