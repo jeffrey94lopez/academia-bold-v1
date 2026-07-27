@@ -39,9 +39,13 @@
 5. **La confirmación es `fileExists` contra la API de Storage, no un HEAD al CDN.** El HEAD devolvía 200 para un objeto borrado (caché del CDN) y el endpoint responde 400 —no 404— cuando falta. Ver la sección correspondiente del spec. Suma `pathFromBucketUrl` a `js/bucket-urls.js` (puro, con tests) y `fileExists` a `js/upload.js`.
 6. **El z-index del modal va inline (`modal.style.zIndex = '40'`), no como clase.** `css/tw.css` está compilado: una clase `z-40` que no existía al buildear no está en el CSS y el modal quedaba en `z-index: auto`.
 
-### Bloqueo encontrado en la verificación: `move` no está permitido en Storage
+### Bloqueo encontrado en la verificación: `move` no está permitido en Storage — RESUELTO con copy+remove
 
-`renameFile` y `moveFile` fallan con `StorageApiError: Object not found` (HTTP 400). Medido con sesión válida: `copy` funciona, `remove` funciona, `move` falla incluso sobre una copia recién creada. Falta la policy de **UPDATE** sobre `storage.objects` para el bucket `material`. El fix de la puerta 3 es correcto pero no se puede ejercitar hasta resolverlo: `renameFile` lanza antes de llegar a `cascadeUpdateUrl`. Decisión pendiente del usuario: agregar la policy en Supabase, o implementar el move como `copy` + `remove` en el frontend.
+`renameFile` y `moveFile` fallaban con `StorageApiError: Object not found` (HTTP 400). Medido con sesión válida: `copy` funciona, `remove` funciona, `move` falla incluso sobre una copia recién creada → falta la policy de **UPDATE** sobre `storage.objects` para el bucket `material`. O sea: renombrar y arrastrar-a-carpeta **nunca funcionaron**, y la cascada de URLs (puerta 1, en producción) nunca llegaba a correr.
+
+Decisión del usuario: **implementar el move como `copy` + `remove`** en `js/upload.js` (`moveObject`), sin tocar las policies. Si el `remove` falla no se aborta: el destino ya existe, así que el movimiento lógico está hecho y las referencias se pueden actualizar; queda un objeto huérfano, no contenido perdido.
+
+Verificado en navegador de punta a punta: renombrar mueve el objeto (sin dejar huérfano) y actualiza la URL de la lección; mover a una carpeta también funciona.
 
 ### Limitación conocida que no se arregla acá
 
