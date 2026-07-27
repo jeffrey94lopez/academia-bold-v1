@@ -112,6 +112,25 @@ export async function fileExists(path) {
   return (data || []).some(f => f.name === nombre)
 }
 
+// Mueve un objeto en dos pasos, copy + remove, en vez de usar `move`.
+//
+// El bucket no permite `move`: falta la policy de UPDATE sobre storage.objects y
+// la API responde 400 "Object not found" incluso sobre un objeto propio recién
+// creado (verificado 2026-07-27; copy, remove y list sí funcionan). Con `move`
+// crudo, renombrar y arrastrar-a-carpeta fallaban siempre.
+//
+// Si el remove falla, NO se aborta: el destino ya existe, así que el movimiento
+// lógico está hecho y el llamador puede actualizar las referencias. Lo que queda
+// es un objeto huérfano ocupando espacio, no contenido perdido.
+async function moveObject(oldPath, newPath) {
+  const { error: errorCopia } = await supabase.storage.from(BUCKET).copy(oldPath, newPath)
+  if (errorCopia) throw errorCopia
+  const { error: errorBorrado } = await supabase.storage.from(BUCKET).remove([oldPath])
+  if (errorBorrado) {
+    console.warn(`[upload] copia hecha en ${newPath} pero no se pudo borrar ${oldPath}:`, errorBorrado.message)
+  }
+}
+
 export async function createFolder(folderPath) {
   const placeholder = `${folderPath}/.emptyFolderPlaceholder`
   const { error } = await supabase.storage.from(BUCKET).upload(placeholder, new Blob(['']), { upsert: true })
@@ -137,8 +156,7 @@ export async function renameFile(oldPath, newDisplayName) {
   // La URL vieja se calcula ANTES de mover, y se devuelve junto con la nueva:
   // misma forma que moveFile, para que el llamador pueda hacer la cascada.
   const oldUrl = publicUrlFor(oldPath)
-  const { error } = await supabase.storage.from(BUCKET).move(oldPath, newPath)
-  if (error) throw error
+  await moveObject(oldPath, newPath)
   return { newPath, newUrl: publicUrlFor(newPath), oldUrl }
 }
 
@@ -147,8 +165,6 @@ export async function moveFile(oldPath, targetFolderPath) {
   const newPath = targetFolderPath ? `${targetFolderPath}/${filename}` : filename
   const oldUrl = supabase.storage.from(BUCKET).getPublicUrl(oldPath).data.publicUrl
   if (oldPath === newPath) return { newPath, newUrl: oldUrl, oldUrl }
-  const { error } = await supabase.storage.from(BUCKET).move(oldPath, newPath)
-  if (error) throw error
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(newPath)
-  return { newPath, newUrl: data.publicUrl, oldUrl }
+  await moveObject(oldPath, newPath)
+  return { newPath, newUrl: publicUrlFor(newPath), oldUrl }
 }
