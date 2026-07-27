@@ -3057,41 +3057,55 @@ async function verificarUrl(url) {
   }
 }
 
-// Devuelve { rotas, noVerificables, usos }. NO escribe nada.
-// Si el inventario del bucket falla, lanza: sin inventario completo no se puede
-// afirmar que algo esté roto.
+// Todas las URLs del bucket que menciona una fila, mirando CUALQUIER columna de
+// texto y no un campo elegido a mano. Es lo que hace defendible la lista de
+// huérfanos: si el escaneo se saltea un campo donde alguien pegó una URL, ese
+// archivo aparecería como "no lo usa nadie" y se podría borrar estando en uso.
+function urlsDeFila(row, prefijo) {
+  const out = []
+  for (const valor of Object.values(row || {})) {
+    if (typeof valor === 'string') out.push(...extractBucketUrls(valor, prefijo))
+  }
+  return out
+}
+
+// Tablas con texto libre donde puede haber quedado pegada una URL del bucket.
+// `titulo` es la columna que se muestra para identificar la fila.
+const TABLAS_CON_URLS = [
+  { tabla: 'lecciones',             tipo: 'Lección',             titulo: 'titulo' },
+  { tabla: 'material_apoyo',        tipo: 'Material de apoyo',   titulo: 'titulo' },
+  { tabla: 'preguntas_frecuentes',  tipo: 'Pregunta frecuente',  titulo: 'pregunta' },
+  { tabla: 'glosario',              tipo: 'Término del glosario', titulo: 'termino' },
+  { tabla: 'bot_sugerencias',       tipo: 'Sugerencia del bot',  titulo: 'texto' },
+]
+
+// Devuelve { rotas, noVerificables, huerfanos, usos }. NO escribe nada.
+// Si el inventario del bucket o alguna consulta falla, lanza: sin datos
+// completos no se puede afirmar ni que algo esté roto ni que nadie lo use.
 async function escanearEnlaces() {
   const prefijo = publicUrlPrefix()
-  const rutas = await listAllFiles()
-  const existentes = new Set(rutas.map(f => f.url))
+  const archivos = await listAllFiles()
+  const existentes = new Set(archivos.map(f => f.url))
 
-  const [lecciones, materiales, faqs] = await Promise.all([
-    supabase.from('lecciones').select('id, titulo, contenido'),
-    supabase.from('material_apoyo').select('id, titulo, url'),
-    supabase.from('preguntas_frecuentes').select('id, pregunta, link_url'),
-  ])
-  if (lecciones.error || materiales.error || faqs.error) throw new Error('No se pudieron leer las referencias')
+  const resultados = await Promise.all(
+    TABLAS_CON_URLS.map(t => supabase.from(t.tabla).select('*'))
+  )
+  const fallo = resultados.find(r => r.error)
+  if (fallo) throw new Error('No se pudieron leer las referencias: ' + fallo.error.message)
 
   const usos = new Map()
   const anotar = (url, uso) => {
     if (!usos.has(url)) usos.set(url, [])
     usos.get(url).push(uso)
   }
-  for (const l of lecciones.data || []) {
-    for (const url of extractBucketUrls(l.contenido, prefijo)) {
-      anotar(url, { tipo: 'Lección', titulo: l.titulo || '(sin título)' })
+  resultados.forEach((res, i) => {
+    const def = TABLAS_CON_URLS[i]
+    for (const row of res.data || []) {
+      for (const url of urlsDeFila(row, prefijo)) {
+        anotar(url, { tipo: def.tipo, titulo: row[def.titulo] || '(sin título)' })
+      }
     }
-  }
-  for (const m of materiales.data || []) {
-    for (const url of extractBucketUrls(m.url, prefijo)) {
-      anotar(url, { tipo: 'Material de apoyo', titulo: m.titulo || '(sin título)' })
-    }
-  }
-  for (const f of faqs.data || []) {
-    for (const url of extractBucketUrls(f.link_url, prefijo)) {
-      anotar(url, { tipo: 'Pregunta frecuente', titulo: f.pregunta || '(sin título)' })
-    }
-  }
+  })
 
   const candidatas = diffBrokenUrls([...usos.keys()], [...existentes])
   const rotas = []
@@ -3103,7 +3117,11 @@ async function escanearEnlaces() {
       else if (estado === 'desconocido') noVerificables.push(url)
     }
   }
-  return { rotas, noVerificables, usos }
+
+  // Huérfanos: están en el bucket y ninguna fila los menciona.
+  const huerfanos = archivos.filter(f => !usos.has(f.url))
+
+  return { rotas, noVerificables, huerfanos, usos }
 }
 
 // z-40 a propósito: el selector de biblioteca (#mediaLibraryModal) es z-50 y
@@ -3151,12 +3169,13 @@ async function abrirRevisionEnlaces() {
   renderRevisionEnlaces(resultado)
 }
 
-function renderRevisionEnlaces({ rotas, noVerificables, usos }) {
+function renderRevisionEnlaces({ rotas, noVerificables, huerfanos, usos }) {
   const body = document.getElementById('brokenLinksBody')
   if (!body) return
 
-  if (!rotas.length && !noVerificables.length) {
-    body.innerHTML = '<p class="text-[var(--black-60)] py-6 text-center">✅ Todos los enlaces apuntan a archivos que existen.</p>'
+  const sinHallazgos = !rotas.length && !noVerificables.length && !huerfanos.length
+  if (sinHallazgos) {
+    body.innerHTML = '<p class="text-[var(--black-60)] py-6 text-center">✅ Todos los enlaces apuntan a archivos que existen, y no hay archivos sin usar.</p>'
     return
   }
 
@@ -3189,7 +3208,45 @@ function renderRevisionEnlaces({ rotas, noVerificables, usos }) {
       `).join('')}
     </div>` : ''
 
-  body.innerHTML = bloqueRotas + bloqueDudosas
+  // Huérfanos: están en el bucket y ninguna fila de la base los menciona. El
+  // borrado es uno por uno y con confirmación a propósito — un archivo puede
+  // estar linkeado FUERA de la Academia (WhatsApp, otro sitio) y eso el escaneo
+  // no lo puede saber, así que no hay "borrar todos".
+  const bloqueHuerfanos = huerfanos.length ? `
+    <p class="font-bold text-[var(--black-60)] mb-1 mt-2">${huerfanos.length} ${huerfanos.length === 1 ? 'archivo sin usar' : 'archivos sin usar'}</p>
+    <p class="text-xs text-[var(--black-60)] mb-2">Ninguna lección, material, pregunta frecuente, término ni sugerencia los menciona <span class="font-bold">dentro de la Academia</span>. Si compartiste el link por fuera (WhatsApp, otro sitio), borrarlos lo rompe.</p>
+    <div class="space-y-2">
+      ${huerfanos.map(f => `
+        <div class="border border-[var(--blue-10)] rounded-xl p-3 flex items-center gap-2">
+          <div class="flex-1 min-w-0">
+            <p class="font-bold text-xs truncate" title="${escapeHtml(f.path)}">${escapeHtml(displayName(f.path.split('/').pop()))}</p>
+            <p class="text-[10px] text-[var(--black-40)] truncate">${escapeHtml(f.path.includes('/') ? '📁 ' + f.path.slice(0, f.path.lastIndexOf('/')) + ' · ' : '')}${formatBytes(f.size) || '—'}</p>
+          </div>
+          <button class="drop-orphan px-3 py-1.5 rounded-lg border border-[var(--coral-100)] text-[var(--coral-100)] text-xs font-bold shrink-0"
+            data-path="${escapeHtml(f.path)}" data-display="${escapeHtml(displayName(f.path.split('/').pop()))}">Eliminar</button>
+        </div>
+      `).join('')}
+    </div>` : ''
+
+  body.innerHTML = bloqueRotas + bloqueDudosas + bloqueHuerfanos
+
+  body.querySelectorAll('.drop-orphan').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm(`¿Eliminar "${btn.dataset.display}"?\nNadie lo usa dentro de la Academia.\nEsta acción no se puede deshacer.`)) return
+      btn.disabled = true
+      btn.textContent = 'Eliminando...'
+      try {
+        await deleteFile(btn.dataset.path)
+        logActivity('delete', 'image', btn.dataset.display, { motivo: 'huérfano' })
+        showToast('Archivo eliminado')
+        await abrirRevisionEnlaces()
+      } catch (e) {
+        showToast('Error al eliminar: ' + e.message, 'error')
+        btn.disabled = false
+        btn.textContent = 'Eliminar'
+      }
+    })
+  })
 
   // Solo las rotas confirmadas tienen botón: las "sin verificar" no ofrecen
   // reemplazo a propósito (fail-closed).
