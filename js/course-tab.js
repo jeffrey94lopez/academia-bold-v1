@@ -6,6 +6,7 @@ import { supabase } from './supabase.js'
 import { loadSession, registerStudent, showExamModal } from './course.js'
 import { renderCertificate } from './certificate.js'
 import { renderBlocks } from './block-renderer.js'
+import { parseLessonBlocks } from './lesson-blocks.js'
 import { escapeHtml } from './utils.js'
 import { track } from './analytics.js'
 
@@ -212,17 +213,10 @@ function renderLesson(lesson) {
   inner.style.cssText = 'max-width:720px;margin:0 auto'
   panel.appendChild(inner)
 
-  let blocks = []
-  try {
-    const parsed = JSON.parse(lesson.contenido)
-    if (Array.isArray(parsed)) blocks = parsed
-  } catch (_) {}
+  // El contenido legacy llega como bloque html; renderBlocks lo pinta.
+  const blocks = parseLessonBlocks(lesson.contenido)
   if (blocks.length) {
     inner.appendChild(renderBlocks(blocks))
-  } else if (lesson.contenido) {
-    const div = document.createElement('div')
-    div.innerHTML = lesson.contenido
-    inner.appendChild(div)
   }
 
   document.getElementById('cr-back').addEventListener('click', renderHome)

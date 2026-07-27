@@ -1,5 +1,6 @@
 ﻿import { supabase } from './supabase.js'
 import { renderBlocks } from './block-renderer.js'
+import { parseLessonBlocks } from './lesson-blocks.js'
 import { track } from './analytics.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml } from './utils.js'
@@ -175,13 +176,7 @@ async function renderLessons() {
     const idx = catLessons.findIndex(l => l.id === lesson.id)
     const lessonIdx = idx >= 0 ? idx + 1 : '?'
 
-    let blocks = []
-    let isLegacy = false
-    try {
-      const p = JSON.parse(lesson.contenido)
-      if (Array.isArray(p)) blocks = p
-      else isLegacy = true
-    } catch (_) { isLegacy = true }
+    const blocks = parseLessonBlocks(lesson.contenido)
 
     let topVideo = null, restBlocks = blocks
     if (blocks[0]?.type === 'video') { topVideo = blocks[0]; restBlocks = blocks.slice(1) }
@@ -197,12 +192,10 @@ async function renderLessons() {
 
     inner.append(titleEl, metaEl)
 
+    // El contenido legacy ya viene como bloque html desde parseLessonBlocks:
+    // no hace falta una rama aparte acá.
     if (restBlocks.length > 0) {
       inner.appendChild(renderBlocks(restBlocks))
-    } else if (isLegacy && lesson.contenido) {
-      const div = document.createElement('div')
-      div.innerHTML = lesson.contenido
-      inner.append(div)
     }
 
     if (lesson.notas) {

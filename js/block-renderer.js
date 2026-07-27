@@ -27,6 +27,18 @@ export function renderBlocks(blocks) {
       wrap.append(circle, textEl)
       frag.append(wrap)
 
+    } else if (block.type === 'html') {
+      // Contenido legacy: HTML crudo escrito a mano. Se pinta sin decoración,
+      // exactamente como lo hacía js/lessons.js antes de unificar el parseo.
+      // NO se convierte a `step`: eso le agregaría un círculo numerado y
+      // cambiaría el aspecto de la lección para el alumno.
+      const raw = block.html != null ? String(block.html) : ''
+      if (!raw) continue
+      const wrap = document.createElement('div')
+      wrap.style.cssText = 'margin-bottom:14px'
+      wrap.innerHTML = raw
+      frag.append(wrap)
+
     } else if (block.type === 'image') {
       let validUrl = false
       try { new URL(block.url); validUrl = true } catch (_) {}
