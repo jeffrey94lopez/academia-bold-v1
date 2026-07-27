@@ -1,5 +1,52 @@
 import { renderStepText } from './step-formatter.js'
 import { getYouTubeId } from './utils.js'
+import { isAllowedTag, isDroppedWithContent, isAllowedAttr, isSafeUrlValue } from './html-policy.js'
+
+// Pinta HTML legacy dentro de `container` aplicando la política de
+// js/html-policy.js. La política decide qué se permite; acá está solo la
+// mecánica: parsear en un documento inerte, recorrer y limpiar.
+//
+// Se parsea con DOMParser y no con innerHTML sobre un div: en un documento
+// inerte las imágenes no se piden y los onerror no corren mientras se limpia.
+export function sanitizeInto(container, html) {
+  const doc = new DOMParser().parseFromString(String(html), 'text/html')
+
+  const limpiar = nodo => {
+    for (const hijo of [...nodo.childNodes]) {
+      if (hijo.nodeType === 8) { hijo.remove(); continue }  // comentarios
+      if (hijo.nodeType !== 1) continue                     // texto: se deja
+      const tag = hijo.tagName.toLowerCase()
+
+      if (isDroppedWithContent(tag)) { hijo.remove(); continue }
+
+      if (!isAllowedTag(tag)) {
+        // Etiqueta desconocida: se desenvuelve para no perder el texto.
+        limpiar(hijo)
+        hijo.replaceWith(...hijo.childNodes)
+        continue
+      }
+
+      for (const attr of [...hijo.attributes]) {
+        const nombre = attr.name.toLowerCase()
+        if (!isAllowedAttr(tag, nombre)) { hijo.removeAttribute(attr.name); continue }
+        // href/src con un valor peligroso: se cae el atributo, no el elemento.
+        if ((nombre === 'href' || nombre === 'src') && !isSafeUrlValue(attr.value)) {
+          hijo.removeAttribute(attr.name)
+        }
+      }
+
+      if (tag === 'a' && hijo.hasAttribute('href')) {
+        hijo.setAttribute('target', '_blank')
+        hijo.setAttribute('rel', 'noopener noreferrer')
+      }
+
+      limpiar(hijo)
+    }
+  }
+
+  limpiar(doc.body)
+  container.append(...doc.body.childNodes)
+}
 
 export function renderBlocks(blocks) {
   if (!Array.isArray(blocks)) return document.createDocumentFragment()
@@ -36,7 +83,9 @@ export function renderBlocks(blocks) {
       if (!raw) continue
       const wrap = document.createElement('div')
       wrap.style.cssText = 'margin-bottom:14px'
-      wrap.innerHTML = raw
+      // Sanitizado, no innerHTML crudo: lo escribe un admin, pero un onerror
+      // en un atributo pasa la CSP igual (ver js/html-policy.js).
+      sanitizeInto(wrap, raw)
       frag.append(wrap)
 
     } else if (block.type === 'image') {
