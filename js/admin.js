@@ -1,6 +1,6 @@
 ﻿import { supabase } from './supabase.js'
 import { requireAuth, logout } from './auth.js'
-import { uploadFile, listFiles, deleteFile, renameFile, createFolder, moveFile, publicUrlPrefix, publicUrlFor } from './upload.js'
+import { uploadFile, listFiles, listAllFiles, deleteFile, renameFile, createFolder, moveFile, publicUrlPrefix, publicUrlFor } from './upload.js'
 import { renderBlocks } from './block-renderer.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml } from './utils.js'
@@ -1636,6 +1636,10 @@ async function cascadeUpdateUrl(oldUrl, newUrl) {
     await supabase.from('lecciones').update({ contenido: next }).eq('id', l.id)
   }
   await supabase.from('material_apoyo').update({ url: newUrl }).eq('url', oldUrl)
+  // preguntas_frecuentes.link_url es un "link externo" escrito a mano, pero nada
+  // impide pegar ahí la URL de un archivo del bucket. Si ninguna fila coincide,
+  // este update no hace nada.
+  await supabase.from('preguntas_frecuentes').update({ link_url: newUrl }).eq('link_url', oldUrl)
 }
 
 // Cuenta dónde se usa una URL antes de una acción destructiva. Devuelve null si
@@ -1643,27 +1647,31 @@ async function cascadeUpdateUrl(oldUrl, newUrl) {
 // pierde el detalle del aviso.
 async function contarUsosDeUrl(url) {
   try {
-    const [lecciones, materiales] = await Promise.all([
+    const [lecciones, materiales, faqs] = await Promise.all([
       supabase.from('lecciones').select('id, contenido'),
       supabase.from('material_apoyo').select('id, url'),
+      supabase.from('preguntas_frecuentes').select('id, link_url'),
     ])
-    if (lecciones.error || materiales.error) return null
+    if (lecciones.error || materiales.error || faqs.error) return null
     return {
       lecciones: countReferences(lecciones.data || [], 'contenido', url),
       materiales: countReferences(materiales.data || [], 'url', url),
+      faqs: countReferences(faqs.data || [], 'link_url', url),
     }
   } catch (_) {
     return null
   }
 }
 
-// "3 lecciones y 1 material de apoyo" — con singular/plural y sin mencionar lo
-// que da cero.
-function textoDeUsos({ lecciones, materiales }) {
+// "3 lecciones, 1 material de apoyo y 2 preguntas frecuentes" — con
+// singular/plural y sin mencionar lo que da cero.
+function textoDeUsos({ lecciones, materiales, faqs }) {
   const partes = []
   if (lecciones) partes.push(`${lecciones} ${lecciones === 1 ? 'lección' : 'lecciones'}`)
   if (materiales) partes.push(`${materiales} ${materiales === 1 ? 'material de apoyo' : 'materiales de apoyo'}`)
-  return partes.join(' y ')
+  if (faqs) partes.push(`${faqs} ${faqs === 1 ? 'pregunta frecuente' : 'preguntas frecuentes'}`)
+  if (partes.length < 2) return partes.join('')
+  return partes.slice(0, -1).join(', ') + ' y ' + partes[partes.length - 1]
 }
 
 async function handleFileMoveToFolder(oldPath, targetFolderPath) {
@@ -1706,9 +1714,14 @@ async function renderMaterialPanel() {
     <div class="max-w-4xl mx-auto">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-black">Biblioteca de archivos</h2>
-        <button id="newFolderBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[var(--blue-20)] text-xs font-bold text-[var(--black-60)] hover:bg-[var(--background-page)]">
-          <i data-lucide="folder-plus" class="w-3.5 h-3.5"></i> Nueva carpeta
-        </button>
+        <div class="flex items-center gap-2">
+          <button id="checkLinksBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[var(--blue-20)] text-xs font-bold text-[var(--black-60)] hover:bg-[var(--background-page)]">
+            <i data-lucide="unlink" class="w-3.5 h-3.5"></i> Revisar enlaces
+          </button>
+          <button id="newFolderBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[var(--blue-20)] text-xs font-bold text-[var(--black-60)] hover:bg-[var(--background-page)]">
+            <i data-lucide="folder-plus" class="w-3.5 h-3.5"></i> Nueva carpeta
+          </button>
+        </div>
       </div>
 
       <div id="folderBreadcrumb" class="flex items-center gap-1 mb-3 flex-wrap min-h-[24px]"></div>
@@ -1775,6 +1788,8 @@ async function renderMaterialPanel() {
   }
 
   await loadFiles()
+
+  document.getElementById('checkLinksBtn').addEventListener('click', abrirRevisionEnlaces)
 
   document.getElementById('materialSearch').addEventListener('input', e => {
     const q = e.target.value.toLowerCase()
@@ -3014,6 +3029,154 @@ function initRenameModal() {
     if (e.key === 'Enter') document.getElementById('confirmRename').click()
     if (e.key === 'Escape') modal.classList.add('hidden')
   })
+}
+
+// Verifica una URL candidata. Tres estados, no dos: solo un 404 cuenta como
+// rota. Cualquier otra cosa (timeout, red, 5xx) es "desconocido" y NO habilita
+// el reemplazo: reescribir contenido por una lectura dudosa es peor que no
+// reportar nada.
+async function verificarUrl(url) {
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), 8000)
+  try {
+    const res = await fetch(url, { method: 'HEAD', signal: ctrl.signal })
+    if (res.status === 404) return { url, estado: 'rota' }
+    if (res.ok) return { url, estado: 'sana' }
+    return { url, estado: 'desconocido' }
+  } catch (_) {
+    return { url, estado: 'desconocido' }
+  } finally {
+    clearTimeout(t)
+  }
+}
+
+// Devuelve { rotas, noVerificables, usos }. NO escribe nada.
+// Si el inventario del bucket falla, lanza: sin inventario completo no se puede
+// afirmar que algo esté roto.
+async function escanearEnlaces() {
+  const prefijo = publicUrlPrefix()
+  const rutas = await listAllFiles()
+  const existentes = new Set(rutas.map(publicUrlFor))
+
+  const [lecciones, materiales, faqs] = await Promise.all([
+    supabase.from('lecciones').select('id, titulo, contenido'),
+    supabase.from('material_apoyo').select('id, titulo, url'),
+    supabase.from('preguntas_frecuentes').select('id, pregunta, link_url'),
+  ])
+  if (lecciones.error || materiales.error || faqs.error) throw new Error('No se pudieron leer las referencias')
+
+  const usos = new Map()
+  const anotar = (url, uso) => {
+    if (!usos.has(url)) usos.set(url, [])
+    usos.get(url).push(uso)
+  }
+  for (const l of lecciones.data || []) {
+    for (const url of extractBucketUrls(l.contenido, prefijo)) {
+      anotar(url, { tipo: 'Lección', titulo: l.titulo || '(sin título)' })
+    }
+  }
+  for (const m of materiales.data || []) {
+    for (const url of extractBucketUrls(m.url, prefijo)) {
+      anotar(url, { tipo: 'Material de apoyo', titulo: m.titulo || '(sin título)' })
+    }
+  }
+  for (const f of faqs.data || []) {
+    for (const url of extractBucketUrls(f.link_url, prefijo)) {
+      anotar(url, { tipo: 'Pregunta frecuente', titulo: f.pregunta || '(sin título)' })
+    }
+  }
+
+  const candidatas = diffBrokenUrls([...usos.keys()], [...existentes])
+  const rotas = []
+  const noVerificables = []
+  for (let i = 0; i < candidatas.length; i += 5) {
+    const tanda = await Promise.all(candidatas.slice(i, i + 5).map(verificarUrl))
+    for (const { url, estado } of tanda) {
+      if (estado === 'rota') rotas.push(url)
+      else if (estado === 'desconocido') noVerificables.push(url)
+    }
+  }
+  return { rotas, noVerificables, usos }
+}
+
+// z-40 a propósito: el selector de biblioteca (#mediaLibraryModal) es z-50 y
+// tiene que poder dibujarse ENCIMA de este modal cuando se pide un reemplazo.
+function initBrokenLinksModal() {
+  if (document.getElementById('brokenLinksModal')) return
+  const modal = document.createElement('div')
+  modal.id = 'brokenLinksModal'
+  modal.className = 'hidden fixed inset-0 z-40 bg-black/50 flex items-center justify-center p-4'
+  modal.innerHTML = `
+    <div class="bg-white rounded-2xl w-full max-w-lg shadow-xl flex flex-col" style="max-height:80vh">
+      <div class="flex items-center gap-3 p-4 border-b border-[var(--blue-10)]">
+        <h3 class="font-black text-base flex-1">Revisión de enlaces</h3>
+        <button id="closeBrokenLinks" class="text-[var(--black-40)] hover:text-[var(--black-100)] text-lg px-1" aria-label="Cerrar">✕</button>
+      </div>
+      <div id="brokenLinksBody" class="p-4 overflow-y-auto text-sm"></div>
+    </div>
+  `
+  document.body.appendChild(modal)
+
+  document.getElementById('closeBrokenLinks').addEventListener('click', () => modal.classList.add('hidden'))
+  modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden') })
+}
+
+async function abrirRevisionEnlaces() {
+  initBrokenLinksModal()
+  const modal = document.getElementById('brokenLinksModal')
+  const body = document.getElementById('brokenLinksBody')
+  modal.classList.remove('hidden')
+  body.innerHTML = '<p class="text-[var(--black-40)] py-6 text-center">Revisando enlaces...</p>'
+
+  let resultado
+  try {
+    resultado = await escanearEnlaces()
+  } catch (e) {
+    // Fail-closed: sin inventario confiable no se afirma que nada esté roto.
+    body.innerHTML = `<p class="text-red-500 py-6 text-center">No se pudo revisar: ${escapeHtml(e.message)}</p>`
+    return
+  }
+  renderRevisionEnlaces(resultado)
+}
+
+function renderRevisionEnlaces({ rotas, noVerificables, usos }) {
+  const body = document.getElementById('brokenLinksBody')
+  if (!body) return
+
+  if (!rotas.length && !noVerificables.length) {
+    body.innerHTML = '<p class="text-[var(--black-60)] py-6 text-center">✅ Todos los enlaces apuntan a archivos que existen.</p>'
+    return
+  }
+
+  const listaDeUsos = url => (usos.get(url) || [])
+    .map(u => `<li class="text-xs text-[var(--black-60)]">${escapeHtml(u.tipo)}: ${escapeHtml(u.titulo)}</li>`)
+    .join('')
+
+  const bloqueRotas = rotas.length ? `
+    <p class="font-bold text-red-500 mb-2">${rotas.length} ${rotas.length === 1 ? 'enlace roto' : 'enlaces rotos'}</p>
+    <div class="space-y-3 mb-4">
+      ${rotas.map(url => `
+        <div class="border border-red-200 rounded-xl p-3">
+          <p class="font-bold text-xs mb-1">${escapeHtml(displayName(url.split('/').pop()))}</p>
+          <p class="text-[10px] text-[var(--black-40)] break-all mb-2">${escapeHtml(url)}</p>
+          <ul class="list-disc pl-4 mb-2">${listaDeUsos(url)}</ul>
+        </div>
+      `).join('')}
+    </div>` : ''
+
+  const bloqueDudosas = noVerificables.length ? `
+    <p class="font-bold text-amber-600 mb-2">${noVerificables.length} sin verificar</p>
+    <p class="text-xs text-[var(--black-60)] mb-2">No se pudo confirmar si existen. No se ofrece reemplazo para evitar pisar contenido bueno.</p>
+    <div class="space-y-2">
+      ${noVerificables.map(url => `
+        <div class="border border-amber-200 rounded-xl p-3">
+          <p class="font-bold text-xs mb-1">${escapeHtml(displayName(url.split('/').pop()))}</p>
+          <ul class="list-disc pl-4">${listaDeUsos(url)}</ul>
+        </div>
+      `).join('')}
+    </div>` : ''
+
+  body.innerHTML = bloqueRotas + bloqueDudosas
 }
 
 function openRenameModal(path, currentDisplayName) {

@@ -67,6 +67,37 @@ export async function listFiles(path = '') {
   return { folders, files }
 }
 
+// Todas las rutas del bucket, recorriendo carpetas y paginando de a 100.
+// listFiles corta en 200 por carpeta y sin paginar inventaría de menos, lo que
+// haría marcar como rotos archivos que existen. Si el listado falla, lanza: el
+// llamador tiene que fallar cerrado y no reportar nada roto.
+export async function listAllFiles() {
+  const PAGE = 100
+  const rutas = []
+  const pendientes = ['']
+  while (pendientes.length) {
+    const carpeta = pendientes.shift()
+    let offset = 0
+    for (;;) {
+      const { data, error } = await supabase.storage.from(BUCKET).list(carpeta, {
+        limit: PAGE,
+        offset,
+        sortBy: { column: 'name', order: 'asc' },
+      })
+      if (error) throw error
+      const items = data || []
+      for (const item of items) {
+        const full = carpeta ? `${carpeta}/${item.name}` : item.name
+        if (item.id === null) pendientes.push(full)
+        else if (item.name !== '.emptyFolderPlaceholder') rutas.push(full)
+      }
+      if (items.length < PAGE) break
+      offset += PAGE
+    }
+  }
+  return rutas
+}
+
 export async function createFolder(folderPath) {
   const placeholder = `${folderPath}/.emptyFolderPlaceholder`
   const { error } = await supabase.storage.from(BUCKET).upload(placeholder, new Blob(['']), { upsert: true })
