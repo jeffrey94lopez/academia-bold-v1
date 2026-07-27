@@ -2906,8 +2906,9 @@ async function openMediaLibrary(onSelect) {
 
   let files = []
   try {
-    const result = await listFiles('')
-    files = result.files
+    // Recursivo: antes se listaba solo la raíz y un archivo dentro de una
+    // carpeta no se podía elegir, ni acá ni al reemplazar un enlace roto.
+    files = (await listAllFiles()).map(f => ({ name: f.path, size: f.size, type: f.type, url: f.url }))
     renderMediaGrid(files)
     lucide.createIcons()
   } catch {
@@ -2916,7 +2917,8 @@ async function openMediaLibrary(onSelect) {
 
   search.oninput = () => {
     const q = search.value.toLowerCase()
-    renderMediaGrid(files.filter(f => f.name.split('/').pop().toLowerCase().includes(q)))
+    // Filtra por la ruta completa, así se puede buscar por nombre de carpeta.
+    renderMediaGrid(files.filter(f => f.name.toLowerCase().includes(q)))
     lucide.createIcons()
   }
 }
@@ -2936,11 +2938,15 @@ function renderMediaGrid(files) {
     const thumb = f.type.startsWith('image/')
       ? `<img src="${escapeHtml(f.url)}" alt="" class="w-full h-14 object-cover rounded-lg mb-1" loading="lazy">`
       : `<div class="flex justify-center mb-1">${fileIcon(f.type)}</div>`
+    // La carpeta se muestra porque el listado es recursivo: dos archivos con el
+    // mismo nombre en carpetas distintas se verían idénticos.
+    const carpeta = f.name.includes('/') ? f.name.slice(0, f.name.lastIndexOf('/')) : ''
     return `
     <div class="media-item cursor-pointer border-2 border-transparent rounded-xl p-2 text-center hover:border-[var(--blue-100)] transition-colors"
          data-url="${escapeHtml(f.url)}" data-name="${escapeHtml(f.name)}">
       ${thumb}
-      <p class="text-xs text-[var(--black-100)] truncate" title="${escapeHtml(displayName(f.name.split('/').pop()))}">${escapeHtml(displayName(f.name.split('/').pop()))}</p>
+      <p class="text-xs text-[var(--black-100)] truncate" title="${escapeHtml(f.name)}">${escapeHtml(displayName(f.name.split('/').pop()))}</p>
+      ${carpeta ? `<p class="text-[10px] text-[var(--blue-100)] truncate" title="${escapeHtml(carpeta)}">📁 ${escapeHtml(carpeta)}</p>` : ''}
       <p class="text-xs text-[var(--black-40)]">${formatBytes(f.size)}</p>
     </div>`
   }).join('')
@@ -3057,7 +3063,7 @@ async function verificarUrl(url) {
 async function escanearEnlaces() {
   const prefijo = publicUrlPrefix()
   const rutas = await listAllFiles()
-  const existentes = new Set(rutas.map(publicUrlFor))
+  const existentes = new Set(rutas.map(f => f.url))
 
   const [lecciones, materiales, faqs] = await Promise.all([
     supabase.from('lecciones').select('id, titulo, contenido'),

@@ -67,13 +67,15 @@ export async function listFiles(path = '') {
   return { folders, files }
 }
 
-// Todas las rutas del bucket, recorriendo carpetas y paginando de a 100.
+// Todos los archivos del bucket, recorriendo carpetas y paginando de a 100.
+// Devuelve { path, size, type, url } por archivo.
+//
 // listFiles corta en 200 por carpeta y sin paginar inventaría de menos, lo que
 // haría marcar como rotos archivos que existen. Si el listado falla, lanza: el
 // llamador tiene que fallar cerrado y no reportar nada roto.
 export async function listAllFiles() {
   const PAGE = 100
-  const rutas = []
+  const archivos = []
   const pendientes = ['']
   while (pendientes.length) {
     const carpeta = pendientes.shift()
@@ -89,13 +91,20 @@ export async function listAllFiles() {
       for (const item of items) {
         const full = carpeta ? `${carpeta}/${item.name}` : item.name
         if (item.id === null) pendientes.push(full)
-        else if (item.name !== '.emptyFolderPlaceholder') rutas.push(full)
+        else if (item.name !== '.emptyFolderPlaceholder') {
+          archivos.push({
+            path: full,
+            size: item.metadata?.size || 0,
+            type: item.metadata?.mimetype || '',
+            url: publicUrlFor(full),
+          })
+        }
       }
       if (items.length < PAGE) break
       offset += PAGE
     }
   }
-  return rutas
+  return archivos
 }
 
 // ¿Existe este objeto? Le pregunta a la API de Storage y NO a la URL pública:
