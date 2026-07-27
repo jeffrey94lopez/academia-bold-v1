@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { extractBucketUrls, countReferences, diffBrokenUrls } from '../js/bucket-urls.js'
+import { extractBucketUrls, countReferences, diffBrokenUrls, pathFromBucketUrl } from '../js/bucket-urls.js'
 
 const P = 'https://x.supabase.co/storage/v1/object/public/material/'
 const A = P + 'foto-1700000000000.png'
@@ -50,6 +50,29 @@ test('extractBucketUrls: prefijo inválido devuelve []', () => {
 
 test('extractBucketUrls: el prefijo pelado no cuenta como URL', () => {
   assert.deepEqual(extractBucketUrls(`<img src="${P}">`, P), [])
+})
+
+test('pathFromBucketUrl: devuelve la ruta dentro del bucket', () => {
+  assert.equal(pathFromBucketUrl(A, P), 'foto-1700000000000.png')
+  assert.equal(pathFromBucketUrl(B, P), 'carpeta/otra-1700000000001.png')
+})
+
+test('pathFromBucketUrl: deshace el url-encoding y recorta query y hash', () => {
+  assert.equal(pathFromBucketUrl(P + 'mi%20carpeta/f.png', P), 'mi carpeta/f.png')
+  assert.equal(pathFromBucketUrl(A + '?t=1', P), 'foto-1700000000000.png')
+  assert.equal(pathFromBucketUrl(A + '#x', P), 'foto-1700000000000.png')
+})
+
+test('pathFromBucketUrl: null si la URL no es del bucket o está vacía', () => {
+  assert.equal(pathFromBucketUrl('https://otro.com/x.png', P), null)
+  assert.equal(pathFromBucketUrl(P, P), null)
+  assert.equal(pathFromBucketUrl('', P), null)
+  assert.equal(pathFromBucketUrl(null, P), null)
+  assert.equal(pathFromBucketUrl(A, ''), null)
+})
+
+test('pathFromBucketUrl: un % inválido no lanza, devuelve la ruta cruda', () => {
+  assert.equal(pathFromBucketUrl(P + 'mal%zz.png', P), 'mal%zz.png')
 })
 
 test('countReferences: cuenta filas, no ocurrencias', () => {

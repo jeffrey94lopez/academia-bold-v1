@@ -98,6 +98,20 @@ export async function listAllFiles() {
   return rutas
 }
 
+// ¿Existe este objeto? Le pregunta a la API de Storage y NO a la URL pública:
+// el CDN sirve objetos ya borrados desde su caché (verificado: un HEAD plano
+// devolvió 200 para un archivo eliminado), así que el CDN da falsos "existe".
+// Devuelve null si no se pudo determinar — el llamador tiene que fallar cerrado.
+export async function fileExists(path) {
+  if (typeof path !== 'string' || !path) return null
+  const barra = path.lastIndexOf('/')
+  const carpeta = barra >= 0 ? path.slice(0, barra) : ''
+  const nombre = barra >= 0 ? path.slice(barra + 1) : path
+  const { data, error } = await supabase.storage.from(BUCKET).list(carpeta, { limit: 100, search: nombre })
+  if (error) return null
+  return (data || []).some(f => f.name === nombre)
+}
+
 export async function createFolder(folderPath) {
   const placeholder = `${folderPath}/.emptyFolderPlaceholder`
   const { error } = await supabase.storage.from(BUCKET).upload(placeholder, new Blob(['']), { upsert: true })

@@ -25,6 +25,22 @@ export function extractBucketUrls(raw, publicPrefix) {
   return out
 }
 
+// La ruta dentro del bucket a partir de una URL pública, o null si la URL no
+// pertenece al bucket. Deshace el url-encoding que aplica getPublicUrl, así la
+// ruta sirve para preguntarle a la API de Storage.
+export function pathFromBucketUrl(url, publicPrefix) {
+  if (typeof url !== 'string' || !url) return null
+  if (typeof publicPrefix !== 'string' || !publicPrefix) return null
+  if (!url.startsWith(publicPrefix)) return null
+  const crudo = url.slice(publicPrefix.length).split('?')[0].split('#')[0]
+  if (!crudo) return null
+  try {
+    return decodeURIComponent(crudo)
+  } catch (_) {
+    return crudo
+  }
+}
+
 // Cuántas FILAS mencionan la URL (no cuántas veces aparece).
 export function countReferences(rows, campo, url) {
   if (!Array.isArray(rows)) return 0

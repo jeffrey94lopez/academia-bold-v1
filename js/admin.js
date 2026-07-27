@@ -1,6 +1,6 @@
 ﻿import { supabase } from './supabase.js'
 import { requireAuth, logout } from './auth.js'
-import { uploadFile, listFiles, listAllFiles, deleteFile, renameFile, createFolder, moveFile, publicUrlPrefix, publicUrlFor } from './upload.js'
+import { uploadFile, listFiles, listAllFiles, fileExists, deleteFile, renameFile, createFolder, moveFile, publicUrlPrefix, publicUrlFor } from './upload.js'
 import { renderBlocks } from './block-renderer.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml } from './utils.js'
@@ -9,7 +9,7 @@ import { renderAnalytics } from './analytics-shell.js'
 import { logActivity } from './activity.js'
 import { remapContentUrl } from './content-url.js'
 import { parseLessonBlocks } from './lesson-blocks.js'
-import { extractBucketUrls, countReferences, diffBrokenUrls } from './bucket-urls.js'
+import { extractBucketUrls, countReferences, diffBrokenUrls, pathFromBucketUrl } from './bucket-urls.js'
 
 const EMBED_WEBHOOK = 'https://n8n.mplasesores.com/webhook/embed-lesson'
 const EMBED_TOKEN   = 'BoldBodi-2026-K9xMvP7q'
@@ -3031,22 +3031,23 @@ function initRenameModal() {
   })
 }
 
-// Verifica una URL candidata. Tres estados, no dos: solo un 404 cuenta como
-// rota. Cualquier otra cosa (timeout, red, 5xx) es "desconocido" y NO habilita
-// el reemplazo: reescribir contenido por una lectura dudosa es peor que no
-// reportar nada.
+// Verifica una URL candidata contra la API de Storage. Tres estados, no dos:
+// "desconocido" NO habilita el reemplazo, porque reescribir contenido por una
+// lectura dudosa es peor que no reportar nada.
+//
+// NO se le pregunta al CDN público: sirve objetos ya borrados desde su caché
+// (verificado — un HEAD plano devolvió 200 para un archivo eliminado, y el
+// mismo endpoint responde 400, no 404, cuando el objeto no está). La API de
+// Storage es el mismo origen de verdad que ejecutó el borrado.
 async function verificarUrl(url) {
-  const ctrl = new AbortController()
-  const t = setTimeout(() => ctrl.abort(), 8000)
+  const ruta = pathFromBucketUrl(url, publicUrlPrefix())
+  if (!ruta) return { url, estado: 'desconocido' }
   try {
-    const res = await fetch(url, { method: 'HEAD', signal: ctrl.signal })
-    if (res.status === 404) return { url, estado: 'rota' }
-    if (res.ok) return { url, estado: 'sana' }
-    return { url, estado: 'desconocido' }
+    const existe = await fileExists(ruta)
+    if (existe === null) return { url, estado: 'desconocido' }
+    return { url, estado: existe ? 'sana' : 'rota' }
   } catch (_) {
     return { url, estado: 'desconocido' }
-  } finally {
-    clearTimeout(t)
   }
 }
 
@@ -3105,7 +3106,12 @@ function initBrokenLinksModal() {
   if (document.getElementById('brokenLinksModal')) return
   const modal = document.createElement('div')
   modal.id = 'brokenLinksModal'
-  modal.className = 'hidden fixed inset-0 z-40 bg-black/50 flex items-center justify-center p-4'
+  modal.className = 'hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4'
+  // z-index inline y no una clase de Tailwind: el CSS compilado (css/tw.css) no
+  // incluye clases que no existían al buildear, y sin z-index este modal
+  // quedaría en "auto". 40 lo deja debajo del selector de biblioteca (z-50),
+  // que tiene que poder abrirse encima para elegir el reemplazo.
+  modal.style.zIndex = '40'
   modal.innerHTML = `
     <div class="bg-white rounded-2xl w-full max-w-lg shadow-xl flex flex-col" style="max-height:80vh">
       <div class="flex items-center gap-3 p-4 border-b border-[var(--blue-10)]">
