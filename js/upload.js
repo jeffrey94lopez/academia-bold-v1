@@ -1,7 +1,21 @@
-import { supabase } from './supabase.js'
+import { supabase, SUPABASE_URL } from './supabase.js'
 
 const BUCKET = 'material'
 const MAX_BYTES = 50 * 1024 * 1024
+
+// El prefijo público del bucket, armado en un solo lugar. Llega hasta el
+// nombre del bucket: la parte del path va aparte y puede llevar url-encoding.
+export function publicUrlPrefix() {
+  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/`
+}
+
+// La URL pública de una ruta, por el MISMO mecanismo que generó las URLs ya
+// guardadas en la base (getPublicUrl url-encodea; createFolder no sanea el
+// nombre de la carpeta, así que una con espacios o acentos no se reproduce
+// concatenando a mano).
+export function publicUrlFor(path) {
+  return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
+}
 
 export async function uploadFile(file, onProgress, targetFolder = '') {
   if (file.size > MAX_BYTES) throw new Error('El archivo supera el límite de 50MB')
@@ -75,10 +89,12 @@ export async function renameFile(oldPath, newDisplayName) {
   const lastSlash = oldPath.lastIndexOf('/')
   const folder = lastSlash >= 0 ? oldPath.slice(0, lastSlash) : ''
   const newPath = folder ? `${folder}/${base}-${Date.now()}${ext}` : `${base}-${Date.now()}${ext}`
+  // La URL vieja se calcula ANTES de mover, y se devuelve junto con la nueva:
+  // misma forma que moveFile, para que el llamador pueda hacer la cascada.
+  const oldUrl = publicUrlFor(oldPath)
   const { error } = await supabase.storage.from(BUCKET).move(oldPath, newPath)
   if (error) throw error
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(newPath)
-  return { path: newPath, url: data.publicUrl }
+  return { newPath, newUrl: publicUrlFor(newPath), oldUrl }
 }
 
 export async function moveFile(oldPath, targetFolderPath) {

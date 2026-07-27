@@ -2927,9 +2927,9 @@ function initRenameModal() {
       <h3 class="font-black text-base mb-3">Renombrar archivo</h3>
       <input id="renameInput" type="text" autocomplete="off" aria-label="Nuevo nombre del archivo"
         class="w-full px-3 py-2.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] mb-2">
-      <p class="text-xs text-amber-600 mb-4 flex items-start gap-1.5">
-        <i data-lucide="triangle-alert" class="w-3.5 h-3.5 shrink-0 mt-0.5"></i>
-        Las lecciones que referencien este archivo deberán actualizarse manualmente.
+      <p class="text-xs text-[var(--black-60)] mb-4 flex items-start gap-1.5">
+        <i data-lucide="info" class="w-3.5 h-3.5 shrink-0 mt-0.5"></i>
+        Las lecciones y materiales que usen este archivo se actualizan solos.
       </p>
       <div class="flex gap-2">
         <button id="cancelRename" class="flex-1 py-2 rounded-xl border border-[var(--blue-20)] text-sm font-bold text-[var(--black-60)] hover:bg-[var(--background-page)]">Cancelar</button>
@@ -2961,7 +2961,11 @@ function initRenameModal() {
     btn.disabled = true
     btn.textContent = 'Renombrando...'
     try {
-      await renameFile(_renameCurrentPath, newName)
+      // ACÁ vivía la puerta 3: se renombraba el objeto en Storage y se
+      // descartaba el retorno, así que las lecciones quedaban apuntando a una
+      // URL que ya no existía. Misma cascada que handleFileMoveToFolder.
+      const { oldUrl, newUrl } = await renameFile(_renameCurrentPath, newName)
+      await cascadeUpdateUrl(oldUrl, newUrl)
       modal.classList.add('hidden')
       showToast('Archivo renombrado correctamente')
       logActivity('update', 'image', newName, { from: displayName(_renameCurrentPath.split('/').pop()) })
