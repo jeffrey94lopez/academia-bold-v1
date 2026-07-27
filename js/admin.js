@@ -1628,18 +1628,36 @@ async function renderGlossaryPanel() {
 // ver el update de guardarLeccion) y puede ser JSON de bloques o HTML legacy.
 // remapContentUrl decide qué escribir y devuelve null cuando no hay que tocar
 // la fila; esta función no interpreta el formato.
+// Ningún fallo se traga en silencio: la base tiene un CHECK que exige que
+// `contenido` sea un array JSON (ver supabase/migrations/add_contenido_integridad_historial.sql),
+// así que un rechazo dejaría la URL sin propagar sin que nadie se enterase — la
+// firma exacta de esta clase de bugs. Un fallo no aborta el resto: si una
+// lección no se pudo actualizar, las demás igual tienen que quedar bien.
 async function cascadeUpdateUrl(oldUrl, newUrl) {
-  const { data: lessons } = await supabase.from('lecciones').select('id, contenido')
+  const fallos = []
+  const { data: lessons, error: errorLectura } = await supabase.from('lecciones').select('id, contenido')
+  if (errorLectura) {
+    showToast('No se pudieron leer las lecciones para actualizar sus enlaces: ' + errorLectura.message, 'error')
+    return
+  }
   for (const l of (lessons || [])) {
     const next = remapContentUrl(l.contenido, oldUrl, newUrl)
     if (next === null) continue
-    await supabase.from('lecciones').update({ contenido: next }).eq('id', l.id)
+    const { error } = await supabase.from('lecciones').update({ contenido: next }).eq('id', l.id)
+    if (error) fallos.push(`lección ${l.id}: ${error.message}`)
   }
-  await supabase.from('material_apoyo').update({ url: newUrl }).eq('url', oldUrl)
+  const material = await supabase.from('material_apoyo').update({ url: newUrl }).eq('url', oldUrl)
+  if (material.error) fallos.push('material de apoyo: ' + material.error.message)
   // preguntas_frecuentes.link_url es un "link externo" escrito a mano, pero nada
   // impide pegar ahí la URL de un archivo del bucket. Si ninguna fila coincide,
   // este update no hace nada.
-  await supabase.from('preguntas_frecuentes').update({ link_url: newUrl }).eq('link_url', oldUrl)
+  const faqs = await supabase.from('preguntas_frecuentes').update({ link_url: newUrl }).eq('link_url', oldUrl)
+  if (faqs.error) fallos.push('preguntas frecuentes: ' + faqs.error.message)
+
+  if (fallos.length) {
+    console.error('[cascadeUpdateUrl] fallos al propagar la URL nueva:', fallos)
+    showToast(`${fallos.length} ${fallos.length === 1 ? 'referencia' : 'referencias'} no se pudieron actualizar. Revisá la consola y "Revisar enlaces".`, 'error')
+  }
 }
 
 // Cuenta dónde se usa una URL antes de una acción destructiva. Devuelve null si
