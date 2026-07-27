@@ -25,6 +25,21 @@ Es la misma omisión que la puerta 1, por la entrada de al lado: `handleFileMove
 
 **El daño acumulado:** hasta hoy, cada renombrado dejó referencias colgadas. No hay forma de saber cuántas sin mirar.
 
+## Corrección durante la implementación: la confirmación no puede ser un HEAD al CDN
+
+El diseño elegía confirmar cada candidata con un `HEAD` a la URL pública. La verificación en navegador lo desmintió: **el CDN sirve objetos ya borrados desde su caché.** Medido sobre un archivo eliminado hace segundos:
+
+| prueba | resultado |
+|---|---|
+| `HEAD` a la URL pública | **200** |
+| `HEAD` con `cache: 'no-store'` | 400 |
+| `HEAD` con query nueva (`?v=…`) | 400 |
+| API de Storage (`list` + `search`) | **no lo encuentra** |
+
+Dos consecuencias: el HEAD plano daba falsos "sana" (el escaneo no reportaba nada), y el endpoint público responde **400, no 404**, cuando el objeto no está — el código solo trataba 404 como rota.
+
+La confirmación pasa a ser `fileExists(path)` contra la **API de Storage**, el mismo origen de verdad que ejecutó el borrado: sin caché de por medio y sin depender de los status codes del CDN. La ruta se deriva de la URL con `pathFromBucketUrl(url, prefijo)`, que es puro y va con tests. Los tres estados y el fail-closed se mantienen: si la API no puede responder, la URL es "no verificable" y no ofrece reemplazo.
+
 ## Corrección durante la implementación: son tres tablas, no dos
 
 El brainstorm concluyó que solo `lecciones.contenido` y `material_apoyo.url` referencian el bucket. Falta una: **`preguntas_frecuentes.link_url`** (`js/admin.js:1477`). Es un campo "Link externo (opcional)", un `input type="url"` que el admin escribe a mano, sin selector de biblioteca — pero nada impide pegar ahí la URL de un PDF del bucket, y en ese caso mover, renombrar o borrar el archivo lo rompe igual.

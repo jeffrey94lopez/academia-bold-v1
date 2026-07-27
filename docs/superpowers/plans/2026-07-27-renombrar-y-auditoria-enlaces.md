@@ -36,6 +36,13 @@
 
 4. **Se suma una tercera tabla: `preguntas_frecuentes.link_url`.** La spec contó dos (`lecciones.contenido`, `material_apoyo.url`) y se le escapó el campo "Link externo" de las preguntas frecuentes (`js/admin.js:1477`), que también puede contener una URL del bucket. Entra en `cascadeUpdateUrl`, en `contarUsosDeUrl` y en `escanearEnlaces`: tenían que ser los tres o ninguno, porque reportar un `link_url` roto sin propagarlo daría un botón "Reemplazar…" que no arregla nada.
 
+5. **La confirmación es `fileExists` contra la API de Storage, no un HEAD al CDN.** El HEAD devolvía 200 para un objeto borrado (caché del CDN) y el endpoint responde 400 —no 404— cuando falta. Ver la sección correspondiente del spec. Suma `pathFromBucketUrl` a `js/bucket-urls.js` (puro, con tests) y `fileExists` a `js/upload.js`.
+6. **El z-index del modal va inline (`modal.style.zIndex = '40'`), no como clase.** `css/tw.css` está compilado: una clase `z-40` que no existía al buildear no está en el CSS y el modal quedaba en `z-index: auto`.
+
+### Bloqueo encontrado en la verificación: `move` no está permitido en Storage
+
+`renameFile` y `moveFile` fallan con `StorageApiError: Object not found` (HTTP 400). Medido con sesión válida: `copy` funciona, `remove` funciona, `move` falla incluso sobre una copia recién creada. Falta la policy de **UPDATE** sobre `storage.objects` para el bucket `material`. El fix de la puerta 3 es correcto pero no se puede ejercitar hasta resolverlo: `renameFile` lanza antes de llegar a `cascadeUpdateUrl`. Decisión pendiente del usuario: agregar la policy en Supabase, o implementar el move como `copy` + `remove` en el frontend.
+
 ### Limitación conocida que no se arregla acá
 
 `openMediaLibrary` (`js/admin.js:2843-2874`) lista **solo la raíz** del bucket (`listFiles('')`), así que el reemplazo no puede elegir un archivo que esté dentro de una carpeta. Es preexistente y afecta también al editor de bloques. Queda fuera de alcance; si molesta en la prueba manual, es un trabajo aparte.
