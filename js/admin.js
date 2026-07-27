@@ -8,6 +8,7 @@ import { renderResultsPanel } from './admin-analytics.js'
 import { renderAnalytics } from './analytics-shell.js'
 import { logActivity } from './activity.js'
 import { remapContentUrl } from './content-url.js'
+import { parseLessonBlocks } from './lesson-blocks.js'
 
 const EMBED_WEBHOOK = 'https://n8n.mplasesores.com/webhook/embed-lesson'
 const EMBED_TOKEN   = 'BoldBodi-2026-K9xMvP7q'
@@ -18,6 +19,11 @@ function lessonToEmbedText(titulo, categoria, blocks) {
     blocks.forEach(b => {
       if (b.type === 'step' && b.text)
         text += b.text.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim() + '\n'
+      else if (b.type === 'html' && b.html)
+        // El legacy es una lección entera, no un fragmento: los tags se
+        // reemplazan por espacio (no por '') para que <p>a</p><p>b</p> no
+        // termine como "ab" en el embedding.
+        text += String(b.html).replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim() + '\n'
       else if ((b.type === 'bot_nota' || b.type === 'bot_faq') && b.content)
         text += b.content + '\n'
     })
@@ -950,7 +956,7 @@ function wireLessonCards() {
       if (icon) { icon.setAttribute('data-lucide', 'loader-2'); lucide.createIcons() }
       const { data } = await supabase.from('lecciones').select('*').eq('id', btn.dataset.id).single()
       if (!data) { showToast('Error al cargar la lección.', 'error'); btn.disabled = false; return }
-      const ok = await embedLesson(data.id, data.titulo, data.categoria, JSON.parse(data.contenido))
+      const ok = await embedLesson(data.id, data.titulo, data.categoria, parseLessonBlocks(data.contenido))
       if (ok) { showToast('Embedding regenerado correctamente.'); renderLessonsPanel() }
       else { showToast('Error al regenerar embedding.', 'error'); btn.disabled = false; if (icon) { icon.setAttribute('data-lucide', 'brain'); lucide.createIcons() } }
     })
@@ -1048,12 +1054,9 @@ function openLessonForm(lesson = null) {
   setChoice('lessonVertical', lesson?.vertical || 'retail')
   setChoice('lessonPlataforma', lesson?.plataforma || 'web')
 
-  try {
-    currentBlocks = lesson?.contenido ? JSON.parse(lesson.contenido) : []
-    if (!Array.isArray(currentBlocks)) currentBlocks = []
-  } catch (_) {
-    currentBlocks = []
-  }
+  // ACÁ vivía el bug: una lección legacy hacía lanzar a JSON.parse, currentBlocks
+  // quedaba en [] y el siguiente guardado escribía '[]' encima del contenido.
+  currentBlocks = parseLessonBlocks(lesson?.contenido)
 
   try {
     const examData = lesson?.examen
@@ -1169,9 +1172,9 @@ function renderBlockList() {
 }
 
 function blockItemHtml(block, i) {
-  const colors = { step: 'var(--blue-100)', image: '#3b82f6', video: '#8b5cf6', link: '#16a34a',
+  const colors = { step: 'var(--blue-100)', image: '#3b82f6', video: '#8b5cf6', link: '#16a34a', html: '#64748b',
     bot_nota: '#d97706', bot_advertencia: '#d97706', bot_pasos: '#d97706', bot_relacionado: '#d97706', bot_faq: '#d97706' }
-  const labels = { step: '📝 Paso', image: '🖼️ Imagen', video: '▶️ Video YouTube', link: '🔗 Link',
+  const labels = { step: '📝 Paso', image: '🖼️ Imagen', video: '▶️ Video YouTube', link: '🔗 Link', html: '📄 HTML (contenido antiguo)',
     bot_nota: '💡 Nota — bolbot POS', bot_advertencia: '⚠️ Advertencia — bolbot POS',
     bot_pasos: '📋 Pasos internos — bolbot POS', bot_relacionado: '🔗 Relacionado — bolbot POS', bot_faq: '❓ Preg. frecuente — bolbot POS' }
   const color = colors[block.type] || '#94a3b8'
@@ -1191,6 +1194,12 @@ function blockItemHtml(block, i) {
       class="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-xs outline-none focus:border-amber-400 resize-none">${escapeHtml(block.content || '')}</textarea>`
   } else if (block.type === 'step') {
     fields = `<div class="quill-step-editor"></div>`
+  } else if (block.type === 'html') {
+    // Textarea crudo a propósito, no Quill: Quill normaliza el HTML a su propio
+    // subconjunto y simplificaría el marcado de una lección vieja.
+    fields = `<textarea data-field="html" rows="8"
+      class="w-full px-2 py-1.5 rounded-lg border border-[var(--blue-20)] bg-[var(--background-page)] text-xs font-mono outline-none focus:border-[var(--blue-100)] resize-y">${escapeHtml(block.html || '')}</textarea>
+      <p class="text-[10px] text-[var(--black-40)] mt-1">Contenido en formato antiguo. Se guarda tal cual, sin tocarlo.</p>`
   } else if (block.type === 'image') {
     fields = `
       <input data-field="url" value="${escapeHtml(block.url || '')}" class="hidden">
