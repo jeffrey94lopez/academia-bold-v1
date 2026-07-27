@@ -25,6 +25,12 @@ Es la misma omisión que la puerta 1, por la entrada de al lado: `handleFileMove
 
 **El daño acumulado:** hasta hoy, cada renombrado dejó referencias colgadas. No hay forma de saber cuántas sin mirar.
 
+## Corrección durante la implementación: son tres tablas, no dos
+
+El brainstorm concluyó que solo `lecciones.contenido` y `material_apoyo.url` referencian el bucket. Falta una: **`preguntas_frecuentes.link_url`** (`js/admin.js:1477`). Es un campo "Link externo (opcional)", un `input type="url"` que el admin escribe a mano, sin selector de biblioteca — pero nada impide pegar ahí la URL de un PDF del bucket, y en ese caso mover, renombrar o borrar el archivo lo rompe igual.
+
+Se incluye en los tres lugares: la cascada (`cascadeUpdateUrl`), el aviso de borrado y el escaneo. **Tenían que ser los tres o ninguno:** si la auditoría reportara un `link_url` roto pero la cascada no lo actualizara, el botón "Reemplazar…" no arreglaría nada y la entrada volvería a aparecer en el escaneo siguiente.
+
 ## Diseño
 
 ### 1. `js/bucket-urls.js` — el núcleo común, puro y testeable

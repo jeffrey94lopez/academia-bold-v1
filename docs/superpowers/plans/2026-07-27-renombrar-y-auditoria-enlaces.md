@@ -34,6 +34,8 @@
 2. **Se agrega `publicUrlFor(path)` además de `publicUrlPrefix()`.** Las URLs guardadas en la base las generó `getPublicUrl`, que url-encodea; `createFolder` no sanea el nombre de la carpeta, así que una carpeta con espacios o acentos produciría URLs con `%20` que una concatenación a mano no reproduce. El inventario se convierte a URL con el mismo mecanismo que las generó. `publicUrlPrefix()` se sigue usando, pero solo para el regex de extracción — el prefijo llega hasta `/material/` y esa parte nunca lleva encoding.
 3. **El modal de enlaces usa `z-40`, no `z-[200]`.** El selector de biblioteca (`#mediaLibraryModal`, `admin.html:106`) es `z-50`: si el modal de enlaces quedara por encima, el selector aparecería debajo y no se podría usar. Con `z-40` el modal se ve sobre el panel y el selector se dibuja encima de él.
 
+4. **Se suma una tercera tabla: `preguntas_frecuentes.link_url`.** La spec contó dos (`lecciones.contenido`, `material_apoyo.url`) y se le escapó el campo "Link externo" de las preguntas frecuentes (`js/admin.js:1477`), que también puede contener una URL del bucket. Entra en `cascadeUpdateUrl`, en `contarUsosDeUrl` y en `escanearEnlaces`: tenían que ser los tres o ninguno, porque reportar un `link_url` roto sin propagarlo daría un botón "Reemplazar…" que no arregla nada.
+
 ### Limitación conocida que no se arregla acá
 
 `openMediaLibrary` (`js/admin.js:2843-2874`) lista **solo la raíz** del bucket (`listFiles('')`), así que el reemplazo no puede elegir un archivo que esté dentro de una carpeta. Es preexistente y afecta también al editor de bloques. Queda fuera de alcance; si molesta en la prueba manual, es un trabajo aparte.
