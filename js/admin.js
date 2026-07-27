@@ -1,6 +1,6 @@
 ﻿import { supabase } from './supabase.js'
 import { requireAuth, logout } from './auth.js'
-import { uploadFile, listFiles, deleteFile, renameFile, createFolder, moveFile } from './upload.js'
+import { uploadFile, listFiles, deleteFile, renameFile, createFolder, moveFile, publicUrlPrefix, publicUrlFor } from './upload.js'
 import { renderBlocks } from './block-renderer.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml } from './utils.js'
@@ -9,6 +9,7 @@ import { renderAnalytics } from './analytics-shell.js'
 import { logActivity } from './activity.js'
 import { remapContentUrl } from './content-url.js'
 import { parseLessonBlocks } from './lesson-blocks.js'
+import { extractBucketUrls, countReferences, diffBrokenUrls } from './bucket-urls.js'
 
 const EMBED_WEBHOOK = 'https://n8n.mplasesores.com/webhook/embed-lesson'
 const EMBED_TOKEN   = 'BoldBodi-2026-K9xMvP7q'
@@ -1637,6 +1638,34 @@ async function cascadeUpdateUrl(oldUrl, newUrl) {
   await supabase.from('material_apoyo').update({ url: newUrl }).eq('url', oldUrl)
 }
 
+// Cuenta dónde se usa una URL antes de una acción destructiva. Devuelve null si
+// no se pudo leer: el borrado nunca se bloquea por un error de consulta, solo
+// pierde el detalle del aviso.
+async function contarUsosDeUrl(url) {
+  try {
+    const [lecciones, materiales] = await Promise.all([
+      supabase.from('lecciones').select('id, contenido'),
+      supabase.from('material_apoyo').select('id, url'),
+    ])
+    if (lecciones.error || materiales.error) return null
+    return {
+      lecciones: countReferences(lecciones.data || [], 'contenido', url),
+      materiales: countReferences(materiales.data || [], 'url', url),
+    }
+  } catch (_) {
+    return null
+  }
+}
+
+// "3 lecciones y 1 material de apoyo" — con singular/plural y sin mencionar lo
+// que da cero.
+function textoDeUsos({ lecciones, materiales }) {
+  const partes = []
+  if (lecciones) partes.push(`${lecciones} ${lecciones === 1 ? 'lección' : 'lecciones'}`)
+  if (materiales) partes.push(`${materiales} ${materiales === 1 ? 'material de apoyo' : 'materiales de apoyo'}`)
+  return partes.join(' y ')
+}
+
 async function handleFileMoveToFolder(oldPath, targetFolderPath) {
   try {
     const { oldUrl, newUrl } = await moveFile(oldPath, targetFolderPath)
@@ -1979,7 +2008,11 @@ function renderMaterialGrid(files, folders = []) {
     btn.addEventListener('click', async e => {
       e.stopPropagation()
       const displayN = displayName(btn.dataset.path.split('/').pop())
-      if (!confirm(`¿Eliminar "${displayN}"?\nEsta acción no se puede deshacer.`)) return
+      const usos = await contarUsosDeUrl(publicUrlFor(btn.dataset.path))
+      const aviso = usos && (usos.lecciones || usos.materiales)
+        ? `\nLo usan ${textoDeUsos(usos)}. Van a quedar con el enlace roto.`
+        : ''
+      if (!confirm(`¿Eliminar "${displayN}"?${aviso}\nEsta acción no se puede deshacer.`)) return
       try {
         await deleteFile(btn.dataset.path)
         showToast('Archivo eliminado')
