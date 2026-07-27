@@ -78,6 +78,18 @@ Los tests de `extractBucketUrls`, `countReferences`, `diffBrokenUrls` y `pathFro
 3. Selector de biblioteca: aparece un archivo que está dentro de una carpeta, y se puede elegir.
 4. Huérfanos: subir un archivo que nadie usa → aparece listado; pegar su URL en las `notas` de una lección → deja de aparecer.
 
+## Resultado de la verificación (2026-07-27)
+
+Los tres frentes verificados en navegador contra la base real, con material de descarte que quedó borrado.
+
+**Sanitizado**, con el payload del plan: `window.__xss` y `window.__xss2` quedaron `undefined` (ni el `onerror` ni el `<script>` corrieron), `script`/`iframe` desaparecieron, el `onerror` y el `style` se eliminaron, el `href="javascript:…"` se cayó **conservando el texto del enlace**, el `<marquee>` se desenvolvió conservando su texto, y el marcado legítimo quedó intacto (negrita, lista de 2 ítems, `colspan="2"`, `class`, `id`). Al `<a>` válido se le puso `rel="noopener noreferrer"` y `target="_blank"`.
+
+**Selector de biblioteca:** pasó de listar solo la raíz a 82 archivos, incluido uno dentro de una carpeta, con la etiqueta `📁 zzz-carpeta-prueba` en la tarjeta.
+
+**Huérfanos:** los dos archivos de prueba aparecieron listados (16 huérfanos en total en el bucket real). La prueba que valida el diseño: al pegar la URL de uno en las **notas** de una lección —un campo que el escaneo anterior no miraba— dejó de figurar como huérfano (15). Sin recorrer todas las columnas, esa lista habría ofrecido borrar un archivo en uso. El borrado individual funciona y pide confirmación.
+
+**Nota de entorno:** una pestaña de Chrome quedó en un estado donde todo `fetch`/`import()` lanzado desde la automatización colgaba 45 s aunque la página funcionaba; se resolvió abriendo una pestaña nueva. No es un problema del código.
+
 ## Alcance
 
 - Rama `sandbox`, merge a `master` cuando el usuario apruebe. Estilo del repo: 2 espacios, sin punto y coma, comentarios en español.
