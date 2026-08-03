@@ -1,5 +1,6 @@
 ﻿import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js'
 import { escapeHtml, getYouTubeId } from './utils.js'
+import { renderMarkdown } from './markdown.js'
 import { storageGet, storageSet, storageRemove } from './storage.js'
 import { typewrite, skipActiveTypewriter } from './typewriter.js'
 import { isNearBottom } from './reload-policy.js'
@@ -258,41 +259,6 @@ function hasMedia(text) {
     /\]\(https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\//.test(text)
 }
 
-function renderMarkdown(text) {
-  if (!text) return ''
-
-  text = text.replace(/!\[([^\]]*)\]\((https?:\/\/[^)]+)\)/g, (_, alt, url) => {
-    const safeAlt = escapeHtml(alt)
-    const safeUrl = escapeHtml(url)
-    return `<div class="my-2 text-center">
-      <img src="${safeUrl}" alt="${safeAlt}" class="chat-img" onclick="openLightbox('${safeUrl}')" title="Clic para ampliar">
-      ${safeAlt ? `<p class="text-[10px] text-[var(--black-60)] mt-1 italic">${safeAlt}</p>` : ''}
-    </div>`
-  })
-
-  // Links de YouTube en cualquier formato (watch, youtu.be, shorts, live…);
-  // si no se puede extraer el ID, el link cae al render genérico de <a>.
-  text = text.replace(
-    /\[([^\]]+)\]\((https?:\/\/[^)]*(?:youtube\.com|youtu\.be)[^)]*)\)/g,
-    (match, label, url) => {
-      const videoId = getYouTubeId(url)
-      if (!videoId) return match
-      return `<div class="my-2">
-      <p class="text-xs font-bold mb-1.5 flex items-center gap-1">▶ ${escapeHtml(label)}</p>
-      <div class="chat-video-wrap"><iframe src="https://www.youtube.com/embed/${videoId}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
-    </div>`
-    }
-  )
-
-  text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
-    '<a href="$2" target="_blank" rel="noopener" class="text-[var(--blue-100)] underline font-semibold hover:opacity-75">$1</a>')
-
-  text = text.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
-  text = text.replace(/\n/g, '<br>')
-
-  return text
-}
-
 function scrollToBottom() {
   const box = document.getElementById('chatMessages')
   if (box) box.scrollTop = box.scrollHeight
@@ -335,7 +301,7 @@ function appendMedia(mediaItems) {
       const safeAlt = escapeHtml(item.caption || '')
       const d = document.createElement('div')
       d.className = 'my-2'
-      d.innerHTML = `<img src="${safeUrl}" alt="${safeAlt}" class="chat-img" onclick="openLightbox('${safeUrl}', '${safeAlt}')" title="Clic para ampliar">
+      d.innerHTML = `<img src="${safeUrl}" alt="${safeAlt}" class="chat-img" data-lightbox="${safeUrl}" data-caption="${safeAlt}" title="Clic para ampliar">
         ${safeAlt ? `<p class="text-[10px] text-[var(--black-60)] mt-1 italic">${safeAlt}</p>` : ''}`
       wrap.appendChild(d)
     } else if (item.type === 'video' && item.url) {
@@ -630,13 +596,14 @@ window.openLightbox = function(url, caption = '') {
     lb.id = 'chatImgLightbox'
     document.body.appendChild(lb)
   }
+  const safeUrl = escapeHtml(url)
   lb.innerHTML = `
     <div id="lb-backdrop"></div>
     <div id="lb-content">
-      <img src="${url}" alt="${escapeHtml(caption)}">
+      <img src="${safeUrl}" alt="${escapeHtml(caption)}">
       ${caption ? `<p id="lb-caption">${escapeHtml(caption)}</p>` : ''}
       <div id="lb-actions">
-        <a id="lb-open" href="${url}" target="_blank" rel="noopener noreferrer">↗ Abrir en nueva pestaña</a>
+        <a id="lb-open" href="${safeUrl}" target="_blank" rel="noopener noreferrer">↗ Abrir en nueva pestaña</a>
         <button id="lb-close">✕ Cerrar</button>
       </div>
     </div>`
@@ -695,6 +662,10 @@ function bindAssistantEvents() {
   box.addEventListener('scroll', () => { followScroll = isNearBottom(box) })
   box.addEventListener('click', e => {
     if (e.target.closest('.tw-running')) { skipAll = true; skipActiveTypewriter() }
+    // Lightbox por delegación: las imágenes marcan data-lightbox en vez de un
+    // onclick inline (la CSP bloquea los manejadores inline).
+    const img = e.target.closest('[data-lightbox]')
+    if (img) window.openLightbox(img.dataset.lightbox, img.dataset.caption || '')
   })
 }
 
