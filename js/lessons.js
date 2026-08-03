@@ -5,6 +5,7 @@ import { track } from './analytics.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml } from './utils.js'
 import { VERTICALES, PLATAFORMAS, getSeleccion, setSeleccion, filtrarPorSeleccion, plataformasHabilitadas, verticalesVisibles, resolverSeleccion } from './vertical.js'
+import { crearSuscripcionReanudable } from './realtime-lifecycle.js'
 
 // Las categorías se muestran sin emojis (pueden venir en la columna emoji o
 // incrustados en el nombre); las claves internas de agrupación no se tocan.
@@ -587,18 +588,23 @@ async function renderLessons() {
   }
 
   // ── Supabase Realtime ─────────────────────────────────────────────────────
-  const channel = supabase
-    .channel('lessons-realtime')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'lecciones' }, async () => {
-      await refreshLessons()
-      showToast('Lecciones actualizadas ✓')
-    })
-    .subscribe()
+  // Suscripción reanudable: al salir de la pestaña se detiene y al volver se
+  // reanuda (main.js). Antes se removía el canal sin forma de re-suscribir, así
+  // que el realtime moría al cambiar de pestaña una vez (#7).
+  const realtime = crearSuscripcionReanudable({
+    subscribe: () => supabase
+      .channel('lessons-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lecciones' }, async () => {
+        await refreshLessons()
+        showToast('Lecciones actualizadas ✓')
+      })
+      .subscribe(),
+    remove: (channel) => supabase.removeChannel(channel),
+  })
+  realtime.iniciar()
 
-  window.lessonsCleanup = () => {
-    supabase.removeChannel(channel)
-    window.lessonsCleanup = null
-  }
+  window.lessonsCleanup = () => realtime.detener()
+  window.lessonsResume  = () => realtime.iniciar()
 }
 
 renderLessons()
