@@ -10,6 +10,7 @@ import { logActivity } from './activity.js'
 import { remapContentUrl } from './content-url.js'
 import { parseLessonBlocks } from './lesson-blocks.js'
 import { extractBucketUrls, countReferences, diffBrokenUrls, pathFromBucketUrl } from './bucket-urls.js'
+import { evaluarBorradoCategoria } from './category-guard.js'
 
 const EMBED_WEBHOOK = 'https://n8n.mplasesores.com/webhook/embed-lesson'
 const EMBED_TOKEN   = 'BoldBodi-2026-K9xMvP7q'
@@ -637,14 +638,21 @@ async function renderLessonsPanel() {
 
   document.querySelectorAll('.del-cat').forEach(b => b.addEventListener('click', async () => {
     const nombre = b.dataset.nombre
-    const { count } = await supabase
+    const conteo = await supabase
       .from('lecciones').select('id', { count: 'exact', head: true }).eq('categoria', nombre)
-    if (count > 0) {
-      alert(`No se puede eliminar "${nombre}" porque tiene ${count} lección(es). Reasígnalas primero.`)
+    const decision = evaluarBorradoCategoria(conteo)
+    if (!decision.permitido) {
+      alert(decision.razon === 'con-lecciones'
+        ? `No se puede eliminar "${nombre}" porque tiene ${decision.count} lección(es). Reasígnalas primero.`
+        : `No se pudo verificar las lecciones de "${nombre}". Intenta de nuevo.`)
       return
     }
     if (!confirm(`¿Eliminar la categoría "${nombre}"?`)) return
-    await supabase.from('categorias').delete().eq('id', b.dataset.id)
+    const { error } = await supabase.from('categorias').delete().eq('id', b.dataset.id)
+    if (error) {
+      alert(`No se pudo eliminar "${nombre}": ${error.message}`)
+      return
+    }
     renderLessonsPanel()
   }))
 
