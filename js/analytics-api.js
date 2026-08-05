@@ -85,3 +85,12 @@ export async function fetchContentGaps(from, to, client) {
     p_to: to.toISOString(),
   })
 }
+
+export async function fetchZombieLessons(from, to, maxVisits = 2, client) {
+  if (!client) client = await getSupabaseClient()
+  return callRpc(client, 'analytics_zombie_lessons', {
+    p_from: from.toISOString(),
+    p_to: to.toISOString(),
+    p_max_visits: maxVisits,
+  })
+}
