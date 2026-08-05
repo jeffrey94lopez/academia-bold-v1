@@ -7,7 +7,7 @@ import {
   fetchLessonsSummary, fetchCourseFunnel, fetchZombieLessons,
 } from './analytics-api.js'
 import {
-  computeLessonKpis, selectTrapLessons, zeroResultSearches, mergeLessonTable,
+  computeLessonKpis, selectTrapLessons, zeroResultSearches, mergeLessonTable, selectNotFinished,
 } from './lessons-analytics.js'
 import {
   rangeControlsHtml, wireRangeControls, computeRange, kpiCard,
@@ -45,7 +45,8 @@ export async function renderLessonsAnalytics(from = null, to = null) {
   const kpi = computeLessonKpis(summary, funnel)
   const traps = selectTrapLessons(summary.exams)
   const zeroSearches = zeroResultSearches(summary.searches)
-  const table = mergeLessonTable(summary.top_lessons, summary.exams)
+  const table = mergeLessonTable(summary.top_lessons, summary.exams, summary.reading || [])
+  const notFinished = selectNotFinished(summary.reading || [])
 
   // ── ① Impacto ──────────────────────────────────────────────────────────────
   const kcard = (label, value, delta) => `
@@ -84,11 +85,13 @@ export async function renderLessonsAnalytics(from = null, to = null) {
         <span class="text-[var(--black-100)] font-semibold truncate mr-2">"${escapeHtml(s.term)}"</span>
         <span class="shrink-0 text-[var(--warning-150)] font-bold">${s.zero_count} sin resultado</span></div>`).join('')}
     </div>` : ''
-  const soonCard = `
-    <div class="bg-white rounded-2xl border border-dashed border-[var(--blue-20)] p-4 opacity-70">
-      <p class="text-sm font-bold text-[var(--black-60)]">📉 Se abren pero no se terminan</p>
-      <p class="text-[11px] text-[var(--black-40)] mt-1">Requiere telemetría de lectura (scroll/tiempo) — próximamente.</p>
-    </div>`
+  const soonCard = notFinished.length ? `
+    <div class="bg-white rounded-2xl border-l-4 border-[var(--warning-150)] border border-[var(--blue-10)] p-4">
+      <p class="text-sm font-bold text-[var(--black-100)]">📉 Se abren pero no se terminan <span class="text-[11px] font-normal text-[var(--black-60)]">— baja lectura completa → acortar/mejorar el inicio</span></p>
+      ${notFinished.map(r => `<div class="flex justify-between items-center mt-2 text-xs">
+        <span class="text-[var(--black-100)] font-semibold truncate mr-2">${escapeHtml(r.lesson)}</span>
+        <span class="shrink-0 text-[var(--warning-150)] font-bold">${r.completion_pct}% leída · ${r.reads} lecturas</span></div>`).join('')}
+    </div>` : ''
   const atencionCards = [trapCard, zombieCard, zeroCard].filter(Boolean).join('')
   const atencion = `
     <p class="text-[10px] font-bold text-[var(--black-40)] uppercase tracking-wide mt-6 mb-2">Requiere tu atención</p>
@@ -133,14 +136,14 @@ export async function renderLessonsAnalytics(from = null, to = null) {
       <table class="w-full text-xs">
         <thead><tr class="text-left text-[var(--black-40)] uppercase text-[10px]">
           <th class="pb-2">Lección</th><th class="pb-2 text-right">Visitas</th><th class="pb-2 text-right">% aprueban</th>
-          <th class="pb-2 text-right">% leída <span class="normal-case font-normal">(pronto)</span></th>
+          <th class="pb-2 text-right">% leída</th>
         </tr></thead>
         <tbody>
           ${table.map(r => `<tr class="border-t border-[var(--blue-10)]">
             <td class="py-1.5 text-[var(--black-100)] font-semibold">${escapeHtml(r.lesson)}</td>
             <td class="py-1.5 text-right">${r.visits}</td>
             <td class="py-1.5 text-right">${r.pass_pct == null ? '—' : r.pass_pct + '%'}</td>
-            <td class="py-1.5 text-right text-[var(--black-40)]">—</td>
+            <td class="py-1.5 text-right ${r.read_pct == null ? 'text-[var(--black-40)]' : ''}">${r.read_pct == null ? '—' : r.read_pct + '%'}</td>
           </tr>`).join('') || '<tr><td colspan="4" class="py-2 text-[var(--black-40)]">Sin datos</td></tr>'}
         </tbody>
       </table>
