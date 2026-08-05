@@ -22,6 +22,7 @@ Se **conservan** tal cual (funcionan bien): **Dudas por categoría**, **Cuándo 
 ## Diseño
 
 ### Global
+- **Nombre de la pestaña:** cambia de `BolBot` a **`BoldBot POS`** (`LABELS.bolbot` en `js/analytics-shell.js`). La clave interna de la pestaña (`'bolbot'`) y el orden no cambian, solo la etiqueta visible.
 - **Picker de rango de fechas** arriba (patrón existente `rangeControlsHtml`), scopea toda la pestaña (header, qué-atender, categorías, heatmap y explorador).
 - **Tema Merlin** (solo tokens de `css/style.css`).
 
