@@ -131,11 +131,15 @@ export async function renderBotAnalytics(from = null, to = null) {
   wireRangeControls(el, 'bot', (f, t) => renderBotAnalytics(f, t))
   el.querySelector('#bot-export-csv')?.addEventListener('click', () => exportBotCsv(convs))
   wireExplorer(el, convs, from, to)
-  el.querySelector('[data-gap-cat]')?.addEventListener('click', ev => {
-    goToCreateLesson(ev.currentTarget.getAttribute('data-gap-cat'))
+  el.querySelectorAll('[data-gap-cat]').forEach(btn => {
+    btn.addEventListener('click', ev => {
+      ev.stopPropagation()
+      goToCreateLesson(ev.currentTarget.getAttribute('data-gap-cat'))
+    })
   })
   el.querySelectorAll('[data-edit-cat]').forEach(btn => {
     btn.addEventListener('click', ev => {
+      ev.stopPropagation()
       goToEditLessonByCategory(ev.currentTarget.getAttribute('data-edit-cat'))
     })
   })
@@ -221,32 +225,69 @@ function wireExplorer(el, convs, from, to) {
     toggle.textContent = hidden ? 'Filtros ▾' : 'Filtros ▴'
   })
 
-  const state = { estado: '', sent: '', life: '', search: '' }
+  const state = { estado: '', sent: '', life: '', category: '', search: '' }
   const summaryEl = el.querySelector('#bot-filter-summary')
+
+  const syncChips = () => {
+    ['estado', 'sent', 'life'].forEach(g => {
+      el.querySelectorAll(`.bot-fchip[data-group="${g}"]`).forEach(c => {
+        const on = c.dataset.val === state[g]
+        c.className = `bot-fchip px-2 py-1 rounded-full text-[11px] border ${on ? 'bg-[var(--blue-100)] text-white border-[var(--blue-100)]' : 'text-[var(--black-60)] border-[var(--blue-20)]'}`
+      })
+    })
+  }
+
+  const renderSummary = () => {
+    const active = Object.entries(state).filter(([, v]) => v)
+    summaryEl.innerHTML = active.map(([k, v]) =>
+      `<button class="bot-active-chip px-2 py-0.5 rounded-full border border-[var(--blue-20)] text-[var(--black-60)] mr-1" data-clear="${k}">${escapeHtml(v)} ✕</button>`).join('')
+  }
+
   const refresh = async () => {
     const filters = { limit: 100 }
     if (state.estado) filters.status = state.estado
     if (state.sent) filters.sentiment = state.sent
     if (state.life) filters.lifecycle = state.life
+    if (state.category) filters.category = state.category
     if (state.search) filters.search = state.search
     const rows = await fetchBotConversations(from, to, filters)
     el.querySelector('#bot-conv-list').innerHTML = convRows(rows)
     bindRows(el, rows)
-    const active = Object.entries(state).filter(([, v]) => v).map(([k, v]) => `${k}:${v}`).join(' · ')
-    summaryEl.textContent = active ? `(${active})` : ''
+    renderSummary()
   }
+
+  const applyFilters = (partial, { replace } = {}) => {
+    if (replace) {
+      state.estado = ''; state.sent = ''; state.life = ''; state.category = ''; state.search = ''
+    }
+    Object.assign(state, partial)
+    syncChips()
+    refresh()
+  }
+
+  summaryEl?.addEventListener('click', ev => {
+    const btn = ev.target.closest('[data-clear]')
+    if (!btn) return
+    applyFilters({ [btn.getAttribute('data-clear')]: '' }, { replace: false })
+  })
 
   el.querySelectorAll('.bot-fchip').forEach(chip => {
     chip.addEventListener('click', () => {
-      const g = chip.dataset.group
-      state[g] = chip.dataset.val
-      el.querySelectorAll(`.bot-fchip[data-group="${g}"]`).forEach(c => {
-        const on = c === chip
-        c.className = `bot-fchip px-2 py-1 rounded-full text-[11px] border ${on ? 'bg-[var(--blue-100)] text-white border-[var(--blue-100)]' : 'text-[var(--black-60)] border-[var(--blue-20)]'}`
-      })
-      refresh()
+      applyFilters({ [chip.dataset.group]: chip.dataset.val }, { replace: false })
     })
   })
+
+  el.querySelectorAll('.bot-drill').forEach(node => {
+    node.addEventListener('click', ev => {
+      if (ev.target.closest('[data-gap-cat],[data-edit-cat]')) return
+      let partial
+      try { partial = JSON.parse(node.getAttribute('data-drill') || '{}') } catch { partial = {} }
+      applyFilters(partial, { replace: true })
+      if (body.classList.contains('hidden')) { body.classList.remove('hidden'); toggle.textContent = 'Filtros ▴' }
+      el.querySelector('#bot-explorer')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  })
+
   let t
   el.querySelector('#bot-search')?.addEventListener('input', e => {
     clearTimeout(t); t = setTimeout(() => { state.search = e.target.value.trim(); refresh() }, 400)
