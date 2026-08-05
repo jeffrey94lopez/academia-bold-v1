@@ -1,0 +1,134 @@
+{
+  "name": "Bold POS - Auto-eval calidad (①c)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trg-manual-001",
+      "name": "Ejecutar a mano",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-620, 200]
+    },
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "hours", "hoursInterval": 1 }] }
+      },
+      "id": "trg-cron-001",
+      "name": "Cada hora",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [-620, 380]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://tczcngfhuendmldafbrc.supabase.co/rest/v1/rpc/analytics_conversations_to_evaluate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ p_limit: 50 }) }}",
+        "options": {}
+      },
+      "id": "http-lote-001",
+      "name": "Obtener lote",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [-400, 200],
+      "credentials": {
+        "supabaseApi": { "id": "Szz5zeGA5Wxy3Rtj", "name": "Supabase Academia (service-role)" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normaliza la respuesta de la RPC a un item por conversación.\nlet rows;\nconst all = $input.all();\nif (all.length > 1) {\n  rows = all.map(i => i.json);\n} else {\n  const j = all[0]?.json;\n  rows = Array.isArray(j) ? j : (Array.isArray(j?.data) ? j.data : (j?.id ? [j] : []));\n}\nreturn rows.map(r => ({ json: { id: r.id, messages: r.messages } }));"
+      },
+      "id": "code-fanout-001",
+      "name": "Separar conversaciones",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-180, 200]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const msgs = Array.isArray($json.messages) ? $json.messages : [];\nconst transcript = msgs\n  .map(m => `${m.role === 'user' ? 'Usuario' : 'Bot'}: ${String(m.content ?? '').trim()}`)\n  .join('\\n')\n  .slice(0, 4000);\nreturn { json: { id: $json.id, transcript } };"
+      },
+      "id": "code-prompt-001",
+      "name": "Construir prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [40, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ model: \"gpt-4o-mini\", temperature: 0, messages: [ { role: \"system\", content: \"Eres un evaluador de conversaciones de soporte de Bold POS (un punto de venta). Recibes el transcript (Usuario y Bot) y devuelves SOLO el objeto estructurado. resolution_status: 'resuelta' si el bot dio lo que el usuario pedia y este no siguio insistiendo; 'no_resuelta' si no resolvio o el usuario termino frustrado o derivado a soporte sin respuesta util; 'ambigua' si el bot respondio pero el usuario se fue sin senal clara. category: UNA de la lista; si no encaja en las de producto usa las operativas; si nada aplica, 'Otro'. knowledge_gap: true si el bot no pudo resolver con el contenido disponible (dijo que no tenia informacion, derivo a soporte sin dar la solucion, o el tema no esta cubierto). summary: una linea (max 120 caracteres) en espanol con la consulta principal. sentiment: tono general del usuario en toda la conversacion.\" }, { role: \"user\", content: $json.transcript } ], response_format: { type: \"json_schema\", json_schema: { name: \"eval_conversacion\", strict: true, schema: { type: \"object\", additionalProperties: false, required: [\"resolution_status\",\"category\",\"knowledge_gap\",\"summary\",\"sentiment\"], properties: { resolution_status: { type: \"string\", enum: [\"resuelta\",\"no_resuelta\",\"ambigua\"] }, category: { type: \"string\", enum: [\"Configuración\",\"Inventario\",\"Ingresos\",\"Egresos\",\"Ventas\",\"Contactos\",\"Reportes\",\"Casos de Uso\",\"Hardware/Periféricos\",\"Facturación/Cuenta\",\"Otro\"] }, knowledge_gap: { type: \"boolean\" }, summary: { type: \"string\" }, sentiment: { type: \"string\", enum: [\"positivo\",\"neutro\",\"negativo\"] } } } } } }) }}",
+        "options": {}
+      },
+      "id": "http-openai-001",
+      "name": "Evaluar con LLM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [260, 200],
+      "credentials": {
+        "openAiApi": { "id": "DGC36ZkqZ6GRAz10", "name": "OpenAi account" }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const raw = $json.choices?.[0]?.message?.content ?? '{}';\nconst e = JSON.parse(raw);\nconst id = $('Construir prompt').item.json.id;\nreturn { json: {\n  id,\n  resolution_status: e.resolution_status,\n  category: e.category,\n  knowledge_gap: e.knowledge_gap,\n  summary: e.summary,\n  sentiment: e.sentiment,\n} };"
+      },
+      "id": "code-parse-001",
+      "name": "Parsear resultado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 200]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://tczcngfhuendmldafbrc.supabase.co/rest/v1/bodi_conversations?id=eq.{{ $json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ resolution_status: $json.resolution_status, category: $json.category, knowledge_gap: $json.knowledge_gap, summary: $json.summary, sentiment: $json.sentiment }) }}",
+        "options": {}
+      },
+      "id": "http-write-001",
+      "name": "Guardar evaluación",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [700, 200],
+      "credentials": {
+        "supabaseApi": { "id": "Szz5zeGA5Wxy3Rtj", "name": "Supabase Academia (service-role)" }
+      }
+    }
+  ],
+  "connections": {
+    "Ejecutar a mano": { "main": [[{ "node": "Obtener lote", "type": "main", "index": 0 }]] },
+    "Cada hora": { "main": [[{ "node": "Obtener lote", "type": "main", "index": 0 }]] },
+    "Obtener lote": { "main": [[{ "node": "Separar conversaciones", "type": "main", "index": 0 }]] },
+    "Separar conversaciones": { "main": [[{ "node": "Construir prompt", "type": "main", "index": 0 }]] },
+    "Construir prompt": { "main": [[{ "node": "Evaluar con LLM", "type": "main", "index": 0 }]] },
+    "Evaluar con LLM": { "main": [[{ "node": "Parsear resultado", "type": "main", "index": 0 }]] },
+    "Parsear resultado": { "main": [[{ "node": "Guardar evaluación", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}
