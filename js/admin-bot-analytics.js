@@ -126,6 +126,7 @@ export async function renderBotAnalytics(from = null, to = null) {
       </div>
     </div>
     ${explorer}`
+  lucide?.createIcons?.()
 
   // Listeners
   wireRangeControls(el, 'bot', (f, t) => renderBotAnalytics(f, t))
@@ -237,10 +238,17 @@ function wireExplorer(el, convs, from, to) {
     })
   }
 
+  const FILTER_LABELS = {
+    estado: { resuelta: 'Resuelta', no_resuelta: 'No resuelta', ambigua: 'Ambigua' },
+    sent: { positivo: 'Positivo', neutro: 'Neutro', negativo: 'Negativo' },
+    life: { cerrada_cliente: 'Cerró', abandonada: 'Abandonó', escalada: 'Escaló' },
+  }
+  const friendlyFilterLabel = (k, v) => (FILTER_LABELS[k] && FILTER_LABELS[k][v]) || v
+
   const renderSummary = () => {
     const active = Object.entries(state).filter(([, v]) => v)
     summaryEl.innerHTML = active.map(([k, v]) =>
-      `<button class="bot-active-chip px-2 py-0.5 rounded-full border border-[var(--blue-20)] text-[var(--black-60)] mr-1" data-clear="${k}">${escapeHtml(v)} ✕</button>`).join('')
+      `<button class="bot-active-chip px-2 py-0.5 rounded-full border border-[var(--blue-20)] text-[var(--black-60)] mr-1" data-clear="${k}">${escapeHtml(friendlyFilterLabel(k, v))} ✕</button>`).join('')
   }
 
   const refresh = async () => {
@@ -259,6 +267,8 @@ function wireExplorer(el, convs, from, to) {
   const applyFilters = (partial, { replace } = {}) => {
     if (replace) {
       state.estado = ''; state.sent = ''; state.life = ''; state.category = ''; state.search = ''
+      const searchInput = el.querySelector('#bot-search')
+      if (searchInput) searchInput.value = ''
     }
     Object.assign(state, partial)
     syncChips()
