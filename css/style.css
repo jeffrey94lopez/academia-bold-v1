@@ -419,7 +419,7 @@ body {
 .nav-tab-desk.bg-\[var\(--blue-100\)\] .nav-ico-selected { display: inline-block; }
 
 /* Hover azul (no gris) en la sidebar; el activo relleno no cambia en hover */
-.nav-tab-desk:not(.bg-\[var\(--blue-100\)\]):hover { background-color: var(--blue-10) !important; }
+.nav-tab-desk:not(.bg-\[var\(--blue-100\)\]):hover { background-color: var(--blue-20) !important; }
 
 /* ── Bottom nav (móvil) — Merlin blue + píldora activa ── */
 /* Todos los tabs en azul de marca (no gris apagado): así se ven como opciones. */
@@ -430,8 +430,9 @@ body {
   padding: 3px 16px; border-radius: 16px; transition: background-color .15s ease;
 }
 /* La píldora del activo: switchTab pone .nav-pill-on directamente en el ico
-   (más robusto que un selector ancestro-descendiente sobre la clase de Tailwind). */
-.nav-tab-ico.nav-pill-on { background: var(--blue-10); }
+   (más robusto que un selector ancestro-descendiente sobre la clase de Tailwind).
+   Rellena en azul de marca con ícono blanco para que se note bien. */
+.nav-tab-ico.nav-pill-on { background: var(--blue-100); color: #fff; }
 
 /* ── Chat suggestion chips ── */
 .quick-query {
