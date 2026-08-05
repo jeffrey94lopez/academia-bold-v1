@@ -15,6 +15,10 @@ test('shouldAskResolution: false cuando derivó a soporte', () => {
   assert.equal(shouldAskResolution({ support_redirected: true }), false)
 })
 
+test('shouldAskResolution: false cuando el bot no tiene información (knowledge_gap)', () => {
+  assert.equal(shouldAskResolution({ knowledge_gap: true }), false)
+})
+
 test('shouldAskResolution: tolera data null/undefined (no muestra botones)', () => {
   assert.equal(shouldAskResolution(null), false)
   assert.equal(shouldAskResolution(undefined), false)
