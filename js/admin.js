@@ -2139,7 +2139,7 @@ async function renderMaterialApoyoPanel() {
             <i data-lucide="${escapeHtml(iconMap[m.tipo] || 'file')}" class="w-5 h-5 ${escapeHtml(colorMap[m.tipo] || 'text-[var(--black-60)]')}"></i>
           </div>
           <div class="flex-1 min-w-0">
-            <p class="font-bold text-sm truncate">${escapeHtml(m.titulo)}</p>
+            <p class="font-bold text-sm sm:truncate">${escapeHtml(m.titulo)}</p>
             <p class="text-xs text-[var(--black-40)] uppercase font-bold">${escapeHtml(m.tipo)}</p>
           </div>
           <div class="flex gap-1 shrink-0">
@@ -2305,7 +2305,7 @@ async function renderSuggestionsPanel() {
         <div class="bg-white rounded-xl border border-[var(--blue-10)] p-3 flex items-center justify-between gap-3">
           <div class="flex items-center gap-3 min-w-0">
             <span class="text-xs font-black text-[var(--black-40)] w-5 text-center">${escapeHtml(String(s.orden))}</span>
-            <p class="font-bold text-sm truncate">${escapeHtml(s.texto)}</p>
+            <p class="font-bold text-sm min-w-0 sm:truncate">${escapeHtml(s.texto)}</p>
             ${s.activo
               ? '<span class="shrink-0 text-[10px] font-black bg-green-50 text-green-600 px-2 py-0.5 rounded-full">Activo</span>'
               : '<span class="shrink-0 text-[10px] font-black bg-[var(--black-10)] text-[var(--black-40)] px-2 py-0.5 rounded-full">Inactivo</span>'

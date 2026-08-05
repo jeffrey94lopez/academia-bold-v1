@@ -22,8 +22,8 @@ export async function renderResultsPanel() {
       <h2 class="text-lg font-black">Resultados del curso</h2>
       <p class="text-xs text-[var(--black-40)] mt-0.5">${completados} estudiante${completados !== 1 ? 's' : ''} completaron el curso</p>
     </div>
-    <div class="bg-white rounded-2xl border border-[var(--blue-10)] overflow-hidden">
-      <table class="w-full text-sm">
+    <div class="bg-white rounded-2xl border border-[var(--blue-10)] overflow-x-auto">
+      <table class="w-full text-sm min-w-[520px]">
         <thead>
           <tr class="border-b border-[var(--blue-10)]">
             <th class="text-left px-4 py-3 text-xs font-black text-[var(--black-40)] uppercase tracking-wide">Nombre</th>
