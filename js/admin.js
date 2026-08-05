@@ -870,10 +870,10 @@ function renderGroupedLessons(allLessons, searchQuery) {
 
 function lessonCardHtml(l) {
   return `
-    <div class="lesson-card bg-white rounded-xl border ${l.active === false ? 'border-[var(--black-10)] opacity-50' : 'border-[var(--blue-10)]'} p-3.5 flex items-center gap-3 mb-2 cursor-pointer hover:border-[var(--blue-100)] hover:shadow-sm transition-all" data-id="${l.id}">
+    <div class="lesson-card bg-white rounded-xl border ${l.active === false ? 'border-[var(--black-10)] opacity-50' : 'border-[var(--blue-10)]'} p-3.5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2 cursor-pointer hover:border-[var(--blue-100)] hover:shadow-sm transition-all" data-id="${l.id}">
       <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2">
-          <p class="font-bold text-sm text-[var(--black-100)] truncate">${escapeHtml(l.titulo)}</p>
+        <div class="flex flex-wrap sm:flex-nowrap items-center gap-x-2 gap-y-1">
+          <p class="font-bold text-sm text-[var(--black-100)] min-w-0 sm:truncate">${escapeHtml(l.titulo)}</p>
           <span class="shrink-0 text-[10px] text-[var(--black-40)]">#${escapeHtml(String(l.orden))}</span>
           <span class="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-[var(--black-40)] bg-[var(--background-page)] px-1.5 py-0.5 rounded-full">
             <i data-lucide="${(l.vertical || 'retail') === 'retail' ? 'store' : 'utensils'}" class="w-3 h-3"></i>
