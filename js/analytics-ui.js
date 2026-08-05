@@ -69,10 +69,6 @@ export function kpiCard(label, value, sub = '') {
   </div>`
 }
 
-export function llmNote() {
-  return `<span class="text-[10px] text-[var(--blue-40)] font-semibold">✨ se afina con LLM</span>`
-}
-
 // Barra apilada genérica con los conteos DENTRO de cada segmento. Interna: la
 // comparten sentimentBar y lifecycleBar, que solo difieren en colores y
 // etiquetas. Devuelve solo la barra (sin margen); el consumidor la envuelve

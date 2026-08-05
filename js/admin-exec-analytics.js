@@ -2,7 +2,7 @@ import {
   fetchBotSummary, fetchBotTrend, fetchLessonsSummary, fetchContentGaps,
 } from './analytics-api.js'
 import {
-  rangeControlsHtml, wireRangeControls, computeRange, kpiCard, llmNote, sentimentBar,
+  rangeControlsHtml, wireRangeControls, computeRange, kpiCard, sentimentBar,
 } from './analytics-ui.js'
 import { escapeHtml, exportCSV } from './utils.js'
 
@@ -91,7 +91,7 @@ export async function renderExecAnalytics(from = null, to = null) {
     ${items.length ? items.map(gapItem).join('') : `<p class="text-xs text-[var(--black-40)]">${empty}</p>`}`
   const insightsPanel = `
     <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4">
-      <p class="text-sm font-bold text-[var(--black-100)] mb-2">Insights bot ↔ lecciones ${llmNote()}</p>
+      <p class="text-sm font-bold text-[var(--black-100)] mb-2">Insights bot ↔ lecciones</p>
       ${insightsBlock('🔗 Huecos de contenido', sinLeccion, 'Sin huecos en el rango.')}
       ${insightsBlock('🔴 Lecciones a revisar', conLeccion, 'Sin lecciones que revisar.')}
     </div>`

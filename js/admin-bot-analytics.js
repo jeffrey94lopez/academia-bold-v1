@@ -2,7 +2,7 @@ import {
   fetchBotSummary, fetchBotConversations, fetchContentGaps,
 } from './analytics-api.js'
 import {
-  rangeControlsHtml, wireRangeControls, computeRange, kpiCard, llmNote, sentimentBar, lifecycleBar,
+  rangeControlsHtml, wireRangeControls, computeRange, kpiCard, sentimentBar, lifecycleBar,
 } from './analytics-ui.js'
 import { escapeHtml, exportCSV } from './utils.js'
 import { pickContentToReinforce } from './bot-attention.js'
@@ -34,7 +34,7 @@ export async function renderBotAnalytics(from = null, to = null) {
   const kpis = `
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
       ${kpiCard('Conversaciones', k.total)}
-      ${kpiCard('Resolución real ' + llmNote(), (k.resolved_pct ?? 0) + '%', 'resueltas de las evaluadas')}
+      ${kpiCard('Resolución real', (k.resolved_pct ?? 0) + '%', 'resueltas de las evaluadas')}
       ${kpiCard('Resuelto sin soporte', (k.resolved_without_support_pct ?? 0) + '%', k.support + ' escalaron')}
       <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4">
         <p class="text-[10px] font-bold text-[var(--black-40)] uppercase tracking-wide mb-1">Sentimiento neto</p>
@@ -70,8 +70,8 @@ export async function renderBotAnalytics(from = null, to = null) {
         negCat ? `"${escapeHtml(negCat.category)}" — ${negCat.negative_pct}% negativo.` : 'Nada crítico.',
         negCat ? '→ Revisar respuesta / lección' : '', 'error',
         negCat ? `data-edit-cat="${escapeHtml(negCat.category)}"` : '')}
-      ${attentionCard('🔴', 'Dudas recurrentes no resueltas ' + llmNote(),
-        'Se prioriza con clustering del LLM (①c). Hoy: ver explorador filtrado por "No resuelta".',
+      ${attentionCard('🔴', 'Dudas recurrentes no resueltas',
+        'Ver el explorador filtrado por "No resuelta" para revisarlas.',
         '', 'error', '')}
     </div>`
 
@@ -100,7 +100,7 @@ export async function renderBotAnalytics(from = null, to = null) {
     ${attention}
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-6">
       <div class="bg-white rounded-2xl border border-[var(--blue-10)] overflow-hidden">
-        <p class="p-3 text-sm font-bold text-[var(--black-100)]">Dudas por categoría ${llmNote()}</p>
+        <p class="p-3 text-sm font-bold text-[var(--black-100)]">Dudas por categoría</p>
         <table class="w-full"><tbody>${catRows || '<tr><td class="p-3 text-xs text-[var(--black-40)]">Sin datos</td></tr>'}</tbody></table>
       </div>
       <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-3">
