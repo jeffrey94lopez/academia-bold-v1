@@ -4,6 +4,8 @@ import './resources.js'
 import { supabase } from './supabase.js'
 import { startLiveUpdates } from './live-updates.js'
 import { initCourseTab } from './course-tab.js'
+import { storageGet, storageSet } from './storage.js'
+import { shouldShowNavHint, NAV_HINT_KEY } from './nav-hint.js'
 
 startLiveUpdates()
 
@@ -41,6 +43,7 @@ function switchTab(tab) {
     const active = b.dataset.tab === tab
     b.classList.toggle('text-[var(--blue-100)]', active)
     b.classList.toggle('text-[var(--black-60)]', !active)
+    b.querySelector('.nav-tab-ico')?.classList.toggle('nav-pill-on', active)
   })
 
   document.querySelectorAll('.nav-tab-desk').forEach(b => {
@@ -60,5 +63,18 @@ function switchTab(tab) {
 document.querySelectorAll('[data-tab]').forEach(btn => {
   btn.addEventListener('click', () => switchTab(btn.dataset.tab))
 })
+
+// Aviso de descubrimiento del nav (móvil): que se note que hay más que el bot.
+// Se muestra hasta que el usuario lo cierra (se recuerda en el navegador).
+const navHint = document.getElementById('nav-hint')
+if (navHint && shouldShowNavHint(storageGet(NAV_HINT_KEY))) {
+  navHint.classList.remove('hidden')
+  navHint.classList.add('flex')
+  navHint.querySelector('.nav-hint-close')?.addEventListener('click', () => {
+    navHint.classList.add('hidden')
+    navHint.classList.remove('flex')
+    storageSet(NAV_HINT_KEY, 'true')
+  })
+}
 
 lucide.createIcons()

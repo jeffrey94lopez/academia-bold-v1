@@ -36,23 +36,30 @@
     <div id="section-course" class="absolute inset-0 section-enter hidden"></div>
   </main>
 
+  <!-- Aviso de descubrimiento del nav (móvil, 1ª vez) -->
+  <div id="nav-hint" class="hidden md:hidden mx-3 mb-1 shrink-0 items-center gap-2 px-3 py-2 rounded-xl bg-[var(--blue-100)] text-white text-xs">
+    <i data-lucide="arrow-down" class="w-4 h-4 shrink-0"></i>
+    <span>Aquí abajo también tienes el <b>Centro de Ayuda</b>, <b>P. Frecuentes</b> y el <b>Curso</b>.</span>
+    <button class="nav-hint-close ml-auto shrink-0" aria-label="Cerrar aviso"><i data-lucide="x" class="w-4 h-4"></i></button>
+  </div>
+
   <!-- Bottom nav (móvil) -->
   <nav class="h-16 border-t border-[var(--blue-10)] flex items-center justify-around bg-white shrink-0 md:hidden">
     <button data-tab="assistant" class="nav-tab flex flex-col items-center gap-1 text-[10px] font-bold text-[var(--blue-100)]">
-      <i data-lucide="bot" class="w-5 h-5"></i>
+      <span class="nav-tab-ico nav-pill-on"><i data-lucide="bot" class="w-5 h-5"></i></span>
       <span>Asistente</span>
     </button>
     <button data-tab="lessons" class="nav-tab flex flex-col items-center gap-1 text-[10px] font-bold text-[var(--black-60)]">
-      <i data-lucide="book-open" class="w-5 h-5"></i>
+      <span class="nav-tab-ico"><i data-lucide="book-open" class="w-5 h-5"></i></span>
       <span>Centro de Ayuda</span>
     </button>
     <button data-tab="resources" class="nav-tab flex flex-col items-center gap-1 text-[10px] font-bold text-[var(--black-60)]">
-      <i data-lucide="help-circle" class="w-5 h-5"></i>
+      <span class="nav-tab-ico"><i data-lucide="help-circle" class="w-5 h-5"></i></span>
       <span>P. Frecuentes</span>
     </button>
     <!-- Oculta por defecto: se muestra si curso_enabled === 'true' (main.js) -->
     <button data-tab="course" class="nav-tab hidden flex-col items-center gap-1 text-[10px] font-bold text-[var(--black-60)]" style="display:none">
-      <i data-lucide="graduation-cap" class="w-5 h-5"></i>
+      <span class="nav-tab-ico"><i data-lucide="graduation-cap" class="w-5 h-5"></i></span>
       <span>Curso</span>
     </button>
   </nav>
