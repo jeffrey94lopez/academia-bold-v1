@@ -116,8 +116,12 @@ body {
 }
 
 /* ── Desktop layout offset ── */
+/* El portal tiene el sidebar FIJO (md:fixed w-56), así que su main se desplaza
+   14rem. El admin usa sidebar STICKY dentro de un flex, así que su main NO lleva
+   ese offset (si no, queda un hueco de 14rem entre el menú y el contenido). */
 @media (min-width: 768px) {
   main { margin-left: 14rem; }
+  #adminApp main { margin-left: 0; }
 }
 
 /* ── Quill step editor (admin) ── */
