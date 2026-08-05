@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   pctDelta, completionPct, computeLessonKpis,
   selectTrapLessons, zeroResultSearches, mergeLessonTable,
+  selectNotFinished,
 } from '../js/lessons-analytics.js'
 
 test('pctDelta: variación porcentual redondeada', () => {
@@ -50,11 +51,30 @@ test('zeroResultSearches: solo con zero_count>0, más frecuentes primero', () =>
   assert.deepEqual(zeroResultSearches(searches).map(s => s.term), ['y', 'z'])
 })
 
-test('mergeLessonTable: cruza visitas con % aprueban por título', () => {
+test('mergeLessonTable: cruza visitas, % aprueban y % leída por título', () => {
   const top = [{ lesson: 'A', count: 30 }, { lesson: 'B', count: 10 }]
   const exams = [{ lesson: 'A', pass_pct: 80 }]
-  assert.deepEqual(mergeLessonTable(top, exams), [
-    { lesson: 'A', visits: 30, pass_pct: 80 },
-    { lesson: 'B', visits: 10, pass_pct: null },
+  const reading = [{ lesson: 'A', reads: 20, completes: 15, completion_pct: 75 }]
+  assert.deepEqual(mergeLessonTable(top, exams, reading), [
+    { lesson: 'A', visits: 30, pass_pct: 80, read_pct: 75 },
+    { lesson: 'B', visits: 10, pass_pct: null, read_pct: null },
   ])
+})
+
+test('mergeLessonTable: sin reading, read_pct es null (retrocompatible)', () => {
+  const top = [{ lesson: 'A', count: 5 }]
+  assert.deepEqual(mergeLessonTable(top, []), [
+    { lesson: 'A', visits: 5, pass_pct: null, read_pct: null },
+  ])
+})
+
+test('selectNotFinished: baja tasa de completado con muestra suficiente, peor primero', () => {
+  const reading = [
+    { lesson: 'A', reads: 10, completion_pct: 20 },
+    { lesson: 'B', reads: 3,  completion_pct: 10 }, // muestra chica → fuera
+    { lesson: 'C', reads: 8,  completion_pct: 90 }, // se termina → fuera
+    { lesson: 'D', reads: 6,  completion_pct: 35 },
+  ]
+  const r = selectNotFinished(reading, { minReads: 5, maxPct: 40 })
+  assert.deepEqual(r.map(x => x.lesson), ['A', 'D'])
 })

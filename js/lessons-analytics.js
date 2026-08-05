@@ -40,13 +40,22 @@ export function zeroResultSearches(searches, { limit = 8 } = {}) {
     .slice(0, limit)
 }
 
-export function mergeLessonTable(topLessons, exams, { limit = 10 } = {}) {
+export function mergeLessonTable(topLessons, exams, reading = [], { limit = 10 } = {}) {
   const passByLesson = new Map((exams || []).map(e => [e.lesson, e.pass_pct]))
+  const readByLesson = new Map((reading || []).map(r => [r.lesson, r.completion_pct]))
   return (topLessons || [])
     .slice(0, limit)
     .map(l => ({
       lesson: l.lesson,
       visits: l.count,
       pass_pct: passByLesson.has(l.lesson) ? passByLesson.get(l.lesson) : null,
+      read_pct: readByLesson.has(l.lesson) ? readByLesson.get(l.lesson) : null,
     }))
+}
+
+export function selectNotFinished(reading, { minReads = 5, maxPct = 40, limit = 6 } = {}) {
+  return (reading || [])
+    .filter(r => (r.reads ?? 0) >= minReads && r.completion_pct != null && r.completion_pct <= maxPct)
+    .sort((a, b) => a.completion_pct - b.completion_pct)
+    .slice(0, limit)
 }
