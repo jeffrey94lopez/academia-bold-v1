@@ -4,9 +4,9 @@
 
 **Goal:** Un workflow n8n nuevo e independiente que, en cron, evalúa con un LLM cada conversación cerrada sin evaluar y escribe `resolution_status`, `category`, `knowledge_gap`, `summary` y `sentiment` en `bodi_conversations`.
 
-**Architecture:** Schedule Trigger → nodo Postgres que llama una RPC de Supabase y devuelve el lote a evaluar → loop por conversación → HTTP a OpenAI con *structured outputs* (`response_format: json_schema`) → nodo Postgres que hace `UPDATE` de los 5 campos. Sin secretos en el JSON del workflow: la conexión a la base vive en una **credencial Postgres de n8n** (conexión directa a la base de Supabase) y OpenAI en su credencial nativa. La conexión directa como usuario de base salta la RLS, así que no hace falta service-role vía PostgREST. El guard `resolution_status IS NULL` da idempotencia y backfill natural.
+**Architecture:** Schedule Trigger → HTTP Request que llama una RPC de Supabase (PostgREST `/rpc/`) y devuelve el lote a evaluar → loop por conversación → HTTP a OpenAI con *structured outputs* (`response_format: json_schema`) → HTTP Request `PATCH` que escribe los 5 campos. Sin secretos en el JSON del workflow: los nodos HTTP de Supabase usan una credencial nativa **"Supabase API"** (host + `service_role`) que n8n inyecta como auth; OpenAI en su credencial nativa. La `service_role` salta la RLS. El guard `resolution_status IS NULL` da idempotencia y backfill natural.
 
-**Tech Stack:** n8n (API REST pública, `https://n8n.mplasesores.com/api/v1`), Supabase (conexión Postgres directa + una RPC), OpenAI `gpt-4o-mini` structured outputs.
+**Tech Stack:** n8n (API REST pública, `https://n8n.mplasesores.com/api/v1`), Supabase (PostgREST + una RPC, credencial Supabase API), OpenAI `gpt-4o-mini` structured outputs.
 
 ## Global Constraints
 
@@ -95,17 +95,14 @@ El workflow referencia dos credenciales por id. No se crean por la API (n8n no e
 
 - [ ] **Step 1: OpenAI** — ya existe: credencial `openAiApi` id **`DGC36ZkqZ6GRAz10`** (la usa el workflow de chat). Se reutiliza. No hay que crear nada.
 
-- [ ] **Step 2: Credencial Postgres (conexión a la base de Supabase)** — el usuario crea en n8n una credencial tipo **Postgres** con los datos de Supabase → Project Settings → Database → Connection info (usar la conexión **Session/Direct**, no la Transaction pooler):
-  - Nombre sugerido: `Supabase Academia (Postgres)`.
-  - Host: `db.tczcngfhuendmldafbrc.supabase.co` (o el host de pooler que muestre Supabase).
-  - Port: `5432` · Database: `postgres` · User: `postgres` (o `postgres.tczcngfhuendmldafbrc` si usa pooler).
-  - Password: el **Database password** del proyecto (Supabase → Database → Reset/obtener password).
-  - SSL: **habilitado** (Supabase lo exige; en n8n suele bastar SSL = `require`/`allow`).
-  - Al guardar, n8n prueba la conexión: debe decir "Connection successful".
+- [ ] **Step 2: Credencial Supabase API** — el usuario crea en n8n una credencial tipo **"Supabase API"** con:
+  - Nombre sugerido: `Supabase Academia (service-role)`.
+  - Host: `https://tczcngfhuendmldafbrc.supabase.co`.
+  - Service Role Secret: la `service_role` de **Supabase → Project Settings → API → Project API keys → `service_role` → Reveal** (un JWT largo; **no** el `anon`). Está siempre visible ahí — no requiere el password de la base ni resetear nada.
 
 - [ ] **Step 3: El usuario pasa a Claude el `SUPABASE_CRED_ID`** (visible en la URL al editar la credencial). Con ese id + `DGC36ZkqZ6GRAz10` se arma el workflow.
 
-> **Gate:** No continuar a Task 3 sin `SUPABASE_CRED_ID`. Como la conexión Postgres directa entra como usuario de base (owner), salta la RLS y puede llamar la RPC y hacer el UPDATE sin depender de grants; el `grant to service_role` de Task 1 queda como refuerzo, no como requisito.
+> **Gate:** No continuar a Task 3 sin `SUPABASE_CRED_ID`. La `service_role` salta la RLS, así que la RPC y el PATCH funcionan; el `grant to service_role` de Task 1 alinea con esto.
 
 ---
 
@@ -123,9 +120,11 @@ Se arma el JSON del workflow y se crea vía `POST /api/v1/workflows` **inactivo*
 **Topología de nodos (config exacta):**
 
 1. **Schedule Trigger** (`n8n-nodes-base.scheduleTrigger`): intervalo cada 1 hora. (Se activa recién en Task 6; se crea desconectado del cron real hasta validar.)
-2. **Postgres — obtener lote** (`n8n-nodes-base.postgres`, operación *Execute Query*), credencial `SUPABASE_CRED_ID`:
-   - Query: `select id, messages from analytics_conversations_to_evaluate(50);` (en Task 4 se prueba con `1`).
-   - Devuelve un item por conversación con `id` y `messages` (jsonb → objeto).
+2. **HTTP Request — obtener lote** (`n8n-nodes-base.httpRequest`), auth `predefinedCredentialType` → `supabaseApi` (`SUPABASE_CRED_ID`):
+   - `POST https://tczcngfhuendmldafbrc.supabase.co/rest/v1/rpc/analytics_conversations_to_evaluate`
+   - Body JSON: `{ "p_limit": 50 }` (en Task 4 se prueba con `1`).
+   - `Content-Type: application/json`. La credencial Supabase API inyecta `apikey` + `Authorization: Bearer`.
+   - Devuelve un array `[{id, messages}]` (un item por conversación).
 3. **Split In Batches / Loop Over Items** (`n8n-nodes-base.splitInBatches`, batchSize 1): itera cada conversación.
 4. **Code — construir prompt** (`n8n-nodes-base.code`, runOnceForEachItem):
    ```javascript
@@ -180,13 +179,10 @@ Se arma el JSON del workflow y se crea vía `POST /api/v1/workflows` **inactivo*
      summary: e.summary,
      sentiment: e.sentiment } };
    ```
-7. **Postgres — escribir** (`n8n-nodes-base.postgres`, operación *Execute Query*), credencial `SUPABASE_CRED_ID`. Query parametrizada (evita inyección y comillas):
-   ```sql
-   update bodi_conversations
-   set resolution_status = $1, category = $2, knowledge_gap = $3, summary = $4, sentiment = $5
-   where id = $6;
-   ```
-   con Query Parameters = `={{ [$json.resolution_status, $json.category, $json.knowledge_gap, $json.summary, $json.sentiment, $json.id] }}`.
+7. **HTTP Request — escribir** (`n8n-nodes-base.httpRequest`), auth `predefinedCredentialType` → `supabaseApi` (`SUPABASE_CRED_ID`):
+   - `PATCH https://tczcngfhuendmldafbrc.supabase.co/rest/v1/bodi_conversations?id=eq.{{ $json.id }}`
+   - Headers: `Content-Type: application/json`, `Prefer: return=minimal` (la credencial inyecta `apikey`+`Authorization`).
+   - Body JSON: `{ "resolution_status": "={{ $json.resolution_status }}", "category": "={{ $json.category }}", "knowledge_gap": {{ $json.knowledge_gap }}, "summary": "={{ $json.summary }}", "sentiment": "={{ $json.sentiment }}" }`.
 8. Volver al **Split In Batches** hasta agotar el lote.
 
 - [ ] **Step 1:** Escribir `.superpowers/sdd/aeval-workflow.json` con la topología anterior, `active: false`, nombre `Bold POS - Auto-eval calidad (①c)`. Ajustar `typeVersion` de cada nodo consultando un workflow existente vía la API si hace falta (el de chat ya usa httpRequest y code).
