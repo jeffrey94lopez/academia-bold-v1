@@ -290,7 +290,7 @@ async function renderLessonsPanel() {
   const plataformaLabels = { web: 'Web', mobile: 'Mobile' }
 
   el.innerHTML = `
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
       <h2 class="text-lg font-black">Lecciones</h2>
       <div class="flex gap-2">
         <button id="manageCatsBtn" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)] hover:bg-[var(--background-page)] flex items-center gap-1.5">
@@ -804,7 +804,7 @@ function renderGroupedLessons(allLessons, searchQuery) {
 
   if (q) {
     list.innerHTML = lessonListView === 'grid'
-      ? `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3">${filtered.map(l => lessonCardGridHtml(l)).join('')}</div>`
+      ? `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">${filtered.map(l => lessonCardGridHtml(l)).join('')}</div>`
       : filtered.map(l => lessonCardHtml(l)).join('')
   } else {
     const byCategory = {}
@@ -828,7 +828,7 @@ function renderGroupedLessons(allLessons, searchQuery) {
         </div>
         ${catLessons.length
           ? lessonListView === 'grid'
-            ? `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-4">${catLessons.map(l => lessonCardGridHtml(l)).join('')}</div>`
+            ? `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">${catLessons.map(l => lessonCardGridHtml(l)).join('')}</div>`
             : catLessons.map(l => lessonCardHtml(l)).join('')
           : '<p class="text-xs text-[var(--black-40)] pl-1 pb-2">Sin lecciones.</p>'}
       </div>`
@@ -841,7 +841,7 @@ function renderGroupedLessons(allLessons, searchQuery) {
           <span class="text-xs text-[var(--black-40)] ml-1">${uncategorized.length}</span>
         </div>
         ${lessonListView === 'grid'
-          ? `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-4">${uncategorized.map(l => lessonCardGridHtml(l)).join('')}</div>`
+          ? `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">${uncategorized.map(l => lessonCardGridHtml(l)).join('')}</div>`
           : uncategorized.map(l => lessonCardHtml(l)).join('')}
       </div>`
     }
@@ -1406,7 +1406,7 @@ async function renderFaqPanel() {
   }
 
   el.innerHTML = `
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
       <div class="flex items-center gap-2">
         <h2 class="text-lg font-black">Preguntas Frecuentes</h2>
         <span class="text-xs font-bold text-[var(--black-40)]">${items.length} preguntas</span>
@@ -1543,7 +1543,7 @@ async function renderGlossaryPanel() {
   }
 
   el.innerHTML = `
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
       <div class="flex items-center gap-2">
         <h2 class="text-lg font-black">Glosario</h2>
         <span class="text-xs font-bold text-[var(--black-40)]">${items.length} términos</span>
@@ -1747,7 +1747,7 @@ async function renderMaterialPanel() {
   const el = document.getElementById('panel-material')
   el.innerHTML = `
     <div class="max-w-4xl mx-auto">
-      <div class="flex items-center justify-between mb-4">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
         <h2 class="text-lg font-black">Biblioteca de archivos</h2>
         <div class="flex items-center gap-2">
           <button id="checkLinksBtn" class="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[var(--blue-20)] text-xs font-bold text-[var(--black-60)] hover:bg-[var(--background-page)]">
@@ -2121,7 +2121,7 @@ async function renderMaterialApoyoPanel() {
   const colorMap = { pdf: 'text-red-500', link: 'text-blue-500', video: 'text-purple-500' }
 
   el.innerHTML = `
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
       <div class="flex items-center gap-2">
         <h2 class="text-lg font-black">Material de apoyo</h2>
         <span class="text-xs font-bold text-[var(--black-40)]">${(data || []).length} recursos</span>
@@ -2263,7 +2263,7 @@ async function renderSuggestionsPanel() {
   const settings = Object.fromEntries((settingsRows || []).map(r => [r.key, r.value]))
 
   el.innerHTML = `
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
       <div>
         <h2 class="text-lg font-black">Sugerencias Bot</h2>
         <p class="text-xs text-[var(--black-40)] mt-0.5">Máximo 6 activas. Se muestran en el chat de bolbot POS.</p>
@@ -2503,7 +2503,7 @@ async function renderActivityLogPanel() {
   const types = [...new Set(rows.map(r => r.entity_type).filter(Boolean))].sort()
 
   el.innerHTML = `
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
       <div>
         <h2 class="text-lg font-black">Registro de actividad</h2>
         <p class="text-xs text-[var(--black-40)] mt-0.5">Últimas 200 acciones</p>
