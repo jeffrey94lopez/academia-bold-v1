@@ -32,7 +32,7 @@ startLiveUpdates()
 
 function switchTab(tab) {
   // Al salir de lecciones se detiene el realtime; al volver se reanuda (#7).
-  if (tab !== 'lessons') window.lessonsCleanup?.()
+  if (tab !== 'lessons') { window.lessonsCleanup?.(); window.lessonsFlushReading?.() }
   else window.lessonsResume?.()
   document.querySelectorAll('[id^="section-"]').forEach(s => s.classList.add('hidden'))
   document.getElementById(`section-${tab}`).classList.remove('hidden')

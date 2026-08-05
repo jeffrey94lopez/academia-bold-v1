@@ -6,6 +6,16 @@ import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml } from './utils.js'
 import { VERTICALES, PLATAFORMAS, getSeleccion, setSeleccion, filtrarPorSeleccion, plataformasHabilitadas, verticalesVisibles, resolverSeleccion } from './vertical.js'
 import { crearSuscripcionReanudable } from './realtime-lifecycle.js'
+import { createReadingTracker } from './reading-tracker.js'
+
+// Telemetría de lectura: un tracker por sesión de portal. Se arranca al abrir
+// una lección y se vacía al salir de la pestaña u ocultar la página.
+const readingTracker = createReadingTracker({ track, now: () => Date.now() })
+window.lessonsFlushReading = () => readingTracker.flush('tab')
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') readingTracker.flush('hidden')
+})
+window.addEventListener('pagehide', () => readingTracker.flush('pagehide'))
 
 // Las categorías se muestran sin emojis (pueden venir en la columna emoji o
 // incrustados en el nombre); las claves internas de agrupación no se tocan.
@@ -221,6 +231,15 @@ async function renderLessons() {
       waBtn.addEventListener('click', () => copyLessonToWhatsApp(lesson, waBtn))
       inner.append(waBtn)
     }
+
+    const selRead = getSeleccion()
+    readingTracker.start(panel, {
+      lesson_id: lesson.id,
+      lesson_title: lesson.titulo || '',
+      category: lesson.categoria || '',
+      vertical: selRead.vertical,
+      plataforma: selRead.plataforma,
+    })
   }
 
   // ── Desktop: accordion ────────────────────────────────────────────────────
