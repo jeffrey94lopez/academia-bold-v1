@@ -1,6 +1,6 @@
 ﻿import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js'
 import { escapeHtml, getYouTubeId } from './utils.js'
-import { renderMarkdown } from './markdown.js'
+import { renderMarkdown, renderBotHtml } from './markdown.js'
 import { storageGet, storageSet, storageRemove } from './storage.js'
 import { typewrite, skipActiveTypewriter } from './typewriter.js'
 import { isNearBottom } from './reload-policy.js'
@@ -251,12 +251,13 @@ function renderBubble(role, content) {
     return `<div class="flex justify-end"><div class="msg-user text-sm">${escapeHtml(content)}</div></div>`
   }
   const wide = hasMedia(content)
-  return `<div class="flex justify-start"><div class="${wide ? 'msg-bot-wide' : 'msg-bot'} text-sm">${renderMarkdown(content)}</div></div>`
+  return `<div class="flex justify-start"><div class="${wide ? 'msg-bot-wide' : 'msg-bot'} text-sm">${renderBotHtml(content)}</div></div>`
 }
 
 function hasMedia(text) {
   return /!\[[^\]]*\]\(https?:/.test(text) ||
-    /\]\(https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\//.test(text)
+    /\]\(https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\//.test(text) ||
+    /\[(IMAGEN|VIDEO)\s+url=/.test(text)
 }
 
 function scrollToBottom() {

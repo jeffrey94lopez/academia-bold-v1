@@ -1,6 +1,42 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { renderMarkdown } from '../js/markdown.js'
+import { renderMarkdown, renderBotHtml } from '../js/markdown.js'
+
+// renderBotHtml: para restaurar el historial al recargar. Además de markdown,
+// parsea los marcadores [IMAGEN/VIDEO/LINK url="..."] que el bot mete en la
+// respuesta (que renderMarkdown por sí solo NO entiende → la media desaparecía).
+
+test('renderBotHtml: marcador IMAGEN se vuelve <img> con data-lightbox', () => {
+  const out = renderBotHtml('[IMAGEN url="https://e.com/a.png" caption="foto"]')
+  assert.ok(out.includes('<img src="https://e.com/a.png"'))
+  assert.ok(out.includes('data-lightbox="https://e.com/a.png"'))
+  assert.ok(out.includes('foto'))
+  assert.ok(!out.includes('[IMAGEN'))
+})
+
+test('renderBotHtml: texto + marcador → texto por markdown + media', () => {
+  const out = renderBotHtml('Mira esto: **importante**\n[IMAGEN url="https://e.com/b.png"]')
+  assert.ok(out.includes('<strong>importante</strong>'))
+  assert.ok(out.includes('<img src="https://e.com/b.png"'))
+})
+
+test('renderBotHtml: marcador VIDEO de YouTube → iframe embebido', () => {
+  const out = renderBotHtml('[VIDEO url="https://youtu.be/abc123XYZ_-" label="Tutorial"]')
+  assert.ok(out.includes('youtube.com/embed/abc123XYZ_-'))
+})
+
+test('renderBotHtml: marcador LINK → botón de enlace', () => {
+  const out = renderBotHtml('[LINK url="https://e.com/guia" label="Ver guía"]')
+  assert.ok(out.includes('class="chat-link-btn"'))
+  assert.ok(out.includes('href="https://e.com/guia"'))
+  assert.ok(out.includes('Ver guía'))
+})
+
+test('renderBotHtml: sin marcadores se comporta como renderMarkdown (escapa cuerpo)', () => {
+  const out = renderBotHtml('hola <img onerror=x> **negrita**')
+  assert.ok(out.includes('&lt;img onerror=x&gt;'))
+  assert.ok(out.includes('<strong>negrita</strong>'))
+})
 
 // El cuerpo del mensaje viene del bot (n8n/LLM) → es contenido NO confiable.
 // renderMarkdown se inyecta con innerHTML, así que todo lo que no sea un token

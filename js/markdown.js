@@ -52,3 +52,45 @@ export function renderMarkdown(text) {
 
   return text
 }
+
+// Marcadores que el bot mete en la respuesta para media estructurada:
+// [IMAGEN url="U" caption="C"] · [VIDEO url="U" label="L"] · [LINK url="U" label="L"].
+// (Mismo formato que parsea normalizeSegments en assistant.js para la ruta en vivo.)
+const BOT_MARKER_RE = /\[(IMAGEN|VIDEO|LINK)\s+url="([^"]+)"(?:\s+(?:caption|label)="([^"]*)")?\]/g
+
+function botMediaHtml(kind, url, extra) {
+  const safeUrl = escapeHtml(url)
+  const safeExtra = escapeHtml(extra || '')
+  if (kind === 'IMAGEN') {
+    return `<div class="my-2"><img src="${safeUrl}" alt="${safeExtra}" class="chat-img" data-lightbox="${safeUrl}" data-caption="${safeExtra}" title="Clic para ampliar">${safeExtra ? `<p class="text-[10px] text-[var(--black-60)] mt-1 italic">${safeExtra}</p>` : ''}</div>`
+  }
+  if (kind === 'VIDEO') {
+    const id = getYouTubeId(url)
+    if (id) {
+      return `<div class="my-2">${safeExtra ? `<p class="text-xs font-bold mb-1.5">▶ ${safeExtra}</p>` : ''}<div class="chat-video-wrap"><iframe src="https://www.youtube.com/embed/${id}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div></div>`
+    }
+    return `<div class="my-2"><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="chat-link-btn">▶ ${safeExtra || 'Ver video'}</a></div>`
+  }
+  return `<div class="my-2"><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="chat-link-btn">▶ ${safeExtra || safeUrl}</a></div>`
+}
+
+// Render de un mensaje del bot para restaurar el historial al recargar: parsea
+// los marcadores de media Y el markdown del texto. Sin marcadores, equivale a
+// renderMarkdown. El texto entre/alrededor de los marcadores se escapa vía
+// renderMarkdown; las URLs/captions de los marcadores se escapan aquí.
+export function renderBotHtml(content) {
+  if (!content) return ''
+  BOT_MARKER_RE.lastIndex = 0
+  let out = '', last = 0, m, found = false
+  while ((m = BOT_MARKER_RE.exec(content)) !== null) {
+    found = true
+    const before = content.slice(last, m.index)
+    if (before.trim()) out += renderMarkdown(before)
+    out += botMediaHtml(m[1], m[2], m[3])
+    last = m.index + m[0].length
+  }
+  if (!found) return renderMarkdown(content)
+  const after = content.slice(last)
+  if (after.trim()) out += renderMarkdown(after)
+  return out
+}
