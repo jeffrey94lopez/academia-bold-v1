@@ -7,7 +7,7 @@ import { renderBotAnalytics } from './admin-bot-analytics.js'
 import { renderExecAnalytics } from './admin-exec-analytics.js'
 
 export const ANALYTICS_TABS = ['resumen', 'lecciones', 'bolbot']
-const LABELS = { resumen: 'Resumen', lecciones: 'Lecciones', bolbot: 'BolBot' }
+const LABELS = { resumen: 'Resumen', lecciones: 'Lecciones', bolbot: 'BoldBot POS' }
 
 export function renderAnalytics(tab = null) {
   const active = tab || localStorage.getItem('analytics_tab') || 'resumen'
