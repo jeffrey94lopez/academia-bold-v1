@@ -1,6 +1,24 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { nextClarifyCount, chatRequestBody } from '../js/clarify.js'
+import { nextClarifyCount, chatRequestBody, shouldAskResolution } from '../js/clarify.js'
+
+test('shouldAskResolution: true solo en respuesta normal (ni repregunta ni soporte)', () => {
+  assert.equal(shouldAskResolution({}), true)
+  assert.equal(shouldAskResolution({ asked_clarification: false, support_redirected: false }), true)
+})
+
+test('shouldAskResolution: false cuando el bot repreguntó', () => {
+  assert.equal(shouldAskResolution({ asked_clarification: true }), false)
+})
+
+test('shouldAskResolution: false cuando derivó a soporte', () => {
+  assert.equal(shouldAskResolution({ support_redirected: true }), false)
+})
+
+test('shouldAskResolution: tolera data null/undefined (no muestra botones)', () => {
+  assert.equal(shouldAskResolution(null), false)
+  assert.equal(shouldAskResolution(undefined), false)
+})
 
 test('nextClarifyCount incrementa cuando la respuesta pidió aclaración', () => {
   assert.equal(nextClarifyCount(0, { asked_clarification: true }), 1)

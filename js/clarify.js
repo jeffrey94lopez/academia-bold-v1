@@ -12,6 +12,15 @@ export function nextClarifyCount(current, data) {
   return data && data.asked_clarification === true ? n + 1 : 0
 }
 
+// ¿Se debe mostrar el botón "¿Logré resolver tu duda? Sí/No" tras este turno?
+// Solo cuando el bot dio una respuesta/resultado real: NO en las repreguntas
+// (asked_clarification) ni cuando derivó a soporte (support_redirected, que trae
+// su propio mensaje de "algo más"). data null/undefined → no se muestra.
+export function shouldAskResolution(data) {
+  if (!data) return false
+  return data.asked_clarification !== true && data.support_redirected !== true
+}
+
 // Body del POST al webhook n8n, con clarify_count y la selección esparcida.
 export function chatRequestBody({ message, history, faqContext, clarifyCount, seleccion }) {
   return { message, history, faq_context: faqContext, clarify_count: clarifyCount, ...seleccion }
