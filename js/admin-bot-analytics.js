@@ -2,10 +2,10 @@ import {
   fetchBotSummary, fetchBotConversations, fetchContentGaps,
 } from './analytics-api.js'
 import {
-  rangeControlsHtml, wireRangeControls, computeRange, kpiCard, sentimentBar, lifecycleBar,
+  rangeControlsHtml, wireRangeControls, computeRange,
 } from './analytics-ui.js'
 import { escapeHtml, exportCSV } from './utils.js'
-import { pickContentToReinforce } from './bot-attention.js'
+import { rankAttention } from './bot-attention.js'
 
 const DOW = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
@@ -28,57 +28,75 @@ export async function renderBotAnalytics(from = null, to = null) {
   }
 
   const k = summary.kpis
-  const s = k.sentiment
 
-  // Capa ① — KPIs
-  const kpis = `
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-      ${kpiCard('Conversaciones', k.total)}
-      ${kpiCard('Resolución real', (k.resolved_pct ?? 0) + '%', 'resueltas de las evaluadas')}
-      ${kpiCard('Resuelto sin soporte', (k.resolved_without_support_pct ?? 0) + '%', k.support + ' escalaron')}
-      <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4">
-        <p class="text-[10px] font-bold text-[var(--black-40)] uppercase tracking-wide mb-1">Sentimiento neto</p>
-        <p class="text-2xl font-black text-[var(--black-100)]">${k.sentiment_net > 0 ? '+' : ''}${k.sentiment_net ?? 0}</p>
-        <div class="mt-2">${sentimentBar(s)}</div>
+  // Header — total + cómo terminaron (2 barras) + resolución real + sentimiento.
+  const total = k.total || 0
+  const support = k.support || 0
+  const botN = total - support
+  const pct = n => total ? Math.round(100 * n / total) : 0
+  const lc = k.lifecycle || {}
+  const drill = obj => `data-drill='${escapeHtml(JSON.stringify(obj))}'`
+  const seg = (w, bg, tx, label) => `<div class="flex items-center justify-center overflow-hidden whitespace-nowrap text-[11px] font-bold" style="width:${w}%;background:${bg};color:${tx}">${label}</div>`
+
+  const header = `
+    <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-5">
+      <p class="mb-3"><span class="text-4xl font-black text-[var(--blue-100)]">${total}</span> <span class="text-sm text-[var(--black-60)]">conversaciones · así terminaron</span></p>
+
+      <div class="flex h-6 rounded-md overflow-hidden gap-0.5">
+        ${seg(pct(botN), 'var(--success-10)', 'var(--success-150)', `bot ${pct(botN)}%`)}
+        ${seg(pct(support), 'var(--warning-10)', 'var(--warning-150)', `soporte ${pct(support)}%`)}
+      </div>
+
+      <div class="flex h-5 rounded-md overflow-hidden gap-0.5 mt-1 cursor-pointer">
+        <div ${drill({ life: 'cerrada_cliente' })} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${pct(lc.cerrada_cliente || 0)}%;background:var(--success-10);color:var(--success-150)">cerró ${lc.cerrada_cliente || 0}</div>
+        <div ${drill({ life: 'abandonada' })} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${pct(lc.abandonada || 0)}%;background:var(--black-10);color:var(--black-60)">abandonó ${lc.abandonada || 0}</div>
+        <div ${drill({ life: 'escalada' })} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${pct(lc.escalada || 0)}%;background:var(--warning-10);color:var(--warning-150)">escaló ${lc.escalada || 0}</div>
+      </div>
+      <p class="text-[10px] text-[var(--black-40)] mt-1">cerró el cliente · abandonó · escaló a soporte</p>
+
+      <div class="border-t border-[var(--blue-10)] mt-4 pt-3 flex flex-wrap gap-x-8 gap-y-3 items-center">
+        <div>
+          <p class="text-[11px] text-[var(--black-60)]">Resolución real <span class="text-[var(--black-40)]">· sin ambiguas</span></p>
+          <p class="text-xl font-black text-[var(--black-100)]">${k.resolved_pct ?? 0}%
+            <span class="text-[11px] font-normal text-[var(--black-60)]">
+              <button ${drill({ estado: 'resuelta' })} class="bot-drill underline">${k.resolved ?? 0} resueltas</button> ·
+              <button ${drill({ estado: 'no_resuelta' })} class="bot-drill underline">${k.unresolved ?? 0} no resueltas</button> ·
+              <button ${drill({ estado: 'ambigua' })} class="bot-drill underline">${k.ambiguous ?? 0} ambiguas</button>
+            </span>
+          </p>
+        </div>
+        <div>
+          <p class="text-[11px] text-[var(--black-60)] mb-1">Sentimiento</p>
+          <div class="flex gap-3 text-sm font-bold">
+            <button ${drill({ sent: 'positivo' })} class="bot-drill flex items-center gap-1" style="color:var(--success-150)"><i data-lucide="smile" class="w-4 h-4"></i>${pct((k.sentiment || {}).positivo || 0)}%</button>
+            <button ${drill({ sent: 'neutro' })} class="bot-drill flex items-center gap-1 text-[var(--black-60)]"><i data-lucide="meh" class="w-4 h-4"></i>${pct((k.sentiment || {}).neutro || 0)}%</button>
+            <button ${drill({ sent: 'negativo' })} class="bot-drill flex items-center gap-1" style="color:var(--error-100)"><i data-lucide="frown" class="w-4 h-4"></i>${pct((k.sentiment || {}).negativo || 0)}%</button>
+          </div>
+        </div>
       </div>
     </div>`
 
-  // Cómo terminan las conversaciones (sub-proyecto B). en_curso va como nota
-  // al pie, no como segmento: son las vivas de la ventana de cierre.
-  const lc = k.lifecycle || {}
-  const lifecyclePanel = `
-    <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4 mt-4">
-      <p class="text-sm font-bold text-[var(--black-100)] mb-2">Cómo terminan las conversaciones</p>
-      ${lifecycleBar(lc)}
-      <p class="text-[10px] text-[var(--black-60)] mt-2">cerró el cliente · abandonó · escaló${lc.en_curso ? ` · ${lc.en_curso} en curso` : ''}</p>
-    </div>`
-
-  // Capa ② — Requiere atención (señales accionables)
-  const negCat = summary.by_category.filter(c => c.negative_pct >= 30).sort((a, b) => b.negative_pct - a.negative_pct)[0]
-  const reinforce = pickContentToReinforce(summary.by_category, gaps)
-  const attention = `
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-      ${reinforce
-        ? attentionCard('📚', 'Contenido por reforzar',
-            `"${escapeHtml(reinforce.category)}": ${reinforce.noInfo} sin-info · ${reinforce.supportPct}% escala a soporte.`,
-            reinforce.action === 'create' ? '→ Crear lección' : '→ Reforzar contenido', 'warning',
-            reinforce.action === 'create'
-              ? `data-gap-cat="${escapeHtml(reinforce.category)}"`
-              : `data-edit-cat="${escapeHtml(reinforce.category)}"`)
-        : attentionCard('📚', 'Contenido por reforzar', 'Sin huecos de información en el rango.', '', 'warning', '')}
-      ${attentionCard('😟', 'Tema con sentimiento negativo',
-        negCat ? `"${escapeHtml(negCat.category)}" — ${negCat.negative_pct}% negativo.` : 'Nada crítico.',
-        negCat ? '→ Revisar respuesta / lección' : '', 'error',
-        negCat ? `data-edit-cat="${escapeHtml(negCat.category)}"` : '')}
-      ${attentionCard('🔴', 'Dudas recurrentes no resueltas',
-        'Ver el explorador filtrado por "No resuelta" para revisarlas.',
-        '', 'error', '')}
-    </div>`
+  // "Qué atender ahora" — lista priorizada (rankAttention reemplaza al viejo
+  // par negCat/pickContentToReinforce con un solo ranking cruzado con gaps).
+  const attnItems = rankAttention(summary.by_category, gaps)
+  const ACT = { crear: ['Crear lección', 'var(--error-100)'], revisar: ['Revisar lección', 'var(--warning-150)'], reforzar: ['Reforzar contenido', 'var(--blue-100)'] }
+  const attention = attnItems.length ? `
+    <div class="flex flex-col gap-2 mt-4">
+      ${attnItems.map(it => {
+        const [label, color] = ACT[it.action]
+        const f = { category: it.category, ...(it.extraStatus ? { estado: it.extraStatus } : {}) }
+        const act = it.action === 'crear' ? `data-gap-cat="${escapeHtml(it.category)}"` : `data-edit-cat="${escapeHtml(it.category)}"`
+        return `<div class="bot-drill flex items-center gap-2 p-3 rounded-xl border border-[var(--blue-10)] cursor-pointer" ${drill(f)}>
+          <span class="flex-1 text-sm text-[var(--black-100)]"><span class="font-bold">${escapeHtml(it.category)}</span> — ${it.detail}</span>
+          <button ${act} class="text-xs font-bold px-2 py-1 rounded border" style="color:${color};border-color:${color}">${label}</button>
+        </div>`
+      }).join('')}
+    </div>` : '<p class="text-xs text-[var(--black-40)] mt-4">Sin señales de atención en el rango.</p>'
 
   // Capa ③ — Exploración: categorías + heatmap + explorador
   const maxCat = Math.max(1, ...summary.by_category.map(c => c.total))
   const catRows = summary.by_category.map(c => `
-    <tr class="border-b border-[var(--blue-10)]">
+    <tr class="border-b border-[var(--blue-10)] bot-drill cursor-pointer" ${drill({ category: c.category })}>
       <td class="p-2 text-xs text-[var(--black-100)]">${escapeHtml(c.category)}</td>
       <td class="p-2 w-1/3"><div class="h-1.5 bg-[var(--black-10)] rounded-full"><div class="h-1.5 bg-[var(--blue-100)] rounded-full" style="width:${Math.round(100 * c.total / maxCat)}%"></div></div></td>
       <td class="p-2 text-xs text-right text-[var(--black-60)]">${c.total}</td>
@@ -94,9 +112,8 @@ export async function renderBotAnalytics(from = null, to = null) {
       ${rangeControlsHtml('bot', from, to)}
       <button id="bot-export-csv" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-[var(--black-10)] text-[var(--black-60)] hover:bg-[var(--blue-10)]">⬇ CSV</button>
     </div>
-    ${kpis}
-    ${lifecyclePanel}
-    <p class="text-[10px] font-bold text-[var(--black-40)] uppercase tracking-wide mt-6 mb-2">Requiere tu atención</p>
+    ${header}
+    <p class="text-[10px] font-bold text-[var(--black-40)] uppercase tracking-wide mt-6 mb-2">Qué atender ahora</p>
     ${attention}
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-6">
       <div class="bg-white rounded-2xl border border-[var(--blue-10)] overflow-hidden">
@@ -122,16 +139,6 @@ export async function renderBotAnalytics(from = null, to = null) {
       goToEditLessonByCategory(ev.currentTarget.getAttribute('data-edit-cat'))
     })
   })
-}
-
-function attentionCard(icon, title, desc, action, tone, dataAttr) {
-  const border = tone === 'error' ? 'var(--error-100)' : tone === 'warning' ? 'var(--warning-150)' : 'var(--blue-100)'
-  return `
-  <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-3" style="box-shadow: inset 3px 0 0 ${border}">
-    <p class="text-sm font-bold text-[var(--black-100)] flex items-center gap-1">${icon} ${title}</p>
-    <p class="text-xs text-[var(--black-60)] mt-1">${desc}</p>
-    ${action ? `<button ${dataAttr} class="text-xs font-bold mt-2" style="color:${border}">${action}</button>` : ''}
-  </div>`
 }
 
 function buildHeatmap(cells) {
