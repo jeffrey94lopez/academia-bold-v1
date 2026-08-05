@@ -434,6 +434,19 @@ body {
    Rellena en azul de marca con ícono blanco para que se note bien. */
 .nav-tab-ico.nav-pill-on { background: var(--blue-100); color: #fff; }
 
+/* ── Admin: sidebar como cajón (drawer) en móvil ── */
+@media (max-width: 767px) {
+  .admin-sidebar {
+    position: fixed;
+    top: 57px;
+    left: 0;
+    transform: translateX(-100%);
+    transition: transform .2s ease;
+    box-shadow: 2px 0 14px rgba(0, 0, 0, .12);
+  }
+  .admin-sidebar.sidebar-open { transform: translateX(0); }
+}
+
 /* ── Chat suggestion chips ── */
 .quick-query {
   background-color: var(--blue-10) !important;

@@ -91,8 +91,17 @@ async function init() {
   initFilePreviewModal()
   initRenameModal()
 
+  // Sidebar como cajón en móvil: hamburguesa abre, backdrop/elección de panel cierra.
+  const sidebar = document.querySelector('.admin-sidebar')
+  const backdrop = document.getElementById('navBackdrop')
+  const closeNav = () => { sidebar?.classList.remove('sidebar-open'); backdrop?.classList.add('hidden') }
+  document.getElementById('navToggle')?.addEventListener('click', () => {
+    sidebar?.classList.add('sidebar-open'); backdrop?.classList.remove('hidden')
+  })
+  backdrop?.addEventListener('click', closeNav)
+
   document.querySelectorAll('.admin-nav').forEach(btn => {
-    btn.addEventListener('click', () => switchPanel(btn.dataset.panel))
+    btn.addEventListener('click', () => { switchPanel(btn.dataset.panel); closeNav() })
   })
 
   const savedPanel = localStorage.getItem('admin_panel') || 'home'
@@ -146,7 +155,7 @@ async function renderHomePanel() {
         <p class="text-sm text-[var(--black-40)] mt-0.5">Esto es lo que está pasando en tu academia.</p>
       </div>
 
-      <div class="grid grid-cols-4 gap-3 mb-6">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 md:mb-6">
         ${[
           ['Lecciones activas',    lessonesCount ?? 0],
           ['Conversaciones hoy',   convsCount    ?? 0],
@@ -160,7 +169,7 @@ async function renderHomePanel() {
         `).join('')}
       </div>
 
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
         <div class="bg-white border border-[var(--blue-10)] rounded-2xl p-4">
           <p class="text-[9px] font-black uppercase tracking-widest text-[var(--black-100)] mb-3">Actividad reciente</p>
           <div class="space-y-3">

@@ -116,7 +116,7 @@ export async function renderAnalyticsPanel(from = null, to = null) {
       </div>
     </div>
 
-    <div class="grid grid-cols-4 gap-4 mb-5">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
       <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4">
         <p class="text-[10px] font-bold text-[var(--black-40)] uppercase tracking-wide mb-1">Visitas</p>
         <p class="text-2xl font-black text-[var(--black-100)]">${visits}</p>
