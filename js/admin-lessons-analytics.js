@@ -1,8 +1,8 @@
 // js/admin-lessons-analytics.js
 // Pestaña Lecciones del analytics (3 capas: Impacto / Requiere tu atención /
-// Exploración). Consume RPCs pre-agregadas; nada de bajar filas crudas. Las
-// piezas FRONT (% leída completa, abandono de lectura) dependen de ①b y se
-// muestran como 'próximamente'.
+// Exploración). Consume RPCs pre-agregadas; nada de bajar filas crudas. El
+// '% leída completa' y la tarjeta 'se abren pero no terminan' salen de la
+// telemetría de lectura (①b, evento lesson_read).
 import {
   fetchLessonsSummary, fetchCourseFunnel, fetchZombieLessons,
 } from './analytics-api.js'
@@ -92,12 +92,11 @@ export async function renderLessonsAnalytics(from = null, to = null) {
         <span class="text-[var(--black-100)] font-semibold truncate mr-2">${escapeHtml(r.lesson)}</span>
         <span class="shrink-0 text-[var(--warning-150)] font-bold">${r.completion_pct}% leída · ${r.reads} lecturas</span></div>`).join('')}
     </div>` : ''
-  const atencionCards = [trapCard, zombieCard, zeroCard].filter(Boolean).join('')
+  const atencionCards = [trapCard, zombieCard, zeroCard, soonCard].filter(Boolean).join('')
   const atencion = `
     <p class="text-[10px] font-bold text-[var(--black-40)] uppercase tracking-wide mt-6 mb-2">Requiere tu atención</p>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
       ${atencionCards || '<p class="text-xs text-[var(--black-40)]">Sin señales en el rango.</p>'}
-      ${soonCard}
     </div>`
 
   // ── ③ Exploración ───────────────────────────────────────────────────────────
