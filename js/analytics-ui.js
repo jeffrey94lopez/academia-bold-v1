@@ -18,14 +18,31 @@ export function computeRange(preset, now) {
 const PRESETS = [['today', 'Hoy'], ['7d', '7 días'], ['30d', '30 días'], ['month', 'Este mes'], ['year', 'Este año']]
 const fmtDate = d => d.toISOString().split('T')[0]
 
+// Detecta qué preset corresponde al rango actual (para resaltarlo). null = rango
+// personalizado elegido en el calendario.
+function activePreset(from, to) {
+  if (!from || !to) return null
+  const now = new Date()
+  const f = fmtDate(from), t = fmtDate(to)
+  for (const [key] of PRESETS) {
+    const r = computeRange(key, now)
+    if (fmtDate(r.from) === f && fmtDate(r.to) === t) return key
+  }
+  return null
+}
+
+const RANGE_ON = 'bg-[var(--blue-100)] text-white'
+const RANGE_OFF = 'bg-[var(--black-10)] text-[var(--black-60)] hover:bg-[var(--blue-10)]'
+
 export function rangeControlsHtml(idPrefix, from, to) {
+  const active = activePreset(from, to)
   const presetBtns = PRESETS.map(([key, label]) => `
-    <button class="${idPrefix}-preset px-3 py-1.5 rounded-lg text-xs font-bold bg-[var(--black-10)] text-[var(--black-60)] hover:bg-[var(--blue-10)]" data-preset="${key}">${label}</button>`).join('')
+    <button class="${idPrefix}-preset px-3 py-1.5 rounded-lg text-xs font-bold ${key === active ? RANGE_ON : RANGE_OFF}" data-preset="${key}">${label}</button>`).join('')
   return `
   <div class="flex flex-wrap items-center gap-2">
     ${presetBtns}
     <div class="relative">
-      <button id="${idPrefix}-cal-btn" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-[var(--black-10)] text-[var(--black-60)] hover:bg-[var(--blue-10)]">📅 Rango</button>
+      <button id="${idPrefix}-cal-btn" class="px-3 py-1.5 rounded-lg text-xs font-bold ${active === null ? RANGE_ON : RANGE_OFF}">📅 Rango</button>
       <div id="${idPrefix}-cal-dropdown" class="hidden absolute z-20 mt-1 p-3 bg-white rounded-xl border border-[var(--blue-10)] shadow-lg flex flex-col gap-2">
         <label class="text-[10px] font-bold text-[var(--black-40)] uppercase">Desde
           <input id="${idPrefix}-from-input" type="date" value="${fmtDate(from)}" class="block mt-1 px-2 py-1 rounded border border-[var(--blue-20)] text-xs"></label>
