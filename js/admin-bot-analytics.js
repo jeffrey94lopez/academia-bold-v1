@@ -87,6 +87,13 @@ export async function renderBotAnalytics(from = null, to = null) {
   // par negCat/pickContentToReinforce con un solo ranking cruzado con gaps).
   const attnItems = rankAttention(summary.by_category, gaps)
   const ACT = { crear: ['Crear lección', 'var(--error-100)'], revisar: ['Revisar lección', 'var(--warning-150)'], reforzar: ['Reforzar contenido', 'var(--blue-100)'] }
+  // Motivo en lenguaje claro por tipo de problema, para entender por qué atenderlo.
+  const REASON = {
+    'contenido-faltante': 'No hay una lección para esta categoría',
+    'baja-resolucion': 'El bot resuelve pocas de estas dudas',
+    'negativo': 'Los clientes quedan con sentimiento negativo',
+    'escala': 'Muchas conversaciones terminan escalando a soporte',
+  }
   const attention = attnItems.length ? `
     <div class="flex flex-col gap-2 mt-4">
       ${attnItems.map(it => {
@@ -94,8 +101,11 @@ export async function renderBotAnalytics(from = null, to = null) {
         const f = { category: it.category, ...(it.extraStatus ? { estado: it.extraStatus } : {}) }
         const act = it.action === 'crear' ? `data-gap-cat="${escapeHtml(it.category)}"` : `data-edit-cat="${escapeHtml(it.category)}"`
         return `<div class="bot-drill flex items-center gap-2 p-3 rounded-xl border border-[var(--blue-10)] cursor-pointer" ${drill(f)}>
-          <span class="flex-1 text-sm text-[var(--black-100)]"><span class="font-bold">${escapeHtml(it.category)}</span> — ${it.detail}</span>
-          <button ${act} class="text-xs font-bold px-2 py-1 rounded border" style="color:${color};border-color:${color}">${label}</button>
+          <span class="flex-1 min-w-0 text-sm text-[var(--black-100)]">
+            <span class="font-bold">${escapeHtml(it.category)}</span>
+            <span class="block text-xs text-[var(--black-60)] mt-0.5">${REASON[it.problem] || ''} · ${it.detail}</span>
+          </span>
+          <button ${act} class="shrink-0 text-xs font-bold px-2 py-1 rounded border" style="color:${color};border-color:${color}">${label}</button>
         </div>`
       }).join('')}
     </div>` : '<p class="text-xs text-[var(--black-40)] mt-4">Sin señales de atención en el rango.</p>'
