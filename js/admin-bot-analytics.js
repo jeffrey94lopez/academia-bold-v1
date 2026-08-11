@@ -47,23 +47,27 @@ export async function renderBotAnalytics(from = null, to = null) {
         ${seg(pct(support), 'var(--warning-10)', 'var(--warning-150)', `soporte ${pct(support)}%`)}
       </div>
 
-      <div class="flex h-5 rounded-md overflow-hidden gap-0.5 mt-1 cursor-pointer">
-        <div ${drill({ life: 'cerrada_cliente' })} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${pct(lc.cerrada_cliente || 0)}%;background:var(--success-10);color:var(--success-150)">cerró ${lc.cerrada_cliente || 0}</div>
-        <div ${drill({ life: 'abandonada' })} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${pct(lc.abandonada || 0)}%;background:var(--black-10);color:var(--black-60)">abandonó ${lc.abandonada || 0}</div>
-        <div ${drill({ life: 'escalada' })} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${pct(lc.escalada || 0)}%;background:var(--warning-10);color:var(--warning-150)">escaló ${lc.escalada || 0}</div>
+      <!-- Resolución real (subida: va justo debajo de la barra bot/soporte) -->
+      <div class="mt-3">
+        <p class="text-[11px] text-[var(--black-60)]">Resolución real <span class="text-[var(--black-40)]">· sin ambiguas</span></p>
+        <p class="text-xl font-black text-[var(--black-100)]">${k.resolved_pct ?? 0}%
+          <span class="text-[11px] font-normal text-[var(--black-60)]">
+            <button ${drill({ estado: 'resuelta' })} class="bot-drill underline">${k.resolved ?? 0} resueltas</button> ·
+            <button ${drill({ estado: 'no_resuelta' })} class="bot-drill underline">${k.unresolved ?? 0} no resueltas</button> ·
+            <button ${drill({ estado: 'ambigua' })} class="bot-drill underline">${k.ambiguous ?? 0} ambiguas</button>
+          </span>
+        </p>
       </div>
-      <p class="text-[10px] text-[var(--black-40)] mt-1">cerró el cliente · abandonó · escaló a soporte</p>
 
+      <!-- Cómo terminó (barra bajada) + Sentimiento, lado a lado -->
       <div class="border-t border-[var(--blue-10)] mt-4 pt-3 flex flex-wrap gap-x-8 gap-y-3 items-center">
-        <div>
-          <p class="text-[11px] text-[var(--black-60)]">Resolución real <span class="text-[var(--black-40)]">· sin ambiguas</span></p>
-          <p class="text-xl font-black text-[var(--black-100)]">${k.resolved_pct ?? 0}%
-            <span class="text-[11px] font-normal text-[var(--black-60)]">
-              <button ${drill({ estado: 'resuelta' })} class="bot-drill underline">${k.resolved ?? 0} resueltas</button> ·
-              <button ${drill({ estado: 'no_resuelta' })} class="bot-drill underline">${k.unresolved ?? 0} no resueltas</button> ·
-              <button ${drill({ estado: 'ambigua' })} class="bot-drill underline">${k.ambiguous ?? 0} ambiguas</button>
-            </span>
-          </p>
+        <div class="flex-1 min-w-[220px]">
+          <div class="flex h-5 rounded-md overflow-hidden gap-0.5 cursor-pointer">
+            <div ${drill({ life: 'cerrada_cliente' })} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${pct(lc.cerrada_cliente || 0)}%;background:var(--success-10);color:var(--success-150)">cerró ${lc.cerrada_cliente || 0}</div>
+            <div ${drill({ life: 'abandonada' })} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${pct(lc.abandonada || 0)}%;background:var(--black-10);color:var(--black-60)">abandonó ${lc.abandonada || 0}</div>
+            <div ${drill({ life: 'escalada' })} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${pct(lc.escalada || 0)}%;background:var(--warning-10);color:var(--warning-150)">escaló ${lc.escalada || 0}</div>
+          </div>
+          <p class="text-[10px] text-[var(--black-40)] mt-1">cerró el cliente · abandonó · escaló a soporte</p>
         </div>
         <div>
           <p class="text-[11px] text-[var(--black-60)] mb-1">Sentimiento</p>
