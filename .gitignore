@@ -36,3 +36,10 @@ css/tw.css
 
 # Generado por el build de Vercel
 version.json
+
+# Claude Code: config local con secretos + skills locales (no compartir)
+.claude/settings.local.json
+.claude/skills/
+
+# Artefactos de Playwright MCP
+.playwright-mcp/
