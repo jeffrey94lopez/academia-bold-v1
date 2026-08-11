@@ -57,12 +57,12 @@ export async function renderBotAnalytics(from = null, to = null) {
           <div ${drill({ estado: 'no_resuelta' })} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${pctR(k.unresolved || 0)}%;background:var(--error-10);color:var(--error-100)">no resueltas ${k.unresolved || 0}</div>
           <div ${drill({ estado: 'ambigua' })} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${pctR(k.ambiguous || 0)}%;background:var(--black-10);color:var(--black-60)">ambiguas ${k.ambiguous || 0}</div>
         </div>
-        <p class="text-[10px] text-[var(--black-40)] mt-1">${k.resolved_pct ?? 0}% resueltas (sin contar ambiguas)</p>
+        <p class="mt-1 text-center text-[var(--black-40)]"><span class="text-base font-black text-[var(--black-100)]">${k.resolved_pct ?? 0}%</span> <span class="text-[10px]">resueltas (sin contar ambiguas)</span></p>
       </div>
 
       <!-- Cómo terminó (barra bajada) + Sentimiento, lado a lado -->
       <div class="border-t border-[var(--blue-10)] mt-4 pt-3 flex flex-wrap gap-x-8 gap-y-3 items-center">
-        <div class="flex-1 min-w-[220px]">
+        <div>
           <p class="text-[11px] text-[var(--black-60)]">Cómo terminó <span class="text-[var(--black-40)]">· cerró el cliente</span></p>
           <p class="text-xl font-black text-[var(--black-100)]">${pct(lc.cerrada_cliente || 0)}%
             <span class="text-[11px] font-normal text-[var(--black-60)]">
