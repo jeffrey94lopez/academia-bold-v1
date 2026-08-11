@@ -51,7 +51,7 @@ export async function renderBotAnalytics(from = null, to = null) {
 
       <!-- Resolución real (estilo barra segmentada) -->
       <div class="mt-3">
-        <p class="text-[11px] text-[var(--black-60)]">Resolución real <span class="text-[var(--black-40)]">· sin ambiguas</span></p>
+        <p class="text-[11px] text-center text-[var(--black-60)]"><span class="font-bold text-[var(--black-100)]">Resolución real</span> <span class="text-[var(--black-40)]">· sin ambiguas</span></p>
         <div class="flex h-5 rounded-md overflow-hidden gap-0.5 mt-1 cursor-pointer">
           <div ${drill({ estado: 'resuelta' })} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${pctR(k.resolved || 0)}%;background:var(--success-10);color:var(--success-150)">resueltas ${k.resolved || 0}</div>
           <div ${drill({ estado: 'no_resuelta' })} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${pctR(k.unresolved || 0)}%;background:var(--error-10);color:var(--error-100)">no resueltas ${k.unresolved || 0}</div>
