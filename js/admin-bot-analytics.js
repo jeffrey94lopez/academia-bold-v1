@@ -29,25 +29,17 @@ export async function renderBotAnalytics(from = null, to = null) {
 
   const k = summary.kpis
 
-  // Header — total + cómo terminaron (2 barras) + resolución real + sentimiento.
+  // Header — total + resolución real + cómo terminó + sentimiento.
   const total = k.total || 0
-  const support = k.support || 0
-  const botN = total - support
   const pct = n => total ? Math.round(100 * n / total) : 0
   const lc = k.lifecycle || {}
   const totalRes = (k.resolved || 0) + (k.unresolved || 0) + (k.ambiguous || 0)
   const pctR = n => totalRes ? Math.round(100 * n / totalRes) : 0
   const drill = obj => `data-drill='${escapeHtml(JSON.stringify(obj))}'`
-  const seg = (w, bg, tx, label) => `<div class="flex items-center justify-center overflow-hidden whitespace-nowrap text-[11px] font-bold" style="width:${w}%;background:${bg};color:${tx}">${label}</div>`
 
   const header = `
     <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-5">
-      <p class="mb-3"><span class="text-4xl font-black text-[var(--blue-100)]">${total}</span> <span class="text-sm text-[var(--black-60)]">conversaciones · así terminaron</span></p>
-
-      <div class="flex h-6 rounded-md overflow-hidden gap-0.5">
-        ${seg(pct(botN), 'var(--success-10)', 'var(--success-150)', `bot ${pct(botN)}%`)}
-        ${seg(pct(support), 'var(--warning-10)', 'var(--warning-150)', `soporte ${pct(support)}%`)}
-      </div>
+      <p class="mb-3"><span class="text-4xl font-black text-[var(--blue-100)]">${total}</span> <span class="text-sm text-[var(--black-60)]">conversaciones en el rango</span></p>
 
       <!-- Resolución real (estilo barra segmentada) -->
       <div class="mt-3">
