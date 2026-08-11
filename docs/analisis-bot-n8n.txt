@@ -1,0 +1,196 @@
+# 🤖 Análisis Técnico: Bold POS Chat Bot (n8n)
+> Revisión experta de arquitectura, seguridad y calidad — Junio 2026
+
+---
+
+## 🏗️ Arquitectura General
+
+Pipeline RAG (Retrieval-Augmented Generation) con clasificación de intención dual:
+
+```
+Webhook → Validación → Clasificación → Routing → Embedding → Búsqueda vectorial → Prompt → LLM → Respuesta
+```
+
+**Modelos usados:**
+- `gpt-4o-mini` → Clasificación de intención (liviano, bajo costo)
+- `text-embedding-3-small` → Embeddings de consulta
+- `gpt-4o` → Generación de respuesta final
+- **Supabase pgvector** → Base de conocimiento vectorial
+
+---
+
+## ✅ Fortalezas
+
+### 1. Pipeline RAG bien implementada
+El nodo **Embeber pregunta** aplica una lógica inteligente: si el mensaje tiene ≤5 palabras, concatena el último turno del historial para enriquecer la query de embedding. Excelente para mensajes ambiguos como _"¿y eso?"_ o _"¿cómo?"_.
+
+### 2. Clasificador de intención eficiente en costos
+Usa `gpt-4o-mini` con `max_tokens: 20` para clasificar módulos. Solo invoca `gpt-4o` cuando realmente se necesita generar la respuesta completa.
+
+### 3. Sistema de escalación inteligente
+Detecta frustración por tres señales combinadas:
+- Palabras clave (`"no funciona"`, `"sigo sin"`, `"otra vez"`)
+- Historial previo con soporte
+- Número de turnos (`userTurns >= 3`)
+
+### 4. Prompt engineering estructurado
+System prompt con reglas numeradas y explícitas: anti-alucinación, off-topic, completitud, manejo de media y escalación obligatoria.
+
+### 5. Respuesta segmentada (`segments[]`)
+Respuesta en JSON estructurado permite al frontend renderizar texto, imágenes y videos en orden correcto. Muy buena práctica para contenido multimedia.
+
+### 6. Error handling global
+`Error Trigger` captura fallos generales y devuelve HTTP 500 con mensaje amigable y link a soporte.
+
+---
+
+## 🔴 Problemas Críticos
+
+### 1. 🔐 API Keys hardcodeadas y expuestas
+```json
+"value": "BoldBodi-2026-K9xMvP7q"
+"Authorization": "Bearer eyJhbGci..."
+```
+La API key de Bold **y** el JWT completo de Supabase están en texto plano dentro del workflow. Cualquier persona con acceso al export JSON tiene acceso directo a la base de datos.
+
+**Fix:**
+```
+$env.SUPABASE_ANON_KEY
+$env.BOLD_API_KEY
+```
+Usar variables de entorno n8n y credenciales nativas para todos los secrets.
+
+---
+
+### 2. 🔗 Conexión rota: Router módulo → flujo principal
+```json
+"Router módulo?": {
+  "main": [
+    [],   // ← TRUE branch: VACÍO — no conecta a nada
+    [{ "node": "Router soporte?" }]
+  ]
+}
+```
+Cuando `branch === 'modulo'` (el caso más frecuente), **el router no conecta a nada**. El flujo funciona solo porque `Embeber → Buscar lecciones → Construir prompt` corre en paralelo, lo que lo hace frágil e impredecible.
+
+**Fix:** Conectar explícitamente `Router módulo? [TRUE] → Construir prompt`.
+
+---
+
+### 3. ⚠️ Caso `desconocido` sin respuesta al webhook
+Cuando `branch` no es ni `modulo` ni `soporte`, ambos routers fallan y **no se envía ninguna respuesta**. El usuario recibe un timeout sin ningún mensaje.
+
+**Fix:** Agregar nodo de respuesta en la rama FALSE del `Router soporte?` para manejar `desconocido`.
+
+---
+
+### 4. 💀 Nodo "Clarificar" es código muerto
+El nodo `Clarificar` está definido y conectado a `Formatear respuesta`, pero **ningún nodo lo invoca**. Nunca se ejecuta.
+
+**Fix:** Conectarlo como respuesta para el caso `desconocido`, o eliminarlo si no se usará.
+
+---
+
+### 5. 📉 `match_threshold: 0.15` — umbral demasiado bajo
+Con `text-embedding-3-small`, los matches relevantes tienen cosine similarity de `0.65–0.85`. Un threshold de `0.15` hace que prácticamente **cualquier documento pase el filtro**, inyectando contexto irrelevante en el prompt constantemente.
+
+**Fix:**
+```json
+"match_threshold": 0.70
+```
+Testear con queries reales antes de ajustar definitivamente.
+
+---
+
+## 🟡 Problemas Moderados
+
+### 6. Encoding UTF-8 corrupto en nombres de nodos
+Los nombres de nodos tienen caracteres corruptos:
+```
+"Clasificar intenci?n"
+"Normalizar intenci?n"
+"Router m?dulo?"
+```
+El nodo `Formatear respuesta` ya compensa con un array de nombres alternativos, lo cual es un workaround frágil que puede fallar silenciosamente.
+
+**Fix:** Re-exportar en UTF-8 limpio. Estandarizar nombres de nodos **sin acentos ni caracteres especiales**.
+
+---
+
+### 7. 🧠 Historial de conversación sin persistencia server-side
+El `history` se pasa en cada request desde el cliente, lo que implica:
+- El cliente mantiene el estado (riesgo de manipulación)
+- Sin validación de tamaño ni contenido
+- Un cliente malicioso puede inyectar mensajes falsos en el historial
+
+**Fix:** Persistir historial en Supabase por `session_id` y recuperarlo server-side:
+```sql
+SELECT role, content FROM conversation_history
+WHERE session_id = $1 ORDER BY created_at DESC LIMIT 10;
+```
+
+---
+
+### 8. 🆘 Nodo soporte ignora el knowledge base
+Cuando `branch === 'soporte'`, la respuesta es **siempre el mismo texto fijo**, sin consultar lecciones. Muchos errores comunes tienen solución documentada en el knowledge base.
+
+**Fix:** Pasar `soporte` por el pipeline RAG con un prompt especializado para bugs/errores. Solo escalar si no hay lecciones útiles con score suficiente.
+
+---
+
+### 9. 🚫 Sin rate limiting
+El webhook no tiene ningún control de volumen. Un atacante puede generar miles de requests y costos de OpenAI significativos en minutos.
+
+**Fix:** Implementar rate limiting por IP o `session_id` usando Cloudflare Workers, un proxy nginx, o middleware de n8n. Límite sugerido: **20 requests/minuto por sesión**.
+
+---
+
+### 10. ✂️ `max_tokens: 4000` puede truncar respuestas con media
+Para respuestas con múltiples imágenes y pasos largos, el system prompt + lecciones + historial pueden consumir la mayoría del contexto antes de que se genere la respuesta.
+
+**Fix:** Subir a `max_tokens: 8000` — `gpt-4o` con 128k context window lo soporta sin problema.
+
+---
+
+## 🔵 Mejoras Recomendadas
+
+| # | Mejora | Impacto | Esfuerzo |
+|---|--------|---------|----------|
+| 1 | Agregar `session_id` para tracking y analytics | Alto | Bajo |
+| 2 | Logging de queries sin respuesta útil para mejorar el knowledge base | Alto | Bajo |
+| 3 | Cachear embeddings de preguntas frecuentes | Medio | Medio |
+| 4 | Evaluar respuestas con métricas automáticas (faithfulness, relevance) | Alto | Alto |
+| 5 | Endpoint de feedback del usuario (`👍 / 👎`) para reentrenamiento | Alto | Medio |
+| 6 | Separar lecciones por módulo en colecciones Supabase distintas | Medio | Medio |
+
+---
+
+## 📊 Evaluación General
+
+| Dimensión | Puntuación | Comentario |
+|-----------|-----------|------------|
+| Arquitectura RAG | 8/10 | Sólida, con el problema del threshold |
+| Seguridad | 3/10 | Secrets expuestos — riesgo crítico |
+| Calidad del prompt | 8/10 | Bien estructurado y completo |
+| Robustez del flujo | 5/10 | Conexiones rotas y caso desconocido sin manejo |
+| Eficiencia de costos | 9/10 | Muy bien optimizado con mini para clasificación |
+| Mantenibilidad | 5/10 | Encoding corrupto y código muerto dificultan el mantenimiento |
+
+---
+
+## 🚀 Orden de Prioridad de Fixes
+
+```
+1. 🔐 Mover secrets a variables de entorno        ← HOY
+2. 🔗 Conectar Router módulo? [TRUE] branch       ← HOY
+3. ⚠️  Agregar respuesta para caso desconocido    ← HOY
+4. 📉 Subir match_threshold a 0.70                ← Esta semana
+5. 🧠 Persistir historial en Supabase             ← Esta semana
+6. 🚫 Implementar rate limiting                   ← Próximo sprint
+7. 💀 Eliminar o conectar nodo Clarificar         ← Próximo sprint
+8. 📝 Limpiar encoding UTF-8 en nombres           ← Próximo sprint
+```
+
+---
+
+_Análisis generado el 18 de junio de 2026 — Bold POS Chat v1 (n8n workflow `dZGuYJbRbG6h8aqv`)_
