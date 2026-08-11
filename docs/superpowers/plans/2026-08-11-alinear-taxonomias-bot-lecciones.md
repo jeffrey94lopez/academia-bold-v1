@@ -46,9 +46,15 @@ on conflict do nothing;
 
 - [ ] **Step 2:** (opcional) crear al menos una lección de hardware (datáfono/impresora) — es de las #1 dudas sin respuesta del bot.
 
-### Task 3: Actualizar el clasificador del bot en n8n — [MANUAL / n8n]
+### Task 3: Actualizar el clasificador de categorías en n8n — [n8n] ✅ HECHO (2026-08-11)
 
-**Dónde:** workflow "Bold POS Chat" en n8n.mplasesores.com, nodo clasificador (Text Classifier o el prompt de categorización).
+**Hallazgo:** las categorías del dashboard (`bodi_conversations.category`, con valores como `Facturación/Cuenta`) NO las pone el chat en vivo ("Bold POS Chat" → nodo "Clasificar intención", que usa Ventas/Inventario/Ingresos/Egresos/Contactos/Configuración), sino el workflow **"Bold POS - Auto-eval calidad (①c)"** (`DQ5aV81TeeUbtTsC`), nodo **"Evaluar con LLM"**, en el `enum` de `category` del `response_format`.
+
+- [x] Quitado `"Facturación/Cuenta"` del enum → ahora: `Configuración, Inventario, Ingresos, Egresos, Ventas, Contactos, Reportes, Casos de Uso, Hardware/Periféricos, Otro` (igual que lecciones + Hardware + Otro).
+- [x] Agregado ruteo en el prompt: facturación fiscal/notas/CUFE/DIAN → `Ingresos`; cuenta/perfil/sucursales/admin → `Configuración`; datáfono/impresora/scanner → `Hardware/Periféricos`.
+- [x] PUT aplicado, workflow activo. Afecta a evaluaciones NUEVAS (cron cada hora). Respaldo del workflow original en scratchpad `auto-eval.json`.
+
+**Nota:** el clasificador del chat en vivo ("Bold POS Chat") ya usaba una taxonomía compatible, no hizo falta tocarlo.
 
 - [ ] **Step 1:** Reemplazar el set de categorías que emite el clasificador por las canónicas y sus reglas de ruteo. Texto exacto sugerido para el prompt/sistema del clasificador:
 
