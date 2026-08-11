@@ -9,10 +9,22 @@ import { rankAttention } from './bot-attention.js'
 
 const DOW = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
+// Fecha + hora de una conversación, en zona de negocio (misma que el heatmap)
+// para que la hora mostrada no dependa del navegador del admin.
+const BIZ_TZ = 'America/Tegucigalpa'
+function fmtDayTime(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (isNaN(d)) return '—'
+  const dia = d.toLocaleDateString('es-HN', { timeZone: BIZ_TZ, day: '2-digit', month: 'short' })
+  const hora = d.toLocaleTimeString('es-HN', { timeZone: BIZ_TZ, hour: '2-digit', minute: '2-digit', hour12: false })
+  return `${dia}, ${hora}`
+}
+
 export async function renderBotAnalytics(from = null, to = null) {
   const el = document.getElementById('analytics-content')
   if (!el) return
-  if (!from || !to) { const r = computeRange('30d', new Date()); from = r.from; to = r.to }
+  if (!from || !to) { const r = computeRange('7d', new Date()); from = r.from; to = r.to }
   el.innerHTML = `<p class="text-[var(--black-40)] text-sm p-4">Cargando…</p>`
 
   let summary, convs, gaps
@@ -216,12 +228,17 @@ function lifecycleBadge(lifecycle) {
 function convRows(convs) {
   if (!convs.length) return '<p class="p-3 text-xs text-[var(--black-40)]">Sin conversaciones en el rango/filtros.</p>'
   return convs.map((c, i) => `
-    <div class="bot-conv-row px-3 py-2 border-b border-[var(--blue-10)] cursor-pointer text-xs flex items-center gap-2" data-idx="${i}">
-      <span class="flex-1 text-[var(--black-100)]">${escapeHtml((c.first_user_msg || '(sin mensaje)').slice(0, 90))}</span>
-      ${c.sentiment === 'negativo' ? '<span class="text-[10px] px-2 rounded-full border border-[var(--error-100)] text-[var(--error-100)]">Neg</span>' : ''}
-      ${lifecycleBadge(c.lifecycle)}
-      ${c.bot_no_info ? '<span class="text-[10px] px-2 rounded-full border border-[var(--warning-150)] text-[var(--warning-150)]">Sin info</span>' : ''}
-      <span class="text-[var(--black-40)]">${escapeHtml(c.cat)}</span>
+    <div class="bot-conv-row px-3 py-2 border-b border-[var(--blue-10)] cursor-pointer text-xs" data-idx="${i}">
+      <div class="flex items-center gap-2">
+        <span class="shrink-0 text-[10px] font-bold text-[var(--black-40)] tabular-nums">🕒 ${fmtDayTime(c.started_at)}</span>
+        <span class="flex-1 min-w-0 truncate text-[var(--black-100)]">${escapeHtml(c.first_user_msg || '(sin mensaje)')}</span>
+      </div>
+      <div class="flex items-center gap-1.5 mt-1">
+        ${c.sentiment === 'negativo' ? '<span class="text-[10px] px-2 rounded-full border border-[var(--error-100)] text-[var(--error-100)]">Neg</span>' : ''}
+        ${lifecycleBadge(c.lifecycle)}
+        ${c.bot_no_info ? '<span class="text-[10px] px-2 rounded-full border border-[var(--warning-150)] text-[var(--warning-150)]">Sin info</span>' : ''}
+        <span class="ml-auto text-[var(--black-40)]">${escapeHtml(c.cat || '')}</span>
+      </div>
     </div>
     <div class="bot-conv-detail hidden px-3 py-2 bg-[var(--background-page)] text-xs" data-detail="${i}"></div>`).join('')
 }
