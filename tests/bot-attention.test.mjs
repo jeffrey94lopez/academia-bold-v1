@@ -29,3 +29,14 @@ test('rankAttention: baja resolución marca extraStatus no_resuelta', () => {
 test('rankAttention: sin categorías con problema devuelve []', () => {
   assert.deepEqual(rankAttention([{ category: 'X', total: 50, resolved_pct: 99, negative_pct: 0, support_pct: 0 }], []), [])
 })
+
+test('rankAttention: excluye "Otro" (catch-all) aunque tenga gap o problema', () => {
+  const byCat = [
+    { category: 'Otro', total: 40, resolved_pct: 30, negative_pct: 50, support_pct: 60 },
+    { category: 'Sin categoría', total: 20, resolved_pct: 10, negative_pct: 0, support_pct: 0 },
+    { category: 'Inventario', total: 10, resolved_pct: 40, negative_pct: 0, support_pct: 0 },
+  ]
+  const gaps = [{ category: 'Otro', total: 40, has_lesson: false }]
+  const r = rankAttention(byCat, gaps)
+  assert.deepEqual(r.map(x => x.category), ['Inventario'])
+})
