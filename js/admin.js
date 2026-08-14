@@ -11,27 +11,14 @@ import { remapContentUrl } from './content-url.js'
 import { parseLessonBlocks } from './lesson-blocks.js'
 import { extractBucketUrls, countReferences, diffBrokenUrls, pathFromBucketUrl } from './bucket-urls.js'
 import { evaluarBorradoCategoria } from './category-guard.js'
+import { lessonToEmbedText } from './lesson-embed-text.js'
 
 const EMBED_WEBHOOK = 'https://n8n.mplasesores.com/webhook/embed-lesson'
 const EMBED_TOKEN   = 'BoldBodi-2026-K9xMvP7q'
 
-function lessonToEmbedText(titulo, categoria, blocks) {
-  let text = `Titulo: ${titulo}\nCategoria: ${categoria}\n`
-  if (Array.isArray(blocks)) {
-    blocks.forEach(b => {
-      if (b.type === 'step' && b.text)
-        text += b.text.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim() + '\n'
-      else if (b.type === 'html' && b.html)
-        // El legacy es una lección entera, no un fragmento: los tags se
-        // reemplazan por espacio (no por '') para que <p>a</p><p>b</p> no
-        // termine como "ab" en el embedding.
-        text += String(b.html).replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim() + '\n'
-      else if ((b.type === 'bot_nota' || b.type === 'bot_faq') && b.content)
-        text += b.content + '\n'
-    })
-  }
-  return text.slice(0, 8000)
-}
+// lessonToEmbedText se movió a ./lesson-embed-text.js (módulo puro, testeable).
+// Ahora embebe TODOS los bloques bot_* (antes solo nota y faq) para que el bot
+// pueda recuperar lecciones cuya respuesta vive en Advertencia/Pasos/Relacionado.
 
 async function embedLesson(lessonId, titulo, categoria, blocks) {
   try {
