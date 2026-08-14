@@ -25,6 +25,16 @@ test('lessonToEmbedText: embebe TODOS los bloques bot_* (regresión del bug de r
   }
 })
 
+test('lessonToEmbedText: incluye el campo notas de la lección', () => {
+  const t = lessonToEmbedText('X', 'Ventas', [{ type: 'step', text: 'paso' }], 'NOTA_DE_LECCION_ZZZ')
+  assert.ok(t.includes('NOTA_DE_LECCION_ZZZ'), 'las notas deben entrar al embedding')
+})
+
+test('lessonToEmbedText: notas vacías/nulas no agregan la etiqueta Notas', () => {
+  assert.ok(!lessonToEmbedText('X', 'Y', [], '   ').includes('Notas:'))
+  assert.ok(!lessonToEmbedText('X', 'Y', [], null).includes('Notas:'))
+})
+
 test('lessonToEmbedText: bloque bot sin content no rompe ni agrega ruido', () => {
   const t = lessonToEmbedText('X', 'Ventas', [{ type: 'bot_pasos' }])
   assert.equal(t, 'Titulo: X\nCategoria: Ventas\n')

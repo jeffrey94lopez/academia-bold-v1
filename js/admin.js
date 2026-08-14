@@ -20,9 +20,9 @@ const EMBED_TOKEN   = 'BoldBodi-2026-K9xMvP7q'
 // Ahora embebe TODOS los bloques bot_* (antes solo nota y faq) para que el bot
 // pueda recuperar lecciones cuya respuesta vive en Advertencia/Pasos/Relacionado.
 
-async function embedLesson(lessonId, titulo, categoria, blocks) {
+async function embedLesson(lessonId, titulo, categoria, blocks, notas) {
   try {
-    const text = lessonToEmbedText(titulo, categoria, blocks)
+    const text = lessonToEmbedText(titulo, categoria, blocks, notas)
     const res = await fetch(EMBED_WEBHOOK, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': EMBED_TOKEN },
@@ -30,6 +30,48 @@ async function embedLesson(lessonId, titulo, categoria, blocks) {
     })
     return res.ok
   } catch (_) { return false }
+}
+
+// Re-embebe TODAS las lecciones, mostrando en vivo cuáles se embebieron (✓) y
+// cuáles fallaron (✗). Secuencial a propósito para no saturar el webhook.
+async function reembedAllLessons() {
+  const btn = document.getElementById('reembedAllLessons')
+  const box = document.getElementById('reembedResults')
+  if (!btn || !box) return
+  const original = btn.innerHTML
+  btn.disabled = true
+  btn.innerHTML = '<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Embebiendo…'
+  lucide.createIcons()
+
+  const { data: lessons, error } = await supabase
+    .from('lecciones')
+    .select('id, titulo, categoria, contenido, notas')
+    .order('orden')
+
+  box.classList.remove('hidden')
+  if (error || !lessons) {
+    box.innerHTML = '<p class="text-xs font-bold text-[var(--error-100)]">No se pudieron cargar las lecciones.</p>'
+    btn.disabled = false; btn.innerHTML = original; lucide.createIcons()
+    return
+  }
+
+  box.innerHTML = `<p id="reembedProg" class="text-xs font-bold mb-2">Re-embebiendo 0/${lessons.length}…</p><div id="reembedLog" class="flex flex-col gap-0.5 max-h-48 overflow-y-auto text-[11px]"></div>`
+  const prog = box.querySelector('#reembedProg')
+  const log = box.querySelector('#reembedLog')
+
+  let ok = 0, fail = 0
+  for (let i = 0; i < lessons.length; i++) {
+    const l = lessons[i]
+    const done = await embedLesson(l.id, l.titulo, l.categoria, parseLessonBlocks(l.contenido), l.notas)
+    if (done) ok++; else fail++
+    const line = document.createElement('div')
+    line.className = done ? 'text-[var(--success-150)]' : 'text-[var(--error-100)]'
+    line.textContent = `${done ? '✓' : '✗'} ${l.titulo}`  // textContent evita inyección del título
+    log.appendChild(line)
+    prog.textContent = `Re-embebiendo ${i + 1}/${lessons.length}…`
+  }
+  prog.innerHTML = `Listo — <span class="text-[var(--success-150)] font-bold">${ok} embebidas ✓</span>${fail ? ` · <span class="text-[var(--error-100)] font-bold">${fail} con error ✗</span>` : ''}`
+  btn.disabled = false; btn.innerHTML = original; lucide.createIcons()
 }
 
 let currentBlocks = []
@@ -283,11 +325,16 @@ async function renderLessonsPanel() {
         <button id="manageCatsBtn" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)] hover:bg-[var(--background-page)] flex items-center gap-1.5">
           <i data-lucide="tag" class="w-3.5 h-3.5"></i> Categorías
         </button>
+        <button id="reembedAllLessons" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)] hover:bg-[var(--background-page)] flex items-center gap-1.5" title="Regenerar el embedding IA de todas las lecciones">
+          <i data-lucide="brain" class="w-3.5 h-3.5"></i> Re-embeber todo
+        </button>
         <button id="addLesson" class="bg-[var(--blue-100)] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:scale-105 transition-transform">
           <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nueva lección
         </button>
       </div>
     </div>
+
+    <div id="reembedResults" class="hidden mb-3 p-3 rounded-xl border border-[var(--blue-10)] bg-white"></div>
 
     <div class="flex items-center gap-3 mb-4">
       <div class="relative flex-1">
@@ -454,7 +501,7 @@ async function renderLessonsPanel() {
             </div>
             <div class="mb-4">
               <p class="text-[10px] font-black uppercase text-[var(--black-40)] tracking-wide mb-1">Notas</p>
-              <textarea id="lessonNotas" placeholder="Notas adicionales para el estudiante (opcional)..." rows="3"
+              <textarea id="lessonNotas" placeholder="Notas adicionales (también las usa bolbot POS para responder)..." rows="3"
                 class="w-full px-3 py-2.5 rounded-xl border border-[var(--blue-20)] text-xs outline-none focus:border-[var(--blue-100)] resize-none"></textarea>
             </div>
             <div class="mb-4">
@@ -653,6 +700,7 @@ async function renderLessonsPanel() {
   }))
 
   document.getElementById('addLesson').addEventListener('click', () => openLessonForm())
+  document.getElementById('reembedAllLessons').addEventListener('click', reembedAllLessons)
 
   document.getElementById('cancelLessonForm').addEventListener('click', () => {
     document.getElementById('lessonFormModal').classList.add('hidden')
@@ -749,7 +797,7 @@ async function renderLessonsPanel() {
     logActivity(id ? 'update' : 'create', 'lesson', titulo)
     // Regenerate RAG embedding asynchronously (fire-and-forget)
     const savedId = id || (await supabase.from('lecciones').select('id').eq('titulo', titulo).order('created_at', { ascending: false }).limit(1).single()).data?.id
-    if (savedId) embedLesson(savedId, titulo, payload.categoria, currentBlocks)
+    if (savedId) embedLesson(savedId, titulo, payload.categoria, currentBlocks, payload.notas)
     document.getElementById('lessonFormModal').classList.add('hidden')
     renderLessonsPanel()
   })
@@ -961,7 +1009,7 @@ function wireLessonCards() {
       if (icon) { icon.setAttribute('data-lucide', 'loader-2'); lucide.createIcons() }
       const { data } = await supabase.from('lecciones').select('*').eq('id', btn.dataset.id).single()
       if (!data) { showToast('Error al cargar la lección.', 'error'); btn.disabled = false; return }
-      const ok = await embedLesson(data.id, data.titulo, data.categoria, parseLessonBlocks(data.contenido))
+      const ok = await embedLesson(data.id, data.titulo, data.categoria, parseLessonBlocks(data.contenido), data.notas)
       if (ok) { showToast('Embedding regenerado correctamente.'); renderLessonsPanel() }
       else { showToast('Error al regenerar embedding.', 'error'); btn.disabled = false; if (icon) { icon.setAttribute('data-lucide', 'brain'); lucide.createIcons() } }
     })

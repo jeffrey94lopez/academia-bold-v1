@@ -7,7 +7,7 @@
 // Si un bloque del bot no se embebe aquí, su texto no matchea la pregunta del
 // usuario y la lección NUNCA se recupera (match_lessons por similitud), aunque
 // n8n sabría renderizarlo. Por eso se embeben TODOS los bloques bot_*.
-export function lessonToEmbedText(titulo, categoria, blocks) {
+export function lessonToEmbedText(titulo, categoria, blocks, notas) {
   let text = `Titulo: ${titulo}\nCategoria: ${categoria}\n`
   if (Array.isArray(blocks)) {
     blocks.forEach(b => {
@@ -22,5 +22,7 @@ export function lessonToEmbedText(titulo, categoria, blocks) {
         text += b.content + '\n'
     })
   }
+  // El campo "Notas" de la lección también alimenta al bot.
+  if (notas && String(notas).trim()) text += `Notas: ${String(notas).trim()}\n`
   return text.slice(0, 8000)
 }
