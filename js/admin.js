@@ -35,6 +35,25 @@ async function embedLesson(lessonId, titulo, categoria, blocks, notas) {
 
 // Re-embebe TODAS las lecciones, mostrando en vivo cuáles se embebieron (✓) y
 // cuáles fallaron (✗). Secuencial a propósito para no saturar el webhook.
+// Estado de frescura de los embeddings: cuántas lecciones están al día (con
+// embedding_updated_at) vs pendientes (sin embedding o sin fecha). Valida que
+// todo quedó bien tras un re-embed, sin depender de un simple conteo de nulos.
+async function updateEmbeddingStatus() {
+  const el = document.getElementById('embStatus')
+  if (!el) return
+  try {
+    const { count: total } = await supabase.from('lecciones').select('*', { count: 'exact', head: true })
+    const { count: pend, error } = await supabase.from('lecciones')
+      .select('*', { count: 'exact', head: true })
+      .or('embedding.is.null,embedding_updated_at.is.null')
+    if (error) throw error
+    if (!pend) el.innerHTML = `<span class="text-[var(--success-150)] font-bold">✓ Embeddings al día (${total}/${total})</span>`
+    else el.innerHTML = `<span class="text-[var(--warning-150)] font-bold">⚠️ ${pend} de ${total} lecciones sin embedding actualizado</span> — pulsa “Re-embeber todo”.`
+  } catch (_) {
+    el.innerHTML = `<span class="text-[var(--black-40)]">Aplica <code>add_embedding_updated_at.sql</code> para ver el estado de los embeddings.</span>`
+  }
+}
+
 async function reembedAllLessons() {
   const btn = document.getElementById('reembedAllLessons')
   const box = document.getElementById('reembedResults')
@@ -90,6 +109,7 @@ async function reembedAllLessons() {
   const fail = fallidas.length
   prog.innerHTML = `Listo — <span class="text-[var(--success-150)] font-bold">${ok} embebidas ✓</span>${fail ? ` · <span class="text-[var(--error-100)] font-bold">${fail} con error ✗</span> (vuelve a pulsar para reintentarlas)` : ''}`
   btn.disabled = false; btn.innerHTML = original; lucide.createIcons()
+  updateEmbeddingStatus()
 }
 
 let currentBlocks = []
@@ -353,6 +373,7 @@ async function renderLessonsPanel() {
     </div>
 
     <div id="reembedResults" class="hidden mb-3 p-3 rounded-xl border border-[var(--blue-10)] bg-white"></div>
+    <p id="embStatus" class="text-[11px] mb-3"></p>
 
     <div class="flex items-center gap-3 mb-4">
       <div class="relative flex-1">
@@ -719,6 +740,7 @@ async function renderLessonsPanel() {
 
   document.getElementById('addLesson').addEventListener('click', () => openLessonForm())
   document.getElementById('reembedAllLessons').addEventListener('click', reembedAllLessons)
+  updateEmbeddingStatus()
 
   document.getElementById('cancelLessonForm').addEventListener('click', () => {
     document.getElementById('lessonFormModal').classList.add('hidden')
