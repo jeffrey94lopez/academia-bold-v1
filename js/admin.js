@@ -746,7 +746,7 @@ async function renderLessonsPanel() {
         bot_advertencia: { type, content: '' },
         bot_pasos:       { type, content: '' },
         bot_relacionado: { type, content: '' },
-        bot_faq:         { type, content: '' },
+        bot_faq:         { type, pregunta: '', variaciones: '', respuesta: '', mostrar_acordeon: false },
       }
       currentBlocks.push(defaults[type])
       renderBlockList()
@@ -1145,9 +1145,10 @@ function renderBlockList() {
   lucide.createIcons()
 
   list.querySelectorAll('input[data-field], textarea[data-field]').forEach(input => {
-    input.addEventListener('input', () => {
+    const evt = input.type === 'checkbox' ? 'change' : 'input'
+    input.addEventListener(evt, () => {
       const idx = parseInt(input.closest('[data-idx]').dataset.idx)
-      currentBlocks[idx][input.dataset.field] = input.value
+      currentBlocks[idx][input.dataset.field] = input.type === 'checkbox' ? input.checked : input.value
       updatePreview()
     })
   })
@@ -1235,13 +1236,30 @@ function blockItemHtml(block, i) {
   const isBotBlock = block.type.startsWith('bot_')
 
   let fields = ''
-  if (isBotBlock) {
+  if (block.type === 'bot_faq') {
+    // FAQ estructurada: pregunta base + variaciones (ocultas, solo recuperación)
+    // + respuesta + toggle de acordeón visible al estudiante. Migración suave:
+    // si el bloque viejo trae `content`, se muestra en Respuesta.
+    fields = `
+      <input data-field="pregunta" value="${escapeHtml(block.pregunta || '')}" placeholder="Pregunta base (la principal)"
+        class="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-xs font-bold outline-none focus:border-amber-400 mb-1.5">
+      <textarea data-field="variaciones" rows="2" placeholder="Variaciones: otras formas de preguntar lo mismo (una por línea). No se muestran al estudiante; solo ayudan a que el bot encuentre esta lección."
+        class="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-xs outline-none focus:border-amber-400 resize-none">${escapeHtml(block.variaciones || '')}</textarea>
+      <div class="flex justify-end my-1">
+        <button type="button" class="faq-suggest text-[10px] font-bold text-amber-700 hover:underline flex items-center gap-1">✨ Sugerir desde preguntas reales</button>
+      </div>
+      <textarea data-field="respuesta" rows="3" placeholder="Respuesta que dará el bot..."
+        class="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-xs outline-none focus:border-amber-400 resize-none mb-1.5">${escapeHtml(block.respuesta || block.content || '')}</textarea>
+      <label class="flex items-center gap-1.5 text-[11px] text-[var(--black-60)] cursor-pointer select-none">
+        <input type="checkbox" data-field="mostrar_acordeon" ${block.mostrar_acordeon ? 'checked' : ''} class="accent-[var(--blue-100)]">
+        Mostrar en la lección como acordeón (visible al estudiante)
+      </label>`
+  } else if (isBotBlock) {
     const placeholders = {
       bot_nota: 'Contexto adicional o aclaración para bolbot POS...',
       bot_advertencia: 'Error común o restricción importante que bolbot POS debe mencionar...',
       bot_pasos: 'Secuencia de pasos internos que bolbot POS debe guiar...',
       bot_relacionado: 'Módulos o temas relacionados que bolbot POS puede mencionar...',
-      bot_faq: 'Pregunta frecuente y respuesta que bolbot POS debe saber...',
     }
     fields = `<textarea data-field="content" rows="2" placeholder="${placeholders[block.type] || ''}"
       class="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-xs outline-none focus:border-amber-400 resize-none">${escapeHtml(block.content || '')}</textarea>`
