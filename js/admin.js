@@ -60,17 +60,38 @@ async function reembedAllLessons() {
   const prog = box.querySelector('#reembedProg')
   const log = box.querySelector('#reembedLog')
 
-  let ok = 0, fail = 0
-  for (let i = 0; i < lessons.length; i++) {
-    const l = lessons[i]
-    const done = await embedLesson(l.id, l.titulo, l.categoria, parseLessonBlocks(l.contenido), l.notas)
-    if (done) ok++; else fail++
+  const sleep = ms => new Promise(r => setTimeout(r, ms))
+  const addLine = (done, titulo) => {
     const line = document.createElement('div')
     line.className = done ? 'text-[var(--success-150)]' : 'text-[var(--error-100)]'
-    line.textContent = `${done ? '✓' : '✗'} ${l.titulo}`  // textContent evita inyección del título
+    line.textContent = `${done ? '✓' : '✗'} ${titulo}`  // textContent evita inyección del título
     log.appendChild(line)
-    prog.textContent = `Re-embebiendo ${i + 1}/${lessons.length}…`
   }
+  const embedOne = l => embedLesson(l.id, l.titulo, l.categoria, parseLessonBlocks(l.contenido), l.notas)
+
+  let ok = 0
+  let pendientes = []
+  for (let i = 0; i < lessons.length; i++) {
+    const l = lessons[i]
+    const done = await embedOne(l)
+    if (done) { ok++; addLine(true, l.titulo) } else { pendientes.push(l) }
+    prog.textContent = `Re-embebiendo ${i + 1}/${lessons.length}…`
+    await sleep(1500)  // Vertex limita embeddings por minuto: throttle para no toparla
+  }
+  // Reintento de las que fallaron (típicamente por límite por minuto), con pausas mayores.
+  if (pendientes.length) {
+    prog.textContent = `Reintentando ${pendientes.length} pendientes…`
+    await sleep(5000)
+    const aunFallan = []
+    for (const l of pendientes) {
+      const done = await embedOne(l)
+      if (done) ok++; else aunFallan.push(l)
+      await sleep(2500)
+    }
+    pendientes = aunFallan
+  }
+  pendientes.forEach(l => addLine(false, l.titulo))
+  const fail = pendientes.length
   prog.innerHTML = `Listo — <span class="text-[var(--success-150)] font-bold">${ok} embebidas ✓</span>${fail ? ` · <span class="text-[var(--error-100)] font-bold">${fail} con error ✗</span>` : ''}`
   btn.disabled = false; btn.innerHTML = original; lucide.createIcons()
 }
