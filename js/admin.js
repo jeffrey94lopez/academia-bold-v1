@@ -69,30 +69,26 @@ async function reembedAllLessons() {
   }
   const embedOne = l => embedLesson(l.id, l.titulo, l.categoria, parseLessonBlocks(l.contenido), l.notas)
 
+  // Backoff adaptativo: Vertex tiene una cuota baja de embeddings por minuto en
+  // proyectos nuevos. Cuando una lección topa la cuota, esperamos cada vez más y
+  // reintentamos ESA misma hasta que pase, así el proceso se ajusta al límite real.
   let ok = 0
-  let pendientes = []
+  const fallidas = []
+  const BACKOFF = [10000, 20000, 40000, 60000]
   for (let i = 0; i < lessons.length; i++) {
     const l = lessons[i]
-    const done = await embedOne(l)
-    if (done) { ok++; addLine(true, l.titulo) } else { pendientes.push(l) }
-    prog.textContent = `Re-embebiendo ${i + 1}/${lessons.length}…`
-    await sleep(1500)  // Vertex limita embeddings por minuto: throttle para no toparla
-  }
-  // Reintento de las que fallaron (típicamente por límite por minuto), con pausas mayores.
-  if (pendientes.length) {
-    prog.textContent = `Reintentando ${pendientes.length} pendientes…`
-    await sleep(5000)
-    const aunFallan = []
-    for (const l of pendientes) {
-      const done = await embedOne(l)
-      if (done) ok++; else aunFallan.push(l)
-      await sleep(2500)
+    let done = await embedOne(l)
+    for (let a = 0; !done && a < BACKOFF.length; a++) {
+      prog.textContent = `Cuota de Vertex llena en "${l.titulo}" — espero ${Math.round(BACKOFF[a] / 1000)}s y reintento (${a + 1}/${BACKOFF.length})…`
+      await sleep(BACKOFF[a])
+      done = await embedOne(l)
     }
-    pendientes = aunFallan
+    if (done) { ok++; addLine(true, l.titulo) } else { fallidas.push(l); addLine(false, l.titulo) }
+    prog.textContent = `Re-embebiendo ${i + 1}/${lessons.length} — ${ok} ✓…`
+    await sleep(2000)  // ritmo base entre lecciones
   }
-  pendientes.forEach(l => addLine(false, l.titulo))
-  const fail = pendientes.length
-  prog.innerHTML = `Listo — <span class="text-[var(--success-150)] font-bold">${ok} embebidas ✓</span>${fail ? ` · <span class="text-[var(--error-100)] font-bold">${fail} con error ✗</span>` : ''}`
+  const fail = fallidas.length
+  prog.innerHTML = `Listo — <span class="text-[var(--success-150)] font-bold">${ok} embebidas ✓</span>${fail ? ` · <span class="text-[var(--error-100)] font-bold">${fail} con error ✗</span> (vuelve a pulsar para reintentarlas)` : ''}`
   btn.disabled = false; btn.innerHTML = original; lucide.createIcons()
 }
 
