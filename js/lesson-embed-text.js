@@ -18,6 +18,13 @@ export function lessonToEmbedText(titulo, categoria, blocks, notas) {
         // reemplazan por espacio (no por '') para que <p>a</p><p>b</p> no
         // termine como "ab" en el embedding.
         text += String(b.html).replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim() + '\n'
+      else if (b.type === 'bot_faq') {
+        // FAQ estructurada: pregunta + variaciones + respuesta alimentan la
+        // recuperación (las variaciones son justamente frases alternativas para
+        // matchear más consultas). Fallback al formato viejo de texto libre.
+        const faq = [b.pregunta, b.variaciones, b.respuesta].filter(Boolean).join('\n') || b.content || ''
+        if (faq.trim()) text += faq + '\n'
+      }
       else if (typeof b.type === 'string' && b.type.startsWith('bot_') && b.content)
         text += b.content + '\n'
     })

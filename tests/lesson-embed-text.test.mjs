@@ -25,6 +25,24 @@ test('lessonToEmbedText: embebe TODOS los bloques bot_* (regresión del bug de r
   }
 })
 
+test('lessonToEmbedText: bot_faq estructurado embebe pregunta + variaciones + respuesta', () => {
+  const t = lessonToEmbedText('X', 'Ventas', [{
+    type: 'bot_faq',
+    pregunta: 'PREG_BASE_AAA',
+    variaciones: 'VARIACION_BBB',
+    respuesta: 'RESP_CCC',
+    mostrar_acordeon: true,
+  }])
+  for (const needle of ['PREG_BASE_AAA', 'VARIACION_BBB', 'RESP_CCC']) {
+    assert.ok(t.includes(needle), `falta ${needle}`)
+  }
+})
+
+test('lessonToEmbedText: bot_faq viejo (content) sigue embebiéndose', () => {
+  const t = lessonToEmbedText('X', 'Ventas', [{ type: 'bot_faq', content: 'FAQ_LEGACY_DDD' }])
+  assert.ok(t.includes('FAQ_LEGACY_DDD'))
+})
+
 test('lessonToEmbedText: incluye el campo notas de la lección', () => {
   const t = lessonToEmbedText('X', 'Ventas', [{ type: 'step', text: 'paso' }], 'NOTA_DE_LECCION_ZZZ')
   assert.ok(t.includes('NOTA_DE_LECCION_ZZZ'), 'las notas deben entrar al embedding')
