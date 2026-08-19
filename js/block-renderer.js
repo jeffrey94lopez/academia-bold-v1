@@ -48,12 +48,41 @@ export function sanitizeInto(container, html) {
   container.append(...doc.body.childNodes)
 }
 
+// Acordeón nativo (<details>) para un bloque bot_faq marcado como visible.
+// textContent en todo → sin riesgo de inyección; sin JS (details nativo).
+function faqAccordion(block) {
+  const pregunta = (block.pregunta || 'Pregunta frecuente').trim()
+  const respuesta = String(block.respuesta || block.content || '')
+  const details = document.createElement('details')
+  details.style.cssText = 'border:1px solid var(--blue-10);border-radius:10px;margin-bottom:14px;background:#fff;overflow:hidden'
+  const summary = document.createElement('summary')
+  summary.style.cssText = 'cursor:pointer;padding:12px 14px;font-size:13px;font-weight:700;color:#1e293b'
+  summary.textContent = '❓ ' + pregunta
+  details.append(summary)
+  const body = document.createElement('div')
+  body.style.cssText = 'padding:0 14px 12px;font-size:13px;color:#334155;line-height:1.6'
+  respuesta.split(/\n+/).map(s => s.trim()).filter(Boolean).forEach(par => {
+    const p = document.createElement('p')
+    p.style.cssText = 'margin:0 0 8px'
+    p.textContent = par
+    body.append(p)
+  })
+  details.append(body)
+  return details
+}
+
 export function renderBlocks(blocks) {
   if (!Array.isArray(blocks)) return document.createDocumentFragment()
   const frag = document.createDocumentFragment()
   let stepCount = 0
 
   for (const block of blocks) {
+    // bot_faq: solo se muestra al estudiante si se marcó el acordeón; el resto
+    // de bloques bot_* siempre invisibles.
+    if (block.type === 'bot_faq') {
+      if (block.mostrar_acordeon && (block.pregunta || block.respuesta || block.content)) frag.append(faqAccordion(block))
+      continue
+    }
     if (block.type?.startsWith('bot_')) continue  // invisible to students
 
     if (block.type === 'step') {
