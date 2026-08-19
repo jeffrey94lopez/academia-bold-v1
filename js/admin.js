@@ -12,6 +12,7 @@ import { parseLessonBlocks } from './lesson-blocks.js'
 import { extractBucketUrls, countReferences, diffBrokenUrls, pathFromBucketUrl } from './bucket-urls.js'
 import { evaluarBorradoCategoria } from './category-guard.js'
 import { lessonToEmbedText } from './lesson-embed-text.js'
+import { dedupeQuestions, firstUserMessage } from './faq-suggest.js'
 
 const EMBED_WEBHOOK = 'https://n8n.mplasesores.com/webhook/embed-lesson'
 const EMBED_TOKEN   = 'BoldBodi-2026-K9xMvP7q'
@@ -1134,6 +1135,21 @@ function markdownToHtml(text) {
   return text
 }
 
+// Trae preguntas reales que el bot no pudo responder para una categoría, para
+// sugerirlas como variaciones de una FAQ.
+async function fetchFailedQuestions(category) {
+  if (!category) return []
+  const { data } = await supabase
+    .from('bodi_conversations')
+    .select('summary, messages, last_activity_at')
+    .or('bot_no_info.eq.true,knowledge_gap.eq.true')
+    .eq('category', category)
+    .order('last_activity_at', { ascending: false })
+    .limit(60)
+  const qs = (data || []).map(c => c.summary || firstUserMessage(c.messages)).filter(Boolean)
+  return dedupeQuestions(qs, { max: 15 })
+}
+
 function renderBlockList() {
   const list = document.getElementById('blockList')
   if (!list) return
@@ -1150,6 +1166,43 @@ function renderBlockList() {
       const idx = parseInt(input.closest('[data-idx]').dataset.idx)
       currentBlocks[idx][input.dataset.field] = input.type === 'checkbox' ? input.checked : input.value
       updatePreview()
+    })
+  })
+
+  list.querySelectorAll('.faq-suggest').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const card = btn.closest('[data-idx]')
+      const idx = parseInt(card.dataset.idx)
+      const category = document.getElementById('lessonCategoria')?.value || ''
+      const orig = btn.innerHTML
+      btn.disabled = true; btn.textContent = 'Buscando…'
+      let qs = []
+      try { qs = await fetchFailedQuestions(category) } catch (_) {}
+      btn.disabled = false; btn.innerHTML = orig
+      let box = card.querySelector('.faq-suggest-box')
+      if (!box) { box = document.createElement('div'); box.className = 'faq-suggest-box flex flex-col gap-1 mb-1.5'; btn.parentElement.after(box) }
+      box.innerHTML = ''
+      if (!qs.length) {
+        const p = document.createElement('p'); p.className = 'text-[10px] text-[var(--black-40)]'
+        p.textContent = `Sin preguntas fallidas registradas para "${category}".`; box.appendChild(p); return
+      }
+      const hint = document.createElement('p'); hint.className = 'text-[10px] text-[var(--black-40)]'
+      hint.textContent = 'Clic para agregar a Variaciones:'; box.appendChild(hint)
+      const ta = card.querySelector('textarea[data-field="variaciones"]')
+      qs.forEach(q => {
+        const chip = document.createElement('button')
+        chip.type = 'button'
+        chip.className = 'text-left text-[10px] px-2 py-1 rounded border border-amber-200 bg-amber-50 hover:bg-amber-100'
+        chip.textContent = '+ ' + q  // textContent: sin inyección
+        chip.addEventListener('click', () => {
+          const cur = currentBlocks[idx].variaciones || ''
+          currentBlocks[idx].variaciones = cur ? cur + '\n' + q : q
+          if (ta) ta.value = currentBlocks[idx].variaciones
+          chip.disabled = true; chip.classList.add('opacity-40', 'cursor-default')
+          updatePreview()
+        })
+        box.appendChild(chip)
+      })
     })
   })
 
