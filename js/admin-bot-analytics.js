@@ -6,6 +6,7 @@ import {
 } from './analytics-ui.js'
 import { escapeHtml, exportCSV } from './utils.js'
 import { rankAttention } from './bot-attention.js'
+import { offHoursStats } from './off-hours.js'
 
 const DOW = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
@@ -125,6 +126,7 @@ export async function renderBotAnalytics(from = null, to = null) {
     </tr>`).join('')
 
   const heat = buildHeatmap(summary.heatmap)
+  const oh = offHoursStats(summary.heatmap)
 
   const explorer = renderExplorer(convs)
 
@@ -142,7 +144,8 @@ export async function renderBotAnalytics(from = null, to = null) {
         <table class="w-full"><tbody>${catRows || '<tr><td class="p-3 text-xs text-[var(--black-40)]">Sin datos</td></tr>'}</tbody></table>
       </div>
       <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-3">
-        <p class="text-sm font-bold text-[var(--black-100)] mb-2">Cuándo escriben</p>
+        <p class="text-sm font-bold text-[var(--black-100)] mb-1">Cuándo escriben</p>
+        <p class="text-[11px] text-[var(--black-60)] mb-2">🌙 <span class="font-bold text-[var(--black-100)]">${oh.pct}%</span> fuera de horario (5pm–8am) · ${oh.off} de ${oh.total}</p>
         ${heat}
       </div>
     </div>
@@ -151,8 +154,24 @@ export async function renderBotAnalytics(from = null, to = null) {
 
   // Listeners
   wireRangeControls(el, 'bot', (f, t) => renderBotAnalytics(f, t))
-  el.querySelector('#bot-export-csv')?.addEventListener('click', () => exportBotCsv(convs))
-  wireExplorer(el, convs, from, to)
+  const explorer = wireExplorer(el, convs, from, to)
+  el.querySelector('#bot-export-csv')?.addEventListener('click', async ev => {
+    const btn = ev.currentTarget
+    const original = btn.textContent
+    btn.disabled = true
+    btn.textContent = '⬇ Descargando…'
+    try {
+      // limit: null → RPC devuelve todas las conversaciones del rango + filtros
+      // activos del explorador (no el snapshot cacheado de 100 filas).
+      const rows = await fetchBotConversations(from, to, { ...explorer.getFilters(), limit: null })
+      exportBotCsv(rows, from, to)
+    } catch (e) {
+      alert('Error al exportar CSV: ' + e.message)
+    } finally {
+      btn.textContent = original
+      btn.disabled = false
+    }
+  })
   el.querySelectorAll('[data-gap-cat]').forEach(btn => {
     btn.addEventListener('click', ev => {
       ev.stopPropagation()
@@ -255,6 +274,18 @@ function wireExplorer(el, convs, from, to) {
   const state = { estado: '', sent: '', life: '', category: '', search: '' }
   const summaryEl = el.querySelector('#bot-filter-summary')
 
+  // Mapea el state del explorador al shape que espera fetchBotConversations.
+  // Se reusa en refresh() y desde el botón de export CSV.
+  const activeFilters = () => {
+    const f = {}
+    if (state.estado) f.status = state.estado
+    if (state.sent) f.sentiment = state.sent
+    if (state.life) f.lifecycle = state.life
+    if (state.category) f.category = state.category
+    if (state.search) f.search = state.search
+    return f
+  }
+
   const syncChips = () => {
     ['estado', 'sent', 'life'].forEach(g => {
       el.querySelectorAll(`.bot-fchip[data-group="${g}"]`).forEach(c => {
@@ -278,13 +309,7 @@ function wireExplorer(el, convs, from, to) {
   }
 
   const refresh = async () => {
-    const filters = { limit: 100 }
-    if (state.estado) filters.status = state.estado
-    if (state.sent) filters.sentiment = state.sent
-    if (state.life) filters.lifecycle = state.life
-    if (state.category) filters.category = state.category
-    if (state.search) filters.search = state.search
-    const rows = await fetchBotConversations(from, to, filters)
+    const rows = await fetchBotConversations(from, to, { ...activeFilters(), limit: 100 })
     el.querySelector('#bot-conv-list').innerHTML = convRows(rows)
     bindRows(el, rows)
     renderSummary()
@@ -329,6 +354,8 @@ function wireExplorer(el, convs, from, to) {
     clearTimeout(t); t = setTimeout(() => { state.search = e.target.value.trim(); refresh() }, 400)
   })
   bindRows(el, convs)
+
+  return { getFilters: activeFilters }
 }
 
 function bindRows(el, rows) {
@@ -348,8 +375,14 @@ function bindRows(el, rows) {
   })
 }
 
-function exportBotCsv(convs) {
-  exportCSV(convs, `bolbot-conversaciones.csv`, [
+function fmtDateForFile(d) {
+  const dt = d instanceof Date ? d : new Date(d)
+  return dt.toISOString().slice(0, 10)
+}
+
+function exportBotCsv(convs, from, to) {
+  const range = from && to ? `-${fmtDateForFile(from)}-${fmtDateForFile(to)}` : ''
+  exportCSV(convs, `bolbot-conversaciones${range}.csv`, [
     { label: 'ID', getValue: r => r.id },
     { label: 'Fecha', getValue: r => r.started_at },
     { label: 'Categoría', getValue: r => r.cat },
