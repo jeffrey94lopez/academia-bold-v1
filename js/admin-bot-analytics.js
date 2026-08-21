@@ -153,7 +153,13 @@ export async function renderBotAnalytics(from = null, to = null) {
       </div>
       <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-3">
         <p class="text-sm font-bold text-[var(--black-100)] mb-1">Cuándo escriben</p>
-        <p class="text-[11px] text-[var(--black-60)] mb-2">🌙 <span class="font-bold text-[var(--black-100)]">${ohPct}%</span> fuera de horario (5pm–8am) · ${ohOff} de ${ohTotal}${ohResolved}</p>
+        <div class="flex items-center gap-2.5 mb-3 p-2.5 rounded-xl bg-[var(--error-10)]" style="border:1px solid rgba(195,26,47,0.2)">
+          <span class="text-2xl">🌙</span>
+          <div class="leading-tight">
+            <p><span class="text-2xl font-black text-[var(--error-100)]">${ohPct}%</span> <span class="text-xs font-bold text-[var(--black-60)]">fuera de horario</span></p>
+            <p class="text-[10px] text-[var(--black-60)] mt-0.5">${ohOff} de ${ohTotal} conversaciones · 5pm–8am${ohResolved}</p>
+          </div>
+        </div>
         ${heat}
       </div>
     </div>
@@ -199,17 +205,26 @@ function buildHeatmap(cells) {
   const grid = {}
   let max = 1
   cells.forEach(c => { grid[`${c.dow}-${c.hour}`] = c.count; if (c.count > max) max = c.count })
+  // Horas no laborables: antes de 8am o desde las 5pm (fuera de 8am–5pm).
+  const isOff = h => h < 8 || h >= 17
   let html = '<div class="grid gap-0.5" style="grid-template-columns:28px repeat(24,1fr);min-width:340px">'
-  html += '<div></div>' + Array.from({ length: 24 }, (_, h) => `<div class="text-[7px] text-center text-[var(--black-40)]">${h}</div>`).join('')
+  html += '<div></div>' + Array.from({ length: 24 }, (_, h) => `<div class="text-[7px] text-center ${isOff(h) ? 'text-[var(--error-100)] font-bold' : 'text-[var(--black-40)]'}">${h}</div>`).join('')
   for (let d = 0; d < 7; d++) {
     html += `<div class="text-[9px] text-[var(--black-40)] flex items-center">${DOW[d]}</div>`
     for (let h = 0; h < 24; h++) {
       const n = grid[`${d}-${h}`] || 0
-      const op = n ? (0.15 + 0.85 * n / max).toFixed(2) : 0
-      html += `<div title="${DOW[d]} ${h}:00 — ${n}" style="height:12px;border-radius:2px;background:rgba(18,30,108,${op})"></div>`
+      const off = isOff(h)
+      const rgb = off ? '195,26,47' : '18,30,108'          // rojo fuera de horario, azul en horario
+      const op = n ? (0.2 + 0.8 * n / max).toFixed(2) : (off ? 0.07 : 0)  // banda roja tenue aunque no haya datos
+      html += `<div title="${DOW[d]} ${h}:00 — ${n}${off ? ' (fuera de horario)' : ''}" style="height:12px;border-radius:2px;background:rgba(${rgb},${op})"></div>`
     }
   }
-  return html + '</div>'
+  html += '</div>'
+  html += `<div class="flex items-center gap-3 mt-1.5 text-[9px] text-[var(--black-40)]">
+    <span class="flex items-center gap-1"><span style="width:9px;height:9px;border-radius:2px;background:rgba(18,30,108,0.85);display:inline-block"></span>horario 8am–5pm</span>
+    <span class="flex items-center gap-1"><span style="width:9px;height:9px;border-radius:2px;background:rgba(195,26,47,0.85);display:inline-block"></span>fuera de horario</span>
+  </div>`
+  return html
 }
 
 // -------- Explorador con filtros colapsables --------
