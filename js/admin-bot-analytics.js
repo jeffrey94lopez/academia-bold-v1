@@ -1,5 +1,5 @@
 import {
-  fetchBotSummary, fetchBotConversations, fetchContentGaps,
+  fetchBotSummary, fetchBotConversations, fetchContentGaps, fetchOffHours,
 } from './analytics-api.js'
 import {
   rangeControlsHtml, wireRangeControls, computeRange,
@@ -28,12 +28,14 @@ export async function renderBotAnalytics(from = null, to = null) {
   if (!from || !to) { const r = computeRange('7d', new Date()); from = r.from; to = r.to }
   el.innerHTML = `<p class="text-[var(--black-40)] text-sm p-4">Cargando…</p>`
 
-  let summary, convs, gaps
+  let summary, convs, gaps, offHours
   try {
-    [summary, convs, gaps] = await Promise.all([
+    [summary, convs, gaps, offHours] = await Promise.all([
       fetchBotSummary(from, to),
       fetchBotConversations(from, to, { limit: 100 }),
       fetchContentGaps(from, to),
+      // RPC opcional: si aún no está aplicado, no rompe el dashboard (cae al heatmap).
+      fetchOffHours(from, to).catch(() => null),
     ])
   } catch (e) {
     el.innerHTML = `<p class="text-[var(--error-100)] text-sm p-4">Error cargando analytics del bot: ${escapeHtml(e.message)}</p>`
@@ -126,7 +128,13 @@ export async function renderBotAnalytics(from = null, to = null) {
     </tr>`).join('')
 
   const heat = buildHeatmap(summary.heatmap)
-  const oh = offHoursStats(summary.heatmap)
+  const ohFallback = offHoursStats(summary.heatmap)  // solo conteo (sin resolución)
+  const ohPct = offHours ? offHours.off_pct : ohFallback.pct
+  const ohOff = offHours ? offHours.off : ohFallback.off
+  const ohTotal = offHours ? offHours.total : ohFallback.total
+  const ohResolved = offHours && offHours.off
+    ? ` · de esas, <span class="font-bold text-[var(--black-100)]">${offHours.off_resolved_pct ?? 0}%</span> resueltas`
+    : ''
 
   const explorer = renderExplorer(convs)
 
@@ -145,7 +153,7 @@ export async function renderBotAnalytics(from = null, to = null) {
       </div>
       <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-3">
         <p class="text-sm font-bold text-[var(--black-100)] mb-1">Cuándo escriben</p>
-        <p class="text-[11px] text-[var(--black-60)] mb-2">🌙 <span class="font-bold text-[var(--black-100)]">${oh.pct}%</span> fuera de horario (5pm–8am) · ${oh.off} de ${oh.total}</p>
+        <p class="text-[11px] text-[var(--black-60)] mb-2">🌙 <span class="font-bold text-[var(--black-100)]">${ohPct}%</span> fuera de horario (5pm–8am) · ${ohOff} de ${ohTotal}${ohResolved}</p>
         ${heat}
       </div>
     </div>
@@ -161,9 +169,10 @@ export async function renderBotAnalytics(from = null, to = null) {
     btn.disabled = true
     btn.textContent = '⬇ Descargando…'
     try {
-      // limit: null → RPC devuelve todas las conversaciones del rango + filtros
-      // activos del explorador (no el snapshot cacheado de 100 filas).
-      const rows = await fetchBotConversations(from, to, { ...explorer.getFilters(), limit: null })
+      // Número grande (no null): el RPC tiene p_limit DEFAULT 100 y PostgREST
+      // trata el null como "usa el default", así que null salía limitado a 100.
+      // Con un tope alto trae TODAS las del rango + filtros del explorador.
+      const rows = await fetchBotConversations(from, to, { ...explorer.getFilters(), limit: 1000000 })
       exportBotCsv(rows, from, to)
     } catch (e) {
       alert('Error al exportar CSV: ' + e.message)

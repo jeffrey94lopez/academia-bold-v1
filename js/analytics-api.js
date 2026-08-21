@@ -50,6 +50,15 @@ export async function fetchBotSummary(from, to, client) {
   })
 }
 
+// % de conversaciones fuera de horario (5pm–8am) y, de esas, % resueltas.
+export async function fetchOffHours(from, to, client) {
+  if (!client) client = await getSupabaseClient()
+  return callRpc(client, 'analytics_off_hours', {
+    p_from: from.toISOString(),
+    p_to: to.toISOString(),
+  })
+}
+
 export async function fetchCourseFunnel(from, to, client) {
   if (!client) client = await getSupabaseClient()
   return callRpc(client, 'analytics_course_funnel', {
