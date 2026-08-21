@@ -156,8 +156,8 @@ export async function renderBotAnalytics(from = null, to = null) {
         <div class="flex items-center gap-2.5 mb-3 p-2.5 rounded-xl bg-[var(--error-10)]" style="border:1px solid rgba(195,26,47,0.2)">
           <span class="text-2xl">🌙</span>
           <div class="leading-tight">
-            <p><span class="text-2xl font-black text-[var(--error-100)]">${ohPct}%</span> <span class="text-xs font-bold text-[var(--black-60)]">fuera de horario</span></p>
-            <p class="text-[10px] text-[var(--black-60)] mt-0.5">${ohOff} de ${ohTotal} conversaciones · 5pm–8am${ohResolved}</p>
+            <p><span class="text-2xl font-black text-[var(--error-100)]">${ohPct}%</span> <span class="text-sm font-bold text-[var(--black-60)]">fuera de horario</span></p>
+            <p class="text-[12px] text-[var(--black-60)] mt-0.5"><span class="font-bold text-[var(--black-100)]">${ohOff}</span> de ${ohTotal} conversaciones · 5pm–8am${ohResolved}</p>
           </div>
         </div>
         ${heat}
@@ -215,7 +215,7 @@ function buildHeatmap(cells) {
       const n = grid[`${d}-${h}`] || 0
       const off = isOff(h)
       const rgb = off ? '195,26,47' : '18,30,108'          // rojo fuera de horario, azul en horario
-      const op = n ? (0.2 + 0.8 * n / max).toFixed(2) : (off ? 0.07 : 0)  // banda roja tenue aunque no haya datos
+      const op = n ? (0.2 + 0.8 * n / max).toFixed(2) : 0  // celdas sin datos quedan en blanco (dentro y fuera de horario)
       html += `<div title="${DOW[d]} ${h}:00 — ${n}${off ? ' (fuera de horario)' : ''}" style="height:12px;border-radius:2px;background:rgba(${rgb},${op})"></div>`
     }
   }
