@@ -136,7 +136,7 @@ export async function renderBotAnalytics(from = null, to = null) {
     ? ` · de esas, <span class="font-bold text-[var(--black-100)]">${offHours.off_resolved_pct ?? 0}%</span> resueltas`
     : ''
 
-  const explorer = renderExplorer(convs)
+  const explorerHtml = renderExplorer(convs)
 
   el.innerHTML = `
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -157,7 +157,7 @@ export async function renderBotAnalytics(from = null, to = null) {
         ${heat}
       </div>
     </div>
-    ${explorer}`
+    ${explorerHtml}`
   lucide?.createIcons?.()
 
   // Listeners
