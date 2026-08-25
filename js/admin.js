@@ -13,6 +13,7 @@ import { extractBucketUrls, countReferences, diffBrokenUrls, pathFromBucketUrl }
 import { evaluarBorradoCategoria } from './category-guard.js'
 import { lessonToEmbedText } from './lesson-embed-text.js'
 import { dedupeQuestions, firstUserMessage } from './faq-suggest.js'
+import { draftKey, buildDraft, shouldOfferRestore, relTime } from './lesson-draft.js'
 
 const EMBED_WEBHOOK = 'https://n8n.mplasesores.com/webhook/embed-lesson'
 const EMBED_TOKEN   = 'BoldBodi-2026-K9xMvP7q'
@@ -116,6 +117,68 @@ let currentBlocks = []
 let sortableInstance = null
 let currentQuestions = []
 let questionsSortable = null
+
+// --- Autoguardado de borradores del editor (localStorage). Ver js/lesson-draft.js ---
+let draftModalOpen = false   // el modal de lección está abierto
+let draftReady = false       // ya terminó la carga inicial; recién ahí se autoguarda
+let draftTimer = null        // debounce del autoguardado
+
+function readDraft(key) {
+  try { return JSON.parse(localStorage.getItem(key) || 'null') } catch (_) { return null }
+}
+function writeDraft(key, obj) {
+  try { localStorage.setItem(key, JSON.stringify(obj)) } catch (_) {}
+}
+function clearDraft(key) {
+  try { localStorage.removeItem(key) } catch (_) {}
+}
+function currentDraftKey() {
+  return draftKey(document.getElementById('lessonId').value)
+}
+// Foto del estado actual del editor (campos + bloques + preguntas en memoria).
+function collectDraftState() {
+  return {
+    titulo: document.getElementById('lessonTitulo').value,
+    descripcion: document.getElementById('lessonDescripcion').value,
+    notas: document.getElementById('lessonNotas').value,
+    orden: document.getElementById('lessonOrden').value,
+    categoria: document.getElementById('lessonCategoria').value,
+    vertical: getChoice('lessonVertical') || 'retail',
+    plataforma: getChoice('lessonPlataforma') || 'web',
+    blocks: currentBlocks,
+    questions: currentQuestions,
+  }
+}
+function saveDraftNow() {
+  if (!draftModalOpen || !draftReady) return
+  writeDraft(currentDraftKey(), buildDraft(collectDraftState(), Date.now()))
+  const ind = document.getElementById('lessonDraftStatus')
+  if (ind) ind.textContent = 'Borrador guardado ✓'
+}
+function scheduleDraftSave() {
+  if (!draftModalOpen || !draftReady) return
+  clearTimeout(draftTimer)
+  draftTimer = setTimeout(saveDraftNow, 1200)
+}
+// Vuelca un borrador restaurado sobre el formulario.
+function applyDraftToForm(d) {
+  document.getElementById('lessonTitulo').value = d.titulo || ''
+  document.getElementById('lessonDescripcion').value = d.descripcion || ''
+  document.getElementById('lessonNotas').value = d.notas || ''
+  document.getElementById('lessonOrden').value = d.orden ?? ''
+  const cat = document.getElementById('lessonCategoria')
+  if (d.categoria) cat.value = d.categoria
+  setChoice('lessonVertical', d.vertical || 'retail')
+  setChoice('lessonPlataforma', d.plataforma || 'web')
+  currentBlocks = Array.isArray(d.blocks) ? d.blocks : []
+  currentQuestions = Array.isArray(d.questions) ? d.questions : []
+  renderBlockList()
+  renderQuestionList()
+  updatePreview()
+}
+// Red de seguridad: si refrescan o cierran la pestaña con el editor abierto,
+// guarda el borrador de forma síncrona antes de salir.
+window.addEventListener('beforeunload', () => { if (draftModalOpen && draftReady) saveDraftNow() })
 let quillInstances = {}
 let currentCategories = []
 let materialView = localStorage.getItem('admin_material_view') || 'grid'
@@ -474,6 +537,12 @@ async function renderLessonsPanel() {
             <button id="cancelLessonForm" class="text-[var(--black-40)] hover:text-[var(--black-100)] text-lg leading-none px-1">&#x2715;</button>
           </div>
         </div>
+        <div id="lessonDraftBanner" class="hidden flex items-center gap-2 px-5 py-2 bg-[var(--warning-10)] border-b border-[var(--warning-100)] text-xs shrink-0">
+          <i data-lucide="save" class="w-3.5 h-3.5 text-[var(--warning-150)]"></i>
+          <span class="text-[var(--black-100)]">Tienes un borrador sin guardar (<span id="lessonDraftAge"></span>).</span>
+          <button id="restoreDraftBtn" class="ml-auto px-2.5 py-1 rounded-lg bg-[var(--blue-100)] text-white font-bold">Restaurar</button>
+          <button id="discardDraftBtn" class="px-2.5 py-1 rounded-lg text-[var(--black-60)] hover:bg-[var(--black-10)] font-bold">Descartar</button>
+        </div>
         <div id="lessonFormGrid" class="flex-1 overflow-hidden grid" style="grid-template-columns:1fr 1fr;min-height:0">
           <div class="overflow-y-auto p-5 border-r border-[var(--blue-10)]">
             <input type="hidden" id="lessonId">
@@ -557,6 +626,7 @@ async function renderLessonsPanel() {
                   class="w-16 px-2 py-1.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)]">
               </div>
               <button id="saveLessonBtn" class="flex-1 py-2.5 rounded-xl bg-[var(--blue-100)] text-white text-sm font-bold">Guardar lección</button>
+              <span id="lessonDraftStatus" class="text-[10px] text-[var(--black-40)] whitespace-nowrap self-center"></span>
             </div>
           </div>
           <div id="lessonPreviewPanel" class="overflow-y-auto p-5 bg-[var(--background-page)]">
@@ -743,7 +813,25 @@ async function renderLessonsPanel() {
   updateEmbeddingStatus()
 
   document.getElementById('cancelLessonForm').addEventListener('click', () => {
+    saveDraftNow()               // conserva el borrador para poder restaurarlo luego
+    draftModalOpen = false
     document.getElementById('lessonFormModal').classList.add('hidden')
+  })
+
+  // Autoguardado: cualquier edición dentro del modal reprograma el guardado.
+  const lessonModalEl = document.getElementById('lessonFormModal')
+  lessonModalEl.addEventListener('input', scheduleDraftSave)
+  lessonModalEl.addEventListener('change', scheduleDraftSave)
+
+  document.getElementById('restoreDraftBtn').addEventListener('click', () => {
+    const banner = document.getElementById('lessonDraftBanner')
+    if (banner._draft) applyDraftToForm(banner._draft)
+    banner.classList.add('hidden')
+    saveDraftNow()
+  })
+  document.getElementById('discardDraftBtn').addEventListener('click', () => {
+    clearDraft(currentDraftKey())
+    document.getElementById('lessonDraftBanner').classList.add('hidden')
   })
 
   document.getElementById('lessonTitulo').addEventListener('input', e => {
@@ -838,6 +926,8 @@ async function renderLessonsPanel() {
     // Regenerate RAG embedding asynchronously (fire-and-forget)
     const savedId = id || (await supabase.from('lecciones').select('id').eq('titulo', titulo).order('created_at', { ascending: false }).limit(1).single()).data?.id
     if (savedId) embedLesson(savedId, titulo, payload.categoria, currentBlocks, payload.notas)
+    clearDraft(draftKey(id))     // guardado OK → el borrador ya no hace falta
+    draftModalOpen = false
     document.getElementById('lessonFormModal').classList.add('hidden')
     renderLessonsPanel()
   })
@@ -1130,6 +1220,10 @@ function getChoice(containerId) {
 }
 
 function openLessonForm(lesson = null) {
+  // La carga inicial dispara renders programáticos; con draftReady=false esos
+  // no autoguardan (no queremos pisar el borrador antes de ofrecer restaurarlo).
+  draftReady = false
+  draftModalOpen = false
   document.getElementById('lessonFormTitle').textContent = lesson ? 'Editar lección' : 'Nueva lección'
   document.getElementById('lessonId').value = lesson?.id || ''
   document.getElementById('lessonTitulo').value = lesson?.titulo || ''
@@ -1165,6 +1259,24 @@ function openLessonForm(lesson = null) {
   renderQuestionList()
   updatePreview()
   applyPreviewState()
+
+  // ¿Hay un borrador sin guardar para esta lección? Ofrecer restaurarlo.
+  const banner = document.getElementById('lessonDraftBanner')
+  const draft = readDraft(currentDraftKey())
+  if (shouldOfferRestore(draft, Date.now())) {
+    document.getElementById('lessonDraftAge').textContent = relTime(Date.now() - (draft.savedAt || Date.now()))
+    banner._draft = draft
+    banner.classList.remove('hidden')
+  } else {
+    banner._draft = null
+    banner.classList.add('hidden')
+  }
+  document.getElementById('lessonDraftStatus').textContent = ''
+  lucide?.createIcons?.()
+
+  // A partir de acá, las ediciones del usuario sí autoguardan.
+  draftModalOpen = true
+  draftReady = true
 }
 
 function markdownToHtml(text) {
@@ -1315,6 +1427,7 @@ function renderBlockList() {
       updatePreview()
     },
   })
+  scheduleDraftSave()   // autoguardar tras cambios de bloques (agregar/quitar/mover)
 }
 
 function blockItemHtml(block, i) {
@@ -1481,6 +1594,7 @@ function renderQuestionList() {
       },
     })
   }
+  scheduleDraftSave()   // autoguardar tras cambios de preguntas del examen
 }
 
 function updatePreview() {
