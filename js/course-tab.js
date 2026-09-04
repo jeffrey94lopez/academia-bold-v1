@@ -8,18 +8,12 @@ import { renderCertificate } from './certificate.js'
 import { renderBlocks } from './block-renderer.js'
 import { parseLessonBlocks } from './lesson-blocks.js'
 import { ordenarCurso } from './course-order.js'
+import { parseExamen } from './course-lessons.js'
 import { escapeHtml } from './utils.js'
 import { track } from './analytics.js'
 
 let student = null
 let courseLessons = []
-
-function parseExamen(l) {
-  try {
-    const e = typeof l.examen === 'string' ? JSON.parse(l.examen) : l.examen
-    return Array.isArray(e?.preguntas) && e.preguntas.length > 0 ? e : null
-  } catch { return null }
-}
 
 export async function initCourseTab() {
   const container = document.getElementById('section-course')

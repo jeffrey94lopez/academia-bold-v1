@@ -1,6 +1,7 @@
 ﻿import { supabase } from './supabase.js'
 import { escapeHtml, exportCSV } from './utils.js'
 import { rangeControlsHtml, wireRangeControls } from './analytics-ui.js'
+import { leccionesDelCurso } from './course-lessons.js'
 
 export async function renderResultsPanel() {
   const el = document.getElementById('panel-results')
@@ -9,11 +10,15 @@ export async function renderResultsPanel() {
 
   const [{ data: students, error: studentsError }, { data: lessons, error: lessonsError }] = await Promise.all([
     supabase.from('progreso_estudiantes').select('*').order('created_at', { ascending: false }).limit(500),
-    supabase.from('lecciones').select('id'),
+    supabase.from('lecciones').select('id, active, examen'),
   ])
 
   if (studentsError || lessonsError) { el.innerHTML = '<p class="text-red-400 text-sm">Error al cargar resultados.</p>'; return }
-  const totalLessons = lessons?.length || 0
+
+  // El denominador son las lecciones DEL CURSO (activas y con examen), no todas
+  // las de la base. Con todas, quien terminaba el curso mostraba 6/37.
+  const cursoIds = new Set(leccionesDelCurso(lessons).map(l => String(l.id)))
+  const totalLessons = cursoIds.size
 
   const completados = (students || []).filter(s => s.completado).length
 
@@ -34,8 +39,14 @@ export async function renderResultsPanel() {
         </thead>
         <tbody>
           ${(students || []).map(s => {
-            const entries = Object.values(s.progreso || {}).filter(v => v?.completado)
+            // Solo cuentan las lecciones que HOY son del curso: si a una le
+            // quitaron el examen, su progreso viejo sigue en el JSON y sin este
+            // filtro el porcentaje se pasaría del 100%.
+            const entries = Object.entries(s.progreso || {})
+              .filter(([id, v]) => v?.completado && cursoIds.has(String(id)))
+              .map(([, v]) => v)
             const done = entries.length
+            const pct = totalLessons ? Math.round((done / totalLessons) * 100) : 0
             const avg = entries.length ? Math.round(entries.reduce((sum, v) => sum + (v.puntaje || 0), 0) / entries.length) : 0
             const badge = s.completado
               ? '<span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] font-bold">Completado</span>'
@@ -45,7 +56,10 @@ export async function renderResultsPanel() {
                 <p class="font-bold">${escapeHtml(s.nombre)} ${escapeHtml(s.apellido)}</p>
                 <p class="text-xs text-[var(--black-40)]">${new Date(s.created_at).toLocaleDateString('es-HN')}</p>
               </td>
-              <td class="px-4 py-3 text-xs text-[var(--black-60)]">${done}/${totalLessons}</td>
+              <td class="px-4 py-3 text-xs">
+                <span class="font-bold ${pct === 100 ? 'text-green-600' : 'text-[var(--black-100)]'}">${pct}%</span>
+                <span class="text-[10px] text-[var(--black-40)] ml-1">${done}/${totalLessons}</span>
+              </td>
               <td class="px-4 py-3 text-xs font-bold ${avg >= 70 ? 'text-green-600' : 'text-[var(--black-60)]'}">${entries.length ? avg + '%' : '—'}</td>
               <td class="px-4 py-3">${badge}</td>
             </tr>`
