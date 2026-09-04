@@ -5,8 +5,13 @@ export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-export function studentClient() {
+// Cliente que se identifica ante RLS con el header x-student-id.
+// `studentId` explícito es para el registro: en ese momento el UUID ya existe
+// pero todavía no está en localStorage, y sin el header el INSERT falla al
+// devolver la fila (ver registerStudent en js/course.js).
+export function studentClient(studentId) {
+  const id = studentId || localStorage.getItem('bold_session_id') || ''
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { 'x-student-id': localStorage.getItem('bold_session_id') || '' } }
+    global: { headers: { 'x-student-id': id } }
   })
 }

@@ -1,4 +1,4 @@
-import { supabase, studentClient } from './supabase.js'
+import { studentClient } from './supabase.js'
 import { track } from './analytics.js'
 
 function escHtml(t) {
@@ -14,7 +14,14 @@ function escHtml(t) {
 
 export async function registerStudent(nombre, apellido, correo) {
   const id = crypto.randomUUID()
-  const { error } = await supabase
+
+  // El header x-student-id va desde el registro y no solo después: PostgREST
+  // inserta con RETURNING, y al devolver la fila Postgres aplica también la
+  // política de SELECT (anon_select_own), que compara el id con ese header.
+  // Sin el header la fila entra pero no se puede devolver, y Postgres responde
+  // 42501 "new row violates row-level security policy" — que suena a problema
+  // de la política de INSERT y no lo es.
+  const { error } = await studentClient(id)
     .from('progreso_estudiantes')
     .insert({ id, nombre, apellido, correo, progreso: {}, completado: false })
 

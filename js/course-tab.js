@@ -114,7 +114,14 @@ function renderRegistration() {
       renderHome()
     } catch (err) {
       console.error('[course-tab] registerStudent error:', err)
-      errEl.textContent = 'Ocurrió un error al registrarte. Intenta de nuevo.'
+      // El código va a la vista, no solo a la consola: un fallo de RLS y uno de
+      // red se veían idénticos ("Ocurrió un error"), y sin el código el
+      // diagnóstico es adivinanza. Pasó de verdad: un 42501 estuvo rompiendo el
+      // registro sin que nadie supiera por qué.
+      const code = err?.code || err?.name || ''
+      errEl.textContent = code
+        ? `Ocurrió un error al registrarte (${code}). Intenta de nuevo.`
+        : 'Ocurrió un error al registrarte. Intenta de nuevo.'
       errEl.classList.remove('hidden')
       btn.disabled = false
       btn.textContent = 'Comenzar el curso →'
