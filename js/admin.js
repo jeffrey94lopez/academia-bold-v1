@@ -142,6 +142,7 @@ function collectDraftState() {
     descripcion: document.getElementById('lessonDescripcion').value,
     notas: document.getElementById('lessonNotas').value,
     orden: document.getElementById('lessonOrden').value,
+    curso_orden: document.getElementById('lessonCursoOrden').value,
     categoria: document.getElementById('lessonCategoria').value,
     vertical: getChoice('lessonVertical') || 'retail',
     plataforma: getChoice('lessonPlataforma') || 'web',
@@ -166,6 +167,7 @@ function applyDraftToForm(d) {
   document.getElementById('lessonDescripcion').value = d.descripcion || ''
   document.getElementById('lessonNotas').value = d.notas || ''
   document.getElementById('lessonOrden').value = d.orden ?? ''
+  document.getElementById('lessonCursoOrden').value = d.curso_orden ?? ''
   const cat = document.getElementById('lessonCategoria')
   if (d.categoria) cat.value = d.categoria
   setChoice('lessonVertical', d.vertical || 'retail')
@@ -625,6 +627,11 @@ async function renderLessonsPanel() {
                 <input id="lessonOrden" type="number" placeholder="1" required
                   class="w-16 px-2 py-1.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)]">
               </div>
+              <div>
+                <p class="text-[10px] font-black uppercase text-[var(--black-40)] mb-1" title="Posición de la lección dentro de la pestaña Curso. Déjalo vacío si no importa: esas lecciones van al final.">Orden curso</p>
+                <input id="lessonCursoOrden" type="number" min="1" placeholder="—"
+                  class="w-16 px-2 py-1.5 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)]">
+              </div>
               <button id="saveLessonBtn" class="flex-1 py-2.5 rounded-xl bg-[var(--blue-100)] text-white text-sm font-bold">Guardar lección</button>
               <span id="lessonDraftStatus" class="text-[10px] text-[var(--black-40)] whitespace-nowrap self-center"></span>
             </div>
@@ -894,6 +901,13 @@ async function renderLessonsPanel() {
   document.getElementById('saveLessonBtn').addEventListener('click', async () => {
     const titulo = document.getElementById('lessonTitulo').value.trim()
     const orden = parseInt(document.getElementById('lessonOrden').value)
+    // Vacío = "no me importa la posición en el curso": va al final (course-order.js).
+    const cursoOrdenRaw = document.getElementById('lessonCursoOrden').value.trim()
+    const cursoOrden = cursoOrdenRaw === '' ? null : parseInt(cursoOrdenRaw, 10)
+    if (cursoOrden !== null && !Number.isInteger(cursoOrden)) {
+      alert('El "Orden curso" debe ser un número entero, o quedar vacío.')
+      return
+    }
     if (!titulo || isNaN(orden)) {
       alert('Completa Título y Orden antes de guardar.')
       return
@@ -912,6 +926,7 @@ async function renderLessonsPanel() {
       plataforma: getChoice('lessonPlataforma') || 'web',
       notas: document.getElementById('lessonNotas').value.trim() || null,
       examen: currentQuestions.length ? { preguntas: currentQuestions } : null,
+      curso_orden: cursoOrden,
     }
     const { error } = id
       ? await supabase.from('lecciones').update(payload).eq('id', id)
@@ -1230,6 +1245,7 @@ function openLessonForm(lesson = null) {
   document.getElementById('lessonDescripcion').value = lesson?.descripcion || ''
   document.getElementById('lessonNotas').value = lesson?.notas || ''
   document.getElementById('lessonOrden').value = lesson?.orden || ''
+  document.getElementById('lessonCursoOrden').value = lesson?.curso_orden ?? ''
   document.getElementById('previewTitle').textContent = lesson?.titulo || ''
   document.getElementById('previewDesc').textContent = lesson?.descripcion || ''
 

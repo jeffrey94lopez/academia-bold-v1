@@ -7,6 +7,7 @@ import { loadSession, registerStudent, showExamModal } from './course.js'
 import { renderCertificate } from './certificate.js'
 import { renderBlocks } from './block-renderer.js'
 import { parseLessonBlocks } from './lesson-blocks.js'
+import { ordenarCurso } from './course-order.js'
 import { escapeHtml } from './utils.js'
 import { track } from './analytics.js'
 
@@ -32,10 +33,14 @@ export async function initCourseTab() {
     return
   }
 
-  // El curso lo forman solo las lecciones con examen configurado
-  courseLessons = (data || [])
-    .map(l => ({ ...l, examen: parseExamen(l) }))
-    .filter(l => l.examen)
+  // El curso lo forman solo las lecciones con examen configurado. El orden lo
+  // da `curso_orden` y no el `orden` del query, que es relativo a la categoría:
+  // ver js/course-order.js.
+  courseLessons = ordenarCurso(
+    (data || [])
+      .map(l => ({ ...l, examen: parseExamen(l) }))
+      .filter(l => l.examen)
+  )
 
   if (!courseLessons.length) {
     container.innerHTML = '<p class="text-[var(--black-60)] text-sm text-center pt-16">Aún no hay lecciones con examen para el curso.</p>'
