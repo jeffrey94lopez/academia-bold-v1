@@ -203,15 +203,21 @@ export function showExamModal(lesson, student, allLessonIds, { onPass, onDismiss
         const puntaje = Math.round((correct / total) * 100)
 
         if (puntaje >= 70) {
-          // Mark complete in Supabase (fire-and-forget optimistically but await result)
+          // Si el guardado falla hay que decirlo: antes el catch se lo comía y
+          // la pantalla igual felicitaba al estudiante, que se iba creyendo que
+          // su nota quedó registrada. `markLessonComplete` solo muta
+          // student.progreso cuando el update sale bien, así que el listado ya
+          // muestra la realidad; lo que faltaba era avisar.
           let courseComplete = false
+          let saveError = null
           try {
             await markLessonComplete(student, String(lesson.id), puntaje)
             courseComplete = await checkAndMarkCourseComplete(student, allLessonIds)
           } catch (err) {
             console.error('[course] markLessonComplete error:', err)
+            saveError = err
           }
-          render({ view: 'success', puntaje, courseComplete })
+          render({ view: 'success', puntaje, courseComplete, saveError })
         } else {
           render({ view: 'failure', puntaje, wrongTexts })
         }
@@ -223,22 +229,31 @@ export function showExamModal(lesson, student, allLessonIds, { onPass, onDismiss
 
   // ── Success view ─────────────────────────────────────────────────────────
   function renderSuccess(state) {
-    const { puntaje, courseComplete } = state
+    const { puntaje, courseComplete, saveError } = state
     track('exam_pass', { lesson_id: String(lesson.id), lesson_title: lesson.titulo || '', score: puntaje })
 
     const card = document.createElement('div')
     card.className = 'bg-white rounded-2xl shadow-2xl w-full max-w-md text-center p-8'
 
+    const codigo = saveError ? (saveError.code || saveError.name || '') : ''
+
     card.innerHTML = `
-      <div class="text-5xl mb-4">🎉</div>
-      <h2 class="font-black text-xl text-slate-900 mb-1">¡Lección completada!</h2>
-      ${courseComplete ? `<p class="text-xs font-bold text-[#121e6c] uppercase tracking-wide mb-4">🏆 ¡Curso completado!</p>` : ''}
-      <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-50 border-4 border-green-400 mx-auto my-4">
-        <span class="font-black text-2xl text-green-600">${puntaje}%</span>
+      <div class="text-5xl mb-4">${saveError ? '⚠️' : '🎉'}</div>
+      <h2 class="font-black text-xl text-slate-900 mb-1">${saveError ? 'Aprobaste, pero no se guardó' : '¡Lección completada!'}</h2>
+      ${courseComplete && !saveError ? `<p class="text-xs font-bold text-[#121e6c] uppercase tracking-wide mb-4">🏆 ¡Curso completado!</p>` : ''}
+      <div class="inline-flex items-center justify-center w-20 h-20 rounded-full ${saveError ? 'bg-amber-50 border-4 border-amber-400' : 'bg-green-50 border-4 border-green-400'} mx-auto my-4">
+        <span class="font-black text-2xl ${saveError ? 'text-amber-600' : 'text-green-600'}">${puntaje}%</span>
       </div>
-      <p class="text-sm text-slate-500 mb-6">Obtuviste <strong>${puntaje}%</strong> en el examen. ¡Buen trabajo!</p>
-      <button id="exam-continue" class="w-full bg-[#121e6c] hover:bg-[#0d1650] text-white font-black text-sm py-3 rounded-xl transition-colors">
-        Continuar
+      ${saveError ? `
+        <div class="text-left text-xs bg-amber-50 border border-amber-200 rounded-xl p-3 mb-6">
+          <p class="font-bold text-amber-800 mb-1">No pudimos guardar tu progreso${codigo ? ` (${escHtml(codigo)})` : ''}.</p>
+          <p class="text-amber-700">Tu ${puntaje}% no quedó registrado. Revisa tu conexión y vuelve a presentar el examen.</p>
+        </div>
+      ` : `
+        <p class="text-sm text-slate-500 mb-6">Obtuviste <strong>${puntaje}%</strong> en el examen. ¡Buen trabajo!</p>
+      `}
+      <button id="exam-continue" class="w-full ${saveError ? 'bg-amber-500 hover:bg-amber-600' : 'bg-[#121e6c] hover:bg-[#0d1650]'} text-white font-black text-sm py-3 rounded-xl transition-colors">
+        ${saveError ? 'Entendido' : 'Continuar'}
       </button>
     `
 
