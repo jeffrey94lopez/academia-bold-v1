@@ -133,14 +133,11 @@ function renderHome() {
   const done  = courseLessons.filter(l => student.progreso?.[String(l.id)]?.completado).length
   const pct   = total ? Math.round((done / total) * 100) : 0
 
-  // Agrupar por categoría preservando el orden de las lecciones
-  const groups = []
-  for (const l of courseLessons) {
-    const cat = l.categoria || 'General'
-    let g = groups.find(x => x.cat === cat)
-    if (!g) { g = { cat, lessons: [] }; groups.push(g) }
-    g.lessons.push(l)
-  }
+  // El curso es una lista lineal, no un agrupado por categoría. Agrupar rompía
+  // la secuencia: con las 6 lecciones actuales el estudiante hacía
+  // 1 → 4 → 6 → 2 → 3 → 5, o sea aprendía a cerrar turno antes de crear un ítem
+  // y a facturar antes de tener productos y clientes. El orden lo manda
+  // `curso_orden` (ver js/course-order.js) y la categoría queda como etiqueta.
 
   container.innerHTML = `
     <div class="h-full overflow-y-auto custom-scroll">
@@ -158,34 +155,32 @@ function renderHome() {
             <p class="text-sm font-bold text-green-700">🏆 ¡Completaste el curso!</p>
             <button id="cr-cert" class="shrink-0 text-xs font-black text-white bg-[var(--blue-100)] px-4 py-2 rounded-full">Ver mi certificado</button>
           </div>` : ''}
-        <div id="cr-groups" class="space-y-5 pb-6"></div>
+        <div id="cr-list" class="pb-6"></div>
       </div>
     </div>
   `
 
-  const groupsEl = document.getElementById('cr-groups')
-  groups.forEach(g => {
-    const wrap = document.createElement('div')
-    const title = document.createElement('p')
-    title.className = 'text-[10px] font-black uppercase tracking-widest text-[var(--black-40)] mb-2'
-    title.textContent = g.cat.replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '').trim()
-    wrap.appendChild(title)
-
-    g.lessons.forEach(l => {
-      const p = student.progreso?.[String(l.id)]
-      const row = document.createElement('button')
-      row.className = 'w-full flex items-center justify-between gap-3 p-3 mb-2 rounded-xl border bg-white text-left transition-colors ' +
-        (p?.completado ? 'border-green-300' : 'border-[var(--blue-10)] hover:border-[var(--blue-100)]')
-      row.innerHTML = `
-        <span class="text-sm font-bold ${p?.completado ? 'text-[var(--black-60)]' : 'text-[var(--black-100)]'}">${escapeHtml(l.titulo)}</span>
-        ${p?.completado
-          ? `<span class="shrink-0 text-xs font-black text-green-600">✓ ${p.puntaje}%</span>`
-          : '<span class="shrink-0 text-xs font-bold text-[var(--black-40)]">Pendiente ›</span>'}
-      `
-      row.addEventListener('click', () => renderLesson(l))
-      wrap.appendChild(row)
-    })
-    groupsEl.appendChild(wrap)
+  const listEl = document.getElementById('cr-list')
+  courseLessons.forEach((l, i) => {
+    const p = student.progreso?.[String(l.id)]
+    const cat = (l.categoria || '').replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '').trim()
+    const row = document.createElement('button')
+    row.className = 'w-full flex items-center gap-3 p-3 mb-2 rounded-xl border bg-white text-left transition-colors ' +
+      (p?.completado ? 'border-green-300' : 'border-[var(--blue-10)] hover:border-[var(--blue-100)]')
+    row.innerHTML = `
+      <span class="shrink-0 w-6 h-6 rounded-full text-[10px] font-black flex items-center justify-center ${p?.completado
+        ? 'bg-green-100 text-green-700'
+        : 'bg-[var(--black-10)] text-[var(--black-60)]'}">${i + 1}</span>
+      <span class="flex-1 min-w-0">
+        <span class="block text-sm font-bold truncate ${p?.completado ? 'text-[var(--black-60)]' : 'text-[var(--black-100)]'}">${escapeHtml(l.titulo)}</span>
+        ${cat ? `<span class="block text-[10px] font-bold uppercase tracking-widest text-[var(--black-40)] mt-0.5">${escapeHtml(cat)}</span>` : ''}
+      </span>
+      ${p?.completado
+        ? `<span class="shrink-0 text-xs font-black text-green-600">✓ ${p.puntaje}%</span>`
+        : '<span class="shrink-0 text-xs font-bold text-[var(--black-40)]">Pendiente ›</span>'}
+    `
+    row.addEventListener('click', () => renderLesson(l))
+    listEl.appendChild(row)
   })
 
   document.getElementById('cr-cert')?.addEventListener('click', () => renderCertificate(student))
