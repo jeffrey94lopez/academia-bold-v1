@@ -2,6 +2,8 @@
 import { escapeHtml, exportCSV } from './utils.js'
 import { rangeControlsHtml, wireRangeControls } from './analytics-ui.js'
 import { leccionesDelCurso } from './course-lessons.js'
+import { ordenarCurso } from './course-order.js'
+import { detalleProgreso, resumenProgreso } from './course-progress.js'
 
 export async function renderResultsPanel() {
   const el = document.getElementById('panel-results')
@@ -10,44 +12,39 @@ export async function renderResultsPanel() {
 
   const [{ data: students, error: studentsError }, { data: lessons, error: lessonsError }] = await Promise.all([
     supabase.from('progreso_estudiantes').select('*').order('created_at', { ascending: false }).limit(500),
-    supabase.from('lecciones').select('id, active, examen'),
+    supabase.from('lecciones').select('id, titulo, active, examen, curso_orden, orden'),
   ])
 
   if (studentsError || lessonsError) { el.innerHTML = '<p class="text-red-400 text-sm">Error al cargar resultados.</p>'; return }
 
-  // El denominador son las lecciones DEL CURSO (activas y con examen), no todas
-  // las de la base. Con todas, quien terminaba el curso mostraba 6/37.
-  const cursoIds = new Set(leccionesDelCurso(lessons).map(l => String(l.id)))
-  const totalLessons = cursoIds.size
+  // Las lecciones DEL CURSO (activas y con examen), en la secuencia del curso.
+  // El denominador tiene que ser esto y no todas las de la base: con todas,
+  // quien terminaba el curso mostraba 6/37.
+  const cursoOrdenado = ordenarCurso(leccionesDelCurso(lessons))
 
+  const registrados = (students || []).length
   const completados = (students || []).filter(s => s.completado).length
 
   el.innerHTML = `
     <div class="mb-4">
       <h2 class="text-lg font-black">Resultados del curso</h2>
-      <p class="text-xs text-[var(--black-40)] mt-0.5">${completados} estudiante${completados !== 1 ? 's' : ''} completaron el curso</p>
+      <p class="text-xs text-[var(--black-40)] mt-0.5">${registrados} registrado${registrados !== 1 ? 's' : ''} · ${completados} completaron el curso</p>
     </div>
     <div class="bg-white rounded-2xl border border-[var(--blue-10)] overflow-x-auto">
-      <table class="w-full text-sm min-w-[520px]">
+      <table class="w-full text-sm min-w-[640px]">
         <thead>
           <tr class="border-b border-[var(--blue-10)]">
             <th class="text-left px-4 py-3 text-xs font-black text-[var(--black-40)] uppercase tracking-wide">Nombre</th>
             <th class="text-left px-4 py-3 text-xs font-black text-[var(--black-40)] uppercase tracking-wide">Progreso</th>
+            <th class="text-left px-4 py-3 text-xs font-black text-[var(--black-40)] uppercase tracking-wide">Lecciones</th>
             <th class="text-left px-4 py-3 text-xs font-black text-[var(--black-40)] uppercase tracking-wide">Promedio</th>
             <th class="text-left px-4 py-3 text-xs font-black text-[var(--black-40)] uppercase tracking-wide">Estado</th>
           </tr>
         </thead>
         <tbody>
           ${(students || []).map(s => {
-            // Solo cuentan las lecciones que HOY son del curso: si a una le
-            // quitaron el examen, su progreso viejo sigue en el JSON y sin este
-            // filtro el porcentaje se pasaría del 100%.
-            const entries = Object.entries(s.progreso || {})
-              .filter(([id, v]) => v?.completado && cursoIds.has(String(id)))
-              .map(([, v]) => v)
-            const done = entries.length
-            const pct = totalLessons ? Math.round((done / totalLessons) * 100) : 0
-            const avg = entries.length ? Math.round(entries.reduce((sum, v) => sum + (v.puntaje || 0), 0) / entries.length) : 0
+            const detalle = detalleProgreso(s.progreso, cursoOrdenado)
+            const { done, total, pct, avg } = resumenProgreso(detalle)
             const badge = s.completado
               ? '<span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] font-bold">Completado</span>'
               : '<span class="px-2 py-0.5 rounded-full bg-[var(--black-10)] text-[var(--black-60)] text-[10px] font-bold">En curso</span>'
@@ -56,14 +53,27 @@ export async function renderResultsPanel() {
                 <p class="font-bold">${escapeHtml(s.nombre)} ${escapeHtml(s.apellido)}</p>
                 <p class="text-xs text-[var(--black-40)]">${new Date(s.created_at).toLocaleDateString('es-HN')}</p>
               </td>
-              <td class="px-4 py-3 text-xs">
+              <td class="px-4 py-3 text-xs whitespace-nowrap">
                 <span class="font-bold ${pct === 100 ? 'text-green-600' : 'text-[var(--black-100)]'}">${pct}%</span>
-                <span class="text-[10px] text-[var(--black-40)] ml-1">${done}/${totalLessons}</span>
+                <span class="text-[10px] text-[var(--black-40)] ml-1">${done}/${total}</span>
               </td>
-              <td class="px-4 py-3 text-xs font-bold ${avg >= 70 ? 'text-green-600' : 'text-[var(--black-60)]'}">${entries.length ? avg + '%' : '—'}</td>
+              <td class="px-4 py-3">
+                <div class="flex items-center gap-1">
+                  ${detalle.map(d => {
+                    const detail = d.completado
+                      ? `${d.puntaje ?? '?'}%${d.fecha ? ' · ' + d.fecha : ''}`
+                      : 'pendiente'
+                    return `<span title="${escapeHtml(`${d.n}. ${d.titulo} — ${detail}`)}"
+                      class="w-5 h-5 rounded-md text-[9px] font-black flex items-center justify-center shrink-0 ${d.completado
+                        ? 'bg-[var(--blue-100)] text-white'
+                        : 'bg-[var(--black-10)] text-[var(--black-40)]'}">${d.n}</span>`
+                  }).join('')}
+                </div>
+              </td>
+              <td class="px-4 py-3 text-xs font-bold ${avg >= 70 ? 'text-green-600' : 'text-[var(--black-60)]'}">${done ? avg + '%' : '—'}</td>
               <td class="px-4 py-3">${badge}</td>
             </tr>`
-          }).join('') || '<tr><td colspan="4" class="px-4 py-6 text-center text-[var(--black-40)] text-sm">Ningún estudiante registrado aún.</td></tr>'}
+          }).join('') || '<tr><td colspan="5" class="px-4 py-6 text-center text-[var(--black-40)] text-sm">Ningún estudiante registrado aún.</td></tr>'}
         </tbody>
       </table>
     </div>

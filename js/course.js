@@ -66,14 +66,28 @@ export async function markLessonComplete(student, lessonId, puntaje) {
     },
   }
 
-  const { error } = await studentClient()
+  const { data, error } = await studentClient()
     .from('progreso_estudiantes')
     .update({ progreso })
     .eq('id', student.id)
+    .select('id')
 
   if (error) throw error
+  sinFilasEsFallo(data)
 
   student.progreso = progreso
+}
+
+// Un UPDATE que RLS no deja tocar ninguna fila NO devuelve error: Postgres
+// simplemente no ve la fila, afecta cero y responde ok. Así se perdieron 4
+// lecciones sin que nadie se enterara — la pantalla felicitaba al estudiante y
+// la base quedaba vacía. Por eso el update pide las filas de vuelta con
+// .select() y la ausencia se trata como fallo.
+function sinFilasEsFallo(data) {
+  if (data && data.length > 0) return
+  const err = new Error('El progreso no se guardó: la base no aceptó la actualización (0 filas).')
+  err.code = 'rls_0_filas'
+  throw err
 }
 
 export async function checkAndMarkCourseComplete(student, allLessonIds) {
@@ -82,12 +96,14 @@ export async function checkAndMarkCourseComplete(student, allLessonIds) {
 
   const fecha_completado = new Date().toISOString()
 
-  const { error } = await studentClient()
+  const { data, error } = await studentClient()
     .from('progreso_estudiantes')
     .update({ completado: true, fecha_completado })
     .eq('id', student.id)
+    .select('id')
 
   if (error) throw error
+  sinFilasEsFallo(data)
 
   student.completado = true
   student.fecha_completado = fecha_completado
