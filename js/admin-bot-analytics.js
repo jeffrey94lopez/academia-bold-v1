@@ -6,13 +6,13 @@ import {
 } from './analytics-ui.js'
 import { escapeHtml, exportCSV } from './utils.js'
 import { rankAttention } from './bot-attention.js'
-import { offHoursStats } from './off-hours.js'
+import { offHoursStats, isOffHour } from './off-hours.js'
+import { BIZ_TZ } from './biz-time.js'
 
 const DOW = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
 // Fecha + hora de una conversación, en zona de negocio (misma que el heatmap)
 // para que la hora mostrada no dependa del navegador del admin.
-const BIZ_TZ = 'America/Tegucigalpa'
 function fmtDayTime(iso) {
   if (!iso) return '—'
   const d = new Date(iso)
@@ -157,7 +157,7 @@ export async function renderBotAnalytics(from = null, to = null) {
           <span class="text-2xl">🌙</span>
           <div class="leading-tight">
             <p><span class="text-2xl font-black text-[var(--error-100)]">${ohPct}%</span> <span class="text-sm font-bold text-[var(--black-60)]">fuera de horario</span></p>
-            <p class="text-[12px] text-[var(--black-60)] mt-0.5"><span class="font-bold text-[var(--black-100)]">${ohOff}</span> de ${ohTotal} conversaciones · 5pm–8am${ohResolved}</p>
+            <p class="text-[12px] text-[var(--black-60)] mt-0.5"><span class="font-bold text-[var(--black-100)]">${ohOff}</span> de ${ohTotal} conversaciones · fuera de Lun–Vie 8am–5pm y Sáb 8am–12m${ohResolved}</p>
           </div>
         </div>
         ${heat}
@@ -205,15 +205,17 @@ function buildHeatmap(cells) {
   const grid = {}
   let max = 1
   cells.forEach(c => { grid[`${c.dow}-${c.hour}`] = c.count; if (c.count > max) max = c.count })
-  // Horas no laborables: antes de 8am o desde las 5pm (fuera de 8am–5pm).
-  const isOff = h => h < 8 || h >= 17
+  // Horas no laborables segun el horario de atencion (Lun-Vie 8am-5pm,
+  // Sab 8am-12m, Dom cerrado) en hora de Bogota. La cabecera de horas marca en
+  // rojo lo que esta fuera de horario TODOS los dias que se atiende.
+  const isOffAllDays = h => [1, 2, 3, 4, 5, 6].every(d => isOffHour(d, h))
   let html = '<div class="grid gap-0.5" style="grid-template-columns:28px repeat(24,1fr);min-width:340px">'
-  html += '<div></div>' + Array.from({ length: 24 }, (_, h) => `<div class="text-[7px] text-center ${isOff(h) ? 'text-[var(--error-100)] font-bold' : 'text-[var(--black-40)]'}">${h}</div>`).join('')
+  html += '<div></div>' + Array.from({ length: 24 }, (_, h) => `<div class="text-[7px] text-center ${isOffAllDays(h) ? 'text-[var(--error-100)] font-bold' : 'text-[var(--black-40)]'}">${h}</div>`).join('')
   for (let d = 0; d < 7; d++) {
     html += `<div class="text-[9px] text-[var(--black-40)] flex items-center">${DOW[d]}</div>`
     for (let h = 0; h < 24; h++) {
       const n = grid[`${d}-${h}`] || 0
-      const off = isOff(h)
+      const off = isOffHour(d, h)
       const rgb = off ? '195,26,47' : '18,30,108'          // rojo fuera de horario, azul en horario
       const op = n ? (0.2 + 0.8 * n / max).toFixed(2) : 0  // celdas sin datos quedan en blanco (dentro y fuera de horario)
       html += `<div title="${DOW[d]} ${h}:00 — ${n}${off ? ' (fuera de horario)' : ''}" style="height:12px;border-radius:2px;background:rgba(${rgb},${op})"></div>`
@@ -221,7 +223,7 @@ function buildHeatmap(cells) {
   }
   html += '</div>'
   html += `<div class="flex items-center gap-3 mt-1.5 text-[9px] text-[var(--black-40)]">
-    <span class="flex items-center gap-1"><span style="width:9px;height:9px;border-radius:2px;background:rgba(18,30,108,0.85);display:inline-block"></span>horario 8am–5pm</span>
+    <span class="flex items-center gap-1"><span style="width:9px;height:9px;border-radius:2px;background:rgba(18,30,108,0.85);display:inline-block"></span>horario Lun–Vie 8am–5pm · Sáb 8am–12m</span>
     <span class="flex items-center gap-1"><span style="width:9px;height:9px;border-radius:2px;background:rgba(195,26,47,0.85);display:inline-block"></span>fuera de horario</span>
   </div>`
   return html

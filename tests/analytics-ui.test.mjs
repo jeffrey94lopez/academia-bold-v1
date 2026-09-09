@@ -1,40 +1,49 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { computeRange, sentimentBar, lifecycleBar } from '../js/analytics-ui.js'
+import { fmtBizDay } from '../js/biz-time.js'
 
-const now = new Date('2026-07-20T15:30:00') // hora local
+// 20:30 UTC del 20 de julio = 3:30pm del 20 en Bogotá. Instante fijo para que
+// el resultado no dependa de la zona de la máquina que corre los tests.
+const now = new Date('2026-07-20T20:30:00Z')
 
-test('computeRange today: medianoche a fin de día de hoy', () => {
+// Los rangos se anclan al día de Bogotá, así que se verifican con fmtBizDay y
+// con el instante exacto (medianoche = 05:00Z, fin de día = 04:59:59.999Z).
+test('computeRange today: medianoche a fin de día de hoy, en Bogotá', () => {
   const { from, to } = computeRange('today', now)
-  assert.equal(from.getHours(), 0)
-  assert.equal(from.getDate(), 20)
-  assert.equal(to.getHours(), 23)
-  assert.equal(to.getDate(), 20)
+  assert.equal(from.toISOString(), '2026-07-20T05:00:00.000Z')
+  assert.equal(to.toISOString(), '2026-07-21T04:59:59.999Z')
+  assert.equal(fmtBizDay(from), '2026-07-20')
+  assert.equal(fmtBizDay(to), '2026-07-20')
+})
+
+test('computeRange today: desde un navegador al oeste sigue siendo el día de Bogotá', () => {
+  // 01:30 UTC del 21 = 8:30pm del 20 en Bogotá (y 7:30pm del 20 en Honduras).
+  const { from, to } = computeRange('today', new Date('2026-07-21T01:30:00Z'))
+  assert.equal(from.toISOString(), '2026-07-20T05:00:00.000Z')
+  assert.equal(to.toISOString(), '2026-07-21T04:59:59.999Z')
 })
 
 test('computeRange 7d: desde hace 6 días 00:00 hasta hoy fin de día', () => {
   const { from, to } = computeRange('7d', now)
-  assert.equal(from.getDate(), 14)
-  assert.equal(from.getHours(), 0)
-  assert.equal(to.getDate(), 20)
+  assert.equal(fmtBizDay(from), '2026-07-14')
+  assert.equal(from.toISOString(), '2026-07-14T05:00:00.000Z')
+  assert.equal(fmtBizDay(to), '2026-07-20')
 })
 
 test('computeRange 30d: desde hace 29 días', () => {
   const { from } = computeRange('30d', now)
-  assert.equal(from.getMonth(), 5) // junio (0-based)
-  assert.equal(from.getDate(), 21)
+  assert.equal(fmtBizDay(from), '2026-06-21')
 })
 
 test('computeRange month: primer día del mes actual', () => {
   const { from } = computeRange('month', now)
-  assert.equal(from.getDate(), 1)
-  assert.equal(from.getMonth(), 6) // julio
+  assert.equal(fmtBizDay(from), '2026-07-01')
 })
 
 test('computeRange year: 1 de enero del año actual', () => {
   const { from } = computeRange('year', now)
-  assert.equal(from.getMonth(), 0)
-  assert.equal(from.getDate(), 1)
+  assert.equal(fmtBizDay(from), '2026-01-01')
 })
 
 test('muestra los tres conteos dentro de la barra', () => {

@@ -50,7 +50,8 @@ export async function fetchBotSummary(from, to, client) {
   })
 }
 
-// % de conversaciones fuera de horario (5pm–8am) y, de esas, % resueltas.
+// % de conversaciones fuera del horario de atención (Lun–Vie 8am–5pm, Sáb
+// 8am–12m, Dom cerrado; hora de Bogotá) y, de esas, % resueltas.
 export async function fetchOffHours(from, to, client) {
   if (!client) client = await getSupabaseClient()
   return callRpc(client, 'analytics_off_hours', {

@@ -1,22 +1,25 @@
 // Helpers de UI compartidos por las vistas de analytics (shell, bot, exec, lecciones).
 // Rango de fechas (presets + calendario), tarjeta KPI y nota "se afina con LLM".
+import { bizParts, bizDate, fmtBizDay, parseBizDay } from './biz-time.js'
 
+// Los cortes son días de la zona de negocio, no del navegador del admin: "Hoy"
+// es el día calendario de Bogotá, el mismo con el que agrupan las RPC.
 export function computeRange(preset, now) {
-  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0)
-  const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999)
-  const daysAgo = n => { const d = new Date(todayStart); d.setDate(d.getDate() - n); return d }
+  const { year, month, day } = bizParts(now)
+  const todayEnd = bizDate(year, month, day, 23, 59, 59, 999)
+  const daysAgo = n => bizDate(year, month, day - n)
   switch (preset) {
-    case 'today': return { from: todayStart, to: todayEnd }
+    case 'today': return { from: daysAgo(0), to: todayEnd }
     case '7d':    return { from: daysAgo(6), to: todayEnd }
     case '30d':   return { from: daysAgo(29), to: todayEnd }
-    case 'month': return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: todayEnd }
-    case 'year':  return { from: new Date(now.getFullYear(), 0, 1), to: todayEnd }
+    case 'month': return { from: bizDate(year, month, 1), to: todayEnd }
+    case 'year':  return { from: bizDate(year, 1, 1), to: todayEnd }
     default:      return { from: daysAgo(29), to: todayEnd }
   }
 }
 
 const PRESETS = [['today', 'Hoy'], ['7d', '7 días'], ['30d', '30 días'], ['month', 'Este mes'], ['year', 'Este año']]
-const fmtDate = d => d.toISOString().split('T')[0]
+const fmtDate = fmtBizDay
 
 // Detecta qué preset corresponde al rango actual (para resaltarlo). null = rango
 // personalizado elegido en el calendario.
@@ -69,10 +72,11 @@ export function wireRangeControls(container, idPrefix, onRange) {
     document.addEventListener('click', () => calDrop.classList.add('hidden'), { once: true })
   }
   container.querySelector(`#${idPrefix}-apply-btn`)?.addEventListener('click', () => {
-    const f = new Date(container.querySelector(`#${idPrefix}-from-input`).value)
-    const t = new Date(container.querySelector(`#${idPrefix}-to-input`).value)
-    t.setHours(23, 59, 59, 999)
-    if (isNaN(f) || isNaN(t) || f > t) return
+    // El <input type="date"> da 'YYYY-MM-DD' sin zona: es un día de negocio, no
+    // uno UTC ni uno del navegador.
+    const f = parseBizDay(container.querySelector(`#${idPrefix}-from-input`).value)
+    const t = parseBizDay(container.querySelector(`#${idPrefix}-to-input`).value, { endOfDay: true })
+    if (!f || !t || f > t) return
     onRange(f, t)
   })
 }

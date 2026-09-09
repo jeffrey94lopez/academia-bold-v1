@@ -1,6 +1,7 @@
 ﻿import { supabase } from './supabase.js'
 import { escapeHtml, exportCSV } from './utils.js'
 import { rangeControlsHtml, wireRangeControls } from './analytics-ui.js'
+import { BIZ_TZ, bizParts, bizDate, bizDow, bizStartOfDay, bizEndOfDay } from './biz-time.js'
 import { leccionesDelCurso } from './course-lessons.js'
 import { ordenarCurso } from './course-order.js'
 import { detalleProgreso, resumenProgreso } from './course-progress.js'
@@ -81,9 +82,10 @@ export async function renderResultsPanel() {
 }
 
 export async function renderAnalyticsPanel(from = null, to = null) {
+  // Día de negocio (Bogotá), no el del navegador del admin.
   const now = new Date()
-  if (!from) { from = new Date(now); from.setHours(0, 0, 0, 0) }
-  if (!to)   { to   = new Date(now); to.setHours(23, 59, 59, 999) }
+  if (!from) from = bizStartOfDay(now)
+  if (!to)   to   = bizEndOfDay(now)
 
   const el = document.getElementById('analytics-content')
   if (!el) return
@@ -187,26 +189,36 @@ export async function renderAnalyticsPanel(from = null, to = null) {
 }
 
 function renderAnalyticsBody(container, ev, from, to) {
+  // Las barras cortan por día de negocio (Bogotá), igual que las RPC.
   const days = []
-  const cursor = new Date(from); cursor.setHours(0, 0, 0, 0)
-  const end = new Date(to); end.setHours(23, 59, 59, 999)
-  while (cursor <= end) { days.push(new Date(cursor)); cursor.setDate(cursor.getDate() + 1) }
+  const first = bizParts(from)
+  const end = bizEndOfDay(to)
+  for (let i = 0; ; i++) {
+    const d = bizDate(first.year, first.month, first.day + i)
+    if (d > end) break
+    days.push(d)
+  }
 
   const pageViews = ev.filter(e => e.event_type === 'page_view')
-  const dayCounts = days.map(d => {
-    const next = new Date(d); next.setDate(next.getDate() + 1)
+  const dayCounts = days.map((d, i) => {
+    const next = days[i + 1] || new Date(end.getTime() + 1)
     return pageViews.filter(e => { const t = new Date(e.created_at); return t >= d && t < next }).length
   })
   const maxCount = Math.max(...dayCounts, 1)
   const barWidth = Math.max(8, Math.min(32, Math.floor(480 / days.length) - 4))
   const dayLabels = ['D', 'L', 'M', 'M', 'J', 'V', 'S']
-  const fmtDay = d => days.length <= 14
-    ? dayLabels[d.getDay()]
-    : (d.getDate() === 1 || d.getDate() % 5 === 0 ? d.getDate() : '')
+  // Etiquetas desde el día de negocio: getDay()/getDate() darían el día del
+  // navegador, que para una medianoche de Bogotá puede ser el anterior.
+  const fmtDay = d => {
+    const { day } = bizParts(d)
+    return days.length <= 14
+      ? dayLabels[bizDow(d)]
+      : (day === 1 || day % 5 === 0 ? day : '')
+  }
 
   const barsHtml = dayCounts.map((c, i) => {
     const h = Math.round((c / maxCount) * 64)
-    return `<div class="flex flex-col items-center gap-1" title="${days[i].toLocaleDateString('es-HN')}: ${c} visitas">
+    return `<div class="flex flex-col items-center gap-1" title="${days[i].toLocaleDateString('es-HN', { timeZone: BIZ_TZ })}: ${c} visitas">
       <div style="height:${h}px;width:${barWidth}px;background:${c === maxCount ? 'var(--blue-100)' : '#fca5a5'};border-radius:3px 3px 0 0;min-height:2px"></div>
       <span class="text-[9px] text-[var(--black-40)]">${fmtDay(days[i])}</span>
     </div>`
