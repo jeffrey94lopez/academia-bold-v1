@@ -201,6 +201,8 @@ export async function renderBotAnalytics(from = null, to = null) {
   })
 }
 
+const pad = n => String(n).padStart(2, '0')
+
 function buildHeatmap(cells) {
   const grid = {}
   let max = 1
@@ -210,7 +212,11 @@ function buildHeatmap(cells) {
   // rojo lo que esta fuera de horario TODOS los dias que se atiende.
   const isOffAllDays = h => [1, 2, 3, 4, 5, 6].every(d => isOffHour(d, h))
   let html = '<div class="grid gap-0.5" style="grid-template-columns:28px repeat(24,1fr);min-width:340px">'
-  html += '<div></div>' + Array.from({ length: 24 }, (_, h) => `<div class="text-[7px] text-center ${isOffAllDays(h) ? 'text-[var(--error-100)] font-bold' : 'text-[var(--black-40)]'}">${h}</div>`).join('')
+  // Cada columna es un BLOQUE de una hora, no un instante: la 16 va de 16:00 a
+  // 16:59 y es la última que cuenta como horario (a las 17:00 ya cerró). Sin
+  // esto la banda azul "termina en 16" y parece que falta una hora.
+  const bloque = h => `${pad(h)}:00–${pad(h)}:59`
+  html += '<div></div>' + Array.from({ length: 24 }, (_, h) => `<div title="Bloque ${bloque(h)}${isOffAllDays(h) ? ' · fuera del horario de atención' : ' · dentro del horario de atención'}" class="text-[7px] text-center ${isOffAllDays(h) ? 'text-[var(--error-100)] font-bold' : 'text-[var(--black-40)]'}">${h}</div>`).join('')
   for (let d = 0; d < 7; d++) {
     html += `<div class="text-[9px] text-[var(--black-40)] flex items-center">${DOW[d]}</div>`
     for (let h = 0; h < 24; h++) {
@@ -218,13 +224,17 @@ function buildHeatmap(cells) {
       const off = isOffHour(d, h)
       const rgb = off ? '195,26,47' : '18,30,108'          // rojo fuera de horario, azul en horario
       const op = n ? (0.2 + 0.8 * n / max).toFixed(2) : 0  // celdas sin datos quedan en blanco (dentro y fuera de horario)
-      html += `<div title="${DOW[d]} ${h}:00 — ${n}${off ? ' (fuera de horario)' : ''}" style="height:12px;border-radius:2px;background:rgba(${rgb},${op})"></div>`
+      html += `<div title="${DOW[d]} ${bloque(h)} — ${n} ${n === 1 ? 'conversación' : 'conversaciones'}${off ? ' (fuera de horario)' : ''}" style="height:12px;border-radius:2px;background:rgba(${rgb},${op})"></div>`
     }
   }
   html += '</div>'
+  const notaBloques = 'Cada columna es un bloque de una hora. Lun–Vie se atiende de 8am a 5pm, '
+    + 'así que el último bloque que cuenta como horario es el 16 (16:00–16:59): a las 17:00 ya cerró. '
+    + 'Sáb se atiende de 8am a 12m, así que el último es el 11 (11:00–11:59).'
   html += `<div class="flex items-center gap-3 mt-1.5 text-[9px] text-[var(--black-40)]">
     <span class="flex items-center gap-1"><span style="width:9px;height:9px;border-radius:2px;background:rgba(18,30,108,0.85);display:inline-block"></span>horario Lun–Vie 8am–5pm · Sáb 8am–12m</span>
     <span class="flex items-center gap-1"><span style="width:9px;height:9px;border-radius:2px;background:rgba(195,26,47,0.85);display:inline-block"></span>fuera de horario</span>
+    <span title="${escapeHtml(notaBloques)}" class="flex items-center gap-1 cursor-help underline decoration-dotted underline-offset-2">ⓘ por qué la banda termina en 16</span>
   </div>`
   return html
 }
