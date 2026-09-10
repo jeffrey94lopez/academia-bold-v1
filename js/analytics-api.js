@@ -60,14 +60,6 @@ export async function fetchOffHours(from, to, client) {
   })
 }
 
-export async function fetchCourseFunnel(from, to, client) {
-  if (!client) client = await getSupabaseClient()
-  return callRpc(client, 'analytics_course_funnel', {
-    p_from: from.toISOString(),
-    p_to: to.toISOString(),
-  })
-}
-
 export async function fetchBotTrend(months = 6, client) {
   if (!client) client = await getSupabaseClient()
   return callRpc(client, 'analytics_bot_trend', { p_months: months })
@@ -94,14 +86,5 @@ export async function fetchContentGaps(from, to, client) {
   return callRpc(client, 'analytics_content_gaps', {
     p_from: from.toISOString(),
     p_to: to.toISOString(),
-  })
-}
-
-export async function fetchZombieLessons(from, to, maxVisits = 2, client) {
-  if (!client) client = await getSupabaseClient()
-  return callRpc(client, 'analytics_zombie_lessons', {
-    p_from: from.toISOString(),
-    p_to: to.toISOString(),
-    p_max_visits: maxVisits,
   })
 }

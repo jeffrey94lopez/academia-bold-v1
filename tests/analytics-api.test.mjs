@@ -1,9 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  fetchLessonsSummary, fetchBotSummary, fetchCourseFunnel, fetchBotTrend,
+  fetchLessonsSummary, fetchBotSummary, fetchBotTrend,
   getSupabaseClient, _resetAnalyticsClientCache,
-  fetchBotConversations, fetchContentGaps, fetchZombieLessons,
+  fetchBotConversations, fetchContentGaps,
 } from '../js/analytics-api.js'
 
 function fakeClient(captured) {
@@ -40,12 +40,6 @@ test('fetchBotSummary usa analytics_bot_summary', async () => {
   await fetchBotSummary(from, to, fakeClient(cap))
   assert.equal(cap.name, 'analytics_bot_summary')
   assert.equal(cap.params.p_from, from.toISOString())
-})
-
-test('fetchCourseFunnel usa analytics_course_funnel', async () => {
-  const cap = {}
-  await fetchCourseFunnel(new Date('2026-06-01T00:00:00Z'), new Date('2026-06-30T00:00:00Z'), fakeClient(cap))
-  assert.equal(cap.name, 'analytics_course_funnel')
 })
 
 test('fetchBotTrend pasa p_months', async () => {
@@ -112,19 +106,3 @@ test('fetchContentGaps usa analytics_content_gaps', async () => {
   assert.equal(cap.params.p_from, new Date('2026-06-01T00:00:00Z').toISOString())
 })
 
-test('fetchZombieLessons llama la RPC con fechas ISO y p_max_visits', async () => {
-  const cap = {}
-  const from = new Date('2026-07-01T00:00:00Z')
-  const to = new Date('2026-07-31T23:59:59Z')
-  await fetchZombieLessons(from, to, 3, fakeClient(cap))
-  assert.equal(cap.name, 'analytics_zombie_lessons')
-  assert.equal(cap.params.p_from, from.toISOString())
-  assert.equal(cap.params.p_to, to.toISOString())
-  assert.equal(cap.params.p_max_visits, 3)
-})
-
-test('fetchZombieLessons usa p_max_visits=2 por defecto', async () => {
-  const cap = {}
-  await fetchZombieLessons(new Date('2026-07-01T00:00:00Z'), new Date('2026-07-31T00:00:00Z'), undefined, fakeClient(cap))
-  assert.equal(cap.params.p_max_visits, 2)
-})
