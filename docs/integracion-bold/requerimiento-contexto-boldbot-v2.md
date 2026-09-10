@@ -88,17 +88,25 @@ plataforma). Lo único que falta es el dato de entrada.
 Notas:
 
 - ⚠️ **`accountId`: necesitamos que nos confirmen qué identifica el claim
-  `sub`.** La versión anterior de este documento daba por hecho que era la
-  cuenta del comercio. Al probarlo vimos valores distintos por comercio
-  (`7993`, `10093`, `13091`), lo cual es consistente con esa lectura… pero en
-  un JWT `sub` es el *sujeto autenticado*, que en la mayoría de los sistemas es
-  **el usuario**, no la cuenta. Además, el número no coincide con el id de
-  cuenta que manejamos nosotros para esos comercios.
-  **Lo que necesitamos es identificar al comercio**: si un comercio tiene tres
-  usuarios, los tres tienen que llegarnos como el mismo comercio. Entonces:
-  - si `sub` **es** la cuenta, perfecto, mándenlo tal cual;
-  - si `sub` **es el usuario**, mándennos además el id del comercio (el que sea
-    canónico de su lado) en `accountId`, y dejen `sub` en `user.id`.
+  `sub`.** **Lo que necesitamos es identificar al comercio**: si un comercio
+  tiene tres usuarios, los tres tienen que llegarnos como el mismo comercio.
+  Esto es lo que sabemos hasta ahora, volcando los claims de sesiones reales:
+
+  - El token trae **solo** `iss`, `sub`, `business_type`, `scp`, `iat` y `exp`.
+    **No hay ningún claim de cuenta** (`account_id`, `company_id`,
+    `merchant_id`…). Si `sub` no sirve, el dato no está en el token.
+  - A favor de que `sub` **sea el comercio**: una misma persona entró a dos
+    comercios distintos y `sub` cambió (`10093` y `13091`). Si identificara al
+    usuario logueado, habría sido el mismo número las dos veces.
+  - En contra: en un JWT `sub` es por convención el *sujeto autenticado*, y las
+    sesiones que pudimos inspeccionar eran de **soporte** (`scp: ["support"]`),
+    no la sesión normal de un comercio. No podemos descartar que en una sesión
+    de comercio `sub` sea el usuario.
+
+  Entonces, concretamente:
+  - si `sub` **es** la cuenta, perfecto, mándenlo tal cual en `accountId`;
+  - si `sub` **es el usuario**, mándennos el id del comercio en `accountId` (el
+    que sea canónico de su lado) y dejen `sub` en `user.id`.
 
 - **`businessType`**: ya lo verificamos en cuentas reales de las dos verticales
   y **funciona tal como viene**: llega `retail` y `restaurant`. Nuestro mapa
@@ -121,9 +129,10 @@ Esto es importante porque en la conversación anterior quedó la duda. Lo decimo
 en negativo, campo por campo:
 
 - ❌ **No** queremos el token de sesión del POS (`localStorage.token`). Sabemos
-  que existe y que es un JWT de ~14 meses de vida; justamente por eso **no lo
-  queremos**: es una credencial de larga duración y no queremos custodiarla.
-  Nuestra página de prueba marca en rojo si nos lo mandan por error.
+  que existe —lo vimos con vigencias de 5 horas en sesiones de soporte y de
+  ~14 meses en una sesión de comercio— y justamente por eso **no lo queremos**:
+  es una credencial viva y no queremos custodiarla. Nuestra página de prueba
+  marca en rojo si nos lo mandan por error.
 - ❌ **No** queremos cookies, ni `Authorization` headers, ni acceso a su API.
 - ❌ **No** queremos datos de pago, montos, ventas, tarjetas ni PAN.
 - ❌ **No** pedimos que quiten el aislamiento de orígenes, ni CORS, ni
@@ -372,6 +381,7 @@ cuentas reales de las dos verticales. Esto es lo que salió:
 |---|---|
 | Cuenta **retail** (`sub` 10093) | `business_type` llegó `retail`; nombre del comercio y del usuario, correctos |
 | Cuenta **restaurante** (`sub` 13091) | `business_type` llegó `restaurant`; lo mapeamos a nuestra vertical Restaurantes |
+| Claims del token | Solo `iss`, `sub`, `business_type`, `scp`, `iat`, `exp`. Sin claim de cuenta (ver §3) |
 | Origen del mensaje | Llegó desde `https://pos.bold.co` y lo aceptamos; un mensaje desde otro origen se descarta (también probado) |
 | El portal aplicando el contexto | Cambió solo a la vertical correcta y el asistente saludó por el nombre del usuario |
 | Nombre del comercio y del usuario | Se pueden leer del DOM del propio POS, así que **el dato ya existe en su aplicación** |
@@ -503,8 +513,12 @@ Cuatro respuestas cortas y arrancamos:
 
 1. **¿Qué identifica `sub`: el comercio o el usuario?** Es la más importante:
    define si el payload sirve para reconocer al comercio o hay que agregarle un
-   campo. Ver la nota de §3. *(Se responde mirando si dos usuarios del mismo
-   comercio tienen `sub` distinto.)*
+   campo. Ver la evidencia que ya juntamos en §3. *(Del lado de ustedes se
+   responde en un minuto: si dos usuarios del mismo comercio tienen `sub`
+   distinto, es del usuario.)* Y de paso: **en una sesión de soporte
+   (`scp: ["support"]`), ¿el contexto que nos manden debería ser el del comercio
+   soportado?** Nos importa para no atribuirle al comercio conversaciones que en
+   realidad tuvo un agente de soporte.
 2. **Correo del usuario**: ¿pueden incluirlo? Es el único campo que no pudimos
    verificar por nuestra cuenta, porque no está en la UI del POS.
 3. **Plataforma**: ¿pueden distinguir en el payload si el POS corre en web o en
