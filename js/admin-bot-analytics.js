@@ -97,7 +97,7 @@ export async function renderBotAnalytics(from = null, to = null) {
             <span class="text-[11px] font-normal text-[var(--black-60)]">de las ${total} conversaciones el bot no las resolvió solo</span>
           </p>
           <p class="text-[11px] text-[var(--black-60)] mt-0.5">
-            <span class="text-[var(--error-100)] font-bold">${fr.no_info || 0}</span> sin contenido para responder ·
+            <button ${drill({ no_info: '1' })} class="bot-drill underline text-[var(--error-100)] font-bold">${fr.no_info || 0} sin contenido para responder</button> ·
             <button ${drill({ life: 'escalada' })} class="bot-drill underline">${fr.support || 0} derivadas a soporte</button>
           </p>
         </div>
@@ -320,7 +320,7 @@ function wireExplorer(el, convs, from, to) {
     toggle.textContent = hidden ? 'Filtros ▾' : 'Filtros ▴'
   })
 
-  const state = { estado: '', life: '', category: '', search: '' }
+  const state = { estado: '', life: '', category: '', search: '', no_info: '' }
   const summaryEl = el.querySelector('#bot-filter-summary')
 
   // Mapea el state del explorador al shape que espera fetchBotConversations.
@@ -330,6 +330,7 @@ function wireExplorer(el, convs, from, to) {
     if (state.estado) f.status = state.estado
     if (state.life) f.lifecycle = state.life
     if (state.category) f.category = state.category
+    if (state.no_info) f.no_info = true
     if (state.search) f.search = state.search
     return f
   }
@@ -346,6 +347,7 @@ function wireExplorer(el, convs, from, to) {
   const FILTER_LABELS = {
     estado: { resuelta: 'Resuelta', no_resuelta: 'No resuelta', ambigua: 'Ambigua' },
     life: { cerrada_cliente: 'Cerró', abandonada: 'Abandonó', escalada: 'Escaló' },
+    no_info: { 1: 'Sin contenido para responder' },
   }
   const friendlyFilterLabel = (k, v) => (FILTER_LABELS[k] && FILTER_LABELS[k][v]) || v
 
@@ -364,7 +366,7 @@ function wireExplorer(el, convs, from, to) {
 
   const applyFilters = (partial, { replace } = {}) => {
     if (replace) {
-      state.estado = ''; state.life = ''; state.category = ''; state.search = ''
+      state.estado = ''; state.life = ''; state.category = ''; state.search = ''; state.no_info = ''
       const searchInput = el.querySelector('#bot-search')
       if (searchInput) searchInput.value = ''
     }

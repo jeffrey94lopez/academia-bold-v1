@@ -85,6 +85,7 @@ export async function fetchBotConversations(from, to, filters = {}, client) {
     p_search: filters.search ?? null,
     p_limit: filters.limit ?? null,
     p_lifecycle: filters.lifecycle ?? null,
+    p_no_info: filters.no_info ?? null,
   })
 }
 

@@ -87,6 +87,7 @@ test('fetchBotConversations mapea filtros a params (undefined -> null)', async (
   assert.equal(cap.params.p_sentiment, null)
   assert.equal(cap.params.p_category, null)
   assert.equal(cap.params.p_search, null)
+  assert.equal(cap.params.p_no_info, null)
 })
 
 test('fetchBotConversations sin filtros manda todos null y limit por defecto', async () => {
@@ -94,6 +95,14 @@ test('fetchBotConversations sin filtros manda todos null y limit por defecto', a
   await fetchBotConversations(new Date('2026-06-01T00:00:00Z'), new Date('2026-06-30T00:00:00Z'), {}, fakeClient(cap))
   assert.equal(cap.params.p_status, null)
   assert.equal(cap.params.p_limit, null)
+  assert.equal(cap.params.p_no_info, null)
+})
+
+test('fetchBotConversations pasa el filtro "sin contenido" como p_no_info', async () => {
+  const cap = {}
+  await fetchBotConversations(new Date('2026-06-01T00:00:00Z'), new Date('2026-06-30T00:00:00Z'),
+    { no_info: true }, fakeClient(cap))
+  assert.equal(cap.params.p_no_info, true)
 })
 
 test('fetchContentGaps usa analytics_content_gaps', async () => {
