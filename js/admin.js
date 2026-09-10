@@ -6,6 +6,7 @@ import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml } from './utils.js'
 import { renderResultsPanel } from './admin-analytics.js'
 import { renderAnalytics } from './analytics-shell.js'
+import { bizStartOfDay } from './biz-time.js'
 import { logActivity } from './activity.js'
 import { remapContentUrl } from './content-url.js'
 import { parseLessonBlocks } from './lesson-blocks.js'
@@ -249,16 +250,21 @@ async function renderHomePanel() {
   const { data: { user } } = await supabase.auth.getUser()
   const name = user?.user_metadata?.name || user?.email?.split('@')[0] || ''
 
-  const today = new Date().toISOString().slice(0, 10)
+  // Desde la medianoche de HOY en hora de negocio. Con toISOString() el corte
+  // era el día UTC: después de las 7pm de Bogotá ya contaba el día siguiente.
+  const desdeHoy = bizStartOfDay(new Date()).toISOString()
   const [
-    { count: lessonesCount },
-    { count: convsCount },
-    { count: faqCount },
-    { count: glosarioCount },
+    { count: lessonesCount, error: lessonesErr },
+    { count: convsCount, error: convsErr },
+    { count: faqCount, error: faqErr },
+    { count: glosarioCount, error: glosarioErr },
     { data: activity }
   ] = await Promise.all([
     supabase.from('lecciones').select('*', { count: 'exact', head: true }).eq('active', true),
-    supabase.from('bodi_conversations').select('*', { count: 'exact', head: true }).gte('created_at', today),
+    // started_at, NO created_at: esa columna no existe en bodi_conversations y
+    // la consulta fallaba con 42703. supabase-js no lanza, devuelve { error },
+    // así que el contador mostraba 0 en silencio.
+    supabase.from('bodi_conversations').select('*', { count: 'exact', head: true }).gte('started_at', desdeHoy),
     supabase.from('preguntas_frecuentes').select('*', { count: 'exact', head: true }),
     supabase.from('glosario').select('*', { count: 'exact', head: true }),
     supabase.from('activity_log').select('action,entity_type,entity_name,created_at').order('created_at', { ascending: false }).limit(5)
@@ -289,10 +295,13 @@ async function renderHomePanel() {
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 md:mb-6">
         ${[
-          ['Lecciones activas',    lessonesCount ?? 0],
-          ['Conversaciones hoy',   convsCount    ?? 0],
-          ['Preguntas frecuentes', faqCount      ?? 0],
-          ['Términos en glosario', glosarioCount ?? 0],
+          // Si la consulta falló, '—' en vez de 0: un cero inventado por un
+          // error de esquema es indistinguible de un cero real, y así fue como
+          // "Conversaciones hoy" pasó semanas en cero sin que nadie lo notara.
+          ['Lecciones activas',    lessonesErr  ? '—' : (lessonesCount  ?? 0)],
+          ['Conversaciones hoy',   convsErr     ? '—' : (convsCount     ?? 0)],
+          ['Preguntas frecuentes', faqErr       ? '—' : (faqCount       ?? 0)],
+          ['Términos en glosario', glosarioErr  ? '—' : (glosarioCount  ?? 0)],
         ].map(([label, val]) => `
           <div class="bg-white border border-[var(--blue-10)] rounded-2xl p-4">
             <p class="text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1.5">${label}</p>
