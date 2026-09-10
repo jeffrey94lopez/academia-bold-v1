@@ -1,3 +1,4 @@
+import { initBoldContext } from './bold-context.js'
 import './assistant.js'
 import './lessons.js'
 import './resources.js'
@@ -6,6 +7,10 @@ import { startLiveUpdates } from './live-updates.js'
 import { initCourseTab } from './course-tab.js'
 import { storageGet, storageSet } from './storage.js'
 import { shouldShowNavHint, NAV_HINT_KEY } from './nav-hint.js'
+
+// Escucha el `bold:context` del POS y le avisa que ya estamos listos. Va
+// primero: cuanto antes se instale, menos chance de perder el mensaje.
+initBoldContext()
 
 startLiveUpdates()
 

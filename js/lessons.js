@@ -5,6 +5,7 @@ import { track } from './analytics.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml } from './utils.js'
 import { VERTICALES, PLATAFORMAS, getSeleccion, setSeleccion, filtrarPorSeleccion, plataformasHabilitadas, verticalesVisibles, resolverSeleccion } from './vertical.js'
+import { onContextoBold, seleccionDesdeContexto } from './bold-context.js'
 import { crearSuscripcionReanudable } from './realtime-lifecycle.js'
 import { createReadingTracker } from './reading-tracker.js'
 
@@ -396,7 +397,8 @@ async function renderLessons() {
     if (window.lucide) lucide.createIcons()
   }
 
-  function applySeleccion(cambio) {
+  function applySeleccion(cambio, { origen = 'usuario' } = {}) {
+    const previo = sel
     setSeleccion(cambio)
     sel = resolverSeleccion(allLessons, settings, getSeleccion())
     searchQuery = ''
@@ -415,7 +417,9 @@ async function renderLessons() {
     renderMobileCatList()
     renderDeskContent()
     showScreen('categories')
-    track('vertical_change', { vertical: sel.vertical, plataforma: sel.plataforma })
+    if (sel.vertical !== previo.vertical || sel.plataforma !== previo.plataforma) {
+      track('vertical_change', { vertical: sel.vertical, plataforma: sel.plataforma, origen })
+    }
   }
 
   function renderMobileLessonList() {
@@ -624,6 +628,21 @@ async function renderLessons() {
 
   window.lessonsCleanup = () => realtime.detener()
   window.lessonsResume  = () => realtime.iniciar()
+
+  // ── Contexto del comercio (Bold POS) ──────────────────────────────────────
+  // Si el POS nos dice quién es el comercio, su vertical/plataforma manda sobre
+  // la selección guardada. `onContextoBold` dispara de una vez si el mensaje ya
+  // había llegado (puede llegar mientras esta función está en su primer await).
+  onContextoBold(ctx => {
+    const cambio = seleccionDesdeContexto(ctx)
+    if (!cambio) return
+    const igual = (cambio.vertical ?? sel.vertical) === sel.vertical &&
+                  (cambio.plataforma ?? sel.plataforma) === sel.plataforma
+    // Ya estábamos donde Bold dice: persistir y no re-renderizar (si el usuario
+    // está leyendo una lección, un re-render lo devolvería a las categorías).
+    if (igual) { setSeleccion(cambio); return }
+    applySeleccion(cambio, { origen: 'bold' })
+  })
 }
 
 renderLessons()

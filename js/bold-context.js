@@ -1,0 +1,193 @@
+// js/bold-context.js — receptor del contexto del comercio que manda Bold POS.
+//
+// El portal vive embebido en un iframe dentro de pos.bold.co y, por aislamiento
+// de orígenes, no puede leer nada del POS. Bold nos manda por `postMessage` un
+// mensaje `bold:context` con la identidad del comercio; con eso autofiltramos
+// vertical/plataforma y personalizamos. Ver docs/integracion-bold/.
+//
+// Si el mensaje no llega (Bold todavía no lo implementó, el usuario abrió el
+// portal fuera del POS, etc.) todo sigue funcionando como antes: la selección
+// manual guardada en el navegador.
+
+import { storageGet, storageSet } from './storage.js'
+
+// Único origen del que aceptamos contexto. Es el que está documentado en el
+// requerimiento que se le envió a Bold; ampliarlo requiere actualizar el doc.
+export const ORIGENES_BOLD = ['https://pos.bold.co']
+
+// business_type de Bold → vertical nuestra. Toleramos variantes porque el
+// string exacto de restaurantes está pendiente de confirmación de Bold.
+const VERTICAL_POR_BUSINESS_TYPE = {
+  retail: 'retail', store: 'retail', tienda: 'retail',
+  restaurant: 'restaurantes', restaurante: 'restaurantes',
+  restaurants: 'restaurantes', restaurantes: 'restaurantes', food: 'restaurantes',
+}
+
+const PLATAFORMA_POR_PLATFORM = {
+  web: 'web', desktop: 'web',
+  mobile: 'mobile', android: 'mobile', ios: 'mobile', app: 'mobile',
+}
+
+const MAX_TEXTO = 80
+
+export const CLAVES = {
+  accountId:    'bold_account_id',
+  businessName: 'bold_business_name',
+  userId:       'bold_user_id',
+  userName:     'bold_user_name',
+  userEmail:    'bold_user_email',
+}
+
+export function esOrigenBold(origen) {
+  return ORIGENES_BOLD.includes(origen)
+}
+
+// Texto de fuente externa: sin saltos ni control chars, colapsado y acotado.
+function texto(v) {
+  if (v === null || v === undefined) return null
+  const s = String(v).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim()
+  return s ? s.slice(0, MAX_TEXTO) : null
+}
+
+function id(v) {
+  if (v === null || v === undefined || v === '') return null
+  const s = String(v).trim()
+  return s && s.length <= 64 ? s : null
+}
+
+function correo(v) {
+  const s = texto(v)?.toLowerCase()
+  return s && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) ? s : null
+}
+
+function clave(mapa, v) {
+  const s = texto(v)?.toLowerCase()
+  return s && Object.prototype.hasOwnProperty.call(mapa, s) ? mapa[s] : null
+}
+
+/**
+ * Convierte el mensaje crudo de Bold en nuestro contexto. Devuelve `null` si el
+ * mensaje no es un `bold:context`. Copia solo los campos que pedimos: si Bold
+ * manda de más (un token, por ejemplo) no entra al portal.
+ */
+export function normalizarContexto(data) {
+  if (!data || typeof data !== 'object' || data.type !== 'bold:context') return null
+  const u = data.user && typeof data.user === 'object' ? data.user : {}
+  return {
+    accountId:    id(data.accountId ?? data.account_id ?? data.sub),
+    vertical:     clave(VERTICAL_POR_BUSINESS_TYPE, data.businessType ?? data.business_type),
+    plataforma:   clave(PLATAFORMA_POR_PLATFORM, data.platform ?? data.plataforma),
+    businessName: texto(data.businessName ?? data.business_name),
+    user: { id: id(u.id), name: texto(u.name), email: correo(u.email) },
+  }
+}
+
+/** Selección a aplicar: solo los campos que Bold sí mandó. `null` si ninguno. */
+export function seleccionDesdeContexto(ctx) {
+  if (!ctx) return null
+  const sel = {}
+  if (ctx.vertical) sel.vertical = ctx.vertical
+  if (ctx.plataforma) sel.plataforma = ctx.plataforma
+  return Object.keys(sel).length ? sel : null
+}
+
+// ── Estado y suscripción ────────────────────────────────────────────────────
+
+let contexto = null
+const suscriptores = new Set()
+
+/** Último contexto recibido, o el de una visita anterior (identidad, sin selección). */
+export function getContextoBold() {
+  if (contexto) return contexto
+  const accountId = storageGet(CLAVES.accountId)
+  if (!accountId) return null
+  return {
+    accountId,
+    vertical: null,
+    plataforma: null,
+    businessName: storageGet(CLAVES.businessName),
+    user: {
+      id:    storageGet(CLAVES.userId),
+      name:  storageGet(CLAVES.userName),
+      email: storageGet(CLAVES.userEmail),
+    },
+  }
+}
+
+/**
+ * Avisa cuando llegue el contexto. Si ya llegó, el callback corre de una vez:
+ * así no importa si el módulo que se suscribe cargó antes o después del
+ * mensaje.
+ */
+export function onContextoBold(cb) {
+  suscriptores.add(cb)
+  if (contexto) { try { cb(contexto) } catch (e) { console.error('[bold-context]', e) } }
+  return () => suscriptores.delete(cb)
+}
+
+function persistir(ctx) {
+  if (ctx.accountId)    storageSet(CLAVES.accountId, ctx.accountId)
+  if (ctx.businessName) storageSet(CLAVES.businessName, ctx.businessName)
+  if (ctx.user.id)      storageSet(CLAVES.userId, ctx.user.id)
+  if (ctx.user.name)    storageSet(CLAVES.userName, ctx.user.name)
+  if (ctx.user.email)   storageSet(CLAVES.userEmail, ctx.user.email)
+}
+
+// ── Arranque: handshake + escucha ───────────────────────────────────────────
+
+const PING_CADA_MS = 2000
+const PING_INTENTOS = 5           // ~10 s: si en ese rato Bold no escuchó, no va a escuchar
+
+/**
+ * Origen de la ventana que nos embebe, cuando el navegador lo expone
+ * (`ancestorOrigins` existe en Chrome/Safari, no en Firefox). Sirve para
+ * dirigir el handshake en vez de gritarlo a `'*'`.
+ */
+function origenDelContenedor(win) {
+  try {
+    const anc = win.document?.location?.ancestorOrigins
+    return anc && anc.length ? anc[0] : null
+  } catch { return null }
+}
+
+/**
+ * Instala la escucha del `bold:context` y avisa al contenedor que ya estamos
+ * listos (`academia:ready`), reintentando por si su listener se registra tarde.
+ * Idempotente: llamarlo dos veces no duplica nada.
+ */
+let iniciado = false
+export function initBoldContext(win = typeof window !== 'undefined' ? window : null) {
+  if (iniciado || !win) return
+  iniciado = true
+
+  win.addEventListener('message', e => {
+    if (!esOrigenBold(e.origin)) return          // el navegador fija e.origin
+    const ctx = normalizarContexto(e.data)
+    if (!ctx) return
+    contexto = ctx
+    persistir(ctx)
+    for (const cb of suscriptores) {
+      try { cb(ctx) } catch (err) { console.error('[bold-context] suscriptor:', err) }
+    }
+  })
+
+  // El handshake solo tiene sentido embebidos; suelto, no hay a quién avisar.
+  if (win.parent === win) return
+
+  // Si el navegador nos dice quién nos embebe: le hablamos solo a Bold, y a
+  // nadie más (cualquiera puede embebernos, pero el handshake no es para ellos).
+  // Si no lo dice (Firefox), va a '*': el mensaje no lleva ningún dato.
+  const contenedor = origenDelContenedor(win)
+  if (contenedor && !esOrigenBold(contenedor)) return
+  const destino = contenedor || '*'
+
+  let intentos = 0
+  const avisar = () => {
+    try { win.parent.postMessage({ type: 'academia:ready', v: 1 }, destino) } catch {}
+  }
+  avisar()
+  const timer = win.setInterval(() => {
+    avisar()
+    if (++intentos >= PING_INTENTOS || contexto) win.clearInterval(timer)
+  }, PING_CADA_MS)
+}

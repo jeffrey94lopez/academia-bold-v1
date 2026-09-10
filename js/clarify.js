@@ -25,6 +25,12 @@ export function shouldAskResolution(data) {
 }
 
 // Body del POST al webhook n8n, con clarify_count y la selección esparcida.
-export function chatRequestBody({ message, history, faqContext, clarifyCount, seleccion }) {
-  return { message, history, faq_context: faqContext, clarify_count: clarifyCount, ...seleccion }
+// `contexto` (el del comercio que manda Bold POS, ver js/bold-context.js) es
+// opcional: solo agrega claves cuando de verdad las tenemos, para no cambiarle
+// la forma del payload a n8n mientras Bold no lo implemente.
+export function chatRequestBody({ message, history, faqContext, clarifyCount, seleccion, contexto }) {
+  const body = { message, history, faq_context: faqContext, clarify_count: clarifyCount, ...seleccion }
+  if (contexto?.accountId)    body.account_id    = contexto.accountId
+  if (contexto?.businessName) body.business_name = contexto.businessName
+  return body
 }

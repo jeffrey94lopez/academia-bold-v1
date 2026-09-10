@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verificador de integración — BoldBot ↔ Bold POS</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body { font-family: var(--font-family, 'Montserrat', sans-serif); background: var(--background-page, #f7f8fb);
+           color: var(--black-100, #1e1e1e); margin: 0; padding: 16px; font-size: 14px; line-height: 1.5; }
+    .wrap { max-width: 860px; margin: 0 auto; }
+    h1 { font-size: 20px; margin: 0 0 4px; color: var(--blue-100, #121e6c); }
+    h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--black-60, #606060);
+         margin: 0 0 8px; font-weight: 700; }
+    .sub { color: var(--black-60, #606060); margin: 0 0 16px; font-size: 13px; }
+    .card { background: #fff; border: 1px solid var(--blue-10, #f1f2f6); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
+    .banner { border-radius: 14px; padding: 16px; margin-bottom: 12px; font-weight: 600; border: 1.5px solid; }
+    .banner small { display: block; font-weight: 400; margin-top: 4px; opacity: .85; }
+    .wait { background: var(--warning-10, #fff3d1); border-color: var(--warning-100, #ffc217); color: var(--warning-200, #5b3100); }
+    .ok   { background: var(--success-10, #f4fdf9); border-color: var(--success-150, #1b8959); color: var(--success-200, #0b3b26); }
+    .bad  { background: var(--error-10, #fbf3f5);  border-color: var(--error-100, #c31a2f);  color: var(--error-200, #610017); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--blue-10, #f1f2f6); vertical-align: top; }
+    th { color: var(--black-60, #606060); font-weight: 600; font-size: 12px; }
+    td.v { font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; word-break: break-all; }
+    .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .p-ok   { background: var(--success-10); color: var(--success-200); border: 1px solid var(--success-150); }
+    .p-bad  { background: var(--error-10);   color: var(--error-200);   border: 1px solid var(--error-100); }
+    .p-warn { background: var(--warning-10); color: var(--warning-200); border: 1px solid var(--warning-150); }
+    .p-off  { background: var(--black-10);   color: var(--black-60);    border: 1px solid var(--black-40); }
+    pre { background: var(--blue-100, #121e6c); color: #e8eaf6; padding: 12px; border-radius: 10px; overflow-x: auto;
+          font-size: 12px; font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; margin: 0; line-height: 1.45; }
+    button { font-family: inherit; font-size: 13px; font-weight: 600; border-radius: 999px; padding: 8px 16px;
+             border: 1.5px solid var(--blue-100, #121e6c); background: var(--blue-100, #121e6c); color: #fff; cursor: pointer; }
+    button.ghost { background: #fff; color: var(--blue-100, #121e6c); }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+    .log { font-family: ui-monospace, Consolas, monospace; font-size: 12px; max-height: 220px; overflow-y: auto; }
+    .log div { padding: 4px 0; border-bottom: 1px dashed var(--blue-10); }
+    .muted { color: var(--black-40, #969696); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Verificador de integración — BoldBot ↔ Bold POS</h1>
+    <p class="sub">Esta página es solo para el equipo de desarrollo. Reemplaza temporalmente el <code>src</code> del
+       iframe de Ayuda por <code>https://academia.localizadoc.com/embed-test.html</code> y muestra, en vivo, si el
+       <code>postMessage</code> con el contexto del comercio llegó y si viene completo.</p>
+
+    <div id="banner" class="banner wait">Esperando el mensaje <code>bold:context</code>…
+      <small>Esta página envía <code>academia:ready</code> al contenedor cada 2 s durante 30 s.</small></div>
+
+    <div class="card">
+      <h2>1 · Entorno</h2>
+      <table id="env"></table>
+    </div>
+
+    <div class="card">
+      <h2>2 · Validación del contexto recibido</h2>
+      <table id="fields"><tbody><tr><td class="muted">Todavía no llegó ningún mensaje <code>bold:context</code>.</td></tr></tbody></table>
+    </div>
+
+    <div class="card">
+      <h2>3 · Mensajes recibidos (todos los orígenes)</h2>
+      <div class="log" id="log"><div class="muted">Sin mensajes aún…</div></div>
+    </div>
+
+    <div class="card">
+      <h2>4 · Probar sin tocar código (30 segundos)</h2>
+      <p class="sub" style="margin:0 0 10px">Abrí <code>pos.bold.co</code>, entrá al menú <b>Ayuda</b> y pegá esto en la
+         consola del navegador. Cambia el iframe a esta página y le manda el contexto leído del token de sesión real.</p>
+      <pre id="snippet"></pre>
+      <div class="row">
+        <button id="copySnippet">Copiar snippet</button>
+        <button id="copyDiag" class="ghost">Copiar diagnóstico</button>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="js/embed-test.js"></script>
+</body>
+</html>

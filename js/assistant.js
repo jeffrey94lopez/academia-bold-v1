@@ -5,10 +5,21 @@ import { storageGet, storageSet, storageRemove } from './storage.js'
 import { typewrite, skipActiveTypewriter } from './typewriter.js'
 import { isNearBottom } from './reload-policy.js'
 import { getSeleccion } from './vertical.js'
+import { getContextoBold, onContextoBold } from './bold-context.js'
 import { nextClarifyCount, chatRequestBody, shouldAskResolution } from './clarify.js'
 import { inactivitySettings, isStaleConversation } from './inactivity.js'
 
 const N8N_URL     = '/api/chat'
+
+// Saludo inicial: si Bold POS nos dijo quién es el comercio, saludamos por su
+// nombre (el del usuario si viene, si no el del negocio). Devuelve texto plano
+// listo para escapar; vacío cuando no hay contexto.
+function saludoNombre() {
+  const c = getContextoBold()
+  if (!c) return ''
+  const nombre = (c.user?.name || '').trim().split(' ')[0] || c.businessName || ''
+  return nombre ? `, ${nombre}` : ''
+}
 
 const FALLBACK_CHIPS = [
   '¿Cómo proceso un pago?',
@@ -200,7 +211,7 @@ async function renderAssistant() {
       <div id="chatMessages" class="flex-1 overflow-y-auto custom-scroll p-4 flex flex-col gap-3">
         ${history.length === 0 ? `
           <div class="flex justify-start">
-            <div class="msg-bot text-sm">¡Hola! Soy bolbot POS, el asistente virtual de Bold POS 👋 Estoy aquí para ayudarte con cualquier duda sobre la plataforma. ¿En qué te puedo ayudar hoy?</div>
+            <div class="msg-bot text-sm">¡Hola<span data-greet-name>${escapeHtml(saludoNombre())}</span>! Soy bolbot POS, el asistente virtual de Bold POS 👋 Estoy aquí para ayudarte con cualquier duda sobre la plataforma. ¿En qué te puedo ayudar hoy?</div>
           </div>
         ` : history.map(m => renderBubble(m.role, m.content)).join('')}
       </div>
@@ -711,7 +722,7 @@ async function sendMessage(text) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(chatRequestBody({
         message: text, history, faqContext: cachedFaqs,
-        clarifyCount, seleccion: getSeleccion(),
+        clarifyCount, seleccion: getSeleccion(), contexto: getContextoBold(),
       }))
     })
     const data = await res.json()
@@ -817,3 +828,11 @@ async function appendBotAnimated(content) {
 
 loadFaqContext()
 renderAssistant().catch(err => console.error('[bolbot POS] Failed to render assistant:', err))
+
+// El contexto de Bold puede llegar después de haber pintado el chat: si el
+// saludo sigue en pantalla (nadie ha escrito todavía), se le agrega el nombre.
+// textContent, no innerHTML: el nombre viene de otro origen.
+onContextoBold(() => {
+  const el = document.querySelector('[data-greet-name]')
+  if (el) el.textContent = saludoNombre()
+})

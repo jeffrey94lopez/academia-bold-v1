@@ -60,3 +60,25 @@ test('chatRequestBody incluye clarify_count y esparce la selección', () => {
     plataforma: 'web',
   })
 })
+
+test('chatRequestBody: sin contexto de Bold el payload no cambia de forma', () => {
+  const base = { message: 'hola', history: [], faqContext: [], clarifyCount: 0,
+                 seleccion: { vertical: 'retail', plataforma: 'web' } }
+  assert.deepEqual(chatRequestBody(base), chatRequestBody({ ...base, contexto: null }))
+  assert.equal('account_id' in chatRequestBody(base), false)
+})
+
+test('chatRequestBody: con contexto agrega account_id y business_name (y nada del usuario)', () => {
+  const body = chatRequestBody({
+    message: 'hola', history: [], faqContext: [], clarifyCount: 0,
+    seleccion: { vertical: 'restaurantes', plataforma: 'mobile' },
+    contexto: {
+      accountId: '7993', businessName: 'Pollos',
+      user: { name: 'Ana', email: 'ana@comercio.com' },
+    },
+  })
+  assert.equal(body.account_id, '7993')
+  assert.equal(body.business_name, 'Pollos')
+  // El correo del usuario NO viaja al bot ni al LLM (ver doc §7.4).
+  assert.equal(JSON.stringify(body).includes('ana@comercio.com'), false)
+})
