@@ -91,6 +91,10 @@ Notas:
   Nuestras lecciones están separadas por Web y Mobile.
 - Si un campo recomendado no lo pueden mandar, **manden el resto igual**. El
   portal funciona con los dos obligatorios; los demás mejoran la experiencia.
+- **El nombre del comercio y el del usuario ya los tienen pintados en el POS**:
+  los leímos del DOM de una sesión real, en `.pos-navbar__menu__company__name`
+  y en `.pos-sidebar__info .name`. No hace falta ir a buscarlos a ningún
+  servicio nuevo; salen del mismo store que alimenta esa barra.
 
 ---
 
@@ -307,9 +311,11 @@ campo con ✓ / ! / ✗ y la razón. Tres formas de usarla, de menor a mayor esf
 1. Abrir `https://pos.bold.co` con una cuenta real y entrar al menú **Ayuda**.
 2. Abrir la consola del navegador (F12).
 3. Pegar el snippet que la propia página de prueba trae con un botón
-   **«Copiar snippet»**. Ese snippet cambia el iframe a la página de prueba, lee
-   el `sub` y el `business_type` del token de sesión real, y manda el
-   `postMessage`.
+   **«Copiar snippet»**. Ese snippet cambia el iframe a la página de prueba y
+   manda el `postMessage` con **datos reales de la sesión**: el `sub` y el
+   `business_type` salen del token, y el nombre del comercio y del usuario se
+   leen de la propia barra del POS. No manda ningún valor de relleno, así que
+   lo que se ve en verde es lo que de verdad llegó.
    > Si Chrome bloquea el pegado («Warning: Don't paste code into the DevTools
    > Console…»), escriban `allow pasting` en la consola y Enter. Es la protección
    > del navegador contra código pegado a ciegas y se pide una sola vez por

@@ -5,9 +5,21 @@
 const ACADEMIA_ORIGIN = window.location.origin
 const BOLD_ORIGIN     = 'https://pos.bold.co'
 
-// Valores de ejemplo del documento: si llegan tal cual, es que se copiaron
-// literales en vez de leerse de la sesión.
-const EJEMPLOS = new Set(['7993', 'accionahn', 'Jeffrey Martínez', 'correo@comercio.com'])
+// Detección de valores de relleno: si llegan tal cual, es que se copiaron
+// literales en vez de leerse de la sesión. Solo cadenas evidentemente falsas;
+// nada que pueda ser el nombre real de un comercio.
+const EJEMPLOS = new Set([
+  'nombre real del comercio', 'nombre real', 'correo.real@comercio.com',
+  'correo@comercio.com', 'nombre apellido', 'comercio s.a.',
+  'prueba', 'test', 'demo', 'xxx', 'string', 'undefined', 'null',
+])
+const RE_RELLENO = /(nombre|correo|dato|valor)e?s?\s+(real|de\s+prueba|de\s+ejemplo)|placeholder|example\.com|lorem|\bcambiar\b|^<.*>$/i
+
+function esRelleno(v) {
+  if (v === null || v === undefined || v === '') return false
+  const s = String(v).trim().toLowerCase()
+  return EJEMPLOS.has(s) || RE_RELLENO.test(s)
+}
 
 // Mapa vertical de Bold → vertical nuestra. Toleramos mayúsculas y variantes.
 const VERTICAL_MAP = {
@@ -89,9 +101,9 @@ function validar(d, origin) {
 
   const id = d.accountId ?? d.account_id ?? d.sub
   add('accountId', id,
-    id == null || id === '' ? 'bad' : EJEMPLOS.has(String(id)) ? 'warn' : 'ok',
+    id == null || id === '' ? 'bad' : esRelleno(id) ? 'warn' : 'ok',
     id == null || id === '' ? 'OBLIGATORIO. Es el claim "sub" del JWT de sesión.'
-      : EJEMPLOS.has(String(id)) ? 'Es el valor de ejemplo del documento: parece copiado literal, no leído de la sesión.'
+      : esRelleno(id) ? 'Parece un valor de relleno, no leído de la sesión.'
       : 'Identifica al comercio.')
 
   const bt  = d.businessType ?? d.business_type
@@ -104,9 +116,9 @@ function validar(d, origin) {
 
   const bn = d.businessName ?? d.business_name
   add('businessName', bn,
-    !bn ? 'warn' : EJEMPLOS.has(String(bn)) ? 'warn' : 'ok',
+    !bn ? 'warn' : esRelleno(bn) ? 'warn' : 'ok',
     !bn ? 'Recomendado. Solo se usa para saludar por nombre.'
-      : EJEMPLOS.has(String(bn)) ? 'Valor de ejemplo del documento: parece copiado literal.' : '')
+      : esRelleno(bn) ? 'Parece texto de relleno del snippet, no el nombre real del comercio.' : '')
 
   const pl = d.platform ?? d.plataforma
   const plOk = pl && ['web', 'mobile', 'android', 'ios'].includes(String(pl).toLowerCase())
@@ -116,10 +128,14 @@ function validar(d, origin) {
 
   const u = d.user || {}
   const emailOk = u.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(u.email))
-  add('user.email', u.email, !u.email ? 'warn' : emailOk ? 'ok' : 'bad',
+  add('user.email', u.email,
+    !u.email ? 'warn' : esRelleno(u.email) ? 'warn' : emailOk ? 'ok' : 'bad',
     !u.email ? 'Recomendado. Sin él no podemos ligar una conversación del bot con el usuario.'
+      : esRelleno(u.email) ? 'Parece un correo de relleno, no el del usuario logueado.'
       : emailOk ? '' : 'No parece un correo válido.')
-  add('user.name', u.name, u.name ? 'ok' : 'off', u.name ? '' : 'Opcional.')
+  add('user.name', u.name,
+    !u.name ? 'off' : esRelleno(u.name) ? 'warn' : 'ok',
+    !u.name ? 'Opcional.' : esRelleno(u.name) ? 'Parece texto de relleno.' : '')
   add('user.id', u.id, u.id ? 'ok' : 'off', u.id ? '' : 'Opcional (solo si difiere de accountId).')
 
   // Credenciales que NO queremos en este mensaje.
@@ -159,9 +175,12 @@ function renderCampos() {
     b.className = 'banner bad'
     b.innerHTML = 'Llegó el mensaje, pero <b>falta algo obligatorio</b>.<small>Revisá las filas con ✗ en la tabla de abajo.</small>'
   } else if (soloOrigen) {
+    const avisos = filas.filter(f => f.estado === 'warn').length
     b.className = 'banner wait'
-    b.innerHTML = 'Los <b>datos están bien</b>, pero el mensaje no vino de <code>' + esc(BOLD_ORIGIN) + '</code>.' +
-      '<small>Normal si estás probando fuera del POS. Repetí la prueba desde pos.bold.co para el visto bueno final.</small>'
+    b.innerHTML = (avisos
+      ? 'Contexto recibido <b>con ' + avisos + ' aviso' + (avisos > 1 ? 's' : '') + '</b>, y además no vino de <code>' + esc(BOLD_ORIGIN) + '</code>.'
+      : 'Los <b>datos están bien</b>, pero el mensaje no vino de <code>' + esc(BOLD_ORIGIN) + '</code>.') +
+      '<small>Lo segundo es normal si estás probando fuera del POS. Repetí la prueba desde pos.bold.co para el visto bueno final.</small>'
   } else if (hayAviso) {
     b.className = 'banner wait'
     b.innerHTML = 'Contexto recibido con <b>observaciones</b>.<small>Lo obligatorio está; revisá las filas con «!».</small>'
@@ -180,26 +199,32 @@ function renderLog() {
 // ---------- 4. Snippet de prueba y diagnóstico ----------
 
 const SNIPPET = [
-  '// Pegar en la consola de https://pos.bold.co con el menú Ayuda ABIERTO.',
-  '// Cambia el iframe a la página de prueba y le manda el contexto real.',
+  '// Pegar en la consola de https://pos.bold.co con el menu Ayuda ABIERTO.',
+  '// Si Chrome no deja pegar: escribir "allow pasting" en la consola y Enter.',
+  '// Manda a la Academia SOLO datos reales de la sesion. Nada sale del navegador.',
   '(() => {',
   "  const f = document.querySelector('iframe.pos-help-window__iframe')",
   '         || document.querySelector(\'iframe[src*="academia.localizadoc.com"]\');',
-  "  if (!f) return console.error('No encontré el iframe de Ayuda. ¿Está abierto el menú?');",
-  "  const raw = localStorage.token;   // token de sesión del POS (no sale de su navegador)",
-  "  if (!raw) return console.error('No hay localStorage.token: ¿la sesión está iniciada?');",
-  "  // Los JWT van en base64url: hay que traducir - y _ antes de decodificar.",
+  "  if (!f) return console.error('No encontre el iframe de Ayuda. Esta abierto el menu?');",
+  '  const raw = localStorage.token;   // token de sesion del POS (no sale de su navegador)',
+  "  if (!raw) return console.error('No hay localStorage.token: la sesion esta iniciada?');",
+  '  // Los JWT van en base64url: hay que traducir - y _ antes de decodificar.',
   "  const jwt = JSON.parse(atob(raw.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));",
-  "  console.log('business_type de esta cuenta:', jwt.business_type, '| sub:', jwt.sub);",
+  '  const txt = sel => document.querySelector(sel)?.textContent.trim() || null;',
+  '  // Nombre del comercio y del usuario: ya estan pintados en el propio POS.',
+  "  const negocio = txt('.pos-navbar__menu__company__name');",
+  "  const usuario = txt('.pos-sidebar__info .name') || txt('.pos-navbar__menu__user__info p');",
+  '  const ctx = {',
+  "    type: 'bold:context',",
+  '    accountId:    jwt.sub,                 // ID de cuenta, del token',
+  '    businessType: jwt.business_type,       // vertical, del token',
+  "    platform:     'web',",
+  '  };',
+  '  if (negocio) ctx.businessName = negocio;',
+  '  if (usuario) ctx.user = { name: usuario };',
+  "  console.log('Contexto que se va a enviar:', ctx);",
   "  f.addEventListener('load', () => {",
-  '    f.contentWindow.postMessage({',
-  "      type: 'bold:context',",
-  '      accountId:    jwt.sub,                 // ID de cuenta, del token',
-  '      businessType: jwt.business_type,       // vertical, del token',
-  "      businessName: 'Nombre real del comercio',",
-  "      platform:     'web',",
-  "      user: { name: 'Nombre real', email: 'correo.real@comercio.com' }",
-  "    }, 'https://academia.localizadoc.com');",
+  "    f.contentWindow.postMessage(ctx, 'https://academia.localizadoc.com');",
   '  }, { once: true });',
   "  f.src = 'https://academia.localizadoc.com/embed-test.html';",
   '})();',
