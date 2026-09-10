@@ -2,7 +2,7 @@
 // Pinta la barra de tabs en #panel-analytics + un sub-contenedor #analytics-content
 // donde cada vista se monta. Reemplaza el patrón anterior de renders que se
 // llamaban mutuamente.
-import { renderLessonsAnalytics } from './admin-lessons-analytics.js'
+import { renderAnalyticsPanel } from './admin-analytics.js'
 import { renderBotAnalytics } from './admin-bot-analytics.js'
 import { renderExecAnalytics } from './admin-exec-analytics.js'
 
@@ -31,6 +31,6 @@ export function renderAnalytics(tab = null) {
   })
 
   if (active === 'resumen') renderExecAnalytics()
-  else if (active === 'lecciones') renderLessonsAnalytics()
+  else if (active === 'lecciones') renderAnalyticsPanel()
   else renderBotAnalytics()
 }
