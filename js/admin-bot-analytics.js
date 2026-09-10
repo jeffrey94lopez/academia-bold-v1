@@ -19,6 +19,14 @@ const FRICCION_NOTA = 'Conversaciones donde el bot no pudo resolver por su cuent
   + 'o no tenía contenido para responder, o derivó a soporte. Se mide de señales '
   + 'registradas, no de que un modelo interprete el tono del usuario.'
 
+// El sentimiento se muestra como referencia, no como métrica de decisión: lo
+// etiqueta un LLM sobre texto tonalmente plano y sale casi todo neutro. Los
+// tres porcentajes pueden no sumar 100 porque los NULL ya no se cuentan como
+// neutro (se listan aparte como "sin evaluar").
+const SENTIMIENTO_NOTA = 'Referencia, no métrica de decisión. Lo etiqueta un modelo '
+  + 'a partir del tono del usuario, y la mayoría de las consultas a un bot de soporte '
+  + 'son preguntas planas: por eso domina el neutro. Para decidir, mirá Fricción.'
+
 // Fecha + hora de una conversación, en zona de negocio (misma que el heatmap)
 // para que la hora mostrada no dependa del navegador del admin.
 function fmtDayTime(iso) {
@@ -57,6 +65,7 @@ export async function renderBotAnalytics(from = null, to = null) {
   const pct = n => total ? Math.round(100 * n / total) : 0
   const lc = k.lifecycle || {}
   const fr = k.friction || {}
+  const sn = k.sentiment || {}
   const totalRes = (k.resolved || 0) + (k.unresolved || 0) + (k.ambiguous || 0)
   const pctR = n => totalRes ? Math.round(100 * n / totalRes) : 0
   const drill = obj => `data-drill='${escapeHtml(JSON.stringify(obj))}'`
@@ -96,6 +105,15 @@ export async function renderBotAnalytics(from = null, to = null) {
               <button ${drill({ life: 'escalada' })} class="bot-drill underline">${fr.support || 0} a soporte</button>
             </span>
           </p>
+        </div>
+        <div>
+          <p class="text-[11px] text-[var(--black-60)] mb-1">Sentimiento <span class="text-[var(--black-40)] cursor-help" title="${escapeHtml(SENTIMIENTO_NOTA)}">ⓘ</span></p>
+          <div class="flex gap-3 text-sm font-bold">
+            <button ${drill({ sent: 'positivo' })} class="bot-drill flex items-center gap-1" style="color:var(--success-150)"><i data-lucide="smile" class="w-4 h-4"></i>${pct(sn.positivo || 0)}%</button>
+            <button ${drill({ sent: 'neutro' })} class="bot-drill flex items-center gap-1 text-[var(--black-60)]"><i data-lucide="meh" class="w-4 h-4"></i>${pct(sn.neutro || 0)}%</button>
+            <button ${drill({ sent: 'negativo' })} class="bot-drill flex items-center gap-1" style="color:var(--error-100)"><i data-lucide="frown" class="w-4 h-4"></i>${pct(sn.negativo || 0)}%</button>
+          </div>
+          ${sn.sin_evaluar ? `<p class="text-[10px] text-[var(--black-40)] mt-0.5">${sn.sin_evaluar} sin evaluar</p>` : ''}
         </div>
       </div>
     </div>`
