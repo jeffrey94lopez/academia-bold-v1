@@ -19,15 +19,6 @@ const FRICCION_NOTA = 'Conversaciones donde el bot no pudo resolver por su cuent
   + 'o no tenía contenido para responder, o derivó a soporte. Se mide de señales '
   + 'registradas, no de que un modelo interprete el tono del usuario.'
 
-// El sentimiento sale de lo que el usuario HIZO, no de lo que un modelo leyó en
-// el tono (ver update_sentimiento_efectivo.sql). Antes lo etiquetaba solo el
-// LLM y 'positivo' no salía nunca: 0 de 234, con 10 usuarios que habían
-// apretado "Sí, gracias" marcados como neutros.
-const SENTIMIENTO_NOTA = 'Sale de lo que hizo el usuario, no del tono que interprete un modelo. '
-  + 'Positivo: apretó "Sí, gracias" en ¿Logré resolver tu duda?. '
-  + 'Negativo: apretó "Necesito más ayuda", pidió soporte, o dejó una queja explícita. '
-  + 'Neutro: se fue sin dar ninguna señal.'
-
 // Fecha + hora de una conversación, en zona de negocio (misma que el heatmap)
 // para que la hora mostrada no dependa del navegador del admin.
 function fmtDayTime(iso) {
@@ -66,7 +57,6 @@ export async function renderBotAnalytics(from = null, to = null) {
   const pct = n => total ? Math.round(100 * n / total) : 0
   const lc = k.lifecycle || {}
   const fr = k.friction || {}
-  const sn = k.sentiment || {}
   const totalRes = (k.resolved || 0) + (k.unresolved || 0) + (k.ambiguous || 0)
   const pctR = n => totalRes ? Math.round(100 * n / totalRes) : 0
   const drill = obj => `data-drill='${escapeHtml(JSON.stringify(obj))}'`
@@ -86,34 +76,30 @@ export async function renderBotAnalytics(from = null, to = null) {
         <p class="mt-1 text-center text-[var(--black-40)]"><span class="text-base font-black text-[var(--black-100)]">${k.resolved_pct ?? 0}%</span> <span class="text-[10px]">resueltas (sin contar ambiguas)</span></p>
       </div>
 
-      <!-- Cómo terminó (barra bajada) + Fricción, lado a lado -->
-      <div class="border-t border-[var(--blue-10)] mt-4 pt-3 flex flex-wrap gap-x-8 gap-y-3 items-center">
+      <!-- Cómo terminó + Fricción. Cada número dice sobre qué base se calcula:
+           un "32%" suelto no se puede interpretar. -->
+      <div class="border-t border-[var(--blue-10)] mt-4 pt-3 flex flex-wrap gap-x-10 gap-y-4">
         <div>
-          <p class="text-[11px] text-[var(--black-60)]">Cómo terminó <span class="text-[var(--black-40)]">· cerró el cliente</span></p>
-          <p class="text-xl font-black text-[var(--black-100)]">${pct(lc.cerrada_cliente || 0)}%
-            <span class="text-[11px] font-normal text-[var(--black-60)]">
-              <button ${drill({ life: 'cerrada_cliente' })} class="bot-drill underline">${lc.cerrada_cliente || 0} cerró</button> ·
-              <button ${drill({ life: 'abandonada' })} class="bot-drill underline">${lc.abandonada || 0} abandonó</button> ·
-              <button ${drill({ life: 'escalada' })} class="bot-drill underline">${lc.escalada || 0} escaló</button>
-            </span>
+          <p class="text-[11px] font-bold text-[var(--black-100)]">Cómo terminó</p>
+          <p class="text-xl font-black text-[var(--black-100)] leading-tight">${pct(lc.cerrada_cliente || 0)}%
+            <span class="text-[11px] font-normal text-[var(--black-60)]">de las ${total} conversaciones las cerró el cliente</span>
+          </p>
+          <p class="text-[11px] text-[var(--black-60)] mt-0.5">
+            <button ${drill({ life: 'cerrada_cliente' })} class="bot-drill underline">${lc.cerrada_cliente || 0} cerró</button> ·
+            <button ${drill({ life: 'abandonada' })} class="bot-drill underline">${lc.abandonada || 0} abandonó</button> ·
+            <button ${drill({ life: 'escalada' })} class="bot-drill underline">${lc.escalada || 0} escaló</button>
+            ${lc.en_curso ? `<span class="text-[var(--black-40)]">· ${lc.en_curso} en curso</span>` : ''}
           </p>
         </div>
         <div>
-          <p class="text-[11px] text-[var(--black-60)]">Fricción <span class="text-[var(--black-40)]" title="${escapeHtml(FRICCION_NOTA)}">· el bot no resolvió solo</span></p>
-          <p class="text-xl font-black text-[var(--black-100)]">${fr.pct ?? 0}%
-            <span class="text-[11px] font-normal text-[var(--black-60)]">
-              <span class="text-[var(--error-100)] font-bold">${fr.no_info || 0}</span> sin info ·
-              <button ${drill({ life: 'escalada' })} class="bot-drill underline">${fr.support || 0} a soporte</button>
-            </span>
+          <p class="text-[11px] font-bold text-[var(--black-100)]">Fricción <span class="text-[var(--black-40)] font-normal cursor-help" title="${escapeHtml(FRICCION_NOTA)}">ⓘ</span></p>
+          <p class="text-xl font-black text-[var(--black-100)] leading-tight">${fr.pct ?? 0}%
+            <span class="text-[11px] font-normal text-[var(--black-60)]">de las ${total} conversaciones el bot no las resolvió solo</span>
           </p>
-        </div>
-        <div>
-          <p class="text-[11px] text-[var(--black-60)] mb-1">Sentimiento <span class="text-[var(--black-40)] cursor-help" title="${escapeHtml(SENTIMIENTO_NOTA)}">ⓘ</span></p>
-          <div class="flex gap-3 text-sm font-bold">
-            <button ${drill({ sent: 'positivo' })} class="bot-drill flex items-center gap-1" style="color:var(--success-150)"><i data-lucide="smile" class="w-4 h-4"></i>${pct(sn.positivo || 0)}%</button>
-            <button ${drill({ sent: 'neutro' })} class="bot-drill flex items-center gap-1 text-[var(--black-60)]"><i data-lucide="meh" class="w-4 h-4"></i>${pct(sn.neutro || 0)}%</button>
-            <button ${drill({ sent: 'negativo' })} class="bot-drill flex items-center gap-1" style="color:var(--error-100)"><i data-lucide="frown" class="w-4 h-4"></i>${pct(sn.negativo || 0)}%</button>
-          </div>
+          <p class="text-[11px] text-[var(--black-60)] mt-0.5">
+            <span class="text-[var(--error-100)] font-bold">${fr.no_info || 0}</span> sin contenido para responder ·
+            <button ${drill({ life: 'escalada' })} class="bot-drill underline">${fr.support || 0} derivadas a soporte</button>
+          </p>
         </div>
       </div>
     </div>`
