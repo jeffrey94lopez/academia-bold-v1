@@ -36,6 +36,10 @@ this.iframe.nativeElement.contentWindow.postMessage({
 Y para que no quede duda de si quedó bien, publicamos una página que lo verifica
 en pantalla: **https://academia.localizadoc.com/embed-test.html** (ver §6).
 
+> **Esto ya lo probamos en su POS, en cuentas reales de retail y de
+> restaurante, y funciona** (§6.D). Lo único que falta es que el envío salga de
+> su código en vez de un snippet pegado en la consola.
+
 ---
 
 ## 1. Contexto: qué es esto y dónde está hoy
@@ -73,15 +77,28 @@ plataforma). Lo único que falta es el dato de entrada.
 
 | # | Campo | Obligatorio | Tipo | De dónde lo sacan ustedes |
 |---|---|---|---|---|
-| 1 | `accountId` | **Sí** | número o texto | Claim `sub` del JWT de sesión del POS |
+| 1 | `accountId` | **Sí** | número o texto | El id **del comercio**. Ver la nota de abajo: no sabemos si el claim `sub` sirve |
 | 2 | `businessType` | **Sí** | texto | Claim `business_type` del JWT de sesión |
 | 3 | `businessName` | Recomendado | texto | Perfil de la cuenta |
 | 4 | `platform` | Recomendado | `"web"` \| `"mobile"` | Ustedes ya saben en qué build corre |
 | 5 | `user.email` | Recomendado | texto | Perfil del usuario logueado |
 | 6 | `user.name` | Opcional | texto | Perfil del usuario logueado |
-| 7 | `user.id` | Opcional | número o texto | Solo si difiere de `accountId` |
+| 7 | `user.id` | Opcional | número o texto | El id del usuario logueado |
 
 Notas:
+
+- ⚠️ **`accountId`: necesitamos que nos confirmen qué identifica el claim
+  `sub`.** La versión anterior de este documento daba por hecho que era la
+  cuenta del comercio. Al probarlo vimos valores distintos por comercio
+  (`7993`, `10093`, `13091`), lo cual es consistente con esa lectura… pero en
+  un JWT `sub` es el *sujeto autenticado*, que en la mayoría de los sistemas es
+  **el usuario**, no la cuenta. Además, el número no coincide con el id de
+  cuenta que manejamos nosotros para esos comercios.
+  **Lo que necesitamos es identificar al comercio**: si un comercio tiene tres
+  usuarios, los tres tienen que llegarnos como el mismo comercio. Entonces:
+  - si `sub` **es** la cuenta, perfecto, mándenlo tal cual;
+  - si `sub` **es el usuario**, mándennos además el id del comercio (el que sea
+    canónico de su lado) en `accountId`, y dejen `sub` en `user.id`.
 
 - **`businessType`**: ya lo verificamos en cuentas reales de las dos verticales
   y **funciona tal como viene**: llega `retail` y `restaurant`. Nuestro mapa
@@ -178,7 +195,7 @@ private buildContext() {
   const s = this.session;                 // <-- su store/servicio de sesión real
   return {
     type: 'bold:context',
-    accountId:    s.accountId,            // claim sub
+    accountId:    s.accountId,            // id del COMERCIO (ver nota de §3)
     businessType: s.businessType,         // claim business_type
     businessName: s.businessName,
     platform:     'web',                  // o 'mobile' en el build móvil
@@ -229,7 +246,7 @@ export class PosHelpWindowComponent {
     this.academiaFrame?.nativeElement?.contentWindow?.postMessage({
       type: 'bold:context',
       v: 1,
-      accountId:    s.accountId,                     // claim sub del JWT
+      accountId:    s.accountId,                     // id del COMERCIO (§3)
       businessType: s.businessType,                  // claim business_type
       businessName: s.businessName,
       platform:     'web',
@@ -346,6 +363,33 @@ llega, degradamos al comportamiento actual (ver §7.5): nada se rompe.
 > La página trae un botón **«Copiar diagnóstico»** que copia un JSON con lo que
 > llegó. Si algo no cuadra, mándennos ese JSON y lo resolvemos en minutos.
 
+### D. Lo que ya probamos nosotros (2026-09-10)
+
+Antes de pedirles nada corrimos el método de §6.A dentro de `pos.bold.co`, en
+cuentas reales de las dos verticales. Esto es lo que salió:
+
+| Prueba | Resultado |
+|---|---|
+| Cuenta **retail** (`sub` 10093) | `business_type` llegó `retail`; nombre del comercio y del usuario, correctos |
+| Cuenta **restaurante** (`sub` 13091) | `business_type` llegó `restaurant`; lo mapeamos a nuestra vertical Restaurantes |
+| Origen del mensaje | Llegó desde `https://pos.bold.co` y lo aceptamos; un mensaje desde otro origen se descarta (también probado) |
+| El portal aplicando el contexto | Cambió solo a la vertical correcta y el asistente saludó por el nombre del usuario |
+| Nombre del comercio y del usuario | Se pueden leer del DOM del propio POS, así que **el dato ya existe en su aplicación** |
+
+Conclusiones para ustedes:
+
+1. **La vertical funciona tal como la emiten hoy.** No hay que cambiar nada:
+   `retail` y `restaurant` ya los entendemos. Esa pregunta queda cerrada.
+2. **El mecanismo completo está probado**: el `postMessage` cruza, lo validamos
+   por origen y el portal reacciona. Falta únicamente que el envío lo haga su
+   código en vez de un snippet pegado a mano en la consola.
+3. **Lo que no pudimos probar y depende de ustedes**: el correo del usuario (no
+   está en la UI del POS), la distinción web/móvil (el snippet manda `web`
+   fijo) y el reenvío al cambiar de sucursal.
+4. **Y la duda que nos abrió la prueba**: si `sub` identifica al comercio o al
+   usuario (ver la nota de §3). Es la única pregunta que puede cambiar el
+   payload.
+
 ---
 
 ## 7. Seguridad — el análisis completo
@@ -450,13 +494,15 @@ La integración está lista cuando, con una cuenta real:
 
 Cuatro respuestas cortas y arrancamos:
 
-1. **Usuario**: ¿pueden incluir el **correo** del usuario logueado? Es el único
-   campo que no pudimos verificar por nuestra cuenta, porque no está en la UI
-   del POS. ¿Y `user.id` difiere de `sub` cuando hay varios usuarios por
-   comercio?
-2. **Plataforma**: ¿pueden distinguir en el payload si el POS corre en web o en
+1. **¿Qué identifica `sub`: el comercio o el usuario?** Es la más importante:
+   define si el payload sirve para reconocer al comercio o hay que agregarle un
+   campo. Ver la nota de §3. *(Se responde mirando si dos usuarios del mismo
+   comercio tienen `sub` distinto.)*
+2. **Correo del usuario**: ¿pueden incluirlo? Es el único campo que no pudimos
+   verificar por nuestra cuenta, porque no está en la UI del POS.
+3. **Plataforma**: ¿pueden distinguir en el payload si el POS corre en web o en
    la app móvil?
-3. **Cambio de sucursal**: ¿pueden reenviar el mensaje cuando el usuario cambia
+4. **Cambio de sucursal**: ¿pueden reenviar el mensaje cuando el usuario cambia
    de comercio/sucursal sin recargar el iframe?
 
 > **Ya no preguntamos por la vertical.** Lo probamos con el método de §6.A en
@@ -504,12 +550,12 @@ producción por separado, en cualquier orden.
 {
   "type": "bold:context",   // obligatorio, exactamente este string
   "v": 1,                   // opcional, versión del contrato
-  "accountId": 7993,        // obligatorio · number | string
+  "accountId": 10093,       // obligatorio · number | string · id del comercio
   "businessType": "retail", // obligatorio · string
   "businessName": "Mi Comercio S.A.",  // recomendado · string
   "platform": "web",        // recomendado · "web" | "mobile"
   "user": {                 // recomendado · object
-    "id": 456,              // opcional
+    "id": 456,              // opcional · id del usuario
     "name": "Nombre Apellido",         // opcional
     "email": "correo@comercio.com"     // recomendado
   }
