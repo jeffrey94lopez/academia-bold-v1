@@ -72,8 +72,12 @@ Quién lo usa:
 | `js/assistant.js` | saluda por nombre y manda `account_id`/`business_name` a n8n |
 | `js/clarify.js` | `chatRequestBody` agrega esas dos claves solo si existen |
 
-El correo del usuario se guarda en el navegador pero **no** viaja al bot ni al
-LLM (doc §7.4). Tests en `tests/bold-context.test.mjs`.
+La identidad **no se persiste**: vive en memoria durante la carga y se pierde al
+cerrar. Guardarla dejaba el nombre pegado entre sesiones (el bot saludaba con el
+nombre del comercio de la prueba anterior); `initBoldContext` además borra las
+claves `bold_account_id`/`bold_business_name`/`bold_user_*` que dejó la versión
+que sí guardaba. El correo del usuario no viaja al bot ni al LLM (doc §7.4).
+Tests en `tests/bold-context.test.mjs`.
 
 Los `.docx` se generan desde los `.md` de esta carpeta con `md2docx.js`
 (docx-js). Editar el `.md` y regenerar:

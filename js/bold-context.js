@@ -9,7 +9,7 @@
 // portal fuera del POS, etc.) todo sigue funcionando como antes: la selección
 // manual guardada en el navegador.
 
-import { storageGet, storageSet } from './storage.js'
+import { storageRemove } from './storage.js'
 
 // Único origen del que aceptamos contexto. Es el que está documentado en el
 // requerimiento que se le envió a Bold; ampliarlo requiere actualizar el doc.
@@ -30,13 +30,13 @@ const PLATAFORMA_POR_PLATFORM = {
 
 const MAX_TEXTO = 80
 
-export const CLAVES = {
-  accountId:    'bold_account_id',
-  businessName: 'bold_business_name',
-  userId:       'bold_user_id',
-  userName:     'bold_user_name',
-  userEmail:    'bold_user_email',
-}
+// Claves de una versión anterior que guardaba la identidad en el navegador. Ya
+// no se escriben: se borran al arrancar. Guardarla sobrevivía a la sesión y el
+// bot terminaba saludando con el nombre del comercio de la prueba anterior.
+const CLAVES_LEGADO = [
+  'bold_account_id', 'bold_business_name',
+  'bold_user_id', 'bold_user_name', 'bold_user_email',
+]
 
 export function esOrigenBold(origen) {
   return ORIGENES_BOLD.includes(origen)
@@ -96,22 +96,14 @@ export function seleccionDesdeContexto(ctx) {
 let contexto = null
 const suscriptores = new Set()
 
-/** Último contexto recibido, o el de una visita anterior (identidad, sin selección). */
+/**
+ * Contexto recibido en ESTA carga del portal, o `null`. A propósito no se
+ * recuerda entre visitas: la identidad la manda el POS cada vez que abre el
+ * iframe, y recordarla haría que un comercio vea el nombre de otro si comparten
+ * navegador (o que quede pegado el de una prueba).
+ */
 export function getContextoBold() {
-  if (contexto) return contexto
-  const accountId = storageGet(CLAVES.accountId)
-  if (!accountId) return null
-  return {
-    accountId,
-    vertical: null,
-    plataforma: null,
-    businessName: storageGet(CLAVES.businessName),
-    user: {
-      id:    storageGet(CLAVES.userId),
-      name:  storageGet(CLAVES.userName),
-      email: storageGet(CLAVES.userEmail),
-    },
-  }
+  return contexto
 }
 
 /**
@@ -125,12 +117,9 @@ export function onContextoBold(cb) {
   return () => suscriptores.delete(cb)
 }
 
-function persistir(ctx) {
-  if (ctx.accountId)    storageSet(CLAVES.accountId, ctx.accountId)
-  if (ctx.businessName) storageSet(CLAVES.businessName, ctx.businessName)
-  if (ctx.user.id)      storageSet(CLAVES.userId, ctx.user.id)
-  if (ctx.user.name)    storageSet(CLAVES.userName, ctx.user.name)
-  if (ctx.user.email)   storageSet(CLAVES.userEmail, ctx.user.email)
+/** Borra la identidad que guardaban versiones anteriores del portal. */
+export function limpiarIdentidadGuardada() {
+  CLAVES_LEGADO.forEach(k => storageRemove(k))
 }
 
 // ── Arranque: handshake + escucha ───────────────────────────────────────────
@@ -159,13 +148,13 @@ let iniciado = false
 export function initBoldContext(win = typeof window !== 'undefined' ? window : null) {
   if (iniciado || !win) return
   iniciado = true
+  limpiarIdentidadGuardada()
 
   win.addEventListener('message', e => {
     if (!esOrigenBold(e.origin)) return          // el navegador fija e.origin
     const ctx = normalizarContexto(e.data)
     if (!ctx) return
     contexto = ctx
-    persistir(ctx)
     for (const cb of suscriptores) {
       try { cb(ctx) } catch (err) { console.error('[bold-context] suscriptor:', err) }
     }

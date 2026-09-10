@@ -444,11 +444,18 @@ window.addEventListener('message', e => {
 ### 7.4 Qué hacemos con los datos de nuestro lado
 
 - Se usan **en el navegador del usuario** para elegir la vertical/plataforma y
-  personalizar el saludo. Se guardan en `localStorage` del propio iframe.
-- El `accountId` y el correo se asocian a la conversación del bot para poder dar
-  seguimiento a un comercio que pidió ayuda. **No se venden, no se comparten con
-  terceros, no se usan para marketing.**
-- No enviamos el correo del usuario al modelo de lenguaje del asistente.
+  personalizar el saludo.
+- **La identidad no se guarda en el navegador.** Vive solo en memoria mientras
+  la ventana de Ayuda está abierta y se pierde al cerrarla; en la siguiente
+  apertura la volvemos a recibir de ustedes. Lo único que persiste es la
+  vertical/plataforma elegida, que no identifica a nadie. Lo hicimos así a
+  propósito: guardarla haría que en un equipo compartido el POS salude al
+  segundo usuario con el nombre del primero.
+- El `accountId` y el nombre del comercio se asocian a la conversación del bot
+  para poder dar seguimiento a un comercio que pidió ayuda. **No se venden, no
+  se comparten con terceros, no se usan para marketing.**
+- El **correo del usuario no sale del navegador**: no viaja al asistente ni al
+  modelo de lenguaje.
 - El transporte es HTTPS con HSTS; el portal corre con Content-Security-Policy
   estricta (`script-src 'self'`, sin scripts inline).
 - Si Bold nos pide borrar los datos de una cuenta, se borran.
