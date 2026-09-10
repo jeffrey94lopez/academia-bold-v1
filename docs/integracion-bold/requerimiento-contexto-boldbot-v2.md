@@ -83,10 +83,10 @@ plataforma). Lo único que falta es el dato de entrada.
 
 Notas:
 
-- **`businessType`**: lo mapeamos a nuestras verticales. Ya toleramos
-  `retail`, `store`, `tienda` → *Retail*, y `restaurant`, `restaurante`,
-  `restaurants` → *Restaurantes*, en mayúsculas o minúsculas. **Si su string es
-  otro, díganlo y lo agregamos** (no hace falta que lo cambien ustedes).
+- **`businessType`**: ya lo verificamos en cuentas reales de las dos verticales
+  y **funciona tal como viene**: llega `retail` y `restaurant`. Nuestro mapa
+  también tolera `store`, `tienda`, `restaurante`, `restaurants` y `food`, en
+  mayúsculas o minúsculas. **No tienen que cambiar nada de su lado.**
 - **`platform`**: es el campo nuevo respecto a la versión anterior del documento.
   Nuestras lecciones están separadas por Web y Mobile.
 - Si un campo recomendado no lo pueden mandar, **manden el resto igual**. El
@@ -450,15 +450,18 @@ La integración está lista cuando, con una cuenta real:
 
 Cuatro respuestas cortas y arrancamos:
 
-1. **Vertical**: ¿qué string exacto trae `business_type` en una cuenta de
-   restaurante? (`restaurant` / `restaurante` / otro). Retail lo vimos como
-   `retail`. *(Se puede responder en 1 minuto con el método de §6.A.)*
-2. **Usuario**: ¿pueden incluir nombre y correo del usuario logueado? ¿`user.id`
-   difiere de `sub` cuando hay varios usuarios por comercio?
-3. **Plataforma**: ¿pueden distinguir en el payload si el POS corre en web o en
+1. **Usuario**: ¿pueden incluir el **correo** del usuario logueado? Es el único
+   campo que no pudimos verificar por nuestra cuenta, porque no está en la UI
+   del POS. ¿Y `user.id` difiere de `sub` cuando hay varios usuarios por
+   comercio?
+2. **Plataforma**: ¿pueden distinguir en el payload si el POS corre en web o en
    la app móvil?
-4. **Cambio de sucursal**: ¿pueden reenviar el mensaje cuando el usuario cambia
+3. **Cambio de sucursal**: ¿pueden reenviar el mensaje cuando el usuario cambia
    de comercio/sucursal sin recargar el iframe?
+
+> **Ya no preguntamos por la vertical.** Lo probamos con el método de §6.A en
+> cuentas reales de retail y de restaurante: llegan `retail` y `restaurant`, y
+> los dos los mapeamos correctamente. Ese punto está cerrado.
 
 Y si algo de este documento no se entiende o no comparten el enfoque:
 **díganos qué parte** y la reescribimos o buscamos otra vía. La alternativa de
