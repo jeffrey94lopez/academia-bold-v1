@@ -19,13 +19,14 @@ const FRICCION_NOTA = 'Conversaciones donde el bot no pudo resolver por su cuent
   + 'o no tenía contenido para responder, o derivó a soporte. Se mide de señales '
   + 'registradas, no de que un modelo interprete el tono del usuario.'
 
-// El sentimiento se muestra como referencia, no como métrica de decisión: lo
-// etiqueta un LLM sobre texto tonalmente plano y sale casi todo neutro. Los
-// tres porcentajes pueden no sumar 100 porque los NULL ya no se cuentan como
-// neutro (se listan aparte como "sin evaluar").
-const SENTIMIENTO_NOTA = 'Referencia, no métrica de decisión. Lo etiqueta un modelo '
-  + 'a partir del tono del usuario, y la mayoría de las consultas a un bot de soporte '
-  + 'son preguntas planas: por eso domina el neutro. Para decidir, mirá Fricción.'
+// El sentimiento sale de lo que el usuario HIZO, no de lo que un modelo leyó en
+// el tono (ver update_sentimiento_efectivo.sql). Antes lo etiquetaba solo el
+// LLM y 'positivo' no salía nunca: 0 de 234, con 10 usuarios que habían
+// apretado "Sí, gracias" marcados como neutros.
+const SENTIMIENTO_NOTA = 'Sale de lo que hizo el usuario, no del tono que interprete un modelo. '
+  + 'Positivo: apretó "Sí, gracias" en ¿Logré resolver tu duda?. '
+  + 'Negativo: apretó "Necesito más ayuda", pidió soporte, o dejó una queja explícita. '
+  + 'Neutro: se fue sin dar ninguna señal.'
 
 // Fecha + hora de una conversación, en zona de negocio (misma que el heatmap)
 // para que la hora mostrada no dependa del navegador del admin.
@@ -113,7 +114,6 @@ export async function renderBotAnalytics(from = null, to = null) {
             <button ${drill({ sent: 'neutro' })} class="bot-drill flex items-center gap-1 text-[var(--black-60)]"><i data-lucide="meh" class="w-4 h-4"></i>${pct(sn.neutro || 0)}%</button>
             <button ${drill({ sent: 'negativo' })} class="bot-drill flex items-center gap-1" style="color:var(--error-100)"><i data-lucide="frown" class="w-4 h-4"></i>${pct(sn.negativo || 0)}%</button>
           </div>
-          ${sn.sin_evaluar ? `<p class="text-[10px] text-[var(--black-40)] mt-0.5">${sn.sin_evaluar} sin evaluar</p>` : ''}
         </div>
       </div>
     </div>`
