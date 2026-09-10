@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { computeRange, sentimentBar, lifecycleBar } from '../js/analytics-ui.js'
+import { computeRange, sentimentBar, lifecycleBar, frictionBar } from '../js/analytics-ui.js'
 import { fmtBizDay } from '../js/biz-time.js'
 
 // 20:30 UTC del 20 de julio = 3:30pm del 20 en Bogotá. Instante fijo para que
@@ -91,4 +91,29 @@ test('lifecycleBar con base cero no lanza y produce anchos 0%', () => {
 
 test('lifecycleBar con entrada indefinida no lanza', () => {
   assert.doesNotThrow(() => lifecycleBar(undefined))
+})
+
+// --- Fricción (reemplaza al sentimiento como métrica de cabecera) ---
+
+test('frictionBar apila los tres buckets con sus conteos', () => {
+  const html = frictionBar({ sin: 148, no_info: 54, support: 32, pct: 37, total: 234 })
+  assert.match(html, />148</)
+  assert.match(html, />54</)
+  assert.match(html, />32</)
+})
+
+test('frictionBar calcula anchos sobre el total de los buckets', () => {
+  const html = frictionBar({ sin: 2, no_info: 1, support: 1 })
+  assert.match(html, /width:50%/)
+  assert.match(html, /width:25%/)
+})
+
+test('frictionBar sin datos no lanza y da anchos 0%', () => {
+  let html
+  assert.doesNotThrow(() => { html = frictionBar({ sin: 0, no_info: 0, support: 0 }) })
+  assert.match(html, /width:0%/)
+})
+
+test('frictionBar con entrada indefinida no lanza', () => {
+  assert.doesNotThrow(() => frictionBar(undefined))
 })

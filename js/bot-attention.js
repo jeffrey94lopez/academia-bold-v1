@@ -4,7 +4,7 @@
 // Lista priorizada de categorías con problema. Reemplaza el uso disperso
 // (pickContentToReinforce + negCat) por un solo ranking.
 export function rankAttention(byCategory, gaps, {
-  minVolume = 3, maxResolvedPct = 50, minNegativePct = 30, minSupportPct = 40, limit = 4,
+  minVolume = 3, maxResolvedPct = 50, minNoInfoPct = 30, minSupportPct = 40, limit = 4,
   exclude = ['Otro', 'Sin categoría'],
 } = {}) {
   // "Otro" es el cajón de sastre del clasificador: no representa una categoría
@@ -21,8 +21,12 @@ export function rankAttention(byCategory, gaps, {
       it = { problem: 'contenido-faltante', action: 'crear', detail: `${gapByCat.get(c.category).total} sin lección`, score: (c.total ?? 0) * 2 }
     } else if (c.resolved_pct != null && c.resolved_pct < maxResolvedPct) {
       it = { problem: 'baja-resolucion', action: 'revisar', detail: `${c.resolved_pct}% resolución`, score: c.total, extraStatus: 'no_resuelta' }
-    } else if ((c.negative_pct ?? 0) >= minNegativePct) {
-      it = { problem: 'negativo', action: 'revisar', detail: `${c.negative_pct}% negativo`, score: c.total }
+    } else if ((c.no_info_pct ?? 0) >= minNoInfoPct) {
+      // Antes esta regla miraba negative_pct. El sentimiento resultó ser ruido
+      // de LLM (ver update_analytics_bot_summary_friccion.sql), así que nunca
+      // volvía a disparar. no_info_pct es señal medida y apunta a lo mismo que
+      // la acción sugiere: falta contenido en esta categoría.
+      it = { problem: 'sin-informacion', action: 'reforzar', detail: `${c.no_info_pct}% sin info`, score: c.total }
     } else if ((c.support_pct ?? 0) >= minSupportPct) {
       it = { problem: 'escala', action: 'reforzar', detail: `${c.support_pct}% a soporte`, score: c.total }
     }

@@ -91,7 +91,7 @@ export function kpiCard(label, value, sub = '') {
 }
 
 // Barra apilada genérica con los conteos DENTRO de cada segmento. Interna: la
-// comparten sentimentBar y lifecycleBar, que solo difieren en colores y
+// comparten sentimentBar, frictionBar y lifecycleBar, que solo difieren en colores y
 // etiquetas. Devuelve solo la barra (sin margen); el consumidor la envuelve
 // con su propio spacing.
 function stackedBar(segments) {
@@ -111,6 +111,19 @@ export function sentimentBar(sentiment) {
     { count: s.positivo || 0, label: 'positivas', colorClass: 'bg-[var(--success-150)]', textClass: 'text-white' },
     { count: s.neutro   || 0, label: 'neutras',   colorClass: 'bg-[var(--black-10)]',    textClass: 'text-[var(--black-60)]' },
     { count: s.negativo || 0, label: 'negativas', colorClass: 'bg-[var(--error-100)]',   textClass: 'text-white' },
+  ])
+}
+
+// Fricción: en cuántas conversaciones el bot NO pudo resolver por su cuenta.
+// Reemplaza al sentimiento como métrica de cabecera — ver la migración
+// update_analytics_bot_summary_friccion.sql para el porqué. Los buckets son
+// excluyentes (no_info gana sobre soporte), así que la barra suma el total.
+export function frictionBar(friction) {
+  const f = friction || {}
+  return stackedBar([
+    { count: f.sin     || 0, label: 'sin fricción',           colorClass: 'bg-[var(--success-150)]', textClass: 'text-white' },
+    { count: f.no_info || 0, label: 'el bot no tuvo la info', colorClass: 'bg-[var(--error-100)]',   textClass: 'text-white' },
+    { count: f.support || 0, label: 'derivadas a soporte',    colorClass: 'bg-[var(--warning-150)]', textClass: 'text-white' },
   ])
 }
 

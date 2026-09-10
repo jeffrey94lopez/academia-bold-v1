@@ -2,7 +2,7 @@ import {
   fetchBotSummary, fetchBotTrend, fetchLessonsSummary, fetchContentGaps,
 } from './analytics-api.js'
 import {
-  rangeControlsHtml, wireRangeControls, computeRange, kpiCard, sentimentBar,
+  rangeControlsHtml, wireRangeControls, computeRange, kpiCard, frictionBar,
 } from './analytics-ui.js'
 import { escapeHtml, exportCSV } from './utils.js'
 
@@ -67,14 +67,22 @@ export async function renderExecAnalytics(from = null, to = null) {
       <div class="flex items-end gap-2">${trendBars || '<span class="text-xs text-[var(--black-40)]">Sin datos</span>'}</div>
     </div>`
 
-  // Satisfacción — con barra (conteos dentro) y base explícita.
-  const s = k.sentiment
+  // Fricción — cuántas conversaciones el bot no pudo resolver por su cuenta.
+  // Sustituye al panel de Satisfacción (sentimiento neto): ese número lo
+  // producía un LLM interpretando el tono de preguntas tonalmente planas y era
+  // ruido. Ver update_analytics_bot_summary_friccion.sql.
+  const fr = k.friction || {}
   const satPanel = `
     <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4">
-      <p class="text-sm font-bold text-[var(--black-100)]">Satisfacción</p>
-      <p class="text-[11px] text-[var(--black-40)] mb-2">sentimiento neto = % positivas − % negativas</p>
-      <p class="text-3xl font-black text-[var(--black-100)] leading-none">${k.sentiment_net > 0 ? '+' : ''}${k.sentiment_net ?? 0}</p>
-      <div class="mt-3">${sentimentBar(s)}</div>
+      <p class="text-sm font-bold text-[var(--black-100)]">Fricción</p>
+      <p class="text-[11px] text-[var(--black-40)] mb-2">el bot no resolvió solo: sin contenido o derivó a soporte</p>
+      <p class="text-3xl font-black text-[var(--black-100)] leading-none">${fr.pct ?? 0}%</p>
+      <div class="mt-3">${frictionBar(fr)}</div>
+      <p class="text-[11px] text-[var(--black-60)] mt-2">
+        <span class="font-bold text-[var(--error-100)]">${fr.no_info || 0}</span> sin contenido ·
+        <span class="font-bold text-[var(--warning-150)]">${fr.support || 0}</span> a soporte
+        <span class="text-[var(--black-40)]">de ${fr.total || 0}</span>
+      </p>
     </div>`
 
   // Insights bot↔lecciones — exclusivo del Resumen, partido en dos bloques.

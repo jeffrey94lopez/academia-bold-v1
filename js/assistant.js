@@ -757,10 +757,14 @@ async function sendMessage(text) {
     clarifyCount = nextClarifyCount(clarifyCount, data)
 
     const nowIso = new Date().toISOString()
+    // sentiment se OMITE si el backend no lo mandó. Antes caía a 'neutro', lo
+    // que (a) fabricaba un neutro indistinguible de uno real y (b) al ser un
+    // PATCH, pisaba el sentimiento que ya hubiera escrito la auto-evaluación.
+    // Sin la clave, la columna queda como está.
     await upsertConversation({
       messages: sessionMessages,
       topic: data.topic || null,
-      sentiment: data.sentiment ?? 'neutro',
+      ...(data.sentiment ? { sentiment: data.sentiment } : {}),
       support_redirected: data.support_redirected || false,
       lessons_used: data.lessons_used || [],
       bot_no_info: data.knowledge_gap || false,
