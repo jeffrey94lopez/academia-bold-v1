@@ -163,8 +163,9 @@ su contenedor:
 { type: 'academia:ready', v: 1 }
 ```
 
-y lo repite cada 2 segundos durante 30 segundos, por si su listener se registra
-tarde. Ustedes solo tienen que responder a ese mensaje.
+y lo repite cada 2 segundos por unos 10 segundos, por si su listener se registra
+tarde (la página de prueba de §6 insiste 30 segundos). Ustedes solo tienen que
+responder a ese mensaje.
 
 ### 5.4 Paso 3 — Construir el payload con datos **en vivo**
 
