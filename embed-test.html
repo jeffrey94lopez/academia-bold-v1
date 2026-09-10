@@ -72,6 +72,14 @@
       <h2>4 · Probar sin tocar código (30 segundos)</h2>
       <p class="sub" style="margin:0 0 10px">Abrí <code>pos.bold.co</code>, entrá al menú <b>Ayuda</b> y pegá esto en la
          consola del navegador. Cambia el iframe a esta página y le manda el contexto leído del token de sesión real.</p>
+      <p class="sub" style="margin:0 0 10px; padding:8px 10px; border-radius:10px;
+         background: var(--warning-10, #fff3d1); border:1px solid var(--warning-100, #ffc217);
+         color: var(--warning-200, #5b3100)">
+         <b>Si Chrome no te deja pegar</b> («Warning: Don't paste code into the DevTools Console…»),
+         escribí <code>allow pasting</code> en la consola y Enter. Es una protección del navegador
+         contra código pegado a ciegas; se pide una sola vez por perfil. El snippet no hace ninguna
+         petición de red: lee el token de sesión <b>sin sacarlo de tu navegador</b> y solo hace un
+         <code>postMessage</code> al iframe de la Academia.</p>
       <pre id="snippet"></pre>
       <div class="row">
         <button id="copySnippet">Copiar snippet</button>

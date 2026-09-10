@@ -310,6 +310,11 @@ campo con ✓ / ! / ✗ y la razón. Tres formas de usarla, de menor a mayor esf
    **«Copiar snippet»**. Ese snippet cambia el iframe a la página de prueba, lee
    el `sub` y el `business_type` del token de sesión real, y manda el
    `postMessage`.
+   > Si Chrome bloquea el pegado («Warning: Don't paste code into the DevTools
+   > Console…»), escriban `allow pasting` en la consola y Enter. Es la protección
+   > del navegador contra código pegado a ciegas y se pide una sola vez por
+   > perfil. El snippet no hace ninguna petición de red: lee el token de sesión
+   > **sin sacarlo del navegador** y solo hace un `postMessage` al iframe.
 4. Mirar el iframe: debe quedar el banner verde **«Contexto recibido y válido»**.
 
 Esto sirve para **confirmar que el mecanismo funciona en su entorno real antes de
