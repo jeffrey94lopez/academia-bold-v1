@@ -266,7 +266,6 @@ function renderExplorer(convs) {
       <div class="flex flex-wrap gap-2 items-center">
         <input id="bot-search" placeholder="🔎 buscar en mensajes…" class="px-2 py-1 rounded border border-[var(--blue-20)] text-xs flex-1 min-w-[160px]">
         ${filterChips('estado', 'Estado', [['', 'Todas'], ['no_resuelta', 'No resuelta'], ['resuelta', 'Resuelta'], ['ambigua', 'Ambigua']])}
-        ${filterChips('sent', 'Sentimiento', [['', 'Todos'], ['positivo', 'Positivo'], ['neutro', 'Neutro'], ['negativo', 'Negativo']])}
         ${filterChips('life', 'Cierre', [['', 'Todas'], ['cerrada_cliente', 'Cerró'], ['abandonada', 'Abandonó'], ['escalada', 'Escaló']])}
       </div>
     </div>
@@ -321,7 +320,7 @@ function wireExplorer(el, convs, from, to) {
     toggle.textContent = hidden ? 'Filtros ▾' : 'Filtros ▴'
   })
 
-  const state = { estado: '', sent: '', life: '', category: '', search: '' }
+  const state = { estado: '', life: '', category: '', search: '' }
   const summaryEl = el.querySelector('#bot-filter-summary')
 
   // Mapea el state del explorador al shape que espera fetchBotConversations.
@@ -329,7 +328,6 @@ function wireExplorer(el, convs, from, to) {
   const activeFilters = () => {
     const f = {}
     if (state.estado) f.status = state.estado
-    if (state.sent) f.sentiment = state.sent
     if (state.life) f.lifecycle = state.life
     if (state.category) f.category = state.category
     if (state.search) f.search = state.search
@@ -337,7 +335,7 @@ function wireExplorer(el, convs, from, to) {
   }
 
   const syncChips = () => {
-    ['estado', 'sent', 'life'].forEach(g => {
+    ['estado', 'life'].forEach(g => {
       el.querySelectorAll(`.bot-fchip[data-group="${g}"]`).forEach(c => {
         const on = c.dataset.val === state[g]
         c.className = `bot-fchip px-2 py-1 rounded-full text-[11px] border ${on ? 'bg-[var(--blue-100)] text-white border-[var(--blue-100)]' : 'text-[var(--black-60)] border-[var(--blue-20)]'}`
@@ -347,7 +345,6 @@ function wireExplorer(el, convs, from, to) {
 
   const FILTER_LABELS = {
     estado: { resuelta: 'Resuelta', no_resuelta: 'No resuelta', ambigua: 'Ambigua' },
-    sent: { positivo: 'Positivo', neutro: 'Neutro', negativo: 'Negativo' },
     life: { cerrada_cliente: 'Cerró', abandonada: 'Abandonó', escalada: 'Escaló' },
   }
   const friendlyFilterLabel = (k, v) => (FILTER_LABELS[k] && FILTER_LABELS[k][v]) || v
@@ -367,7 +364,7 @@ function wireExplorer(el, convs, from, to) {
 
   const applyFilters = (partial, { replace } = {}) => {
     if (replace) {
-      state.estado = ''; state.sent = ''; state.life = ''; state.category = ''; state.search = ''
+      state.estado = ''; state.life = ''; state.category = ''; state.search = ''
       const searchInput = el.querySelector('#bot-search')
       if (searchInput) searchInput.value = ''
     }
