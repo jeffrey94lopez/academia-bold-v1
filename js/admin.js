@@ -15,6 +15,7 @@ import { evaluarBorradoCategoria } from './category-guard.js'
 import { lessonToEmbedText } from './lesson-embed-text.js'
 import { dedupeQuestions, firstUserMessage } from './faq-suggest.js'
 import { draftKey, buildDraft, shouldOfferRestore, relTime } from './lesson-draft.js'
+import { construirCopia, otraVertical, prepararPayload } from './lesson-duplicate.js'
 
 const EMBED_WEBHOOK = 'https://n8n.mplasesores.com/webhook/embed-lesson'
 const EMBED_TOKEN   = 'BoldBodi-2026-K9xMvP7q'
@@ -35,18 +36,27 @@ async function embedLesson(lessonId, titulo, categoria, blocks, notas) {
   } catch (_) { return false }
 }
 
-// Re-embebe TODAS las lecciones, mostrando en vivo cuáles se embebieron (✓) y
-// cuáles fallaron (✗). Secuencial a propósito para no saturar el webhook.
+// Re-embebe las lecciones VISIBLES, mostrando en vivo cuáles se embebieron (✓)
+// y cuáles fallaron (✗). Secuencial a propósito para no saturar el webhook.
+// Saltarse las ocultas es lo que sostiene el "nace sin IA" de una copia:
+// match_lessons solo mira `embedding is not null`, así que embeber una lección
+// oculta la publica en el bot por la puerta de atrás.
 // Estado de frescura de los embeddings: cuántas lecciones están al día (con
 // embedding_updated_at) vs pendientes (sin embedding o sin fecha). Valida que
 // todo quedó bien tras un re-embed, sin depender de un simple conteo de nulos.
+// Las lecciones ocultas quedan fuera del conteo: una copia recién duplicada, o
+// cualquier borrador que el equipo escondió, no debería pedir a gritos un
+// embedding que la pondría en boca del bot con el texto sin terminar.
 async function updateEmbeddingStatus() {
   const el = document.getElementById('embStatus')
   if (!el) return
   try {
-    const { count: total } = await supabase.from('lecciones').select('*', { count: 'exact', head: true })
+    const { count: total } = await supabase.from('lecciones')
+      .select('*', { count: 'exact', head: true })
+      .not('active', 'is', false)
     const { count: pend, error } = await supabase.from('lecciones')
       .select('*', { count: 'exact', head: true })
+      .not('active', 'is', false)
       .or('embedding.is.null,embedding_updated_at.is.null')
     if (error) throw error
     if (!pend) el.innerHTML = `<span class="text-[var(--success-150)] font-bold">✓ Embeddings al día (${total}/${total})</span>`
@@ -68,6 +78,7 @@ async function reembedAllLessons() {
   const { data: lessons, error } = await supabase
     .from('lecciones')
     .select('id, titulo, categoria, contenido, notas')
+    .not('active', 'is', false)
     .order('orden')
 
   box.classList.remove('hidden')
@@ -188,6 +199,8 @@ let materialView = localStorage.getItem('admin_material_view') || 'grid'
 let _materialCurrentFiles = []
 let lessonListView = localStorage.getItem('admin_lesson_list_view') || 'list'
 let adminVertical = 'retail'      // filtro de vertical del panel de lecciones
+// El editor abierto viene de "Duplicar": la lección nace oculta y sin embedding.
+let formEsDuplicado = false
 let adminPlataforma = 'all'       // 'all' | 'web' | 'mobile'
 let currentFolderPath = ''
 let lessonPreviewVisible = localStorage.getItem('admin_lesson_preview') !== 'false'
@@ -437,7 +450,7 @@ async function renderLessonsPanel() {
         <button id="manageCatsBtn" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)] hover:bg-[var(--background-page)] flex items-center gap-1.5">
           <i data-lucide="tag" class="w-3.5 h-3.5"></i> Categorías
         </button>
-        <button id="reembedAllLessons" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)] hover:bg-[var(--background-page)] flex items-center gap-1.5" title="Regenerar el embedding IA de todas las lecciones">
+        <button id="reembedAllLessons" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)] hover:bg-[var(--background-page)] flex items-center gap-1.5" title="Regenerar el embedding IA de las lecciones visibles (las ocultas se saltan)">
           <i data-lucide="brain" class="w-3.5 h-3.5"></i> Re-embeber todo
         </button>
         <button id="addLesson" class="bg-[var(--blue-100)] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:scale-105 transition-transform">
@@ -937,9 +950,12 @@ async function renderLessonsPanel() {
       examen: currentQuestions.length ? { preguntas: currentQuestions } : null,
       curso_orden: cursoOrden,
     }
+    // Una copia nace oculta a los estudiantes: el texto viene escrito para la
+    // otra vertical y todavía nadie lo ha adaptado.
+    const esCopia = !id && formEsDuplicado
     const { error } = id
       ? await supabase.from('lecciones').update(payload).eq('id', id)
-      : await supabase.from('lecciones').insert(payload)
+      : await supabase.from('lecciones').insert(prepararPayload(payload, esCopia))
     if (error) {
       alert('Error al guardar: ' + error.message)
       btn.disabled = false
@@ -947,10 +963,21 @@ async function renderLessonsPanel() {
       return
     }
     logActivity(id ? 'update' : 'create', 'lesson', titulo)
-    // Regenerate RAG embedding asynchronously (fire-and-forget)
-    const savedId = id || (await supabase.from('lecciones').select('id').eq('titulo', titulo).order('created_at', { ascending: false }).limit(1).single()).data?.id
-    if (savedId) embedLesson(savedId, titulo, payload.categoria, currentBlocks, payload.notas)
+    // Regenerate RAG embedding asynchronously (fire-and-forget).
+    // La copia se salta este paso: match_lessons filtra por `embedding is not
+    // null` y no mira `active`, así que embeberla acá la pondría en boca del
+    // bot con el texto sin adaptar. El botón del cerebro la embebe después.
+    if (!esCopia) {
+      const savedId = id || (await supabase.from('lecciones').select('id').eq('titulo', titulo).order('created_at', { ascending: false }).limit(1).single()).data?.id
+      if (savedId) embedLesson(savedId, titulo, payload.categoria, currentBlocks, payload.notas)
+    }
+    // El panel filtra por adminVertical, así que la copia queda fuera de la
+    // vista actual: el aviso dice dónde aterrizó y en qué estado.
+    if (esCopia) {
+      showToast(`Copia creada en ${payload.vertical === 'retail' ? 'Retail' : 'Restaurantes'}, oculta y sin IA. Cambia el filtro de vertical para editarla.`)
+    }
     clearDraft(draftKey(id))     // guardado OK → el borrador ya no hace falta
+    formEsDuplicado = false
     draftModalOpen = false
     document.getElementById('lessonFormModal').classList.add('hidden')
     renderLessonsPanel()
@@ -1058,6 +1085,7 @@ function renderGroupedLessons(allLessons, searchQuery) {
 }
 
 function lessonCardHtml(l) {
+  const destino = otraVertical(l.vertical)
   return `
     <div class="lesson-card bg-white rounded-xl border ${l.active === false ? 'border-[var(--black-10)] opacity-50' : 'border-[var(--blue-10)]'} p-3.5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2 cursor-pointer hover:border-[var(--blue-100)] hover:shadow-sm transition-all" data-id="${l.id}">
       <div class="flex-1 min-w-0">
@@ -1086,6 +1114,9 @@ function lessonCardHtml(l) {
         <button data-id="${l.id}" class="copy-whatsapp p-1.5 rounded-lg hover:bg-green-50 text-[var(--black-40)] hover:text-green-600" title="Copiar para WhatsApp">
           <i data-lucide="share-2" class="w-4 h-4"></i>
         </button>
+        <button data-id="${l.id}" class="dup-lesson p-1.5 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Duplicar en ${destino === 'retail' ? 'Retail' : 'Restaurantes'}">
+          <i data-lucide="copy" class="w-4 h-4"></i>
+        </button>
         <button data-id="${l.id}" data-titulo="${escapeHtml(l.titulo)}" class="del-lesson p-1.5 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Eliminar">
           <i data-lucide="trash-2" class="w-4 h-4"></i>
         </button>
@@ -1095,6 +1126,7 @@ function lessonCardHtml(l) {
 
 function lessonCardGridHtml(l) {
   const cat = currentCategories.find(c => c.nombre === l.categoria)
+  const destino = otraVertical(l.vertical)
   return `
     <div class="lesson-card bg-white rounded-xl border ${l.active === false ? 'border-[var(--black-10)] opacity-50' : 'border-[var(--blue-10)]'} p-3.5 cursor-pointer hover:border-[var(--blue-100)] hover:shadow-sm transition-all flex flex-col gap-2" data-id="${l.id}">
       <div class="flex items-start justify-between gap-2">
@@ -1123,6 +1155,9 @@ function lessonCardGridHtml(l) {
         </button>
         <button data-id="${l.id}" class="copy-whatsapp flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-green-50 text-[var(--black-40)] hover:text-green-600">
           <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
+        </button>
+        <button data-id="${l.id}" class="dup-lesson flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Duplicar en ${destino === 'retail' ? 'Retail' : 'Restaurantes'}">
+          <i data-lucide="copy" class="w-3.5 h-3.5"></i>
         </button>
         <button data-id="${l.id}" data-titulo="${escapeHtml(l.titulo)}" class="del-lesson flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]">
           <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
@@ -1169,9 +1204,20 @@ function wireLessonCards() {
     })
   })
 
+  list.querySelectorAll('.dup-lesson').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation()
+      const { data, error } = await supabase.from('lecciones').select('*').eq('id', btn.dataset.id).single()
+      if (error || !data) { showToast('Error al cargar la lección.', 'error'); return }
+      // No se escribe nada todavía: el editor abre la copia como lección nueva
+      // y el INSERT ocurre cuando el admin le da Guardar.
+      openLessonForm(construirCopia(data), { duplicado: true })
+    })
+  })
+
   list.querySelectorAll('.lesson-card').forEach(card => {
     card.addEventListener('click', async e => {
-      if (e.target.closest('.del-lesson') || e.target.closest('.copy-whatsapp') || e.target.closest('.toggle-lesson') || e.target.closest('.toggle-bot') || e.target.closest('.re-embed')) return
+      if (e.target.closest('.del-lesson') || e.target.closest('.copy-whatsapp') || e.target.closest('.toggle-lesson') || e.target.closest('.toggle-bot') || e.target.closest('.re-embed') || e.target.closest('.dup-lesson')) return
       const { data } = await supabase.from('lecciones').select('*').eq('id', card.dataset.id).single()
       if (data) openLessonForm(data)
     })
@@ -1243,12 +1289,14 @@ function getChoice(containerId) {
     ?.querySelector('button[data-selected="true"]')?.dataset.value
 }
 
-function openLessonForm(lesson = null) {
+function openLessonForm(lesson = null, { duplicado = false } = {}) {
   // La carga inicial dispara renders programáticos; con draftReady=false esos
   // no autoguardan (no queremos pisar el borrador antes de ofrecer restaurarlo).
   draftReady = false
   draftModalOpen = false
-  document.getElementById('lessonFormTitle').textContent = lesson ? 'Editar lección' : 'Nueva lección'
+  formEsDuplicado = duplicado
+  document.getElementById('lessonFormTitle').textContent =
+    duplicado ? 'Duplicar lección' : lesson?.id ? 'Editar lección' : 'Nueva lección'
   document.getElementById('lessonId').value = lesson?.id || ''
   document.getElementById('lessonTitulo').value = lesson?.titulo || ''
   document.getElementById('lessonDescripcion').value = lesson?.descripcion || ''
@@ -1288,7 +1336,9 @@ function openLessonForm(lesson = null) {
   // ¿Hay un borrador sin guardar para esta lección? Ofrecer restaurarlo.
   const banner = document.getElementById('lessonDraftBanner')
   const draft = readDraft(currentDraftKey())
-  if (shouldOfferRestore(draft, Date.now())) {
+  // Todas las lecciones nuevas comparten la clave 'new' (lesson-draft.js), así
+  // que un borrador viejo se ofrecería encima de la copia recién prellenada.
+  if (!duplicado && shouldOfferRestore(draft, Date.now())) {
     document.getElementById('lessonDraftAge').textContent = relTime(Date.now() - (draft.savedAt || Date.now()))
     banner._draft = draft
     banner.classList.remove('hidden')
