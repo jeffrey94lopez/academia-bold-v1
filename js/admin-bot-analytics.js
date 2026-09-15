@@ -6,10 +6,11 @@ import {
 } from './analytics-ui.js'
 import { escapeHtml, exportCSV } from './utils.js'
 import { rankAttention } from './bot-attention.js'
-import { offHoursStats, isOffHour } from './off-hours.js'
+import { offHoursStats, isOffHour, bandStats, BUSINESS_HOURS } from './off-hours.js'
 import { BIZ_TZ } from './biz-time.js'
 
 const DOW = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+const DOW_LARGO = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
 
 // Por qué fricción y no sentimiento: el sentimiento lo etiquetaba un LLM sobre
 // texto tonalmente plano y salía ruido (48% positivo sin una sola señal de
@@ -141,6 +142,7 @@ export async function renderBotAnalytics(from = null, to = null) {
       <td class="p-2 text-xs text-right text-[var(--black-60)]">${c.resolved_pct ?? '—'}%</td>
     </tr>`).join('')
 
+  const bandas = buildBandas(summary.heatmap)
   const heat = buildHeatmap(summary.heatmap)
   const ohFallback = offHoursStats(summary.heatmap)  // solo conteo (sin resolución)
   const ohPct = offHours ? offHours.off_pct : ohFallback.pct
@@ -174,7 +176,8 @@ export async function renderBotAnalytics(from = null, to = null) {
             <p class="text-[12px] text-[var(--black-60)] mt-0.5"><span class="font-bold text-[var(--black-100)]">${ohOff}</span> de ${ohTotal} conversaciones · fuera de Lun–Vie 8am–5pm y Sáb 8am–12m${ohResolved}</p>
           </div>
         </div>
-        ${heat}
+        ${bandas}
+        <div class="mt-3">${heat}</div>
       </div>
     </div>
     ${explorerHtml}`
@@ -216,8 +219,38 @@ export async function renderBotAnalytics(from = null, to = null) {
 }
 
 const pad = n => String(n).padStart(2, '0')
+const hora12 = h => `${h % 12 || 12}${h < 12 ? 'am' : 'pm'}`
 
-function buildHeatmap(cells) {
+// Lectura rápida del mismo dato que el heatmap: 7 días × 4 franjas, con el
+// número DENTRO de la celda. Las franjas salen del horario de atención
+// (bandsFromSchedule), así que cada celda cae entera dentro o entera fuera y
+// el color no miente. El detalle hora por hora sigue abajo, en el heatmap.
+// Se exporta (igual que buildHeatmap) para probarla sin DOM: devuelve HTML
+// como string — ver tests/mapa-horario.test.mjs.
+export function buildBandas(cells) {
+  const { bands, rows, max, top, total } = bandStats(cells)
+  const rotulo = b => `${pad(b.from)}:00–${b.to === 24 ? '24:00' : pad(b.to) + ':00'}`
+  const titular = top && total
+    ? `<p class="text-sm text-[var(--black-100)] mb-2">El momento más fuerte es el <span class="font-bold text-[var(--blue-100)]">${DOW_LARGO[top.dow]} ${top.band.label.toLowerCase()}</span> — ${top.count} ${top.count === 1 ? 'conversación' : 'conversaciones'}.</p>`
+    : ''
+  let html = `<div class="grid gap-1" style="grid-template-columns:34px repeat(${bands.length},1fr)"><div></div>`
+  html += bands.map(b => `<div class="text-[9px] font-bold text-center text-[var(--black-60)] leading-tight" style="padding-bottom:2px">${b.label}<span class="block text-[var(--black-40)]" style="font-size:8px;font-weight:400">${rotulo(b)}</span></div>`).join('')
+  rows.forEach(row => {
+    html += `<div class="text-[10px] font-bold text-[var(--black-60)] flex items-center">${DOW[row.dow]}</div>`
+    row.counts.forEach((n, i) => {
+      const off = row.off[i]
+      const rgb = off ? '195,26,47' : '18,30,108'          // mismo código de color que el heatmap
+      const op = n && max ? (0.12 + 0.78 * n / max).toFixed(2) : 0.03
+      const fg = max && n / max > 0.45 ? '#fff' : (off ? 'var(--error-100)' : 'var(--blue-100)')
+      const b = bands[i]
+      html += `<div title="${DOW[row.dow]} ${rotulo(b)} — ${n} ${n === 1 ? 'conversación' : 'conversaciones'}${off ? ' (fuera de horario)' : ''}" class="rounded-lg flex items-center justify-center text-sm font-black" style="height:34px;background:rgba(${rgb},${op});color:${n ? fg : 'var(--black-40)'}">${n || '·'}</div>`
+    })
+  })
+  html += '</div>'
+  return `${titular}${html}`
+}
+
+export function buildHeatmap(cells) {
   const grid = {}
   let max = 1
   cells.forEach(c => { grid[`${c.dow}-${c.hour}`] = c.count; if (c.count > max) max = c.count })
@@ -225,12 +258,20 @@ function buildHeatmap(cells) {
   // Sab 8am-12m, Dom cerrado) en hora de Bogota. La cabecera de horas marca en
   // rojo lo que esta fuera de horario TODOS los dias que se atiende.
   const isOffAllDays = h => [1, 2, 3, 4, 5, 6].every(d => isOffHour(d, h))
-  let html = '<div class="grid gap-0.5" style="grid-template-columns:28px repeat(24,1fr);min-width:340px">'
+  // La rejilla no baja de 340px (debajo de eso las celdas dejan de leerse). En
+  // pantallas angostas eso se salía del borde de la tarjeta: ahora scrollea
+  // dentro de su propio contenedor. La leyenda queda fuera del scroll.
+  let html = '<div style="overflow-x:auto"><div class="grid gap-0.5" style="grid-template-columns:28px repeat(24,1fr);min-width:340px">'
   // Cada columna es un BLOQUE de una hora, no un instante: la 16 va de 16:00 a
   // 16:59 y es la última que cuenta como horario (a las 17:00 ya cerró). Sin
   // esto la banda azul "termina en 16" y parece que falta una hora.
   const bloque = h => `${pad(h)}:00–${pad(h)}:59`
   html += '<div></div>' + Array.from({ length: 24 }, (_, h) => `<div title="Bloque ${bloque(h)}${isOffAllDays(h) ? ' · fuera del horario de atención' : ' · dentro del horario de atención'}" class="text-[7px] text-center ${isOffAllDays(h) ? 'text-[var(--error-100)] font-bold' : 'text-[var(--black-40)]'}">${h}</div>`).join('')
+  // Franja azul sobre las columnas que sí se atienden (Lun–Vie, de BUSINESS_HOURS):
+  // ubica la ventana de atención sin tener que contar columnas.
+  const [bOpen, bClose] = BUSINESS_HOURS[1] || [8, 17]
+  html += `<div></div><div class="grid gap-0.5 mb-0.5" style="grid-column:2 / span 24;grid-template-columns:repeat(24,1fr)">`
+    + `<div title="Horario de atención Lun–Vie" class="flex items-center justify-center rounded font-bold" style="grid-column:${bOpen + 1} / span ${bClose - bOpen};height:13px;font-size:8px;background:rgba(18,30,108,0.10);color:var(--blue-100);white-space:nowrap;overflow:visible">${hora12(bOpen)}–${hora12(bClose)} · horario de atención</div></div>`
   for (let d = 0; d < 7; d++) {
     html += `<div class="text-[9px] text-[var(--black-40)] flex items-center">${DOW[d]}</div>`
     for (let h = 0; h < 24; h++) {
@@ -241,7 +282,7 @@ function buildHeatmap(cells) {
       html += `<div title="${DOW[d]} ${bloque(h)} — ${n} ${n === 1 ? 'conversación' : 'conversaciones'}${off ? ' (fuera de horario)' : ''}" style="height:12px;border-radius:2px;background:rgba(${rgb},${op})"></div>`
     }
   }
-  html += '</div>'
+  html += '</div></div>'
   const notaBloques = 'Cada columna es un bloque de una hora. Lun–Vie se atiende de 8am a 5pm, '
     + 'así que el último bloque que cuenta como horario es el 16 (16:00–16:59): a las 17:00 ya cerró. '
     + 'Sáb se atiende de 8am a 12m, así que el último es el 11 (11:00–11:59).'
