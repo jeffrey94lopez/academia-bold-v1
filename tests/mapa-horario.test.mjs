@@ -8,6 +8,14 @@ const CELLS = [
   { dow: 6, hour: 14, count: 2 },   // sáb tarde (ya cerró)
 ]
 
+test('buildBandas: rotula las franjas en 12h (el heatmap de abajo sigue en 24h)', () => {
+  const html = buildBandas(CELLS)
+  for (const r of ['12am–8am', '8am–12m', '12m–5pm', '5pm–12am']) assert.ok(html.includes(r), r)
+  assert.ok(!html.includes('00:00–08:00'))
+  // el heatmap conserva las horas 0–23 y sus bloques hh:00–hh:59
+  assert.ok(buildHeatmap(CELLS).includes('Bloque 08:00–08:59'))
+})
+
 test('buildBandas: 4 franjas × 7 días con el número dentro de la celda', () => {
   const html = buildBandas(CELLS)
   for (const dia of ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']) assert.match(html, new RegExp(`>${dia}<`))
@@ -28,8 +36,8 @@ test('buildBandas: sin datos no inventa titular', () => {
 
 test('buildBandas: colorea por día, no solo por hora', () => {
   const html = buildBandas(CELLS)
-  assert.ok(html.includes('Sáb 12:00–17:00 — 2 conversaciones (fuera de horario)'))
-  assert.ok(html.includes('Lun 08:00–12:00 — 4 conversaciones"'))   // sin "(fuera de horario)"
+  assert.ok(html.includes('Sáb 12m–5pm — 2 conversaciones (fuera de horario)'))
+  assert.ok(html.includes('Lun 8am–12m — 4 conversaciones"'))   // sin "(fuera de horario)"
 })
 
 test('buildHeatmap: la franja azul cubre exactamente las horas de atención', () => {

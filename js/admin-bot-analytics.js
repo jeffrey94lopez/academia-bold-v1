@@ -220,6 +220,9 @@ export async function renderBotAnalytics(from = null, to = null) {
 
 const pad = n => String(n).padStart(2, '0')
 const hora12 = h => `${h % 12 || 12}${h < 12 ? 'am' : 'pm'}`
+// Rótulo de 12h para las franjas: medianoche (inicio y fin del día) es 12am y
+// mediodía es 12m, como el resto de los textos del dashboard.
+const hora12Rot = h => (h === 0 || h === 24) ? '12am' : h === 12 ? '12m' : hora12(h)
 
 // Lectura rápida del mismo dato que el heatmap: 7 días × 4 franjas, con el
 // número DENTRO de la celda. Las franjas salen del horario de atención
@@ -229,7 +232,7 @@ const hora12 = h => `${h % 12 || 12}${h < 12 ? 'am' : 'pm'}`
 // como string — ver tests/mapa-horario.test.mjs.
 export function buildBandas(cells) {
   const { bands, rows, max, top, total } = bandStats(cells)
-  const rotulo = b => `${pad(b.from)}:00–${b.to === 24 ? '24:00' : pad(b.to) + ':00'}`
+  const rotulo = b => `${hora12Rot(b.from)}–${hora12Rot(b.to)}`
   const titular = top && total
     ? `<p class="text-sm text-[var(--black-100)] mb-2">El momento más fuerte es el <span class="font-bold text-[var(--blue-100)]">${DOW_LARGO[top.dow]} ${top.band.label.toLowerCase()}</span> — ${top.count} ${top.count === 1 ? 'conversación' : 'conversaciones'}.</p>`
     : ''
