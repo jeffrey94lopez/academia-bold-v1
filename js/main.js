@@ -2,7 +2,7 @@ import { initBoldContext } from './bold-context.js'
 import './assistant.js'
 import './lessons.js'
 import './resources.js'
-import { supabase } from './supabase.js'
+import { loadSettings } from './settings.js'
 import { startLiveUpdates } from './live-updates.js'
 import { initCourseTab } from './course-tab.js'
 import { storageGet, storageSet } from './storage.js'
@@ -15,8 +15,7 @@ initBoldContext()
 startLiveUpdates()
 
 ;(async () => {
-  const { data } = await supabase.from('app_settings').select('key,value')
-  const s = data ? Object.fromEntries(data.map(r => [r.key, r.value])) : {}
+  const s = await loadSettings()
   if (s.bot_enabled === 'false') {
     document.querySelectorAll('[data-tab="assistant"]').forEach(el => el.classList.add('hidden'))
     document.getElementById('section-assistant')?.classList.add('hidden')

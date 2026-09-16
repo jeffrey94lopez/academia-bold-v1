@@ -8,6 +8,7 @@ import { getSeleccion } from './vertical.js'
 import { getContextoBold, onContextoBold } from './bold-context.js'
 import { nextClarifyCount, chatRequestBody, shouldAskResolution } from './clarify.js'
 import { inactivitySettings, isStaleConversation } from './inactivity.js'
+import { loadSettingsResult } from './settings.js'
 
 const N8N_URL     = '/api/chat'
 
@@ -63,12 +64,8 @@ let chipSettings = { inicio: true, tras_respuesta: true }
 
 export async function loadChipSettings() {
   try {
-    const { data, error } = await supabase
-      .from('app_settings')
-      .select('key, value')
-      .in('key', ['chips_inicio', 'chips_tras_respuesta'])
+    const { settings: map, error } = await loadSettingsResult(['chips_inicio', 'chips_tras_respuesta'])
     if (error) return
-    const map = Object.fromEntries((data || []).map(r => [r.key, r.value]))
     chipSettings = {
       inicio:         map.chips_inicio         !== 'false',
       tras_respuesta: map.chips_tras_respuesta !== 'false',
@@ -78,12 +75,14 @@ export async function loadChipSettings() {
 
 export async function loadInactivitySettings() {
   try {
-    const { data, error } = await supabase
-      .from('app_settings')
-      .select('key, value')
-      .in('key', ['inactividad_aviso_min', 'inactividad_cierre_min'])
+    const { settings, error } = await loadSettingsResult(['inactividad_aviso_min', 'inactividad_cierre_min'])
     if (error) return
-    inactivity = inactivitySettings(data)
+    // inactivitySettings() come filas, no mapa: se las rearmamos desde el mapa
+    // ya mezclado por entorno en vez de cambiarle la firma. Es la funcion que
+    // guarda el muro contra el 0 destructivo en inactividad_cierre_min y tiene
+    // sus propias pruebas; no se toca por una conveniencia de llamada.
+    inactivity = inactivitySettings(
+      Object.entries(settings).map(([key, value]) => ({ key, value })))
     // Si el admin acaba de apagar el aviso, matar el temporizador ya armado:
     // si no, el aviso pendiente igual saldría una última vez.
     if (!inactivity.avisoMs) { clearIdleTimer(); return }

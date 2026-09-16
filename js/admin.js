@@ -12,6 +12,8 @@ import { remapContentUrl } from './content-url.js'
 import { parseLessonBlocks } from './lesson-blocks.js'
 import { extractBucketUrls, countReferences, diffBrokenUrls, pathFromBucketUrl } from './bucket-urls.js'
 import { evaluarBorradoCategoria } from './category-guard.js'
+import { loadSettings, loadSettingsResult, saveSetting } from './settings.js'
+import { APP_ENV } from './env.js'
 import { lessonToEmbedText } from './lesson-embed-text.js'
 import { dedupeQuestions, firstUserMessage } from './faq-suggest.js'
 import { draftKey, buildDraft, shouldOfferRestore, relTime } from './lesson-draft.js'
@@ -212,6 +214,18 @@ async function init() {
   document.getElementById('loginScreen').classList.add('hidden')
   document.getElementById('adminApp').classList.remove('hidden')
   document.getElementById('logoutBtn').addEventListener('click', logout)
+
+  // Los toggles de modulos se guardan por entorno (ver js/settings.js): desde
+  // aca solo se escribe la fila de APP_ENV. El badge existe porque el admin del
+  // sandbox y el de produccion son identicos, y confundirlos era justamente el
+  // problema. Ojo: esto NO aisla lecciones, categorias ni material, que siguen
+  // siendo compartidos.
+  if (APP_ENV !== 'prod') {
+    const badge = document.getElementById('envBadge')
+    badge.textContent = APP_ENV
+    badge.title = 'Los switches de modulos que muevas aca no tocan produccion'
+    badge.classList.remove('hidden')
+  }
 
   lucide.createIcons()
 
@@ -432,14 +446,13 @@ async function renderLessonsPanel() {
   quillInstances = {}
   const el = document.getElementById('panel-lessons')
 
-  const [{ data: cats }, { data: lessons }, { data: settingsRows }] = await Promise.all([
+  const [{ data: cats }, { data: lessons }, portalSettings] = await Promise.all([
     supabase.from('categorias').select('*').order('orden'),
     supabase.from('lecciones').select('*').order('orden'),
-    supabase.from('app_settings').select('key,value'),
+    loadSettings(),
   ])
   currentCategories = cats || []
   const allLessons = lessons || []
-  const portalSettings = Object.fromEntries((settingsRows || []).map(r => [r.key, r.value]))
   const verticalLabels = { retail: 'Retail', restaurantes: 'Restaurantes' }
   const plataformaLabels = { web: 'Web', mobile: 'Mobile' }
 
@@ -741,7 +754,7 @@ async function renderLessonsPanel() {
 
   async function togglePortalSetting(key, wasEnabled, label) {
     const newEnabled = !wasEnabled
-    const { error } = await supabase.from('app_settings').upsert({ key, value: String(newEnabled) })
+    const { error } = await saveSetting(key, newEnabled)
     if (error) {
       showToast('Error al guardar: ' + error.message, 'error')
       return
@@ -2590,11 +2603,8 @@ async function renderMaterialApoyoPanel() {
 async function renderSuggestionsPanel() {
   const el = document.getElementById('panel-suggestions')
   const { data } = await supabase.from('bot_sugerencias').select('*').order('orden')
-  const { data: settingsRows, error: settingsError } = await supabase
-    .from('app_settings')
-    .select('key, value')
-    .in('key', ['chips_inicio', 'chips_tras_respuesta', 'inactividad_aviso_min', 'inactividad_cierre_min'])
-  const settings = Object.fromEntries((settingsRows || []).map(r => [r.key, r.value]))
+  const { settings, error: settingsError } = await loadSettingsResult(
+    ['chips_inicio', 'chips_tras_respuesta', 'inactividad_aviso_min', 'inactividad_cierre_min'])
 
   el.innerHTML = `
     <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -2687,7 +2697,7 @@ async function renderSuggestionsPanel() {
   document.querySelectorAll('.setting-toggle').forEach(t => t.addEventListener('change', async () => {
     const clave = t.dataset.setting
     const valor = t.checked
-    const { error } = await supabase.from('app_settings').upsert({ key: clave, value: String(valor) })
+    const { error } = await saveSetting(clave, valor)
     if (error) {
       t.checked = !valor // revertir el switch al estado anterior
       showToast('Error al guardar: ' + error.message, 'error')
@@ -2723,7 +2733,7 @@ async function renderSuggestionsPanel() {
         return
       }
       const clave = inp.dataset.setting
-      const { error } = await supabase.from('app_settings').upsert({ key: clave, value: String(n) })
+      const { error } = await saveSetting(clave, n)
       if (error) {
         inp.value = prev
         showToast('Error al guardar: ' + error.message, 'error')
@@ -3024,7 +3034,7 @@ async function renderProfilePanel() {
     btn.addEventListener('click', async () => {
       enabled = !enabled
       applyToggle(btnId, knobId, enabled)
-      const { error } = await supabase.from('app_settings').upsert({ key: settingKey, value: String(enabled) })
+      const { error } = await saveSetting(settingKey, enabled)
       showSettingsMsg(error ? 'Error al guardar.' : (enabled ? labelOn : labelOff), !!error)
     })
     return (initialValue) => { enabled = initialValue; applyToggle(btnId, knobId, enabled) }
@@ -3037,8 +3047,7 @@ async function renderProfilePanel() {
   const setResources = wireToggle('toggleResources',  'toggleResourcesKnob', 'resources_enabled', 'Material de apoyo activado.',      'Material de apoyo desactivado.')
   const setCurso     = wireToggle('toggleCurso',      'toggleCursoKnob',     'curso_enabled',     'Curso activado.',                  'Curso desactivado.')
 
-  const { data: allSettings } = await supabase.from('app_settings').select('key,value')
-  const settingsMap = allSettings ? Object.fromEntries(allSettings.map(r => [r.key, r.value])) : {}
+  const settingsMap = await loadSettings()
   setBot(settingsMap.bot_enabled !== 'false')
   setLessons(settingsMap.lessons_enabled !== 'false')
   setFaq(settingsMap.faq_enabled !== 'false')

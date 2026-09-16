@@ -1,4 +1,5 @@
 ﻿import { supabase } from './supabase.js'
+import { loadSettings } from './settings.js'
 
 let activeSubTab = 'faq'
 
@@ -45,8 +46,7 @@ async function renderResources() {
     </div>
   `
 
-  const { data: settingsRows } = await supabase.from('app_settings').select('key,value')
-  const settings = settingsRows ? Object.fromEntries(settingsRows.map(r => [r.key, r.value])) : {}
+  const settings = await loadSettings()
 
   const faqEnabled      = settings.faq_enabled !== 'false'
   const glossaryEnabled = settings.glossary_enabled !== 'false'

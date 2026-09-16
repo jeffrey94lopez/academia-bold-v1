@@ -8,6 +8,7 @@ import { VERTICALES, PLATAFORMAS, getSeleccion, setSeleccion, filtrarPorSeleccio
 import { onContextoBold, seleccionDesdeContexto } from './bold-context.js'
 import { crearSuscripcionReanudable } from './realtime-lifecycle.js'
 import { createReadingTracker } from './reading-tracker.js'
+import { loadSettings } from './settings.js'
 
 // Telemetría de lectura: un tracker por sesión de portal. Se arranca al abrir
 // una lección y se vacía al salir de la pestaña u ocultar la página.
@@ -38,13 +39,13 @@ async function renderLessons() {
 
   container.innerHTML = '<div class="flex items-center justify-center h-full text-[var(--black-60)] text-sm">Cargando lecciones...</div>'
 
-  const [lessonsRes, catsRes, settingsRes] = await Promise.all([
+  const [lessonsRes, catsRes, loadedSettings] = await Promise.all([
     supabase.from('lecciones').select('*').eq('active', true).order('orden'),
     supabase.from('categorias').select('*').order('orden'),
-    supabase.from('app_settings').select('key,value'),
+    loadSettings(),
   ])
   let allLessons = lessonsRes.data || []
-  let settings = Object.fromEntries((settingsRes.data || []).map(r => [r.key, r.value]))
+  let settings = loadedSettings
   const seleccionGuardada = getSeleccion()
   let sel = resolverSeleccion(allLessons, settings, seleccionGuardada)
   if (sel.vertical !== seleccionGuardada.vertical || sel.plataforma !== seleccionGuardada.plataforma) {
