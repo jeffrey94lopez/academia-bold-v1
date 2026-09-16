@@ -1,8 +1,11 @@
 {
-  "buildCommand": "npx tailwindcss -i css/input.css -o css/tw.css --minify && node -e \"require('fs').writeFileSync('version.json', JSON.stringify({v: process.env.VERCEL_GIT_COMMIT_SHA || Date.now().toString()}))\"",
+  "buildCommand": "npx tailwindcss -i css/input.css -o css/tw.css --minify && node -e \"require('fs').writeFileSync('version.json', JSON.stringify({v: process.env.VERCEL_GIT_COMMIT_SHA || Date.now().toString()}))\" && node -e \"const e=process.env.VERCEL_ENV==='production'?'prod':(process.env.VERCEL_GIT_COMMIT_REF||'preview');require('fs').writeFileSync('js/build-env.js','// GENERADO EN EL BUILD por vercel.json — no editar.\\nexport const BUILD_ENV = '+JSON.stringify(e)+'\\n')\"",
   "outputDirectory": ".",
   "rewrites": [
-    { "source": "/admin", "destination": "/admin.html" }
+    {
+      "source": "/admin",
+      "destination": "/admin.html"
+    }
   ],
   "headers": [
     {
