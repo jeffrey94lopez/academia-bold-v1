@@ -11,6 +11,9 @@ import { ordenarCurso } from './course-order.js'
 import { parseExamen } from './course-lessons.js'
 import { escapeHtml } from './utils.js'
 import { track } from './analytics.js'
+import { loadVisibilityOverrides } from './settings.js'
+import { aplicarVisibilidad, visibles } from './lesson-visibility.js'
+import { APP_ENV } from './env.js'
 
 let student = null
 let courseLessons = []
@@ -20,8 +23,14 @@ export async function initCourseTab() {
   if (!container) return
   container.innerHTML = '<div class="flex items-center justify-center h-full text-[var(--black-60)] text-sm">Cargando curso...</div>'
 
-  const { data, error } = await supabase
-    .from('lecciones').select('*').eq('active', true).order('orden')
+  // Misma bifurcación que en lessons.js: en prod filtra el servidor, fuera de
+  // prod manda el override del entorno.
+  const [{ data, error }, overrides] = await Promise.all([
+    APP_ENV === 'prod'
+      ? supabase.from('lecciones').select('*').eq('active', true).order('orden')
+      : supabase.from('lecciones').select('*').order('orden'),
+    loadVisibilityOverrides(),
+  ])
   if (error) {
     container.innerHTML = '<p class="text-[var(--black-60)] text-sm text-center pt-16">No se pudo cargar el curso. Intenta de nuevo.</p>'
     return
@@ -31,7 +40,7 @@ export async function initCourseTab() {
   // da `curso_orden` y no el `orden` del query, que es relativo a la categoría:
   // ver js/course-order.js.
   courseLessons = ordenarCurso(
-    (data || [])
+    visibles(aplicarVisibilidad(data, overrides, APP_ENV))
       .map(l => ({ ...l, examen: parseExamen(l) }))
       .filter(l => l.examen)
   )

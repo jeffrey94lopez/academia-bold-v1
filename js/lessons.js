@@ -8,7 +8,9 @@ import { VERTICALES, PLATAFORMAS, getSeleccion, setSeleccion, filtrarPorSeleccio
 import { onContextoBold, seleccionDesdeContexto } from './bold-context.js'
 import { crearSuscripcionReanudable } from './realtime-lifecycle.js'
 import { createReadingTracker } from './reading-tracker.js'
-import { loadSettings } from './settings.js'
+import { loadSettings, loadVisibilityOverrides } from './settings.js'
+import { aplicarVisibilidad, visibles } from './lesson-visibility.js'
+import { APP_ENV } from './env.js'
 
 // Telemetría de lectura: un tracker por sesión de portal. Se arranca al abrir
 // una lección y se vacía al salir de la pestaña u ocultar la página.
@@ -39,12 +41,21 @@ async function renderLessons() {
 
   container.innerHTML = '<div class="flex items-center justify-center h-full text-[var(--black-60)] text-sm">Cargando lecciones...</div>'
 
-  const [lessonsRes, catsRes, loadedSettings] = await Promise.all([
-    supabase.from('lecciones').select('*').eq('active', true).order('orden'),
+  // En prod el filtro sigue siendo del servidor: así el portal real NO recibe
+  // ni una lección oculta, y ningún error en el merge podría exponerla. Fuera
+  // de prod hay que traerlas todas, porque lecciones.active es el valor de
+  // producción y el que manda es el override del entorno.
+  const leccionesQuery = APP_ENV === 'prod'
+    ? supabase.from('lecciones').select('*').eq('active', true).order('orden')
+    : supabase.from('lecciones').select('*').order('orden')
+
+  const [lessonsRes, catsRes, loadedSettings, overrides] = await Promise.all([
+    leccionesQuery,
     supabase.from('categorias').select('*').order('orden'),
     loadSettings(),
+    loadVisibilityOverrides(),
   ])
-  let allLessons = lessonsRes.data || []
+  let allLessons = visibles(aplicarVisibilidad(lessonsRes.data, overrides, APP_ENV))
   let settings = loadedSettings
   const seleccionGuardada = getSeleccion()
   let sel = resolverSeleccion(allLessons, settings, seleccionGuardada)
@@ -552,11 +563,15 @@ async function renderLessons() {
 
   // ── Realtime refresh ──────────────────────────────────────────────────────
   async function refreshLessons() {
-    const { data: freshLessons, error: err } = await supabase
-      .from('lecciones').select('*').eq('active', true).order('orden')
+    const [{ data: freshLessons, error: err }, overrides] = await Promise.all([
+      APP_ENV === 'prod'
+        ? supabase.from('lecciones').select('*').eq('active', true).order('orden')
+        : supabase.from('lecciones').select('*').order('orden'),
+      loadVisibilityOverrides(),
+    ])
     if (err || !freshLessons) return
 
-    allLessons = freshLessons
+    allLessons = visibles(aplicarVisibilidad(freshLessons, overrides, APP_ENV))
     sel = resolverSeleccion(allLessons, settings, sel)
     lessons = filtrarPorSeleccion(allLessons, sel)
     rebuildGrouped()
@@ -619,6 +634,10 @@ async function renderLessons() {
     subscribe: () => supabase
       .channel('lessons-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lecciones' }, async () => {
+        await refreshLessons()
+        showToast('Lecciones actualizadas ✓')
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leccion_visibilidad' }, async () => {
         await refreshLessons()
         showToast('Lecciones actualizadas ✓')
       })

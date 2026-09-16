@@ -12,7 +12,8 @@ import { remapContentUrl } from './content-url.js'
 import { parseLessonBlocks } from './lesson-blocks.js'
 import { extractBucketUrls, countReferences, diffBrokenUrls, pathFromBucketUrl } from './bucket-urls.js'
 import { evaluarBorradoCategoria } from './category-guard.js'
-import { loadSettings, loadSettingsResult, saveSetting } from './settings.js'
+import { loadSettings, loadSettingsResult, saveSetting, loadVisibilityOverrides, saveLessonVisibility } from './settings.js'
+import { aplicarVisibilidad, visibles } from './lesson-visibility.js'
 import { APP_ENV } from './env.js'
 import { lessonToEmbedText } from './lesson-embed-text.js'
 import { dedupeQuestions, firstUserMessage } from './faq-suggest.js'
@@ -281,21 +282,27 @@ async function renderHomePanel() {
   // era el día UTC: después de las 7pm de Bogotá ya contaba el día siguiente.
   const desdeHoy = bizStartOfDay(new Date()).toISOString()
   const [
-    { count: lessonesCount, error: lessonesErr },
+    { data: leccionesRows, error: lessonesErr },
     { count: convsCount, error: convsErr },
     { count: faqCount, error: faqErr },
     { count: glosarioCount, error: glosarioErr },
-    { data: activity }
+    { data: activity },
+    visOverrides
   ] = await Promise.all([
-    supabase.from('lecciones').select('*', { count: 'exact', head: true }).eq('active', true),
+    // Filas en vez de un count: el número tiene que reflejar lo que ve ESTE
+    // entorno. Si en sandbox ocultaste una lección, acá también baja.
+    supabase.from('lecciones').select('id,active'),
     // started_at, NO created_at: esa columna no existe en bodi_conversations y
     // la consulta fallaba con 42703. supabase-js no lanza, devuelve { error },
     // así que el contador mostraba 0 en silencio.
     supabase.from('bodi_conversations').select('*', { count: 'exact', head: true }).gte('started_at', desdeHoy),
     supabase.from('preguntas_frecuentes').select('*', { count: 'exact', head: true }),
     supabase.from('glosario').select('*', { count: 'exact', head: true }),
-    supabase.from('activity_log').select('action,entity_type,entity_name,created_at').order('created_at', { ascending: false }).limit(5)
+    supabase.from('activity_log').select('action,entity_type,entity_name,created_at').order('created_at', { ascending: false }).limit(5),
+    loadVisibilityOverrides()
   ])
+
+  const lessonesCount = visibles(aplicarVisibilidad(leccionesRows, visOverrides, APP_ENV)).length
 
   function timeAgo(iso) {
     const diff = Math.floor((Date.now() - new Date(iso)) / 1000)
@@ -446,13 +453,16 @@ async function renderLessonsPanel() {
   quillInstances = {}
   const el = document.getElementById('panel-lessons')
 
-  const [{ data: cats }, { data: lessons }, portalSettings] = await Promise.all([
+  const [{ data: cats }, { data: lessons }, portalSettings, visOverrides] = await Promise.all([
     supabase.from('categorias').select('*').order('orden'),
     supabase.from('lecciones').select('*').order('orden'),
     loadSettings(),
+    loadVisibilityOverrides(),
   ])
   currentCategories = cats || []
-  const allLessons = lessons || []
+  // aplicarVisibilidad, NO visibles(): el admin pinta las ocultas en gris con
+  // su etiqueta, no las quita de la lista.
+  const allLessons = aplicarVisibilidad(lessons, visOverrides, APP_ENV)
   const verticalLabels = { retail: 'Retail', restaurantes: 'Restaurantes' }
   const plataformaLabels = { web: 'Web', mobile: 'Mobile' }
 
@@ -1187,7 +1197,9 @@ function wireLessonCards() {
     btn.addEventListener('click', async e => {
       e.stopPropagation()
       const newActive = btn.dataset.active === 'false'
-      const { error } = await supabase.from('lecciones').update({ active: newActive }).eq('id', btn.dataset.id)
+      // En prod escribe lecciones.active; fuera de prod, solo el override de
+      // este entorno (ver saveLessonVisibility en js/settings.js).
+      const { error } = await saveLessonVisibility(btn.dataset.id, newActive)
       if (!error) { showToast(newActive ? 'Lección visible para estudiantes.' : 'Lección oculta para estudiantes.'); renderLessonsPanel() }
       else showToast('Error al actualizar.')
     })
