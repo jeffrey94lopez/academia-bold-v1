@@ -2342,7 +2342,9 @@ Esperado: `*/0` en las dos.
 
 - [ ] **Step 4: PASO MANUAL — encender el módulo en sandbox y usarlo unos días**
 
-El toggle por entorno existe justamente para esto. Antes de producción conviene que el umbral se pruebe con vacíos reales: si la bandeja se llena de vacíos de una sola pregunta, el umbral quedó alto y se ajusta en `app_settings` del sandbox sin tocar nada más.
+El toggle por entorno existe justamente para esto: el **panel** se enciende solo en sandbox. Antes de producción conviene que el umbral se pruebe con vacíos reales: si la bandeja se llena de vacíos de una sola pregunta, quedó alto.
+
+**Ojo con el umbral: es global, no por entorno.** Lo lee n8n, que atiende a los dos entornos por el mismo webhook y no sabe de cuál vino la pregunta, así que las RPCs leen la fila `env = 'prod'` fija. Ajustarlo durante las pruebas cambia también el agrupamiento de producción. El panel sí queda aislado; el umbral no.
 
 - [ ] **Step 5: PASO MANUAL — visto bueno del usuario y merge a master**
 

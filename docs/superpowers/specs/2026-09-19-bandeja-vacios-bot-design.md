@@ -145,8 +145,13 @@ Las ~250 preguntas históricas son el set de calibración. Un umbral muy alto da
 uno muy bajo mete "cómo cobro con tarjeta" y "cómo anulo una venta" en el mismo
 saco (peor que inútil).
 
-El valor final vive en `app_settings` con su columna `env`, así que se puede
-mover en sandbox sin tocar producción.
+El valor final vive en `app_settings`. **Es global, no por entorno**, y eso no
+es una omisión: quien agrupa es n8n, que atiende al bot de sandbox y de
+producción por el mismo webhook y no tiene forma de saber de cuál vino la
+pregunta. Un `p_env` mandado por el cliente sería autoafirmado — lo mismo que se
+descartó para la visibilidad de lecciones. Mover el umbral mientras se prueba en
+sandbox cambia también el agrupamiento de producción; se hace cuando el volumen
+real lo justifique, no a la ligera.
 
 ### 7. Dividir un vacío es manual, y no toca el ancla del original
 
