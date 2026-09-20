@@ -282,7 +282,10 @@ primero porque es más barata de arreglar que escribir contenido nuevo, y porque
 si no se ve, nadie se entera nunca.
 
 **El detalle.** Al abrir un vacío se ven las preguntas reales con su fecha, cada
-una con enlace a su conversación en el explorador que ya existe. Eso es lo que
+una con su conversación desplegable ahí mismo. No es un enlace al explorador de
+conversaciones: ese expande filas por índice de la página cargada y **no sabe
+abrir una conversación por id**, así que ese destino no existe. Desplegar en
+sitio además evita perder el lugar en la bandeja a mitad de una revisión. Eso es lo que
 permite escribir la respuesta: no se adivina qué quiso decir el usuario, se leen
 los nueve intentos.
 
