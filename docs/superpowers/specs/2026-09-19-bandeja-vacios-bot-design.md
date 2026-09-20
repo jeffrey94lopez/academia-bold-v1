@@ -50,7 +50,7 @@ relectura de `bodi_conversations`.
 
 - Captura de la pregunta fallida en el turno, escrita desde n8n.
 - Agrupación por similitud de embedding en un "vacío" con identidad estable.
-- Panel nuevo en el admin: lista, detalle, resolución y descarte.
+- Panel nuevo en el admin: lista, detalle, resolución, descarte y división.
 - Resolución hacia un bloque `bot_faq` de una lección existente.
 - Badge de pendientes en el sidebar + resumen diario.
 - Detector de silencio del registro.
@@ -64,6 +64,7 @@ relectura de `bodi_conversations`.
 | Destinos "lección nueva" y "bloque de pasos" | v2 de la bandeja. `bot_faq` es el camino más corto de vacío a bot respondiendo, y el único destino que ya tiene editor, embedding y sugerencias. |
 | Borrador redactado por LLM | Subsistema 3 del plan mayor. Se apoya sobre esta spec. |
 | MCP Claude ↔ bot | Subsistema 4. Después de esto es una capa delgada sobre las mismas RPCs; antes de esto sería releer conversaciones crudas en cada sesión, sin dejar rastro. |
+| Fusionar dos vacíos, y re-anclar uno | Ver decisión 7: el riesgo con la calibración prevista es el contrario (absorber de más, no partir de más), y re-anclar reintroduce el problema que evita la decisión 3. Fusionar queda a un parámetro de distancia si hace falta. |
 | Las 21 filas de `preguntas_frecuentes` | Hallazgo aparte, ver "Hallazgos colaterales". |
 
 ## Decisiones
@@ -107,8 +108,13 @@ se corre, y a las veinte preguntas el vacío absorbe cosas que no tienen que ver
 con la original. Con ancla fija el vacío significa siempre lo mismo, que es lo
 que un flujo con estado exige.
 
-Se guarda igual el embedding de **cada** pregunta: no cuesta nada y deja abierta
-la puerta a recalcular si el ancla resulta mala.
+Se guarda igual el embedding de **cada** pregunta: no cuesta nada, es lo que
+permite dividir un vacío (decisión 7) y deja abierta la puerta a recalcular si
+el ancla resulta mala.
+
+El precio de esta decisión es que un umbral flojo hace que un vacío absorba
+preguntas vecinas y nada lo corrige solo. La salida es manual y explícita:
+dividir.
 
 ### 4. El matching filtra por vertical
 
@@ -142,7 +148,52 @@ saco (peor que inútil).
 El valor final vive en `app_settings` con su columna `env`, así que se puede
 mover en sandbox sin tocar producción.
 
-### 7. Enfoques descartados
+### 7. Dividir un vacío es manual, y no toca el ancla del original
+
+Cuando un vacío absorbió preguntas que no van juntas, en el detalle se
+seleccionan las que sobran y se mandan a un vacío nuevo.
+
+**El vacío original conserva su ancla.** Recalcularla al dividir sería el
+centroide móvil que descarta la decisión 3, por la puerta de atrás: el vacío
+original cambiaría de significado justo cuando alguien estaba atendiéndolo. El
+vacío nuevo toma como ancla el embedding de la pregunta **más antigua** de las
+seleccionadas, que es la misma regla con la que nace cualquier vacío.
+
+No hace falta re-anclar el original para que la división sirva hacia adelante:
+el matching elige el vacío **más cercano** por encima del umbral, así que en
+cuanto existe el vacío nuevo, las preguntas futuras de ese tema caen ahí solas.
+Por eso **re-anclar queda fuera** — no resuelve nada que la división no resuelva
+ya, y sí reintroduce el problema que la decisión 3 evita.
+
+`dividir_vacio(p_vacio_id, p_pregunta_ids uuid[], p_titulo text) → uuid`,
+transaccional, con cuatro validaciones:
+
+| Caso | Qué hace |
+|---|---|
+| Selección vacía | Rechaza |
+| Alguna pregunta no pertenece a ese vacío | Rechaza entera, no parcial |
+| Se seleccionan **todas** las preguntas | Rechaza: eso es renombrar el vacío, no dividirlo, y dejaría un vacío huérfano de cero preguntas |
+| Selección válida | Crea el vacío nuevo, remapea `vacio_id`, y **recalcula** `preguntas_total`, `primera_vez` y `ultima_vez` de los dos desde `bot_vacios_preguntas` |
+
+Los contadores se recalculan y no se incrementan: después de mover filas, un
+contador derivado por suma se desincroniza en cuanto algo falla a mitad de
+camino.
+
+**Si el vacío original estaba `resuelto`, el nuevo nace `pendiente`** — y esto
+es lo importante, no un detalle: la FAQ que se escribió no cubre lo que se
+acaba de separar. Nacer heredando `resuelto` escondería contenido faltante
+detrás de un vacío ya cerrado.
+
+La división se registra en `activity_log` con la acción `move` ("Movió"), que ya
+existe (`js/admin.js:2837`), con el vacío origen y destino en `details`.
+
+**Fusionar queda fuera de v1.** Es el problema inverso (umbral alto que parte un
+mismo tema en dos) y el riesgo real con la calibración prevista es el contrario.
+La RPC está pensada para que agregarlo después sea un parámetro nullable de
+destino: `null` crea un vacío nuevo, un id manda las preguntas a uno existente.
+Es la misma operación con otro destino.
+
+### 8. Enfoques descartados
 
 **Job nocturno con un LLM que agrupa.** Agrupa mejor semánticamente y titula
 solo, pero cada corrida re-agrupa desde cero: un vacío resuelto puede reaparecer
@@ -235,6 +286,12 @@ una con enlace a su conversación en el explorador que ya existe. Eso es lo que
 permite escribir la respuesta: no se adivina qué quiso decir el usuario, se leen
 los nueve intentos.
 
+Es también donde se nota que el agrupamiento se equivocó. Cada pregunta lleva un
+checkbox; con una o más seleccionadas aparece **"Mover a un vacío nuevo"**, que
+pide un título y llama a `dividir_vacio` (decisión 7). La acción está en el
+detalle y no en la lista a propósito: dividir bien exige leer las preguntas, y
+desde la lista solo se ve el título.
+
 **Resolver.** Un modal con selector de lección destino, **Pregunta base**
 (precargada con el título), **Variaciones** (precargadas con las preguntas del
 cluster pasadas por `dedupeQuestions`, que ya existe y ya está testeado) y
@@ -322,12 +379,23 @@ Lógica pura en módulos import-safe, según el patrón del repo:
 - **`js/gap-lifecycle.js`** — derivar el estado mostrado (pendiente /
   resuelto-pero-sigue-preguntándose / descartado-que-vuelve) a partir de
   contadores y fechas, y el veredicto del detector de silencio.
+- **`js/gap-split.js`** — dadas las preguntas de un vacío y una selección,
+  validar la división y calcular los contadores resultantes de ambos vacíos.
+  Cubre los cuatro casos de la decisión 7: selección vacía, pregunta ajena,
+  selección total, y el caso válido. Las mismas reglas viven en la RPC (que es
+  quien manda, porque es transaccional); el módulo puro es lo que permite
+  probarlas a fondo y lo que deshabilita el botón antes de un viaje perdido.
 - `dedupeQuestions` ya está testeado; solo se reusa.
 
 **Lo que no se puede cubrir con `node --test`**, dicho en vez de fingir
 cobertura: la RPC SQL, el nodo de n8n y la UI. Esos van con verificación manual
 documentada: mandar una pregunta de prueba por el webhook, ver la fila aparecer
 en la bandeja, resolverla, y confirmar que el bot responde con esa FAQ.
+
+Para la división, una verificación manual propia porque toca la identidad de los
+vacíos: dividir uno con varias preguntas, confirmar que los contadores de ambos
+cuadran con las filas reales, que el ancla del original no cambió, y que una
+pregunta nueva del tema separado cae en el vacío nuevo y no en el viejo.
 
 ## Pasos manuales del usuario
 
