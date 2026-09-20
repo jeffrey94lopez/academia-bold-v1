@@ -7,7 +7,8 @@ language sql stable security definer set search_path = public
 as $$
   with umbral as (
     select coalesce((select value::int from app_settings
-                      where key = 'gap_umbral_urgencia' and env = 'prod' limit 1), 5) as n
+                      where key = 'gap_umbral_urgencia' and env = 'prod'
+                        and value ~ '^[0-9]+$' limit 1), 5) as n
   )
   select jsonb_build_object(
     'nuevos_24h', (select coalesce(jsonb_agg(jsonb_build_object(

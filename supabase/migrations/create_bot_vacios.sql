@@ -46,8 +46,12 @@ create table if not exists public.bot_vacios_preguntas (
   created_at       timestamptz not null default now()
 );
 
-create index if not exists idx_bot_vacios_embedding
-  on public.bot_vacios using hnsw (embedding vector_cosine_ops);
+-- Sin índice vectorial, a propósito y siguiendo el precedente de
+-- update_lecciones_embedding_768_gemini.sql: con unos cientos de filas la
+-- búsqueda exacta es instantánea, y `hnsw` exige pgvector >= 0.5.0, que este
+-- proyecto nunca ha usado. Cuando la tabla pase de unos miles de vacíos:
+--   create index ... using hnsw (embedding vector_cosine_ops);
+--   -- requiere: select extversion from pg_extension where extname = 'vector';
 create index if not exists idx_bot_vacios_bandeja
   on public.bot_vacios (estado, ultima_vez desc);
 create index if not exists idx_bot_vacios_preguntas_vacio

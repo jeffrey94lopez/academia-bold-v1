@@ -26,7 +26,10 @@ create or replace function public.descartar_vacio(
 language plpgsql security definer set search_path = public
 as $$
 begin
-  if p_motivo not in ('no_aplica','es_soporte','duplicado','ruido') then
+  -- `p_motivo is null or` no es redundante: NULL not in (...) da NULL, y un IF
+  -- de plpgsql trata NULL como falso, así que un motivo nulo pasaría la
+  -- validación y dejaría el vacío descartado sin motivo, sin forma de reabrirlo.
+  if p_motivo is null or p_motivo not in ('no_aplica','es_soporte','duplicado','ruido') then
     raise exception 'motivo_invalido';
   end if;
   update bot_vacios
