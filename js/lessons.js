@@ -626,6 +626,24 @@ async function renderLessons() {
     showScreen('content')
   }
 
+  window.openLessonBySlug = (slug) => {
+    const lesson = allLessons.find(l => l.slug === slug)
+    if (!lesson) { console.warn('[openLessonBySlug] Lección no encontrada:', slug); return }
+    window.openLessonById(lesson.id)
+  }
+
+  // Link directo a una lección puntual: ?leccion=<slug> (botón "Copiar link"
+  // del admin). Se resuelve una sola vez, al cargar el portal.
+  const leccionSlug = new URLSearchParams(window.location.search).get('leccion')
+  if (leccionSlug) {
+    if (allLessons.some(l => l.slug === leccionSlug)) {
+      window.switchTab?.('lessons')
+      window.openLessonBySlug(leccionSlug)
+    } else {
+      console.warn('[deep-link] Lección no encontrada para el slug:', leccionSlug)
+    }
+  }
+
   // ── Supabase Realtime ─────────────────────────────────────────────────────
   // Suscripción reanudable: al salir de la pestaña se detiene y al volver se
   // reanuda (main.js). Antes se removía el canal sin forma de re-suscribir, así

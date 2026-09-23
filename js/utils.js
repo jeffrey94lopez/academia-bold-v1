@@ -33,6 +33,18 @@ export function csvCell(value) {
   return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
 }
 
+// Slug legible a partir de un título: minúsculas, sin tildes, todo lo que
+// no sea alfanumérico se vuelve "-". Espejo del slugify() en SQL
+// (supabase/migrations/add_lecciones_slug.sql) — se usa para lecciones
+// nuevas; el backfill de las existentes lo hace esa migración.
+export function slugify(text) {
+  return String(text ?? '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // quita diacríticos
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
 export function exportCSV(rows, filename, columns) {
   const header = columns.map(c => csvCell(c.label)).join(',')
   const body = rows
