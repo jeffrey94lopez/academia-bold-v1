@@ -14,6 +14,10 @@ initBoldContext()
 
 startLiveUpdates()
 
+// Expuesta para que lessons.js pueda cambiar a la pestaña de lecciones al
+// abrir un link directo (?leccion=<slug>) sin duplicar la lógica de tabs acá.
+window.switchTab = switchTab
+
 ;(async () => {
   const s = await loadSettings()
   if (s.bot_enabled === 'false') {

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { getYouTubeId } from '../js/utils.js'
+import { getYouTubeId, slugify } from '../js/utils.js'
 
 test('formatos clásicos: watch?v= y youtu.be', () => {
   assert.equal(getYouTubeId('https://www.youtube.com/watch?v=dQw4w9WgXcQ'), 'dQw4w9WgXcQ')
@@ -27,4 +27,23 @@ test('no-YouTube o inválido → null', () => {
   assert.equal(getYouTubeId(''), null)
   assert.equal(getYouTubeId(null), null)
   assert.equal(getYouTubeId('https://www.youtube.com/'), null)
+})
+
+test('slugify: título típico', () => {
+  assert.equal(slugify('Cómo cerrar caja en Bold POS'), 'como-cerrar-caja-en-bold-pos')
+})
+
+test('slugify: tildes, ñ y signos varios', () => {
+  assert.equal(slugify('¿Qué es la reversión de pago?'), 'que-es-la-reversion-de-pago')
+  assert.equal(slugify('Configuración de año fiscal'), 'configuracion-de-ano-fiscal')
+})
+
+test('slugify: guiones dobles y bordes se recortan', () => {
+  assert.equal(slugify('  --Hola   Mundo--  '), 'hola-mundo')
+})
+
+test('slugify: vacío o sin caracteres válidos → cadena vacía', () => {
+  assert.equal(slugify(''), '')
+  assert.equal(slugify(null), '')
+  assert.equal(slugify('***'), '')
 })
