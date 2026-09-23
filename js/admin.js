@@ -3,7 +3,7 @@ import { requireAuth, logout } from './auth.js'
 import { uploadFile, listFiles, listAllFiles, fileExists, deleteFile, renameFile, createFolder, moveFile, publicUrlPrefix, publicUrlFor } from './upload.js'
 import { renderBlocks } from './block-renderer.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
-import { escapeHtml } from './utils.js'
+import { escapeHtml, slugify } from './utils.js'
 import { renderResultsPanel } from './admin-analytics.js'
 import { renderAnalytics } from './analytics-shell.js'
 import { bizStartOfDay } from './biz-time.js'
@@ -966,9 +966,22 @@ async function renderLessonsPanel() {
     // Una copia nace oculta a los estudiantes: el texto viene escrito para la
     // otra vertical y todavía nadie lo ha adaptado.
     const esCopia = !id && formEsDuplicado
-    const { error } = id
-      ? await supabase.from('lecciones').update(payload).eq('id', id)
-      : await supabase.from('lecciones').insert(prepararPayload(payload, esCopia))
+    // El slug se genera una sola vez, al crear, y nunca se vuelve a tocar: así
+    // un link ya compartido (?leccion=<slug>) no se rompe si luego se edita el
+    // título. Si el slug ya existe (título repetido) se numera hasta que la
+    // base de datos lo acepte (constraint UNIQUE).
+    let error
+    if (id) {
+      ;({ error } = await supabase.from('lecciones').update(payload).eq('id', id))
+    } else {
+      const base = slugify(titulo) || `leccion-${Date.now()}`
+      for (let intento = 0; intento < 20; intento++) {
+        const slug = intento === 0 ? base : `${base}-${intento + 1}`
+        const insertPayload = prepararPayload({ ...payload, slug }, esCopia)
+        ;({ error } = await supabase.from('lecciones').insert(insertPayload))
+        if (!error || error.code !== '23505') break
+      }
+    }
     if (error) {
       alert('Error al guardar: ' + error.message)
       btn.disabled = false
@@ -1127,6 +1140,9 @@ function lessonCardHtml(l) {
         <button data-id="${l.id}" class="copy-whatsapp p-1.5 rounded-lg hover:bg-green-50 text-[var(--black-40)] hover:text-green-600" title="Copiar para WhatsApp">
           <i data-lucide="share-2" class="w-4 h-4"></i>
         </button>
+        <button data-slug="${escapeHtml(l.slug || '')}" class="copy-link p-1.5 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Copiar link de la lección">
+          <i data-lucide="link" class="w-4 h-4"></i>
+        </button>
         <button data-id="${l.id}" class="dup-lesson p-1.5 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Duplicar en ${destino === 'retail' ? 'Retail' : 'Restaurantes'}">
           <i data-lucide="copy" class="w-4 h-4"></i>
         </button>
@@ -1168,6 +1184,9 @@ function lessonCardGridHtml(l) {
         </button>
         <button data-id="${l.id}" class="copy-whatsapp flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-green-50 text-[var(--black-40)] hover:text-green-600">
           <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
+        </button>
+        <button data-slug="${escapeHtml(l.slug || '')}" class="copy-link flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Copiar link de la lección">
+          <i data-lucide="link" class="w-3.5 h-3.5"></i>
         </button>
         <button data-id="${l.id}" class="dup-lesson flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Duplicar en ${destino === 'retail' ? 'Retail' : 'Restaurantes'}">
           <i data-lucide="copy" class="w-3.5 h-3.5"></i>
@@ -1230,7 +1249,7 @@ function wireLessonCards() {
 
   list.querySelectorAll('.lesson-card').forEach(card => {
     card.addEventListener('click', async e => {
-      if (e.target.closest('.del-lesson') || e.target.closest('.copy-whatsapp') || e.target.closest('.toggle-lesson') || e.target.closest('.toggle-bot') || e.target.closest('.re-embed') || e.target.closest('.dup-lesson')) return
+      if (e.target.closest('.del-lesson') || e.target.closest('.copy-whatsapp') || e.target.closest('.copy-link') || e.target.closest('.toggle-lesson') || e.target.closest('.toggle-bot') || e.target.closest('.re-embed') || e.target.closest('.dup-lesson')) return
       const { data } = await supabase.from('lecciones').select('*').eq('id', card.dataset.id).single()
       if (data) openLessonForm(data)
     })
@@ -1248,6 +1267,25 @@ function wireLessonCards() {
       if (icon) { icon.setAttribute('data-lucide', 'share-2'); lucide.createIcons() }
     }, 2000)
     copyLessonToWhatsApp(data)
+  }))
+
+  list.querySelectorAll('.copy-link').forEach(b => b.addEventListener('click', async e => {
+    e.stopPropagation()
+    if (!b.dataset.slug) { showToast('Esta lección todavía no tiene link (recárgala e intenta de nuevo).', 'error'); return }
+    const url = `${location.origin}/?leccion=${b.dataset.slug}`
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      showToast('No se pudo copiar el link.', 'error')
+      return
+    }
+    const icon = b.querySelector('i')
+    b.title = '¡Copiado!'
+    if (icon) { icon.setAttribute('data-lucide', 'check'); lucide.createIcons() }
+    setTimeout(() => {
+      b.title = 'Copiar link de la lección'
+      if (icon) { icon.setAttribute('data-lucide', 'link'); lucide.createIcons() }
+    }, 2000)
   }))
 
   list.querySelectorAll('.del-lesson').forEach(b => b.addEventListener('click', async e => {
