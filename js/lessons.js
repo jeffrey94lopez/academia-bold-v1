@@ -5,7 +5,7 @@ import { track } from './analytics.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml, isStaff } from './utils.js'
 import { VERTICALES, PLATAFORMAS, getSeleccion, setSeleccion, filtrarPorSeleccion, plataformasHabilitadas, verticalesVisibles, resolverSeleccion } from './vertical.js'
-import { onContextoBold, seleccionDesdeContexto } from './bold-context.js'
+import { onContextoBold, seleccionDesdeContexto, getContextoBold } from './bold-context.js'
 import { crearSuscripcionReanudable } from './realtime-lifecycle.js'
 import { createReadingTracker } from './reading-tracker.js'
 import { loadSettings, loadVisibilityOverrides } from './settings.js'
@@ -47,7 +47,7 @@ async function renderLessons() {
   let allLessons = visibles(aplicarVisibilidad(lessonsRes.data, overrides, APP_ENV))
   let settings = loadedSettings
   const seleccionGuardada = getSeleccion()
-  let sel = resolverSeleccion(allLessons, settings, seleccionGuardada)
+  let sel = resolverSeleccion(allLessons, settings, seleccionGuardada, { verticalFija: verticalFijadaPorBold() })
   if (sel.vertical !== seleccionGuardada.vertical || sel.plataforma !== seleccionGuardada.plataforma) {
     setSeleccion(sel)
   }
@@ -75,12 +75,21 @@ async function renderLessons() {
   }
   rebuildGrouped()
 
+  // Bold POS nos dice la vertical del comercio, así que elegirla a mano no tiene
+  // sentido: se oculta la tarjeta. El chip Web/Mobile SÍ se queda — Bold no manda
+  // `platform` (va fijo en 'web'), y sin el chip nadie podría llegar a las
+  // lecciones Mobile. ?staff=1 devuelve el selector para que soporte pueda
+  // revisar la vertical contraria.
+  function verticalFijadaPorBold() {
+    return !!getContextoBold()?.vertical && !isStaff()
+  }
+
   // Selector de vertical (tarjetas con icono) + plataforma (chips).
   // Mismo markup en móvil y desktop; se regenera al cambiar la selección.
   function selectorHtml() {
     const verticalesShown  = VERTICALES.filter(v => verticalesVisibles(allLessons, settings).includes(v.key))
     const plataformasShown = PLATAFORMAS.filter(p => plataformasHabilitadas(settings, sel.vertical).includes(p.key))
-    const showVerticales  = verticalesShown.length >= 2
+    const showVerticales  = verticalesShown.length >= 2 && !verticalFijadaPorBold()
     const showPlataformas = plataformasShown.length >= 2
 
     if (!showVerticales && !showPlataformas) return ''
@@ -401,7 +410,7 @@ async function renderLessons() {
   function applySeleccion(cambio, { origen = 'usuario' } = {}) {
     const previo = sel
     setSeleccion(cambio)
-    sel = resolverSeleccion(allLessons, settings, getSeleccion())
+    sel = resolverSeleccion(allLessons, settings, getSeleccion(), { verticalFija: verticalFijadaPorBold() })
     searchQuery = ''
     for (const id of ['ls-desk-search', 'ls-cat-search', 'ls-mob-search']) {
       const inp = document.getElementById(id)
@@ -561,7 +570,7 @@ async function renderLessons() {
     if (err || !freshLessons) return
 
     allLessons = visibles(aplicarVisibilidad(freshLessons, overrides, APP_ENV))
-    sel = resolverSeleccion(allLessons, settings, sel)
+    sel = resolverSeleccion(allLessons, settings, sel, { verticalFija: verticalFijadaPorBold() })
     lessons = filtrarPorSeleccion(allLessons, sel)
     rebuildGrouped()
 
