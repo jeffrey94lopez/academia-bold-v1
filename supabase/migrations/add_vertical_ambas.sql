@@ -15,7 +15,10 @@
 -- Borra la CHECK que hoy limita `vertical` a dos valores, se llame como se
 -- llame. Se busca por su definición y no por su nombre porque el nombre lo
 -- puso Postgres: si adivináramos mal, el `drop ... if exists` no haría nada
--- y el `add` de abajo fallaría por duplicado. Avisa cuál borró.
+-- y el `add constraint` de abajo tendría éxito con un nombre nuevo, dejando
+-- viva la CHECK vieja. Esa falla es silenciosa: no hay error, solo que la
+-- vieja CHECK rechazaría en silencio todo intento de insertar 'ambas'. Por
+-- eso buscamos por definición y no por nombre. Avisa cuál borró.
 do $$
 declare c record;
 begin
@@ -45,18 +48,26 @@ alter table public.glosario
   add column if not exists vertical text not null default 'ambas'
     check (vertical in ('retail', 'restaurantes', 'ambas'));
 
+-- Supabase suele refrescar solo el caché de esquema de PostgREST tras un DDL,
+-- pero si no lo hiciera, el frontend pediría la columna `vertical` y recibiría
+-- un 404 confuso. Esta línea lo fuerza y no cuesta nada.
+notify pgrst, 'reload schema';
+
 -- ---------------------------------------------------------------------------
--- Control 1: las 3 columnas aceptan los mismos 3 valores. Debe listar 3 filas.
+-- Control 1: las 3 columnas aceptan vertical. Debe listar exactamente 3 filas,
+-- todas con 'ambas' en la definición. Una cuarta fila, o una fila sin 'ambas',
+-- significa que quedó una constraint vieja de dos valores.
 select rel.relname, pg_get_constraintdef(con.oid)
 from pg_constraint con
 join pg_class rel on rel.oid = con.conrelid
 join pg_namespace nsp on nsp.oid = rel.relnamespace
 where nsp.nspname = 'public'
   and rel.relname in ('lecciones', 'preguntas_frecuentes', 'glosario')
-  and pg_get_constraintdef(con.oid) ilike '%ambas%';
+  and pg_get_constraintdef(con.oid) ilike '%vertical%';
 
--- Control 2: ninguna fila quedó sin vertical. Las 3 cuentas de null deben ser 0
--- y las de 'ambas' deben igualar el total de FAQ y de términos.
+-- Control 2 (informativo): conteo de filas y valores de `vertical` en las dos
+-- nuevas columnas. La garantía de que no hay nulls viene del NOT NULL DEFAULT,
+-- no de esta consulta. Útil para confirmar de un vistazo cuántos ítems hay.
 select 'preguntas_frecuentes' as tabla, count(*) filter (where vertical is null) as nulos,
        count(*) filter (where vertical = 'ambas') as ambas, count(*) as total
 from public.preguntas_frecuentes
