@@ -134,9 +134,10 @@ async function createConversation() {
   storageSet('bold_session_id', sessionId)
   const id = crypto.randomUUID()
   try {
+    const { vertical, plataforma } = getSeleccion()
     const { error } = await supabase
       .from('bodi_conversations')
-      .insert({ id, session_id: sessionId, messages: [], status: 'active' })
+      .insert({ id, session_id: sessionId, messages: [], status: 'active', vertical, plataforma })
     if (error) throw new Error(error.message)
     conversationId = id
     // El INSERT deja last_activity_at con el default now() de la columna: hay que
