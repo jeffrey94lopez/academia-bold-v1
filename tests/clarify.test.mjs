@@ -82,3 +82,14 @@ test('chatRequestBody: con contexto agrega account_id y business_name (y nada de
   // El correo del usuario NO viaja al bot ni al LLM (ver doc §7.4).
   assert.equal(JSON.stringify(body).includes('ana@comercio.com'), false)
 })
+
+test('chatRequestBody manda la vertical y las FAQ tal cual las recibe', () => {
+  const faqs = [{ pregunta: 'a', respuesta: 'b' }]
+  const body = chatRequestBody({
+    message: 'hola', history: [], faqContext: faqs, clarifyCount: 0,
+    seleccion: { vertical: 'restaurantes', plataforma: 'web' },
+  })
+  assert.equal(body.vertical, 'restaurantes')
+  assert.equal(body.plataforma, 'web')
+  assert.deepEqual(body.faq_context, faqs)
+})

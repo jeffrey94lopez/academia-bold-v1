@@ -4,7 +4,7 @@ import { renderMarkdown, renderBotHtml } from './markdown.js'
 import { storageGet, storageSet, storageRemove } from './storage.js'
 import { typewrite, skipActiveTypewriter } from './typewriter.js'
 import { isNearBottom } from './reload-policy.js'
-import { getSeleccion } from './vertical.js'
+import { getSeleccion, aplicaA } from './vertical.js'
 import { getContextoBold, onContextoBold } from './bold-context.js'
 import { nextClarifyCount, chatRequestBody, shouldAskResolution } from './clarify.js'
 import { inactivitySettings, isStaleConversation } from './inactivity.js'
@@ -35,7 +35,7 @@ export async function loadFaqContext() {
   try {
     const { data } = await supabase
       .from('preguntas_frecuentes')
-      .select('pregunta, respuesta')
+      .select('pregunta, respuesta, vertical')
       .order('orden')
       .order('created_at')
     cachedFaqs = data || []
@@ -716,12 +716,17 @@ async function sendMessage(text) {
   scrollToBottom()
 
   try {
+    const sel = getSeleccion()
+    // Filtrar acá y no en loadFaqContext: el contexto de Bold puede llegar
+    // después de la carga inicial de FAQs, y el primer mensaje ya tiene que
+    // salir con las de la vertical correcta.
+    const faqsDeLaVertical = cachedFaqs.filter(f => aplicaA(f, sel.vertical))
     const res  = await fetch(N8N_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(chatRequestBody({
-        message: text, history, faqContext: cachedFaqs,
-        clarifyCount, seleccion: getSeleccion(), contexto: getContextoBold(),
+        message: text, history, faqContext: faqsDeLaVertical,
+        clarifyCount, seleccion: sel, contexto: getContextoBold(),
       }))
     })
     const data = await res.json()
