@@ -1963,15 +1963,22 @@ async function renderGlossaryPanel() {
   const { data } = await supabase.from('glosario').select('*').order('termino')
   const items = data || []
 
+  let glosVertical = 'all'
+  const visiblesGlos = () => glosVertical === 'all'
+    ? items
+    : items.filter(g => aplicaA(g, glosVertical))
+
   function renderList(list) {
     return list.length ? list.map(g => `
       <div data-id="${g.id}" class="glos-item bg-white border border-[var(--blue-10)] rounded-xl px-4 py-3 flex items-center gap-3">
         <div class="flex-1 min-w-0">
           <p class="font-bold text-sm text-[var(--blue-100)]">${escapeHtml(g.termino)}</p>
+          <span class="text-[10px] font-bold bg-[var(--background-page)] text-[var(--black-40)] px-1.5 py-0.5 rounded-full">${escapeHtml(labelVertical(g.vertical))}</span>
           <p class="text-xs text-[var(--black-60)] mt-0.5">${escapeHtml(g.definicion)}</p>
         </div>
         <div class="flex gap-1.5 shrink-0">
           <button data-id="${g.id}" data-term="${escapeHtml(g.termino)}" data-def="${escapeHtml(g.definicion)}"
+            data-vertical="${escapeHtml(g.vertical || 'ambas')}"
             class="edit-term px-3 py-1.5 text-xs font-bold rounded-lg bg-[var(--blue-10)] text-[var(--blue-100)] hover:bg-[var(--blue-20)]">Editar</button>
           <button data-id="${g.id}"
             class="del-term px-3 py-1.5 text-xs font-bold rounded-lg bg-[var(--coral-10)] text-[var(--coral-100)] hover:bg-[var(--coral-30)]">Eliminar</button>
@@ -1995,10 +2002,15 @@ async function renderGlossaryPanel() {
         </button>
       </div>
     </div>
+    <div id="glosVerticalChips" class="flex gap-2 mb-3">
+      <button data-v="all" class="glos-vchip px-3 py-1.5 rounded-full text-xs font-bold border border-[var(--blue-100)] bg-[var(--blue-10)] text-[var(--blue-100)]">Todas</button>
+      <button data-v="retail" class="glos-vchip px-3 py-1.5 rounded-full text-xs font-bold border border-[var(--blue-20)] text-[var(--black-60)]">Retail</button>
+      <button data-v="restaurantes" class="glos-vchip px-3 py-1.5 rounded-full text-xs font-bold border border-[var(--blue-20)] text-[var(--black-60)]">Restaurantes</button>
+    </div>
     <input id="searchGlosario" type="text" placeholder="🔍  Buscar término..."
       class="w-full px-4 py-2.5 rounded-xl border border-[var(--blue-20)] bg-white text-sm outline-none focus:border-[var(--blue-100)] mb-3">
     <div id="glosarioList" class="space-y-2">
-      ${renderList(items)}
+      ${renderList(visiblesGlos())}
     </div>
     <div id="termFormInline" class="hidden mt-3 bg-white rounded-2xl border border-[var(--blue-20)] p-4">
       <input type="hidden" id="termId">
@@ -2006,6 +2018,10 @@ async function renderGlossaryPanel() {
       <input id="termTermino" placeholder="Término" required class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] mb-2">
       <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Definición</label>
       <textarea id="termDefinicion" placeholder="Definición" rows="2" required class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] resize-none mb-2"></textarea>
+      <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Vertical</label>
+      <select id="termVertical" class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] mb-2 bg-white">
+        ${VERTICALES_CONTENIDO.map(v => `<option value="${v.key}">${v.label}</option>`).join('')}
+      </select>
       <div class="flex gap-2">
         <button id="cancelTerm" class="flex-1 py-2 rounded-xl border border-[var(--blue-20)] text-sm font-bold text-[var(--black-60)]">Cancelar</button>
         <button id="saveTerm" class="flex-1 py-2 rounded-xl bg-[var(--blue-100)] text-white text-sm font-bold">Guardar</button>
@@ -2016,15 +2032,31 @@ async function renderGlossaryPanel() {
 
   document.getElementById('searchGlosario').addEventListener('input', e => {
     const q = e.target.value.toLowerCase()
-    const filtered = items.filter(g => g.termino.toLowerCase().includes(q) || g.definicion.toLowerCase().includes(q))
+    const filtered = visiblesGlos().filter(g => g.termino.toLowerCase().includes(q) || g.definicion.toLowerCase().includes(q))
     document.getElementById('glosarioList').innerHTML = renderList(filtered)
     bindGlosarioActions()
   })
 
-  function showForm(id = '', term = '', def = '') {
+  document.querySelectorAll('.glos-vchip').forEach(b => b.addEventListener('click', () => {
+    glosVertical = b.dataset.v
+    document.querySelectorAll('.glos-vchip').forEach(x => {
+      const on = x.dataset.v === glosVertical
+      x.classList.toggle('border-[var(--blue-100)]', on)
+      x.classList.toggle('bg-[var(--blue-10)]', on)
+      x.classList.toggle('text-[var(--blue-100)]', on)
+      x.classList.toggle('border-[var(--blue-20)]', !on)
+      x.classList.toggle('text-[var(--black-60)]', !on)
+    })
+    document.getElementById('searchGlosario').value = ''
+    document.getElementById('glosarioList').innerHTML = renderList(visiblesGlos())
+    bindGlosarioActions()
+  }))
+
+  function showForm(id = '', term = '', def = '', vertical = 'ambas') {
     document.getElementById('termId').value = id
     document.getElementById('termTermino').value = term
     document.getElementById('termDefinicion').value = def
+    document.getElementById('termVertical').value = vertical
     document.getElementById('termFormInline').classList.remove('hidden')
     document.getElementById('termTermino').focus()
     document.querySelectorAll('.glos-item').forEach(el => el.classList.remove('!border-[var(--blue-100)]'))
@@ -2033,7 +2065,7 @@ async function renderGlossaryPanel() {
 
   function bindGlosarioActions() {
     document.querySelectorAll('.edit-term').forEach(b => b.addEventListener('click', () =>
-      showForm(b.dataset.id, b.dataset.term, b.dataset.def)))
+      showForm(b.dataset.id, b.dataset.term, b.dataset.def, b.dataset.vertical || 'ambas')))
     document.querySelectorAll('.del-term').forEach(b => b.addEventListener('click', async () => {
       if (!confirm('¿Eliminar este término?')) return
       await supabase.from('glosario').delete().eq('id', b.dataset.id)
@@ -2053,6 +2085,7 @@ async function renderGlossaryPanel() {
     const payload = {
       termino:    document.getElementById('termTermino').value.trim(),
       definicion: document.getElementById('termDefinicion').value.trim(),
+      vertical:   document.getElementById('termVertical').value || 'ambas',
     }
     let savedId = id
     const { data: saved, error } = id
