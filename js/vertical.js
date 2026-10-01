@@ -104,9 +104,28 @@ export function verticalesVisibles(lecciones, settings) {
   })
 }
 
-export function resolverSeleccion(lecciones, settings, seleccion = {}) {
-  const visibles = verticalesVisibles(lecciones, settings)
+/**
+ * Normaliza una selección contra lo que de verdad hay publicado.
+ *
+ * `verticalFija` se usa cuando Bold POS nos dijo la vertical del comercio: ese
+ * dato no se sobrescribe por falta de contenido (sería mostrarle a un
+ * restaurante material de retail sin avisarle; para eso está el estado vacío).
+ * Lo único que gana sobre Bold es el switch del admin, que es el "todavía no
+ * lanzamos" deliberado.
+ */
+export function resolverSeleccion(lecciones, settings, seleccion = {}, { verticalFija = false } = {}) {
   const { vertical, plataforma } = seleccion
+
+  if (verticalFija && V_KEYS.includes(vertical) && verticalHabilitada(settings, vertical)) {
+    const plats = plataformasHabilitadas(settings, vertical)
+    if (plats.includes(plataforma)) return { vertical, plataforma }
+    const ls = lecciones || []
+    const conLecciones = plats.find(p =>
+      ls.some(l => aplicaA(l, vertical) && (l.plataforma || 'web') === p))
+    return { vertical, plataforma: conLecciones || plats[0] || plataforma }
+  }
+
+  const visibles = verticalesVisibles(lecciones, settings)
   if (visibles.includes(vertical) &&
       plataformasHabilitadas(settings, vertical).includes(plataforma)) {
     return { vertical, plataforma }

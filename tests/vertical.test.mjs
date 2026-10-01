@@ -206,3 +206,31 @@ test('verticalHabilitada respeta el switch de app_settings', () => {
   assert.equal(verticalHabilitada({ vertical_retail_enabled: 'false' }, 'retail'), false)
   assert.equal(verticalHabilitada({ vertical_retail_enabled: 'true' }, 'retail'), true)
 })
+
+test('resolverSeleccion verticalFija: respeta la vertical aunque no tenga lecciones', () => {
+  const ls = [{ vertical: 'retail', plataforma: 'web' }]
+  assert.deepEqual(
+    resolverSeleccion(ls, {}, { vertical: 'restaurantes', plataforma: 'web' }, { verticalFija: true }),
+    { vertical: 'restaurantes', plataforma: 'web' })
+})
+
+test('resolverSeleccion verticalFija: sigue resolviendo la plataforma deshabilitada', () => {
+  const ls = [{ vertical: 'restaurantes', plataforma: 'mobile' }]
+  const settings = { plataforma_restaurantes_web_enabled: 'false' }
+  assert.deepEqual(
+    resolverSeleccion(ls, settings, { vertical: 'restaurantes', plataforma: 'web' }, { verticalFija: true }),
+    { vertical: 'restaurantes', plataforma: 'mobile' })
+})
+
+test('resolverSeleccion verticalFija: el switch del admin gana sobre Bold', () => {
+  const ls = [{ vertical: 'retail', plataforma: 'web' }]
+  const settings = { vertical_restaurantes_enabled: 'false' }
+  const r = resolverSeleccion(ls, settings, { vertical: 'restaurantes', plataforma: 'web' }, { verticalFija: true })
+  assert.equal(r.vertical, 'retail')
+})
+
+test('resolverSeleccion sin verticalFija se comporta igual que antes', () => {
+  const ls = [{ vertical: 'retail', plataforma: 'web' }]
+  const r = resolverSeleccion(ls, {}, { vertical: 'restaurantes', plataforma: 'web' })
+  assert.equal(r.vertical, 'retail')
+})
