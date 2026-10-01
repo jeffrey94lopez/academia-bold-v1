@@ -22,8 +22,8 @@ AS $function$
       l.vertical, l.plataforma
     FROM lecciones l
     WHERE l.embedding IS NOT NULL
-      AND l.active IS NOT FALSE
-      AND l.bot_active IS NOT FALSE
+      AND l.active IS NOT FALSE          -- oculta en el portal ⇒ oculta en el bot
+      AND l.bot_active IS NOT FALSE      -- el interruptor del robot, ahora sí
       AND 1 - (l.embedding <=> query_embedding) > match_threshold
       AND (p_vertical IS NULL OR l.vertical = p_vertical OR l.vertical = 'ambas')
       AND (p_plataforma IS NULL OR l.plataforma = p_plataforma)
@@ -33,9 +33,20 @@ AS $function$
   $function$;
 
 -- ---------------------------------------------------------------------------
--- Control: la firma no se movió (debe seguir apareciendo `notas text`).
+-- Control 1: la firma no se movió (debe seguir apareciendo `notas text`).
 select pg_get_function_arguments(p.oid) as argumentos,
        pg_get_function_result(p.oid)    as retorno
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public' and p.proname = 'match_lessons';
+
+-- Control 2: el cuerpo de verdad contiene la cláusula de 'ambas'. El Control 1
+-- solo mira la firma, que esta migración no cambia: sin esto, un CREATE OR
+-- REPLACE que no hubiera surtido efecto pasaría inadvertido. Debe devolver
+-- UNA fila con ambas = true; dos filas significan que hay una sobrecarga
+-- duplicada de match_lessons y PostgREST no sabrá cuál llamar.
+select p.oid::regprocedure as funcion,
+       p.prosrc ilike '%l.vertical = ''ambas''%' as tiene_clausula_ambas
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public' and p.proname = 'match_lessons';
