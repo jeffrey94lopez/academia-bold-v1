@@ -681,16 +681,16 @@ Cambiar la línea 82:
 
 - [ ] **Step 2: Pasar la bandera a `resolverSeleccion`**
 
-Las dos llamadas cambian. La de la línea ~403 (dentro de `applySeleccion`):
+Son **tres** llamadas, no dos. Todas llevan el mismo cuarto argumento `{ verticalFija: verticalFijadaPorBold() }`:
 
-```js
-    sel = resolverSeleccion(allLessons, settings, getSeleccion(), { verticalFija: verticalFijadaPorBold() })
-```
+1. **Línea ~61**, el arranque: `resolverSeleccion(allLessons, settings, seleccionGuardada)`
+2. **Línea ~415**, dentro de `applySeleccion`: `resolverSeleccion(allLessons, settings, getSeleccion())`
+3. **Línea ~575**, dentro de `refreshLessons()`: `resolverSeleccion(allLessons, settings, sel)`
 
-Y la del arranque (línea ~48, donde se calcula la selección inicial a partir de `seleccionGuardada`): agregarle el mismo cuarto argumento.
+La tercera es la que más importa y es fácil de pasar por alto: `refreshLessons()` corre en cada actualización realtime de la tabla `lecciones`. Si se queda sin la bandera, basta con que alguien edite una lección para que el portal voltee en silencio a un comercio de restaurantes hacia Retail — exactamente lo que la decisión 3 del spec existe para impedir.
 
 Run: `grep -n "resolverSeleccion(" js/lessons.js`
-Expected: las dos llamadas llevan `{ verticalFija: verticalFijadaPorBold() }`.
+Expected: **tres** llamadas, y las tres con `{ verticalFija: verticalFijadaPorBold() }`.
 
 - [ ] **Step 3: Verificar que los tests existentes siguen verdes**
 
