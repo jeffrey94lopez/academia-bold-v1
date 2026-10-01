@@ -19,7 +19,7 @@ import { lessonToEmbedText } from './lesson-embed-text.js'
 import { dedupeQuestions, firstUserMessage } from './faq-suggest.js'
 import { draftKey, buildDraft, shouldOfferRestore, relTime } from './lesson-draft.js'
 import { construirCopia, otraVertical, puedeDuplicarse, prepararPayload } from './lesson-duplicate.js'
-import { aplicaA, etiqueta } from './vertical.js'
+import { aplicaA, etiqueta, labelVertical, VERTICALES_CONTENIDO } from './vertical.js'
 
 const EMBED_WEBHOOK = 'https://n8n.mplasesores.com/webhook/embed-lesson'
 const EMBED_TOKEN   = 'BoldBodi-2026-K9xMvP7q'
@@ -1787,6 +1787,12 @@ async function renderFaqPanel() {
     console.error('[renderFaqPanel] Error cargando datos:', err)
   }
 
+  let faqVertical = 'all'   // 'all' | 'retail' | 'restaurantes'
+  // 'all' muestra todo; una vertical concreta muestra las suyas MÁS las 'ambas'.
+  const visiblesFaq = () => faqVertical === 'all'
+    ? items
+    : items.filter(f => aplicaA(f, faqVertical))
+
   function renderList(list) {
     return list.length ? list.map(f => `
       <div data-id="${f.id}" class="faq-item bg-white border border-[var(--blue-10)] rounded-xl px-4 py-3 flex items-start gap-3">
@@ -1795,12 +1801,14 @@ async function renderFaqPanel() {
             <p class="font-bold text-sm text-[var(--blue-100)]">${escapeHtml(f.pregunta)}</p>
             ${f.leccion_id ? '<span aria-label="Tiene lección relacionada" class="text-[10px] font-bold bg-[var(--blue-10)] text-[var(--blue-100)] px-1.5 py-0.5 rounded-full">📚 Lección</span>' : ''}
             ${f.link_url ? '<span aria-label="Tiene link externo" class="text-[10px] font-bold bg-[var(--black-10)] text-[var(--black-60)] px-1.5 py-0.5 rounded-full">🔗 Link</span>' : ''}
+            <span class="text-[10px] font-bold bg-[var(--background-page)] text-[var(--black-40)] px-1.5 py-0.5 rounded-full">${escapeHtml(labelVertical(f.vertical))}</span>
           </div>
           <p class="text-xs text-[var(--black-60)] mt-0.5 line-clamp-2">${escapeHtml(f.respuesta)}</p>
         </div>
         <div class="flex gap-1.5 shrink-0">
           <button data-id="${f.id}" data-pregunta="${escapeHtml(f.pregunta)}" data-respuesta="${escapeHtml(f.respuesta)}"
             data-leccion-id="${f.leccion_id || ''}" data-link-url="${escapeHtml(f.link_url || '')}"
+            data-vertical="${escapeHtml(f.vertical || 'ambas')}"
             class="edit-faq px-3 py-1.5 text-xs font-bold rounded-lg bg-[var(--blue-10)] text-[var(--blue-100)] hover:bg-[var(--blue-20)]">Editar</button>
           <button data-id="${f.id}" data-pregunta="${escapeHtml(f.pregunta)}"
             class="del-faq px-3 py-1.5 text-xs font-bold rounded-lg bg-[var(--coral-10)] text-[var(--coral-100)] hover:bg-[var(--coral-30)]">Eliminar</button>
@@ -1824,10 +1832,15 @@ async function renderFaqPanel() {
         </button>
       </div>
     </div>
+    <div id="faqVerticalChips" class="flex gap-2 mb-3">
+      <button data-v="all" class="faq-vchip px-3 py-1.5 rounded-full text-xs font-bold border border-[var(--blue-100)] bg-[var(--blue-10)] text-[var(--blue-100)]">Todas</button>
+      <button data-v="retail" class="faq-vchip px-3 py-1.5 rounded-full text-xs font-bold border border-[var(--blue-20)] text-[var(--black-60)]">Retail</button>
+      <button data-v="restaurantes" class="faq-vchip px-3 py-1.5 rounded-full text-xs font-bold border border-[var(--blue-20)] text-[var(--black-60)]">Restaurantes</button>
+    </div>
     <input id="searchFaq" type="text" placeholder="🔍  Buscar pregunta..."
       class="w-full px-4 py-2.5 rounded-xl border border-[var(--blue-20)] bg-white text-sm outline-none focus:border-[var(--blue-100)] mb-3">
     <div id="faqList" class="space-y-2">
-      ${renderList(items)}
+      ${renderList(visiblesFaq())}
     </div>
     <div id="faqFormInline" class="hidden mt-3 bg-white rounded-2xl border border-[var(--blue-20)] p-4">
       <input type="hidden" id="faqId">
@@ -1835,6 +1848,10 @@ async function renderFaqPanel() {
       <input id="faqPregunta" placeholder="Pregunta frecuente" required class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] mb-2">
       <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Respuesta</label>
       <textarea id="faqRespuesta" placeholder="Respuesta" rows="3" required class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] resize-none mb-2"></textarea>
+      <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Vertical</label>
+      <select id="faqVertical" class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] mb-2 bg-white">
+        ${VERTICALES_CONTENIDO.map(v => `<option value="${v.key}">${v.label}</option>`).join('')}
+      </select>
       <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1 mt-1">Lección relacionada (opcional)</label>
       <select id="faqLeccionId" class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] mb-2 bg-white">
         <option value="">— Ninguna —</option>
@@ -1853,17 +1870,33 @@ async function renderFaqPanel() {
 
   document.getElementById('searchFaq').addEventListener('input', e => {
     const q = e.target.value.toLowerCase()
-    const filtered = items.filter(f => f.pregunta.toLowerCase().includes(q) || f.respuesta.toLowerCase().includes(q))
+    const filtered = visiblesFaq().filter(f => f.pregunta.toLowerCase().includes(q) || f.respuesta.toLowerCase().includes(q))
     document.getElementById('faqList').innerHTML = renderList(filtered)
     bindFaqActions()
   })
 
-  function showFaqForm(id = '', pregunta = '', respuesta = '', leccionId = '', linkUrl = '') {
+  document.querySelectorAll('.faq-vchip').forEach(b => b.addEventListener('click', () => {
+    faqVertical = b.dataset.v
+    document.querySelectorAll('.faq-vchip').forEach(x => {
+      const on = x.dataset.v === faqVertical
+      x.classList.toggle('border-[var(--blue-100)]', on)
+      x.classList.toggle('bg-[var(--blue-10)]', on)
+      x.classList.toggle('text-[var(--blue-100)]', on)
+      x.classList.toggle('border-[var(--blue-20)]', !on)
+      x.classList.toggle('text-[var(--black-60)]', !on)
+    })
+    document.getElementById('searchFaq').value = ''
+    document.getElementById('faqList').innerHTML = renderList(visiblesFaq())
+    bindFaqActions()
+  }))
+
+  function showFaqForm(id = '', pregunta = '', respuesta = '', leccionId = '', linkUrl = '', vertical = 'ambas') {
     document.getElementById('faqId').value = id
     document.getElementById('faqPregunta').value = pregunta
     document.getElementById('faqRespuesta').value = respuesta
     document.getElementById('faqLeccionId').value = leccionId
     document.getElementById('faqLinkUrl').value = linkUrl
+    document.getElementById('faqVertical').value = vertical
     document.getElementById('faqFormError').classList.add('hidden')
     document.getElementById('faqFormInline').classList.remove('hidden')
     document.getElementById('faqPregunta').focus()
@@ -1873,7 +1906,7 @@ async function renderFaqPanel() {
 
   function bindFaqActions() {
     document.querySelectorAll('.edit-faq').forEach(b => b.addEventListener('click', () =>
-      showFaqForm(b.dataset.id, b.dataset.pregunta, b.dataset.respuesta, b.dataset.leccionId || '', b.dataset.linkUrl || '')))
+      showFaqForm(b.dataset.id, b.dataset.pregunta, b.dataset.respuesta, b.dataset.leccionId || '', b.dataset.linkUrl || '', b.dataset.vertical || 'ambas')))
     document.querySelectorAll('.del-faq').forEach(b => b.addEventListener('click', async () => {
       if (!confirm(`¿Eliminar "${b.dataset.pregunta}"?`)) return
       await supabase.from('preguntas_frecuentes').delete().eq('id', b.dataset.id)
@@ -1896,12 +1929,13 @@ async function renderFaqPanel() {
     const respuesta = document.getElementById('faqRespuesta').value.trim()
     const leccion_id = document.getElementById('faqLeccionId').value || null
     const link_url = document.getElementById('faqLinkUrl').value.trim() || null
+    const vertical = document.getElementById('faqVertical').value || 'ambas'
     if (!pregunta || !respuesta) { errorEl.textContent = 'La pregunta y respuesta son requeridas.'; errorEl.classList.remove('hidden'); return }
     btn.disabled = true; btn.textContent = 'Guardando...'
     let savedId = id
     const { data: saved, error } = id
-      ? await supabase.from('preguntas_frecuentes').update({ pregunta, respuesta, leccion_id, link_url }).eq('id', id).select('id').single()
-      : await supabase.from('preguntas_frecuentes').insert({ pregunta, respuesta, leccion_id, link_url }).select('id').single()
+      ? await supabase.from('preguntas_frecuentes').update({ pregunta, respuesta, leccion_id, link_url, vertical }).eq('id', id).select('id').single()
+      : await supabase.from('preguntas_frecuentes').insert({ pregunta, respuesta, leccion_id, link_url, vertical }).select('id').single()
     if (error) { errorEl.textContent = 'Error: ' + error.message; errorEl.classList.remove('hidden'); btn.disabled = false; btn.textContent = 'Guardar'; return }
     if (saved?.id) savedId = saved.id
     logActivity(id ? 'update' : 'create', 'preguntas_frecuentes', pregunta)
