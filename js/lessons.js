@@ -674,9 +674,12 @@ async function renderLessons() {
     if (!cambio) return
     const igual = (cambio.vertical ?? sel.vertical) === sel.vertical &&
                   (cambio.plataforma ?? sel.plataforma) === sel.plataforma
-    // Ya estábamos donde Bold dice: persistir y no re-renderizar (si el usuario
-    // está leyendo una lección, un re-render lo devolvería a las categorías).
-    if (igual) { setSeleccion(cambio); return }
+    // Ya estábamos donde Bold dice: persistir y repintar SOLO el selector. No
+    // se llama a applySeleccion porque un re-render completo devolvería a las
+    // categorías a quien esté leyendo una lección; pero el selector sí tiene
+    // que repintarse, porque la tarjeta de vertical se pintó cuando el
+    // contexto todavía no había llegado y hay que esconderla.
+    if (igual) { setSeleccion(cambio); renderSelectors(); return }
     applySeleccion(cambio, { origen: 'bold' })
   })
 }
