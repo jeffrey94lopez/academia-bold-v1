@@ -999,7 +999,7 @@ En `lessonCardHtml` y `lessonCardGridHtml`, la línea `const destino = otraVerti
 Y en los dos botones `.dup-lesson` (líneas ~1117 y ~1159) agregar el atributo y el título alterno. Para el de `lessonCardHtml`:
 
 ```html
-        <button data-id="${l.id}" ${dup ? '' : 'disabled'} class="dup-lesson p-1.5 rounded-lg ${dup ? 'hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]' : 'text-[var(--black-10)] cursor-not-allowed'}" title="${dup ? `Duplicar en ${destino === 'retail' ? 'Retail' : 'Restaurantes'}` : 'Ya sirve a las dos verticales'}">
+        <button data-id="${l.id}" ${dup ? '' : 'disabled'} class="dup-lesson p-1.5 rounded-lg ${dup ? 'hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]' : 'text-[var(--black-40)] opacity-50 cursor-not-allowed'}" title="${dup ? `Duplicar en ${destino === 'retail' ? 'Retail' : 'Restaurantes'}` : 'Ya sirve a las dos verticales'}">
 ```
 
 Para el de `lessonCardGridHtml`, el mismo cambio sobre su clase (`flex-1 flex items-center justify-center py-1 rounded-lg`).
