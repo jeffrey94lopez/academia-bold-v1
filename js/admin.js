@@ -1159,7 +1159,7 @@ function lessonCardHtml(l) {
         <button data-slug="${escapeHtml(l.slug || '')}" class="copy-link p-1.5 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Copiar link de la lección">
           <i data-lucide="link" class="w-4 h-4"></i>
         </button>
-        <button data-id="${l.id}" ${dup ? '' : 'disabled'} class="dup-lesson p-1.5 rounded-lg ${dup ? 'hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]' : 'text-[var(--black-10)] cursor-not-allowed'}" title="${dup ? `Duplicar en ${destino === 'retail' ? 'Retail' : 'Restaurantes'}` : 'Ya sirve a las dos verticales'}">
+        <button data-id="${l.id}" ${dup ? '' : 'disabled'} class="dup-lesson p-1.5 rounded-lg ${dup ? 'hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]' : 'text-[var(--black-40)] opacity-50 cursor-not-allowed'}" title="${dup ? `Duplicar en ${destino === 'retail' ? 'Retail' : 'Restaurantes'}` : 'Ya sirve a las dos verticales'}">
           <i data-lucide="copy" class="w-4 h-4"></i>
         </button>
         <button data-id="${l.id}" data-titulo="${escapeHtml(l.titulo)}" class="del-lesson p-1.5 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Eliminar">
@@ -1205,7 +1205,7 @@ function lessonCardGridHtml(l) {
         <button data-slug="${escapeHtml(l.slug || '')}" class="copy-link flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Copiar link de la lección">
           <i data-lucide="link" class="w-3.5 h-3.5"></i>
         </button>
-        <button data-id="${l.id}" ${dup ? '' : 'disabled'} class="dup-lesson flex-1 flex items-center justify-center py-1 rounded-lg ${dup ? 'hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]' : 'text-[var(--black-10)] cursor-not-allowed'}" title="${dup ? `Duplicar en ${destino === 'retail' ? 'Retail' : 'Restaurantes'}` : 'Ya sirve a las dos verticales'}">
+        <button data-id="${l.id}" ${dup ? '' : 'disabled'} class="dup-lesson flex-1 flex items-center justify-center py-1 rounded-lg ${dup ? 'hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]' : 'text-[var(--black-40)] opacity-50 cursor-not-allowed'}" title="${dup ? `Duplicar en ${destino === 'retail' ? 'Retail' : 'Restaurantes'}` : 'Ya sirve a las dos verticales'}">
           <i data-lucide="copy" class="w-3.5 h-3.5"></i>
         </button>
         <button data-id="${l.id}" data-titulo="${escapeHtml(l.titulo)}" class="del-lesson flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]">

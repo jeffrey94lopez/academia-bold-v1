@@ -7,7 +7,10 @@
 // borradores. Nada se escribe en la base hasta que el admin le da Guardar.
 
 // Convención del repo (ver js/vertical.js): vertical ausente o desconocida
-// cuenta como retail.
+// cuenta como retail. OJO: 'ambas' es un valor CONOCIDO y aun así cae en el
+// else de abajo (devuelve 'restaurantes'), lo cual no significa nada: una
+// lección 'ambas' ya está en las dos verticales. Por eso existe
+// puedeDuplicarse() aparte; quien arme un botón de duplicar debe consultarla.
 export function otraVertical(vertical) {
   return vertical === 'restaurantes' ? 'retail' : 'restaurantes'
 }
