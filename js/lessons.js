@@ -3,7 +3,7 @@ import { renderBlocks } from './block-renderer.js'
 import { parseLessonBlocks } from './lesson-blocks.js'
 import { track } from './analytics.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
-import { escapeHtml } from './utils.js'
+import { escapeHtml, isStaff } from './utils.js'
 import { VERTICALES, PLATAFORMAS, getSeleccion, setSeleccion, filtrarPorSeleccion, plataformasHabilitadas, verticalesVisibles, resolverSeleccion } from './vertical.js'
 import { onContextoBold, seleccionDesdeContexto } from './bold-context.js'
 import { crearSuscripcionReanudable } from './realtime-lifecycle.js'
@@ -24,17 +24,6 @@ window.addEventListener('pagehide', () => readingTracker.flush('pagehide'))
 // Las categorías se muestran sin emojis (pueden venir en la columna emoji o
 // incrustados en el nombre); las claves internas de agrupación no se tocan.
 const stripEmoji = s => (s || '').replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '').trim()
-
-// Modo staff: se activa una vez con ?staff=1 en la URL (queda recordado en el
-// navegador) y se desactiva con ?staff=0. Controla herramientas internas.
-function isStaff() {
-  try {
-    const p = new URLSearchParams(window.location.search)
-    if (p.get('staff') === '1') localStorage.setItem('bold_staff', '1')
-    else if (p.get('staff') === '0') localStorage.removeItem('bold_staff')
-    return localStorage.getItem('bold_staff') === '1'
-  } catch { return false }
-}
 
 async function renderLessons() {
   const container = document.getElementById('section-lessons')
