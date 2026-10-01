@@ -104,6 +104,13 @@ export function verticalesVisibles(lecciones, settings) {
   })
 }
 
+// Primera plataforma habilitada que de verdad tiene lecciones de esta vertical.
+// `null` si ninguna: cada llamador decide su propio fallback.
+function plataformaConLecciones(lecciones, plats, vertical) {
+  const ls = lecciones || []
+  return plats.find(p => ls.some(l => aplicaA(l, vertical) && (l.plataforma || 'web') === p)) || null
+}
+
 /**
  * Normaliza una selección contra lo que de verdad hay publicado.
  *
@@ -119,9 +126,7 @@ export function resolverSeleccion(lecciones, settings, seleccion = {}, { vertica
   if (verticalFija && V_KEYS.includes(vertical) && verticalHabilitada(settings, vertical)) {
     const plats = plataformasHabilitadas(settings, vertical)
     if (plats.includes(plataforma)) return { vertical, plataforma }
-    const ls = lecciones || []
-    const conLecciones = plats.find(p =>
-      ls.some(l => aplicaA(l, vertical) && (l.plataforma || 'web') === p))
+    const conLecciones = plataformaConLecciones(lecciones, plats, vertical)
     return { vertical, plataforma: conLecciones || plats[0] || plataforma }
   }
 
@@ -134,8 +139,6 @@ export function resolverSeleccion(lecciones, settings, seleccion = {}, { vertica
 
   const v = visibles[0]
   const plats = plataformasHabilitadas(settings, v)
-  const ls = lecciones || []
-  const conLecciones = plats.find(p =>
-    ls.some(l => aplicaA(l, v) && (l.plataforma || 'web') === p))
+  const conLecciones = plataformaConLecciones(lecciones, plats, v)
   return { vertical: v, plataforma: conLecciones || plats[0] }
 }

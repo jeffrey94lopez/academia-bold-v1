@@ -234,3 +234,20 @@ test('resolverSeleccion sin verticalFija se comporta igual que antes', () => {
   const r = resolverSeleccion(ls, {}, { vertical: 'restaurantes', plataforma: 'web' })
   assert.equal(r.vertical, 'retail')
 })
+
+test('resolverSeleccion verticalFija: early return si plataforma está habilitada (sin lecciones)', () => {
+  const ls = [{ vertical: 'retail', plataforma: 'web' }]
+  const r = resolverSeleccion(ls, {}, { vertical: 'restaurantes', plataforma: 'web' }, { verticalFija: true })
+  assert.equal(r.vertical, 'restaurantes')
+  assert.equal(r.plataforma, 'web')
+})
+
+test('resolverSeleccion verticalFija: todas las plataformas deshabilitadas cae a plataforma original', () => {
+  const ls = [{ vertical: 'restaurantes', plataforma: 'web' }]
+  const settings = {
+    plataforma_restaurantes_web_enabled: 'false',
+    plataforma_restaurantes_mobile_enabled: 'false',
+  }
+  const r = resolverSeleccion(ls, settings, { vertical: 'restaurantes', plataforma: 'web' }, { verticalFija: true })
+  assert.equal(r.plataforma, 'web')
+})
