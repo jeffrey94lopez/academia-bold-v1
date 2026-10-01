@@ -556,7 +556,9 @@ git commit -m "feat(bot): match_lessons sirve tambien las lecciones marcadas 'am
 - Consumes: nada.
 - Produces: `isStaff() -> boolean` exportada desde `js/utils.js`.
 
-**Por qué acá:** `resources.js` la va a necesitar en la Tarea 7 y hoy es privada de `lessons.js`. Va a `utils.js` y no a `vertical.js` porque es modo de operación del portal, no algo propio de las verticales.
+**Por qué acá:** hoy `isStaff()` es privada de `lessons.js`, que importa `supabase.js` (URL de CDN) y toca el DOM — o sea, **no se puede probar desde Node**. La Tarea 6 la vuelve load-bearing: pasa a decidir si un comercio puede ver contenido de otra vertical, que es comportamiento con consecuencias. Moverla a `utils.js` es lo que permite escribirle pruebas. Va a `utils.js` y no a `vertical.js` porque es modo de operación del portal, no algo propio de las verticales.
+
+(La Tarea 7 **no** la usa: `resources.js` filtra con `getSeleccion().vertical`, que en modo staff ya refleja lo que el staff eligió a mano. Si lees una versión anterior del plan que decía lo contrario, estaba equivocada.)
 
 - [ ] **Step 1: Escribir la prueba que falla**
 
@@ -640,7 +642,7 @@ Expected: en `lessons.js` solo el import y los usos (línea ~227), ninguna defin
 
 ```bash
 git add js/utils.js js/lessons.js tests/utils.test.mjs
-git commit -m "refactor(portal): isStaff se mueve a utils para compartirla con resources"
+git commit -m "refactor(portal): isStaff se mueve a utils para poder probarla"
 ```
 
 ---
@@ -693,7 +695,7 @@ Expected: las dos llamadas llevan `{ verticalFija: verticalFijadaPorBold() }`.
 - [ ] **Step 3: Verificar que los tests existentes siguen verdes**
 
 Run: `node --test tests/vertical.test.mjs tests/utils.test.mjs`
-Expected: PASS. (`lessons.js` no tiene pruebas unitarias: depende del DOM y de supabase. Se verifica en navegador en la Tarea 12.)
+Expected: PASS. (`lessons.js` no tiene pruebas unitarias: depende del DOM y de supabase. Se verifica en navegador en la Tarea 14.)
 
 - [ ] **Step 4: Commit**
 
@@ -788,10 +790,10 @@ onContextoBold(() => {
 
 - [ ] **Step 5: Verificar que el módulo sigue cargando**
 
-`resources.js` importa `supabase.js` (URL de CDN), así que no se puede importar desde Node. La verificación es en navegador, en la Tarea 12. Acá basta confirmar que no hay errores de sintaxis:
+`resources.js` importa `supabase.js` (URL de CDN), así que no se puede importar desde Node. La verificación es en navegador, en la Tarea 14. Acá basta confirmar que no hay errores de sintaxis:
 
-Run: `node --check js/resources.js`
-Expected: sin salida (éxito). Si se queja de `import`, renómbralo mentalmente: usa `node --input-type=module --check < js/resources.js`.
+Run: `node --input-type=module --check < js/resources.js`
+Expected: sin salida y exit 0. **No uses `node --check js/resources.js`**: sobre un archivo con `import` ese comando sale 0 siempre, incluso con el archivo roto — verificado en Node v24.18.0. El `--input-type=module` con redirección sí falla (exit 1) cuando hay error de sintaxis.
 
 - [ ] **Step 6: Commit**
 
@@ -995,7 +997,7 @@ Sumar `puedeDuplicarse` al import de `./lesson-duplicate.js` en `js/admin.js`.
 
 - [ ] **Step 9: Verificar sintaxis y pruebas**
 
-Run: `node --check js/admin.js && node --test tests/lesson-duplicate.test.mjs tests/vertical.test.mjs`
+Run: `node --input-type=module --check < js/admin.js && node --test tests/lesson-duplicate.test.mjs tests/vertical.test.mjs`
 Expected: PASS
 
 - [ ] **Step 10: Commit**
@@ -1125,7 +1127,7 @@ En el handler de `saveFaq`, leer el valor y sumarlo a los dos payloads:
 
 - [ ] **Step 6: Verificar sintaxis**
 
-Run: `node --check js/admin.js`
+Run: `node --input-type=module --check < js/admin.js`
 Expected: sin salida.
 
 - [ ] **Step 7: Commit**
@@ -1244,7 +1246,7 @@ Y el `payload` de `saveTerm`:
 
 - [ ] **Step 6: Verificar sintaxis**
 
-Run: `node --check js/admin.js`
+Run: `node --input-type=module --check < js/admin.js`
 Expected: sin salida.
 
 - [ ] **Step 7: Commit**
@@ -1400,7 +1402,7 @@ En `createConversation`:
 
 - [ ] **Step 2: Verificar sintaxis**
 
-Run: `node --check js/assistant.js`
+Run: `node --input-type=module --check < js/assistant.js`
 Expected: sin salida.
 
 - [ ] **Step 3: Verificar contra la base, no contra la UI**
