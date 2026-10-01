@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { otraVertical, construirCopia, prepararPayload } from '../js/lesson-duplicate.js'
+import { otraVertical, puedeDuplicarse, construirCopia, prepararPayload } from '../js/lesson-duplicate.js'
 
 // Lección de ejemplo tal como la devuelve `select('*')` de la tabla lecciones.
 function leccionRetail(extra = {}) {
@@ -97,4 +97,21 @@ test('prepararPayload: no muta el payload que recibe', () => {
   const original = { titulo: 'X' }
   prepararPayload(original, true)
   assert.equal('active' in original, false)
+})
+
+test('puedeDuplicarse: una lección ambas ya está en las dos verticales', () => {
+  assert.equal(puedeDuplicarse({ vertical: 'ambas' }), false)
+})
+
+// otraVertical no sabe de 'ambas' (su else devuelve 'restaurantes'). Este test
+// documenta ese comportamiento para que quede claro POR QUÉ hace falta el
+// guardia de puedeDuplicarse en vez de "arreglar" otraVertical.
+test('otraVertical con ambas cae al else: por eso el guardia va aparte', () => {
+  assert.equal(otraVertical('ambas'), 'restaurantes')
+})
+
+test('puedeDuplicarse: retail y restaurantes sí se pueden duplicar', () => {
+  assert.equal(puedeDuplicarse({ vertical: 'retail' }), true)
+  assert.equal(puedeDuplicarse({ vertical: 'restaurantes' }), true)
+  assert.equal(puedeDuplicarse({}), true)
 })

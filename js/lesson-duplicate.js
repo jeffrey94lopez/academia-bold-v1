@@ -12,6 +12,12 @@ export function otraVertical(vertical) {
   return vertical === 'restaurantes' ? 'retail' : 'restaurantes'
 }
 
+// Duplicar una lección 'ambas' no significa nada: ya sirve a las dos verticales,
+// y otraVertical('ambas') devolvería 'restaurantes' por el else del ternario.
+export function puedeDuplicarse(leccion) {
+  return (leccion?.vertical || 'retail') !== 'ambas'
+}
+
 // Campos que el formulario de lecciones sabe leer (ver openLessonForm).
 // La lista es explícita a propósito: así la copia no arrastra embedding,
 // created_at ni la columna deprecada dispositivo.

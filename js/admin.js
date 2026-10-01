@@ -18,7 +18,8 @@ import { APP_ENV } from './env.js'
 import { lessonToEmbedText } from './lesson-embed-text.js'
 import { dedupeQuestions, firstUserMessage } from './faq-suggest.js'
 import { draftKey, buildDraft, shouldOfferRestore, relTime } from './lesson-draft.js'
-import { construirCopia, otraVertical, prepararPayload } from './lesson-duplicate.js'
+import { construirCopia, otraVertical, puedeDuplicarse, prepararPayload } from './lesson-duplicate.js'
+import { aplicaA, etiqueta } from './vertical.js'
 
 const EMBED_WEBHOOK = 'https://n8n.mplasesores.com/webhook/embed-lesson'
 const EMBED_TOKEN   = 'BoldBodi-2026-K9xMvP7q'
@@ -621,6 +622,10 @@ async function renderLessonsPanel() {
                     <i data-lucide="utensils" class="w-4 h-4 mx-auto mb-0.5"></i>
                     <span class="block text-[11px] font-black">Restaurantes</span>
                   </button>
+                  <button type="button" data-value="ambas" class="choice-opt flex-1 rounded-xl border-[1.5px] border-[var(--blue-20)] px-2 py-2 text-center text-[var(--black-60)] transition-colors">
+                    <i data-lucide="layers" class="w-4 h-4 mx-auto mb-0.5"></i>
+                    <span class="block text-[11px] font-black">Ambas</span>
+                  </button>
                 </div>
               </div>
               <div>
@@ -1024,7 +1029,7 @@ function renderGroupedLessons(allLessons, searchQuery) {
   const list = document.getElementById('lessonsList')
   if (!list) return
   const porVertical = allLessons.filter(l =>
-    (l.vertical || 'retail') === adminVertical &&
+    aplicaA(l, adminVertical) &&
     (adminPlataforma === 'all' || (l.plataforma || 'web') === adminPlataforma))
   const q = searchQuery.toLowerCase().trim()
   const filtered = q
@@ -1121,6 +1126,7 @@ function renderGroupedLessons(allLessons, searchQuery) {
 }
 
 function lessonCardHtml(l) {
+  const dup = puedeDuplicarse(l)
   const destino = otraVertical(l.vertical)
   return `
     <div class="lesson-card bg-white rounded-xl border ${l.active === false ? 'border-[var(--black-10)] opacity-50' : 'border-[var(--blue-10)]'} p-3.5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2 cursor-pointer hover:border-[var(--blue-100)] hover:shadow-sm transition-all" data-id="${l.id}">
@@ -1129,8 +1135,8 @@ function lessonCardHtml(l) {
           <p class="font-bold text-sm text-[var(--black-100)] min-w-0 sm:truncate">${escapeHtml(l.titulo)}</p>
           <span class="shrink-0 text-[10px] text-[var(--black-40)]">#${escapeHtml(String(l.orden))}</span>
           <span class="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-[var(--black-40)] bg-[var(--background-page)] px-1.5 py-0.5 rounded-full">
-            <i data-lucide="${(l.vertical || 'retail') === 'retail' ? 'store' : 'utensils'}" class="w-3 h-3"></i>
-            ${(l.vertical || 'retail') === 'retail' ? 'Retail' : 'Restaurantes'} · ${(l.plataforma || 'web') === 'web' ? 'Web' : 'Mobile'}
+            <i data-lucide="${etiqueta(l).icon}" class="w-3 h-3"></i>
+            ${escapeHtml(etiqueta(l).texto)}
           </span>
           ${l.active === false ? '<span class="shrink-0 text-[10px] font-bold text-[var(--black-40)] bg-[var(--black-10)] px-1.5 py-0.5 rounded-full">Oculta</span>' : ''}
           ${!l.embedding ? '<span class="shrink-0 text-[10px] font-bold text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-full">Sin IA</span>' : ''}
@@ -1153,7 +1159,7 @@ function lessonCardHtml(l) {
         <button data-slug="${escapeHtml(l.slug || '')}" class="copy-link p-1.5 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Copiar link de la lección">
           <i data-lucide="link" class="w-4 h-4"></i>
         </button>
-        <button data-id="${l.id}" class="dup-lesson p-1.5 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Duplicar en ${destino === 'retail' ? 'Retail' : 'Restaurantes'}">
+        <button data-id="${l.id}" ${dup ? '' : 'disabled'} class="dup-lesson p-1.5 rounded-lg ${dup ? 'hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]' : 'text-[var(--black-10)] cursor-not-allowed'}" title="${dup ? `Duplicar en ${destino === 'retail' ? 'Retail' : 'Restaurantes'}` : 'Ya sirve a las dos verticales'}">
           <i data-lucide="copy" class="w-4 h-4"></i>
         </button>
         <button data-id="${l.id}" data-titulo="${escapeHtml(l.titulo)}" class="del-lesson p-1.5 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Eliminar">
@@ -1165,6 +1171,7 @@ function lessonCardHtml(l) {
 
 function lessonCardGridHtml(l) {
   const cat = currentCategories.find(c => c.nombre === l.categoria)
+  const dup = puedeDuplicarse(l)
   const destino = otraVertical(l.vertical)
   return `
     <div class="lesson-card bg-white rounded-xl border ${l.active === false ? 'border-[var(--black-10)] opacity-50' : 'border-[var(--blue-10)]'} p-3.5 cursor-pointer hover:border-[var(--blue-100)] hover:shadow-sm transition-all flex flex-col gap-2" data-id="${l.id}">
@@ -1179,8 +1186,8 @@ function lessonCardGridHtml(l) {
       ${l.descripcion ? `<p class="text-xs text-[var(--black-40)] line-clamp-2">${escapeHtml(l.descripcion)}</p>` : ''}
       ${cat ? `<span class="self-start text-[10px] font-bold text-[var(--black-40)] bg-[var(--background-page)] px-2 py-0.5 rounded-full">${escapeHtml(cat.emoji)} ${escapeHtml(cat.nombre)}</span>` : ''}
       <span class="self-start shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-[var(--black-40)] bg-[var(--background-page)] px-1.5 py-0.5 rounded-full">
-        <i data-lucide="${(l.vertical || 'retail') === 'retail' ? 'store' : 'utensils'}" class="w-3 h-3"></i>
-        ${(l.vertical || 'retail') === 'retail' ? 'Retail' : 'Restaurantes'} · ${(l.plataforma || 'web') === 'web' ? 'Web' : 'Mobile'}
+        <i data-lucide="${etiqueta(l).icon}" class="w-3 h-3"></i>
+        ${escapeHtml(etiqueta(l).texto)}
       </span>
       <div class="flex gap-1 mt-auto pt-2 border-t border-[var(--blue-10)]">
         <button data-id="${l.id}" data-active="${l.active === false ? 'false' : 'true'}" class="toggle-lesson flex-1 flex items-center justify-center py-1 rounded-lg transition-colors ${l.active === false ? 'text-[var(--black-40)] hover:text-[var(--success-150)]' : 'text-[var(--success-150)] hover:text-[var(--black-40)]'}" title="${l.active === false ? 'Mostrar a estudiantes' : 'Ocultar a estudiantes'}">
@@ -1198,7 +1205,7 @@ function lessonCardGridHtml(l) {
         <button data-slug="${escapeHtml(l.slug || '')}" class="copy-link flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Copiar link de la lección">
           <i data-lucide="link" class="w-3.5 h-3.5"></i>
         </button>
-        <button data-id="${l.id}" class="dup-lesson flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Duplicar en ${destino === 'retail' ? 'Retail' : 'Restaurantes'}">
+        <button data-id="${l.id}" ${dup ? '' : 'disabled'} class="dup-lesson flex-1 flex items-center justify-center py-1 rounded-lg ${dup ? 'hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]' : 'text-[var(--black-10)] cursor-not-allowed'}" title="${dup ? `Duplicar en ${destino === 'retail' ? 'Retail' : 'Restaurantes'}` : 'Ya sirve a las dos verticales'}">
           <i data-lucide="copy" class="w-3.5 h-3.5"></i>
         </button>
         <button data-id="${l.id}" data-titulo="${escapeHtml(l.titulo)}" class="del-lesson flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]">
