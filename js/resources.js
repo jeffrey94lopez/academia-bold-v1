@@ -1,4 +1,6 @@
 ﻿import { supabase } from './supabase.js'
+import { aplicaA, getSeleccion } from './vertical.js'
+import { onContextoBold } from './bold-context.js'
 import { loadSettings } from './settings.js'
 
 let activeSubTab = 'faq'
@@ -189,7 +191,7 @@ function openFaqSheet(f) {
 }
 
 async function loadFaq() {
-  const { data, error } = await supabase.from('preguntas_frecuentes').select('*').order('orden').order('created_at')
+  const { data, error } = await supabase.from('preguntas_frecuentes').select('*, vertical').order('orden').order('created_at')
   const list = document.getElementById('faqList')
 
   if (error || !data?.length) {
@@ -218,13 +220,18 @@ async function loadFaq() {
     })
   }
 
-  renderFaqList(data)
+  // El filtro por vertical se aplica en cada render, no una vez sobre `data`:
+  // el contexto de Bold puede llegar después de esta carga, y entonces el
+  // repintado tiene que usar la vertical nueva.
+  const visibles = () => data.filter(f => aplicaA(f, getSeleccion().vertical))
+
+  renderFaqList(visibles())
 
   return (q) => {
     const lower = q ? q.toLowerCase() : ''
     renderFaqList(lower
-      ? data.filter(f => f.pregunta.toLowerCase().includes(lower) || f.respuesta.toLowerCase().includes(lower))
-      : data)
+      ? visibles().filter(f => f.pregunta.toLowerCase().includes(lower) || f.respuesta.toLowerCase().includes(lower))
+      : visibles())
   }
 }
 
@@ -250,13 +257,15 @@ async function loadGlossary() {
     `).join('')
   }
 
-  render(data)
+  const visibles = () => data.filter(g => aplicaA(g, getSeleccion().vertical))
+
+  render(visibles())
 
   return (q) => {
     const lower = q ? q.toLowerCase() : ''
     render(lower
-      ? data.filter(g => g.termino.toLowerCase().includes(lower) || g.definicion.toLowerCase().includes(lower))
-      : data)
+      ? visibles().filter(g => g.termino.toLowerCase().includes(lower) || g.definicion.toLowerCase().includes(lower))
+      : visibles())
   }
 }
 
@@ -343,3 +352,12 @@ function escapeHtml(text) {
 }
 
 renderResources()
+
+// Si el contexto de Bold llega después de que la pestaña ya cargó, hay que
+// repintar con la vertical nueva. Se conserva lo que el usuario tenga escrito
+// en el buscador: repintar no debería borrarle la búsqueda.
+onContextoBold(() => {
+  const q = document.getElementById('resourceSearch')?.value || ''
+  filterFaq(q)
+  filterGlossary(q)
+})
