@@ -370,21 +370,11 @@ git commit -m "feat(vertical): la vertical que manda Bold ya no se sobrescribe"
 - Consumes: nada.
 - Produces: `preguntas_frecuentes.vertical` y `glosario.vertical` (`text NOT NULL DEFAULT 'ambas'`), y `lecciones.vertical` aceptando `'ambas'`.
 
-- [ ] **Step 1: Averiguar el nombre real de la constraint**
+- [ ] **Step 1: Escribir la migración (sin depender del nombre de la constraint)**
 
-No asumas que se llama `lecciones_vertical_check`: la creó Postgres y si el nombre no coincide, el `drop ... if exists` no hace nada y el `add` falla por duplicado. Pídele al usuario que corra esto en el SQL Editor y te pase el resultado:
+No asumas que la constraint se llama `lecciones_vertical_check`: la nombró Postgres, y si no coincide, un `drop constraint if exists` con el nombre equivocado no hace nada y el `add` siguiente falla por duplicado. En vez de preguntar el nombre, la migración lo busca sola y avisa cuál borró.
 
-```sql
-select con.conname, pg_get_constraintdef(con.oid)
-from pg_constraint con
-join pg_class rel on rel.oid = con.conrelid
-join pg_namespace nsp on nsp.oid = rel.relnamespace
-where nsp.nspname = 'public' and rel.relname = 'lecciones' and con.contype = 'c';
-```
-
-- [ ] **Step 2: Escribir la migración**
-
-Crear `supabase/migrations/add_vertical_ambas.sql` con el nombre de constraint que devolvió el paso 1 (abajo va el nombre por defecto de Postgres; cámbialo si difiere):
+Crear `supabase/migrations/add_vertical_ambas.sql`:
 
 ```sql
 -- Tercer valor de `vertical`: 'ambas', para el contenido que sirve a las dos
@@ -401,7 +391,28 @@ Crear `supabase/migrations/add_vertical_ambas.sql` con el nombre de constraint q
 -- Ejecutar UNA sola vez en el SQL Editor del proyecto Supabase, ANTES de
 -- desplegar el frontend que usa estos valores.
 
-alter table public.lecciones drop constraint if exists lecciones_vertical_check;
+-- Borra la CHECK que hoy limita `vertical` a dos valores, se llame como se
+-- llame. Se busca por su definición y no por su nombre porque el nombre lo
+-- puso Postgres: si adivináramos mal, el `drop ... if exists` no haría nada
+-- y el `add` de abajo fallaría por duplicado. Avisa cuál borró.
+do $$
+declare c record;
+begin
+  for c in
+    select con.conname
+    from pg_constraint con
+    join pg_class rel on rel.oid = con.conrelid
+    join pg_namespace nsp on nsp.oid = rel.relnamespace
+    where nsp.nspname = 'public'
+      and rel.relname = 'lecciones'
+      and con.contype = 'c'
+      and pg_get_constraintdef(con.oid) ilike '%vertical%'
+  loop
+    raise notice 'Borrando constraint %', c.conname;
+    execute format('alter table public.lecciones drop constraint %I', c.conname);
+  end loop;
+end $$;
+
 alter table public.lecciones add constraint lecciones_vertical_check
   check (vertical in ('retail', 'restaurantes', 'ambas'));
 
@@ -434,11 +445,11 @@ select 'glosario', count(*) filter (where vertical is null),
 from public.glosario;
 ```
 
-- [ ] **Step 3: Pedirle al usuario que la ejecute**
+- [ ] **Step 2: Pedirle al usuario que la ejecute**
 
 El agente no ejecuta migraciones. Avísale al usuario que la corra en el SQL Editor y que confirme la salida de los dos controles.
 
-- [ ] **Step 4: Verificar por REST, no por la UI**
+- [ ] **Step 3: Verificar por REST, no por la UI**
 
 `supabase-js` no lanza en error y un `?? 0` en el render fabrica datos creíbles, así que la comprobación va contra PostgREST crudo. La clave anon está en `js/supabase.js`.
 
@@ -452,7 +463,7 @@ curl -s "https://tczcngfhuendmldafbrc.supabase.co/rest/v1/glosario?select=id,ver
 
 Expected: las dos respuestas traen `"vertical":"ambas"` en cada fila. Si viene `{"code":"42703"}` la columna no existe y la migración no corrió.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add supabase/migrations/add_vertical_ambas.sql
@@ -1438,8 +1449,10 @@ git commit -m "feat(analytics): guardar vertical y plataforma en cada conversaci
 
 - [ ] **Step 1: Correr toda la batería de pruebas**
 
-Run: `node --test tests/`
-Expected: PASS en todo. Si algún test que no tocaste falla, para y arréglalo antes de seguir.
+Run: `node --test tests/*.test.mjs`
+Expected: PASS en todo (365 tests antes de empezar este plan). Si algún test que no tocaste falla, para y arréglalo antes de seguir.
+
+**No uses `node --test tests/`** sin el glob: en este Node intenta cargar `tests` como módulo y revienta con `MODULE_NOT_FOUND`, que parece una regresión y no lo es. El glob además deja fuera los archivos `*.test-NEFI-PC.mjs`, que son duplicados de otra máquina.
 
 - [ ] **Step 2: Levantar el portal**
 
