@@ -541,10 +541,13 @@ Los dos están dentro de `sendMessage` (que empieza en `js/assistant.js:695` y r
 
 ```js
     const cruceAceptado = pendingCross?.leccion_id || null
+    const cruceVertical = pendingCross?.vertical   || null
     pendingCross = null
 ```
 
 `cruceAceptado` entra en el objeto que se le pasa a `chatRequestBody`. Se limpia **acá y no después del `fetch`**: si la petición falla, el permiso no debe quedar pegado para el mensaje siguiente.
+
+`cruceVertical` se guarda aparte porque el Step 4 lo necesita después del `fetch`, y para entonces `pendingCross` ya es `null`. Sin esta línea el botón de cambiar de vertical no sabría a cuál cambiar.
 
 **Punto B, DESPUÉS de la respuesta** (justo antes de `if (data.support_redirected)`, línea ~767): registrar y ofrecer.
 
@@ -566,7 +569,17 @@ Sumar `cruceAceptado` al objeto que se le pasa a `chatRequestBody`, junto a `faq
 
 - [ ] **Step 4: El botón de cambiar la vertical de la sesión**
 
-Tras renderizar la respuesta de un turno que venía de una aceptación (`cruceAceptado` no nulo), agregar un botón suelto:
+**Dónde se llama:** en el Punto B del Step 3, justo después del bloque de `data.cross_vertical`:
+
+```js
+    if (cruceAceptado && cruceVertical && !data.cross_vertical) {
+      appendSwitchVerticalButton(cruceVertical)
+    }
+```
+
+Las tres condiciones importan: `cruceAceptado` acota el botón al turno que vino de una aceptación, `cruceVertical` es el dato que el Step 3 guardó antes de limpiar `pendingCross`, y `!data.cross_vertical` evita ofrecer el cambio en un turno donde el bot está ofreciendo **otro** cruce distinto — ahí el usuario tendría dos preguntas encima otra vez.
+
+**La función:**
 
 ```js
 function appendSwitchVerticalButton(vertical) {
