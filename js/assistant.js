@@ -134,10 +134,18 @@ async function createConversation() {
   storageSet('bold_session_id', sessionId)
   const id = crypto.randomUUID()
   try {
-    const { vertical, plataforma } = getSeleccion()
+    const fila = { id, session_id: sessionId, messages: [], status: 'active' }
+    // Vertical/plataforma solo se guardan si vinieron de Bold. Sin contexto,
+    // getSeleccion() devuelve el 'retail' por defecto: escribirlo fabricaría un
+    // dato que luego no se distingue de un comercio retail real; un null sí.
+    if (getContextoBold()?.vertical) {
+      const { vertical, plataforma } = getSeleccion()
+      fila.vertical = vertical
+      fila.plataforma = plataforma
+    }
     const { error } = await supabase
       .from('bodi_conversations')
-      .insert({ id, session_id: sessionId, messages: [], status: 'active', vertical, plataforma })
+      .insert(fila)
     if (error) throw new Error(error.message)
     conversationId = id
     // El INSERT deja last_activity_at con el default now() de la columna: hay que
