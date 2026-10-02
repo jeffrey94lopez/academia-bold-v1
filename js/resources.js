@@ -9,6 +9,12 @@ let filterFaq      = (_q) => {}
 let filterGlossary = (_q) => {}
 let filterMaterial = (_q) => {}
 
+// El contexto de Bold llega UNA sola vez. Si llega mientras renderResources()
+// todavía espera a Supabase, los filtros siguen siendo los stubs vacíos y el
+// repintado se perdería. Se anota aquí y se drena justo al asignar los filtros.
+let contextoPendiente = false
+let filtrosListos = false   // true cuando ya hay filtros reales (no los stubs)
+
 async function renderResources() {
   const container = document.getElementById('section-resources')
   container.innerHTML = `
@@ -75,6 +81,13 @@ async function renderResources() {
   filterFaq      = faqFn      ?? ((_q) => {})
   filterGlossary = glossaryFn ?? ((_q) => {})
   filterMaterial = materialFn ?? ((_q) => {})
+  filtrosListos  = true
+
+  // Si el contexto de Bold llegó durante la carga, repintar ya con la vertical.
+  if (contextoPendiente) {
+    contextoPendiente = false
+    repintarPorContexto()
+  }
 
   document.getElementById('resourceSearch').addEventListener('input', e => {
     const q = e.target.value
@@ -191,7 +204,7 @@ function openFaqSheet(f) {
 }
 
 async function loadFaq() {
-  const { data, error } = await supabase.from('preguntas_frecuentes').select('*, vertical').order('orden').order('created_at')
+  const { data, error } = await supabase.from('preguntas_frecuentes').select('*').order('orden').order('created_at')
   const list = document.getElementById('faqList')
 
   if (error || !data?.length) {
@@ -356,8 +369,16 @@ renderResources()
 // Si el contexto de Bold llega después de que la pestaña ya cargó, hay que
 // repintar con la vertical nueva. Se conserva lo que el usuario tenga escrito
 // en el buscador: repintar no debería borrarle la búsqueda.
-onContextoBold(() => {
+function repintarPorContexto() {
   const q = document.getElementById('resourceSearch')?.value || ''
   filterFaq(q)
   filterGlossary(q)
+}
+
+// Se registra una sola vez a nivel de módulo (renderResources se re-ejecuta en
+// cada refresco en vivo y duplicaría el suscriptor). Mientras los filtros sean
+// los stubs de arranque, solo se anota que hay contexto pendiente.
+onContextoBold(() => {
+  if (!filtrosListos) { contextoPendiente = true; return }
+  repintarPorContexto()
 })
