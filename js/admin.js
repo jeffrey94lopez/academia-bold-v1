@@ -1015,7 +1015,7 @@ async function renderLessonsPanel() {
     // El panel filtra por adminVertical, así que la copia queda fuera de la
     // vista actual: el aviso dice dónde aterrizó y en qué estado.
     if (esCopia) {
-      showToast(`Copia creada en ${payload.vertical === 'retail' ? 'Retail' : 'Restaurantes'}, oculta y sin IA. Cambia el filtro de vertical para editarla.`)
+      showToast(`Copia creada en ${labelVertical(payload.vertical)}, oculta y sin IA. Cambia el filtro de vertical para editarla.`)
     }
     clearDraft(draftKey(id))     // guardado OK → el borrador ya no hace falta
     formEsDuplicado = false
@@ -1159,7 +1159,7 @@ function lessonCardHtml(l) {
         <button data-slug="${escapeHtml(l.slug || '')}" class="copy-link p-1.5 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Copiar link de la lección">
           <i data-lucide="link" class="w-4 h-4"></i>
         </button>
-        <button data-id="${l.id}" ${dup ? '' : 'disabled'} class="dup-lesson p-1.5 rounded-lg ${dup ? 'hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]' : 'text-[var(--black-40)] opacity-50 cursor-not-allowed'}" title="${dup ? `Duplicar en ${destino === 'retail' ? 'Retail' : 'Restaurantes'}` : 'Ya sirve a las dos verticales'}">
+        <button data-id="${l.id}" ${dup ? '' : 'disabled'} class="dup-lesson p-1.5 rounded-lg ${dup ? 'hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]' : 'text-[var(--black-40)] opacity-50 cursor-not-allowed'}" title="${dup ? `Duplicar en ${labelVertical(destino)}` : 'Ya sirve a las dos verticales'}">
           <i data-lucide="copy" class="w-4 h-4"></i>
         </button>
         <button data-id="${l.id}" data-titulo="${escapeHtml(l.titulo)}" class="del-lesson p-1.5 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Eliminar">
@@ -1205,7 +1205,7 @@ function lessonCardGridHtml(l) {
         <button data-slug="${escapeHtml(l.slug || '')}" class="copy-link flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Copiar link de la lección">
           <i data-lucide="link" class="w-3.5 h-3.5"></i>
         </button>
-        <button data-id="${l.id}" ${dup ? '' : 'disabled'} class="dup-lesson flex-1 flex items-center justify-center py-1 rounded-lg ${dup ? 'hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]' : 'text-[var(--black-40)] opacity-50 cursor-not-allowed'}" title="${dup ? `Duplicar en ${destino === 'retail' ? 'Retail' : 'Restaurantes'}` : 'Ya sirve a las dos verticales'}">
+        <button data-id="${l.id}" ${dup ? '' : 'disabled'} class="dup-lesson flex-1 flex items-center justify-center py-1 rounded-lg ${dup ? 'hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]' : 'text-[var(--black-40)] opacity-50 cursor-not-allowed'}" title="${dup ? `Duplicar en ${labelVertical(destino)}` : 'Ya sirve a las dos verticales'}">
           <i data-lucide="copy" class="w-3.5 h-3.5"></i>
         </button>
         <button data-id="${l.id}" data-titulo="${escapeHtml(l.titulo)}" class="del-lesson flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]">
