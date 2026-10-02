@@ -13,6 +13,7 @@
 ## Global Constraints
 
 - Umbral de cruce: **0.35**. El de la búsqueda normal sigue en **0.15**. No los unifiques.
+- **El portal nuevo manda `supports_cross: true` en el body, y n8n solo ofrece el cruce cuando esa clave está presente.** Esto NO es opcional: n8n se aplica en producción (Task 3) mientras el portal queda en `sandbox` sin desplegar (Task 5). Sin esta puerta, en esa ventana el bot de producción ofrecería "¿quieres verla?" a comercios reales **sin botones para contestar**, y además con `knowledge_gap: false` tampoco saldría el CTA de soporte. También protege contra clientes viejos cacheados después del deploy.
 - **Los ids de lección NUNCA pasan por el LLM**: `Formatear respuesta` los adjunta desde el item, no desde el texto del modelo.
 - La vertical se lee del nodo **Webhook** (`$('Webhook').first().json.body.vertical`), nunca de `wb`: `wb` es la salida de "Normalizar intención" y no arrastra todos los campos del body.
 - `Construir prompt` lee las lecciones **por nombre de nodo**. Un nodo nuevo no lo alimenta por estar conectado: hay que leerlo con `$('Buscar en otra vertical').all()`.
@@ -184,6 +185,12 @@ test('chatRequestBody: un cruceAceptado vacío no ensucia el body', () => {
   assert.equal('cross_vertical_accepted' in chatRequestBody({ ...base, cruceAceptado: '' }), false)
 })
 
+test('chatRequestBody: siempre declara supports_cross', () => {
+  const b = chatRequestBody({ message: 'hola', history: [], faqContext: [], clarifyCount: 0,
+                              seleccion: { vertical: 'retail', plataforma: 'web' } })
+  assert.equal(b.supports_cross, true)
+})
+
 test('shouldAskResolution: no pregunta en el turno del cruce', () => {
   assert.equal(shouldAskResolution({ cross_vertical: { leccion_id: 'x', titulo: 'T', vertical: 'restaurantes' } }), false)
 })
@@ -229,6 +236,10 @@ export function chatRequestBody({ message, history, faqContext, clarifyCount, se
   if (contexto?.accountId)    body.account_id    = contexto.accountId
   if (contexto?.businessName) body.business_name = contexto.businessName
   if (cruceAceptado)          body.cross_vertical_accepted = cruceAceptado
+  // Puerta de version: n8n solo OFRECE el cruce cuando ve esta clave. Sin
+  // ella, un portal viejo (produccion sin desplegar, o un cliente cacheado)
+  // recibiria "¿quieres verla?" sin botones para contestar.
+  body.supports_cross = true
   return body
 }
 ```
@@ -317,9 +328,13 @@ if (aceptado) {
   if (leccionAceptada) { lessons = [leccionAceptada]; docContent = lessonToText(leccionAceptada); }
 }
 
-// Hay cruce que OFRECER solo si no encontramos nada propio y no venimos de una
-// aceptacion. El umbral duro lo aplica el nodo (0.35); esto es el guardia.
-var cruce = (!lessons.length && !leccionAceptada && otras.length) ? otras[0] : null;
+var soportaCruce = false;
+try { soportaCruce = $('Webhook').first().json.body.supports_cross === true; } catch(_) {}
+
+// Hay cruce que OFRECER solo si: el portal sabe pintarlo, no encontramos nada
+// propio, y no venimos de una aceptacion. El umbral duro (0.35) lo aplica el
+// nodo; esto es el guardia.
+var cruce = (soportaCruce && !lessons.length && !leccionAceptada && otras.length) ? otras[0] : null;
 ```
 
 **Importante sobre el orden:** `docContent` se calcula hoy *antes* de este bloque. Si `leccionAceptada` existe hay que recalcularlo, como hace la línea de arriba. Verificá que el `var docContent = ...` original siga apareciendo antes.
@@ -366,7 +381,7 @@ La ruta del webhook es `bold-pos-chat`. El token del header `x-api-key` está en
 ```bash
 curl -s -X POST "https://n8n.mplasesores.com/webhook/bold-pos-chat" \
   -H "Content-Type: application/json" -H "x-api-key: $TOKEN" --max-time 120 \
-  -d '{"message":"como gestiono las mesas de mi negocio","history":[{"role":"user","content":"como gestiono las mesas de mi negocio"}],"faq_context":[],"clarify_count":0,"vertical":"retail","plataforma":"web"}'
+  -d '{"message":"como gestiono las mesas de mi negocio","history":[{"role":"user","content":"como gestiono las mesas de mi negocio"}],"faq_context":[],"clarify_count":0,"vertical":"retail","plataforma":"web","supports_cross":true}'
 ```
 
 Expected: la respuesta trae `cross_vertical` con la lección "Gestión de mesas" y vertical `restaurantes`, el texto ofrece verla sin responder la pregunta, y `knowledge_gap` es `false`.
@@ -378,6 +393,7 @@ Las otras tres pruebas, todas obligatorias antes de dar por bueno:
 | misma pregunta con `vertical: restaurantes` | Responde normal, **sin** `cross_vertical` |
 | sin `vertical` en el body | Como hoy: responde normal, sin filtro ni cruce |
 | con `cross_vertical_accepted: "<id de la lección>"` y `vertical: retail` | Responde **desde** esa lección |
+| **sin** `supports_cross` y `vertical: retail` | Como hoy: `knowledge_gap`, **sin** `cross_vertical`. Es la puerta que protege a producción |
 
 Si algo falla: restaurar el respaldo del Step 1 con un `PUT`.
 
