@@ -4,7 +4,7 @@ import { parseLessonBlocks } from './lesson-blocks.js'
 import { track } from './analytics.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml, isStaff } from './utils.js'
-import { VERTICALES, PLATAFORMAS, getSeleccion, setSeleccion, filtrarPorSeleccion, plataformasHabilitadas, verticalesVisibles, resolverSeleccion } from './vertical.js'
+import { VERTICALES, PLATAFORMAS, aplicaA, getSeleccion, setSeleccion, filtrarPorSeleccion, plataformasHabilitadas, verticalesVisibles, resolverSeleccion } from './vertical.js'
 import { onContextoBold, seleccionDesdeContexto, getContextoBold } from './bold-context.js'
 import { crearSuscripcionReanudable } from './realtime-lifecycle.js'
 import { createReadingTracker } from './reading-tracker.js'
@@ -597,12 +597,17 @@ async function renderLessons() {
   window.openLessonById = (id) => {
     // Las FAQs (js/resources.js) son compartidas entre verticales/plataformas
     // y pueden enlazar una lección fuera de la selección activa. Por eso la
-    // búsqueda parte de `allLessons` (sin filtrar) en vez de `lessons`.
+    // búsqueda parte de `allLessons` (sin filtrar) en vez de `lessons`: la
+    // lección se abre aunque no esté visible. La vertical solo se cambia si la
+    // lección no aplica a la actual Y Bold no la fijó (si la fijó, el selector
+    // está oculto y el comercio no podría volver). La plataforma sí cambia
+    // siempre: Bold no la manda, el chip es del usuario.
     const lesson = allLessons.find(l => String(l.id) === String(id))
     if (!lesson) { console.warn('[openLessonById] Lección no encontrada:', id); return }
-    const lessonVertical = lesson.vertical || 'retail'
     const lessonPlataforma = lesson.plataforma || 'web'
-    if (lessonVertical !== sel.vertical || lessonPlataforma !== sel.plataforma) {
+    const cambiaVertical = !aplicaA(lesson, sel.vertical) && !verticalFijadaPorBold()
+    const lessonVertical = cambiaVertical ? (lesson.vertical || 'retail') : sel.vertical
+    if (cambiaVertical || lessonPlataforma !== sel.plataforma) {
       // Cambia de contexto: persiste la selección, refiltra `lessons`/`grouped`
       // y re-renderiza los selectores. Deja activeLesson en null y la pantalla
       // en 'categories'; la lógica de abajo la reemplaza abriendo la lección.
