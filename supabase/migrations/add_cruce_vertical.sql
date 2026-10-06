@@ -10,6 +10,11 @@
 -- salir del navegador.
 --
 -- Es idempotente: se puede volver a ejecutar sin riesgo.
+--
+-- El control de que esto QUEDÓ BIEN vive aparte, en
+-- supabase/seeds/control-cruce-vertical.sql. No puede ir acá: el SQL Editor de
+-- Supabase envuelve el script entero en una transacción, así que un `rollback`
+-- de prueba se llevaría por delante la migración (ya pasó el 2026-10-06).
 
 alter table public.bodi_conversations
   add column if not exists account_id text;
@@ -76,54 +81,3 @@ $$;
 
 revoke all on function public.responder_cruce(uuid, boolean) from public;
 grant execute on function public.responder_cruce(uuid, boolean) to anon, authenticated;
-
--- ---------------------------------------------------------------------------
--- CONTROL: prueba real con rollback. No comprueba que las policies "existan"
--- —eso pasaría igual con las policies equivocadas— sino que el flujo completo
--- FUNCIONA con el rol que lo va a ejecutar de verdad.
---
--- Los fallos ABORTAN con error en vez de avisar con NOTICE, a propósito: el
--- editor SQL de Supabase puede no mostrar los NOTICE, y entonces un fallo se
--- vería igual que un éxito, que es justo lo que este control existe para
--- evitar. Si todo va bien, la última sentencia devuelve una fila que sí se ve.
-begin;
-  set local role anon;
-  do $$
-  declare v_id uuid := gen_random_uuid(); n int;
-  begin
-    -- Sin policy de INSERT para anon, esto aborta con 42501.
-    insert into public.bot_cruces_vertical
-      (id, account_id, vertical_comercio, vertical_contenido, leccion_id, leccion_titulo)
-      values (v_id, 'PRUEBA', 'retail', 'restaurantes', gen_random_uuid(), 'Prueba');
-    -- Sin grant de execute para anon, esto aborta.
-    perform public.responder_cruce(v_id, true);
-    -- Control NEGATIVO: anon NO debe poder leer. Es la propiedad de privacidad
-    -- que justifica la funcion security definer; si alguien le agrega una
-    -- policy de select a anon, acá se entera.
-    select count(*) into n from public.bot_cruces_vertical;
-    if n <> 0 then
-      raise exception 'FALLO: anon PUEDE leer bot_cruces_vertical (% filas). Sobra una policy de select para anon.', n;
-    end if;
-  end $$;
-rollback;
-
-begin;
-  set local role authenticated;
-  do $$
-  declare v_id uuid := gen_random_uuid(); n int;
-  begin
-    insert into public.bot_cruces_vertical
-      (id, account_id, vertical_comercio, vertical_contenido, leccion_id, leccion_titulo)
-      values (v_id, 'PRUEBA', 'retail', 'restaurantes', gen_random_uuid(), 'Prueba');
-    perform public.responder_cruce(v_id, true);
-    -- Un UPDATE de 0 filas NO lanza: esta lectura es la unica forma de saber
-    -- que responder_cruce de verdad escribio.
-    select count(*) into n from public.bot_cruces_vertical where id = v_id and acepto;
-    if n <> 1 then
-      raise exception 'FALLO: responder_cruce no actualizo la fila, o authenticated no puede leerla (n=%)', n;
-    end if;
-  end $$;
-rollback;
-
--- Si llegaste hasta acá sin un error en rojo, el control paso.
-select 'CONTROL OK: insert y responder_cruce funcionan con anon y con authenticated; anon no puede leer' as resultado;
