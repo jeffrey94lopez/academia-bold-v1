@@ -9,18 +9,28 @@
 -- un comercio, no de una persona. El nombre y el correo del usuario siguen sin
 -- salir del navegador.
 --
--- Ejecutar UNA sola vez en el SQL Editor del proyecto Supabase.
+-- Es idempotente: se puede volver a ejecutar sin riesgo.
 
 alter table public.bodi_conversations
   add column if not exists account_id text;
 
 create table if not exists public.bot_cruces_vertical (
-  id                 uuid primary key default gen_random_uuid(),
-  conversation_id    uuid references public.bodi_conversations(id) on delete cascade,
+  -- El id lo genera el CLIENTE (crypto.randomUUID, como en createConversation).
+  -- Así el INSERT no necesita RETURNING, que exigiría abrirle SELECT a `anon`.
+  id                 uuid primary key,
+  -- `set null` y no `cascade`: todo el valor analítico vive en las columnas de
+  -- esta tabla, y `conversation_id` es solo el vínculo de vuelta. Si algún día
+  -- se purgan conversaciones, los cruces tienen que sobrevivir. Mismo criterio
+  -- que bot_vacios_preguntas.
+  conversation_id    uuid references public.bodi_conversations(id) on delete set null,
   account_id         text,
-  vertical_comercio  text not null,
-  vertical_contenido text not null,
+  -- CHECK porque un tipeo del cliente rompería en silencio los GROUP BY de la
+  -- analítica, que es el único motivo por el que esta tabla existe.
+  vertical_comercio  text not null check (vertical_comercio  in ('retail','restaurantes')),
+  vertical_contenido text not null check (vertical_contenido in ('retail','restaurantes','ambas')),
   leccion_id         uuid,
+  -- Desnormalizado a propósito: el registro debe seguir siendo legible aunque
+  -- la lección se renombre o se borre.
   leccion_titulo     text,
   -- null = se ofreció y no contestó; true/false = qué contestó.
   -- Distingue "le ofrecimos" de "le interesó", que son preguntas distintas.
@@ -28,36 +38,84 @@ create table if not exists public.bot_cruces_vertical (
   created_at         timestamptz not null default now()
 );
 
-create index if not exists idx_cruces_leccion on public.bot_cruces_vertical (leccion_id);
-create index if not exists idx_cruces_cuenta  on public.bot_cruces_vertical (account_id);
-create index if not exists idx_cruces_fecha   on public.bot_cruces_vertical (created_at desc);
+create index if not exists idx_cruces_leccion      on public.bot_cruces_vertical (leccion_id);
+create index if not exists idx_cruces_cuenta       on public.bot_cruces_vertical (account_id);
+create index if not exists idx_cruces_fecha        on public.bot_cruces_vertical (created_at desc);
+create index if not exists idx_cruces_conversacion on public.bot_cruces_vertical (conversation_id);
 
 alter table public.bot_cruces_vertical enable row level security;
 
--- El portal escribe como `anon`, igual que bodi_conversations. Sin estas dos
--- policies el INSERT se bloquea EN SILENCIO (supabase-js no lanza) y la tabla
--- queda vacía sin que nadie se entere.
-drop policy if exists cruces_insert_anon on public.bot_cruces_vertical;
-create policy cruces_insert_anon on public.bot_cruces_vertical
-  for insert to anon with check (true);
+-- INSERT para los dos roles: el portal escribe como `anon`, pero con una sesión
+-- de admin abierta PostgREST corre como `authenticated`. Olvidar el segundo es
+-- el fallo que add_rls_insert_authenticated.sql documenta haber costado 3781
+-- eventos: sin policy aplicable el INSERT se rechaza y supabase-js NO lanza.
+drop policy if exists cruces_insert on public.bot_cruces_vertical;
+create policy cruces_insert on public.bot_cruces_vertical
+  for insert to anon, authenticated with check (true);
 
-drop policy if exists cruces_update_anon on public.bot_cruces_vertical;
-create policy cruces_update_anon on public.bot_cruces_vertical
-  for update to anon using (true) with check (true);
+-- SELECT solo para `authenticated` (el dashboard). A `anon` NO se le abre
+-- lectura: este proyecto ya tiene una auditoría abierta porque anon lee todas
+-- las conversaciones del bot, y esta tabla lleva account_id.
+drop policy if exists cruces_select_auth on public.bot_cruces_vertical;
+create policy cruces_select_auth on public.bot_cruces_vertical
+  for select to authenticated using (true);
+
+-- El portal marca la respuesta del usuario por esta función y no por un UPDATE
+-- directo. Motivo: en Postgres un `UPDATE ... WHERE id = x` necesita TAMBIÉN
+-- una policy de SELECT para poder encontrar la fila, y abrírsela a `anon`
+-- expondría account_id. `security definer` salta RLS por dentro y acota lo que
+-- anon puede hacer a exactamente esto: poner `acepto` en una fila que ya existe.
+create or replace function public.responder_cruce(p_id uuid, p_acepto boolean)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.bot_cruces_vertical set acepto = p_acepto where id = p_id;
+$$;
+
+revoke all on function public.responder_cruce(uuid, boolean) from public;
+grant execute on function public.responder_cruce(uuid, boolean) to anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- Control 1: la columna y la tabla existen. Debe devolver 2 filas.
-select 'bodi_conversations.account_id' as objeto, count(*) as existe
-from information_schema.columns
-where table_schema='public' and table_name='bodi_conversations' and column_name='account_id'
-union all
-select 'tabla bot_cruces_vertical', count(*)
-from information_schema.tables
-where table_schema='public' and table_name='bot_cruces_vertical';
+-- CONTROL: prueba real con rollback. No comprueba que las policies "existan"
+-- —eso pasaría igual con las policies equivocadas— sino que el flujo completo
+-- FUNCIONA con el rol que lo va a ejecutar de verdad.
+-- Debe imprimir dos NOTICE con 'OK'. Si alguno dice FALLO, no despliegues el
+-- portal: el registro quedaría vacío o entero en null, sin ningún error.
+begin;
+  set local role anon;
+  do $$
+  declare v_id uuid := gen_random_uuid();
+  begin
+    insert into public.bot_cruces_vertical
+      (id, account_id, vertical_comercio, vertical_contenido, leccion_id, leccion_titulo)
+      values (v_id, 'PRUEBA', 'retail', 'restaurantes', gen_random_uuid(), 'Prueba');
+    raise notice 'INSERT como anon: OK';
+    perform public.responder_cruce(v_id, true);
+    -- Un SELECT acá no serviría: corre como anon y a propósito no ve la fila.
+    -- Lo que se comprueba es que la función no reviente. El UPDATE se verifica
+    -- de verdad en el bloque de authenticated, que sí puede leer.
+    raise notice 'responder_cruce como anon: OK';
+  exception when others then
+    raise notice 'FALLO como anon: %', sqlerrm;
+  end $$;
+rollback;
 
--- Control 2: las dos policies quedaron. Debe listar cruces_insert_anon y
--- cruces_update_anon. Si falta alguna, el portal escribirá en silencio y sin
--- efecto.
-select policyname, cmd from pg_policies
-where schemaname='public' and tablename='bot_cruces_vertical'
-order by policyname;
+begin;
+  set local role authenticated;
+  do $$
+  declare v_id uuid := gen_random_uuid(); n int;
+  begin
+    insert into public.bot_cruces_vertical
+      (id, account_id, vertical_comercio, vertical_contenido, leccion_id, leccion_titulo)
+      values (v_id, 'PRUEBA', 'retail', 'restaurantes', gen_random_uuid(), 'Prueba');
+    perform public.responder_cruce(v_id, true);
+    select count(*) into n from public.bot_cruces_vertical where id = v_id and acepto;
+    if n = 1 then raise notice 'Flujo completo como authenticated: OK (insert + responder_cruce + select)';
+    else raise notice 'FALLO: responder_cruce no actualizo la fila';
+    end if;
+  exception when others then
+    raise notice 'FALLO como authenticated: %', sqlerrm;
+  end $$;
+rollback;
