@@ -58,6 +58,7 @@ test('chatRequestBody incluye clarify_count y esparce la selección', () => {
     clarify_count: 2,
     vertical: 'retail',
     plataforma: 'web',
+    supports_cross: true,
   })
 })
 
@@ -92,4 +93,34 @@ test('chatRequestBody manda la vertical y las FAQ tal cual las recibe', () => {
   assert.equal(body.vertical, 'restaurantes')
   assert.equal(body.plataforma, 'web')
   assert.deepEqual(body.faq_context, faqs)
+})
+
+test('chatRequestBody: cross_vertical_accepted solo cuando se pasa', () => {
+  const base = { message: 'hola', history: [], faqContext: [], clarifyCount: 0,
+                 seleccion: { vertical: 'retail', plataforma: 'web' } }
+  assert.equal('cross_vertical_accepted' in chatRequestBody(base), false)
+
+  const con = chatRequestBody({ ...base, cruceAceptado: 'abc-123' })
+  assert.equal(con.cross_vertical_accepted, 'abc-123')
+})
+
+test('chatRequestBody: un cruceAceptado vacío no ensucia el body', () => {
+  const base = { message: 'hola', history: [], faqContext: [], clarifyCount: 0,
+                 seleccion: { vertical: 'retail', plataforma: 'web' } }
+  assert.equal('cross_vertical_accepted' in chatRequestBody({ ...base, cruceAceptado: null }), false)
+  assert.equal('cross_vertical_accepted' in chatRequestBody({ ...base, cruceAceptado: '' }), false)
+})
+
+test('chatRequestBody: siempre declara supports_cross', () => {
+  const b = chatRequestBody({ message: 'hola', history: [], faqContext: [], clarifyCount: 0,
+                              seleccion: { vertical: 'retail', plataforma: 'web' } })
+  assert.equal(b.supports_cross, true)
+})
+
+test('shouldAskResolution: no pregunta en el turno del cruce', () => {
+  assert.equal(shouldAskResolution({ cross_vertical: { leccion_id: 'x', titulo: 'T', vertical: 'restaurantes' } }), false)
+})
+
+test('shouldAskResolution: sigue preguntando en una respuesta normal', () => {
+  assert.equal(shouldAskResolution({ response: 'ok' }), true)
 })
