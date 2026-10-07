@@ -520,6 +520,8 @@ En `js/assistant.js`, una función nueva al lado de `appendResolutionButtons()` 
 // mismo patron visual (una pregunta corta con dos salidas) y no justifica
 // estilos propios.
 function appendCrossButtons(cross, cruceId) {
+  // `cross.pregunta` la agrega el llamador: es la pregunta que provoco la
+  // oferta, y hay que reenviarla tal cual al aceptar (ver abajo).
   const box = document.getElementById('chatMessages')
   if (!box) return
   document.querySelectorAll('.cross-btns').forEach(el => el.remove())
@@ -536,7 +538,12 @@ function appendCrossButtons(cross, cruceId) {
     btns.remove()
     marcarCruce(cruceId, true)
     pendingCross = cross
-    sendMessage('Sí, muéstrame esa información')
+    // Se reenvia la PREGUNTA ORIGINAL, no un "si". n8n busca la leccion
+    // aceptada entre las candidatas del mensaje de ESE turno, no por id: con
+    // un "si, muestramela" la leccion no aparece en la busqueda y la
+    // aceptacion no hace nada, EN SILENCIO. El segundo argumento es solo lo
+    // que se ve en el chat.
+    sendMessage(cross.pregunta, { textoVisible: 'Sí, muéstramela' })
   }
   btns.querySelector('.res-no').onclick = () => {
     btns.remove()
@@ -548,6 +555,18 @@ function appendCrossButtons(cross, cruceId) {
 ```
 
 Agregar `let pendingCross = null` junto a las otras variables de estado del módulo.
+
+- [ ] **Step 2b: `sendMessage` acepta un texto visible distinto del que viaja**
+
+`sendMessage(text)` hoy hace `appendBubble('user', text)` y manda `message: text`. Para el turno de aceptación hacen falta dos cosas distintas: la burbuja dice "Sí, muéstramela" y al bot le viaja la pregunta original.
+
+```js
+async function sendMessage(text, { textoVisible } = {}) {
+```
+
+y donde pinta la burbuja del usuario, `appendBubble('user', textoVisible || text)`. El resto de la función no cambia: `message` sigue siendo `text`.
+
+**Por qué no basta con reenviar la pregunta y ya:** se vería la misma pregunta dos veces seguidas en el chat, como si el usuario se hubiera repetido.
 
 - [ ] **Step 3: Cablear la respuesta del bot — son DOS puntos de edición distintos**
 
@@ -577,7 +596,10 @@ Los dos están dentro de `sendMessage` (que empieza en `js/assistant.js:695` y r
         verticalComercio: sel.vertical,
         cross: data.cross_vertical,
       })
-      appendCrossButtons(data.cross_vertical, id)
+      // `text` es la pregunta de ESTE turno, la que provoco la oferta.
+      // Hay que arrastrarla: al aceptar se reenvia tal cual, porque n8n
+      // busca la leccion aceptada entre las candidatas del mensaje.
+      appendCrossButtons({ ...data.cross_vertical, pregunta: text }, id)
     }
 ```
 
