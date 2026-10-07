@@ -591,7 +591,7 @@ function appendIdleNotice() {
 function appendResolutionButtons() {
   const box = document.getElementById('chatMessages')
   if (!box) return
-  document.querySelectorAll('.resolution-btns').forEach(el => el.remove())
+  document.querySelectorAll('.resolution-btns:not(.switch-vertical-btns)').forEach(el => el.remove())
   const btns = document.createElement('div')
   btns.className = 'resolution-btns'
   btns.innerHTML = `
@@ -660,7 +660,9 @@ function appendSwitchVerticalButton(vertical) {
   if (!box) return
   const etiqueta = vertical === 'restaurantes' ? 'Restaurantes' : 'Retail'
   const wrap = document.createElement('div')
-  wrap.className = 'resolution-btns'
+  // `switch-vertical-btns` es solo un gancho para querySelectorAll (no es CSS):
+  // evita que appendResolutionButtons lo borre al pintar sus botones.
+  wrap.className = 'resolution-btns switch-vertical-btns'
   wrap.innerHTML = `
     <div class="resolution-actions">
       <button class="res-btn res-yes">Ver siempre contenido de ${escapeHtml(etiqueta)}</button>
@@ -776,7 +778,7 @@ async function sendMessage(text, { textoVisible } = {}) {
   removeIdleNotice()
   // Cualquier mensaje nuevo invalida la oferta de cruce anterior: un clic tardio
   // reenviaria una pregunta vieja y registraria una aceptacion que no corresponde.
-  document.querySelectorAll('.cross-btns').forEach(el => el.remove())
+  document.querySelectorAll('.cross-btns, .switch-vertical-btns').forEach(el => el.remove())
 
   if (!conversationId) await createConversation()
 
