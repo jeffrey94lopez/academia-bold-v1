@@ -138,10 +138,13 @@ async function createConversation() {
     // Vertical/plataforma solo se guardan si vinieron de Bold. Sin contexto,
     // getSeleccion() devuelve el 'retail' por defecto: escribirlo fabricaría un
     // dato que luego no se distingue de un comercio retail real; un null sí.
-    if (getContextoBold()?.vertical) {
+    // account_id va en el mismo bloque: sin contexto de Bold tampoco hay cuenta.
+    const contextoBold = getContextoBold()
+    if (contextoBold?.vertical) {
       const { vertical, plataforma } = getSeleccion()
       fila.vertical = vertical
       fila.plataforma = plataforma
+      fila.account_id = contextoBold.accountId || null
     }
     const { error } = await supabase
       .from('bodi_conversations')
