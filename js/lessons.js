@@ -629,6 +629,11 @@ async function renderLessons() {
     showScreen('content')
   }
 
+  // El asistente ofrece cambiar de vertical tras un cruce. Se expone por
+  // `window` y no por import porque lessons.js no exporta nada: su estado vive
+  // dentro de renderLessons().
+  window.aplicarVerticalDesdeChat = (vertical) => applySeleccion({ vertical }, { origen: 'cruce-bot' })
+
   window.openLessonBySlug = (slug) => {
     const lesson = allLessons.find(l => l.slug === slug)
     if (!lesson) { console.warn('[openLessonBySlug] Lección no encontrada:', slug); return }
