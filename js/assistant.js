@@ -774,6 +774,9 @@ async function sendMessage(text, { textoVisible } = {}) {
   }
   clearIdleTimer()
   removeIdleNotice()
+  // Cualquier mensaje nuevo invalida la oferta de cruce anterior: un clic tardio
+  // reenviaria una pregunta vieja y registraria una aceptacion que no corresponde.
+  document.querySelectorAll('.cross-btns').forEach(el => el.remove())
 
   if (!conversationId) await createConversation()
 
@@ -867,7 +870,10 @@ async function sendMessage(text, { textoVisible } = {}) {
 
     history.push({ role: 'assistant', content: reply })
     storageSet('bold_chat_history', JSON.stringify(history.slice(-20)))
-    sessionMessages.push({ role: 'user', content: text })
+    // El transcripto guarda lo que el usuario dijo ("Sí, muéstramela"), no la
+    // pregunta que viajo al bot: la repeticion se leeria como friccion en la
+    // auto-evaluacion. `history` (arriba) NO cambia: el bot necesita la pregunta real.
+    sessionMessages.push({ role: 'user', content: textoVisible || text })
     sessionMessages.push({ role: 'assistant', content: reply })
     clarifyCount = nextClarifyCount(clarifyCount, data)
 
