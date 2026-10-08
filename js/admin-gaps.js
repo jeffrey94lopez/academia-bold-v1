@@ -6,7 +6,7 @@ import { fetchVacios, fetchVaciosSalud, fetchVacioDetalle, resolverVacio,
          descartarVacio, dividirVacio } from './gaps-api.js'
 import { validarDivision } from './gap-split.js'
 import { estadoMostrado, registroEnSilencio } from './gap-lifecycle.js'
-import { contenidoConFaq, buildFaqBlock } from './gap-faq-block.js'
+import { contenidoConFaqInfo, buildFaqBlock } from './gap-faq-block.js'
 import { dedupeQuestions } from './faq-suggest.js'
 import { supabase } from './supabase.js'
 import { logActivity } from './activity.js'
@@ -23,24 +23,35 @@ const hace = iso => {
   return `hace ${dias} días`
 }
 
+// Filtro de estado de la lista. Vive a nivel de módulo para que sobreviva a los
+// repintados (resolver, descartar, volver del detalle).
+const ESTADOS = { pendiente: 'Pendientes', resuelto: 'Resueltos', descartado: 'Descartados' }
+let estadoFiltro = 'pendiente'
+
+// Tope de cada consulta. Con el límite por defecto de la RPC (100), un vacío con
+// pocas preguntas totales se cae de la lista en silencio. El arreglo correcto es
+// un parámetro en la RPC que filtre en el servidor; hasta entonces, uno holgado.
+const LIMITE_LISTA = 500
+
 export async function renderGapsPanel() {
   const el = document.getElementById('panel-gaps')
   el.innerHTML = `<p class="text-sm text-[var(--black-40)] p-6">Cargando...</p>`
 
   // Sin ?? 0 y sin try/catch que se trague el error: un fallo de lectura tiene
   // que verse como fallo, no como "no hay vacíos".
-  let pendientes, reincidentes, salud
+  //
+  // Se piden los tres estados siempre: la lista muestra uno según el filtro, y
+  // las dos franjas de arriba (resueltos y descartados que siguen recibiendo
+  // preguntas) salen de los otros dos. El filtro por reincidencia
+  // (preguntas_desde_cierre > 0) se hace abajo, en el cliente.
+  const pedir = estado => fetchVacios({ estado, limit: LIMITE_LISTA })
+  let porEstado, salud
   try {
-    ;[pendientes, reincidentes, salud] = await Promise.all([
-      fetchVacios({ estado: 'pendiente' }),
-      // Paliativo: la RPC ordena por preguntas_total desc y el filtro por
-      // preguntas_desde_cierre > 0 se hace abajo, en el cliente. Con el límite
-      // por defecto (100) un reincidente con pocas preguntas totales se cae del
-      // top en silencio. El arreglo correcto es un parámetro en la RPC que pida
-      // solo los reincidentes; hasta entonces, un límite holgado.
-      fetchVacios({ estado: 'resuelto', limit: 500 }),
-      fetchVaciosSalud(),
+    const [pendientes, resueltos, descartados, s] = await Promise.all([
+      pedir('pendiente'), pedir('resuelto'), pedir('descartado'), fetchVaciosSalud(),
     ])
+    porEstado = { pendiente: pendientes, resuelto: resueltos, descartado: descartados }
+    salud = s
   } catch (e) {
     el.innerHTML = `<div class="p-6 flex flex-col gap-4">
       <div id="gapEmbedAviso"></div>
@@ -53,11 +64,24 @@ export async function renderGapsPanel() {
     return
   }
 
-  const vuelven = (reincidentes || []).filter(v => estadoMostrado(v) === 'resuelto_reincidente')
+  const lista = porEstado[estadoFiltro] || []
+  // Cada franja se oculta cuando la lista ya muestra ese mismo estado: sería
+  // repetir las mismas filas dos veces.
+  const vuelven = estadoFiltro === 'resuelto' ? []
+    : (porEstado.resuelto || []).filter(v => estadoMostrado(v) === 'resuelto_reincidente')
+  const descartadosVuelven = estadoFiltro === 'descartado' ? []
+    : (porEstado.descartado || []).filter(v => estadoMostrado(v) === 'descartado_reincidente')
   const silencio = registroEnSilencio({
     ultimoGapConversacion: salud?.ultimo_gap_conversacion,
     ultimaPreguntaRegistrada: salud?.ultima_pregunta_registrada,
   })
+
+  // Si la consulta topó el límite, el número real es mayor: decirlo en vez de
+  // presentar el tope como si fuera el total.
+  const conteo = lista.length >= LIMITE_LISTA ? `${lista.length}+` : String(lista.length)
+  const vacioMsg = estadoFiltro === 'pendiente'
+    ? 'Nada pendiente. Si el bot está fallando igual, mira el aviso de arriba.'
+    : `No hay vacíos ${estadoFiltro === 'resuelto' ? 'resueltos' : 'descartados'}.`
 
   el.innerHTML = `
     <div class="p-4 md:p-6 flex flex-col gap-4">
@@ -65,19 +89,29 @@ export async function renderGapsPanel() {
       ${silencio.enSilencio ? avisoSilencioHtml(silencio) : ''}
       ${Number(salud?.sin_clasificar) > 0 ? sinClasificarHtml(salud.sin_clasificar) : ''}
       ${vuelven.length ? franjaReincidentesHtml(vuelven) : ''}
+      ${descartadosVuelven.length ? franjaDescartadosHtml(descartadosVuelven) : ''}
       <div>
-        <h2 class="text-sm font-black text-[var(--blue-100)] mb-2">
-          Pendientes (${(pendientes || []).length})
-        </h2>
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <h2 class="text-sm font-black text-[var(--blue-100)]">
+            ${ESTADOS[estadoFiltro]} (${conteo})
+          </h2>
+          <select id="gapEstadoFiltro" aria-label="Estado de los vacíos"
+            class="px-2 py-1.5 rounded-lg border border-[var(--blue-20)] text-xs outline-none">
+            ${Object.entries(ESTADOS).map(([k, t]) =>
+              `<option value="${escapeHtml(k)}"${k === estadoFiltro ? ' selected' : ''}>${escapeHtml(t)}</option>`).join('')}
+          </select>
+        </div>
         <div class="flex flex-col gap-1.5">
-          ${(pendientes || []).length
-            ? pendientes.map(filaHtml).join('')
-            : `<p class="text-xs text-[var(--black-40)]">Nada pendiente. Si el bot está fallando igual, mira el aviso de arriba.</p>`}
+          ${lista.length ? lista.map(filaHtml).join('') : `<p class="text-xs text-[var(--black-40)]">${vacioMsg}</p>`}
         </div>
       </div>
     </div>`
 
   pintarAvisoEmbed(document.getElementById('gapEmbedAviso'))
+  document.getElementById('gapEstadoFiltro').addEventListener('change', e => {
+    estadoFiltro = e.target.value
+    renderGapsPanel()
+  })
   el.querySelectorAll('.gap-row').forEach(b =>
     b.addEventListener('click', () => abrirDetalle(b.dataset.vacio)))
 }
@@ -117,12 +151,34 @@ function franjaReincidentesHtml(vs) {
   </div>`
 }
 
+// Decisión 5 de la spec: un descartado que vuelve muchas veces vuelve a la
+// superficie. Importa por partida doble: el descarte lo hizo una persona, y un
+// vacío descartado con un ancla amplia SIGUE absorbiendo preguntas parecidas
+// (el registro empareja contra todos los vacíos, sin mirar el estado).
+function franjaDescartadosHtml(vs) {
+  return `<div>
+    <h2 class="text-sm font-black text-[var(--warning-150)] mb-2">
+      Descartados que vuelven (${vs.length})
+    </h2>
+    <p class="text-xs text-[var(--black-40)] mb-2">
+      Los descartaste y siguen llegando preguntas parecidas. Revisa si el descarte
+      fue correcto; si no, ábrelo y resuélvelo.
+    </p>
+    <div class="flex flex-col gap-1.5">${vs.map(filaHtml).join('')}</div>
+  </div>`
+}
+
 function filaHtml(v) {
   const chips = [v.vertical, v.categoria].filter(Boolean)
     .map(c => `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[var(--blue-10)] text-[var(--blue-100)]">${escapeHtml(c)}</span>`)
     .join(' ')
   const extra = Number(v.preguntas_desde_cierre) > 0
     ? `<span class="text-[10px] font-bold text-[var(--warning-150)]">+${v.preguntas_desde_cierre} desde que lo cerraste</span>`
+    : ''
+  // El motivo del descarte es lo que dice, a los dos meses, de qué tipo de
+  // basura genera el detector: tiene que verse en algún lado.
+  const motivo = v.estado === 'descartado'
+    ? `<span class="text-[10px] font-bold text-[var(--black-60)]">descartado: ${escapeHtml(motivoLegible(v.motivo_descarte))}</span>`
     : ''
   return `<button data-vacio="${escapeHtml(v.id)}"
       class="gap-row w-full text-left bg-white border border-[var(--blue-10)] rounded-xl p-3 hover:bg-[var(--background-page)]">
@@ -133,6 +189,7 @@ function filaHtml(v) {
     <div class="flex items-center gap-2 mt-1.5 flex-wrap">
       ${chips}
       <span class="text-[10px] text-[var(--black-40)]">última ${escapeHtml(hace(v.ultima_vez))}</span>
+      ${motivo}
       ${extra}
     </div>
   </button>`
@@ -164,14 +221,36 @@ let vacioAbierto = null   // { vacio, preguntas } del detalle en pantalla
 
 // Si la FAQ ya quedó escrita pero el vacío no se cerró, acá se guarda a qué
 // lección apuntar. El reintento ejecuta SOLO resolverVacio: volver a pasar por
-// guardarResolucion releería y volvería a agregar el bloque, duplicando la FAQ.
-let cierrePendiente = null   // { vacioId, leccionId, pregunta } | null
+// guardarResolucion releería la lección (guardarResolucion ya no duplica una FAQ
+// con la misma pregunta, pero el reintento no tiene por qué escribir de nuevo).
+//
+// Lleva su `vacioId` porque tiene que sobrevivir a "← Volver a la bandeja" y a
+// reabrir ese mismo vacío (que sigue listado como pendiente porque nunca se
+// cerró): abrirDetalle lo conserva si el id coincide y lo borra solo al abrir
+// otro vacío. `formulario` y `mensaje` permiten repintar el estado congelado
+// tal como lo vio el usuario.
+let cierrePendiente = null   // { vacioId, leccionId, pregunta, formulario, mensaje } | null
 
-// Un re-embebido fallido deja la FAQ escrita y el vacío CERRADO (fuera de la
-// bandeja) con el bot incapaz de encontrarla. El aviso no puede vivir en un
-// prepend: el propio onGuardar repinta el panel justo después y se lo lleva.
-// Vive en una bandera que renderGapsPanel pinta hasta que alguien la descarte.
+// Un re-embebido fallido deja la FAQ escrita pero el bot incapaz de encontrarla.
+// El re-embebido corre sin esperarse y es independiente del cierre del vacío:
+// puede fallar con el vacío cerrado o, si el cierre también falla, con el vacío
+// todavía en la bandeja; el aviso no afirma nada sobre el estado del vacío.
+// El aviso no puede vivir en un prepend: el propio onGuardar repinta el panel
+// justo después y se lo lleva. Vive en una bandera que renderGapsPanel pinta
+// hasta que alguien la descarte.
 let embedFallido = null   // { leccionId, titulo } | null
+
+const CAMPOS_FORMULARIO = ['gapLeccion', 'gapPregunta', 'gapVariaciones', 'gapRespuesta', 'gapAcordeon']
+
+// Cuántas preguntas llegaron después de que el vacío se cerró (resuelto o
+// descartado). La RPC del detalle no trae este contador (la de la lista sí), pero
+// trae las preguntas con su fecha y `resuelto_at`: se cuenta de ahí, de datos
+// reales.
+function preguntasDesdeCierre(v, preguntas) {
+  const cierre = Date.parse(v.resuelto_at)
+  if (Number.isNaN(cierre)) return 0
+  return preguntas.filter(p => Date.parse(p.created_at) > cierre).length
+}
 
 async function abrirDetalle(vacioId) {
   const el = document.getElementById('panel-gaps')
@@ -199,8 +278,11 @@ async function abrirDetalle(vacioId) {
   }
 
   vacioAbierto = detalle
-  cierrePendiente = null   // un detalle nuevo nunca hereda el reintento del anterior
+  // El reintento de cierre pertenece a UN vacío: reabrir ese mismo (tras "Volver"
+  // o tras dividir) lo conserva; abrir otro lo suelta.
+  if (cierrePendiente && cierrePendiente.vacioId !== vacioId) cierrePendiente = null
   const v = detalle.vacio
+  const estado = v.estado
   // Las preguntas reales son lo que permite escribir la respuesta sin adivinar,
   // y también lo que precarga las variaciones.
   const variacionesSugeridas = dedupeQuestions(detalle.preguntas.map(p => p.texto)).join('\n')
@@ -209,6 +291,15 @@ async function abrirDetalle(vacioId) {
   const opciones = lecciones
     .filter(l => !v.vertical || !l.vertical || l.vertical === v.vertical || l.vertical === 'ambas')
     .map(l => `<option value="${escapeHtml(l.id)}">${escapeHtml(l.titulo)}</option>`).join('')
+
+  // Un vacío que NO está pendiente ya tuvo una decisión: no se le ofrece el
+  // formulario como si nada. Se muestra qué pasó y el formulario queda detrás de
+  // una confirmación (ver resueltoHtml / descartadoHtml).
+  const reabrible = estado !== 'pendiente'
+  const desdeCierre = preguntasDesdeCierre(v, detalle.preguntas)
+  // La RPC del detalle devuelve la fila cruda de bot_vacios (leccion_id, sin el
+  // título): el título sale de la lista de lecciones que ya se leyó arriba.
+  const leccionDestino = v.leccion_id ? lecciones.find(l => l.id === v.leccion_id) : null
 
   el.innerHTML = `
     <div class="p-4 md:p-6 flex flex-col gap-4">
@@ -221,6 +312,9 @@ async function abrirDetalle(vacioId) {
         </p>
       </div>
 
+      ${estado === 'resuelto' ? resueltoHtml(v, leccionDestino, desdeCierre) : ''}
+      ${estado === 'descartado' ? descartadoHtml(v, desdeCierre) : ''}
+
       <div>
         <h3 class="text-xs font-black text-[var(--blue-100)] mb-1.5">Preguntas reales</h3>
         <div class="flex flex-col gap-1">
@@ -229,25 +323,31 @@ async function abrirDetalle(vacioId) {
         <div id="gapSplitBar" class="hidden mt-2"></div>
       </div>
 
-      <div class="bg-white border border-amber-200 rounded-xl p-3 flex flex-col gap-1.5">
-        <h3 class="text-xs font-black text-amber-700">Resolver con una FAQ del bot</h3>
-        <select id="gapLeccion" class="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-xs outline-none focus:border-amber-400">
-          <option value="">Elige la lección destino…</option>${opciones}
-        </select>
-        <input id="gapPregunta" value="${escapeHtml(v.titulo)}" placeholder="Pregunta base"
-          class="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-xs font-bold outline-none focus:border-amber-400">
-        <textarea id="gapVariaciones" rows="3"
-          class="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-xs outline-none focus:border-amber-400 resize-none">${escapeHtml(variacionesSugeridas)}</textarea>
-        <textarea id="gapRespuesta" rows="4" placeholder="Respuesta que dará el bot..."
-          class="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-xs outline-none focus:border-amber-400 resize-none"></textarea>
-        <label class="flex items-center gap-1.5 text-[11px] text-[var(--black-60)] cursor-pointer select-none">
-          <input type="checkbox" id="gapAcordeon" class="accent-[var(--blue-100)]">
-          Mostrar en la lección como acordeón (visible al estudiante)
-        </label>
-        <p id="gapMsg" class="text-xs hidden"></p>
-        <div class="flex gap-2 mt-1">
-          <button id="gapGuardar" class="px-3 py-2 rounded-xl text-xs font-bold bg-[var(--blue-100)] text-white">Guardar y cerrar el vacío</button>
-          <button id="gapDescartarBtn" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)]">Descartar…</button>
+      <div id="gapConfirmBox" class="hidden"></div>
+
+      <div id="gapResolverWrap" class="${reabrible ? 'hidden' : ''}">
+        <div class="bg-white border border-amber-200 rounded-xl p-3 flex flex-col gap-1.5">
+          <h3 class="text-xs font-black text-amber-700">Resolver con una FAQ del bot</h3>
+          <select id="gapLeccion" class="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-xs outline-none focus:border-amber-400">
+            <option value="">Elige la lección destino…</option>${opciones}
+          </select>
+          <input id="gapPregunta" value="${escapeHtml(v.titulo)}" placeholder="Pregunta base"
+            class="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-xs font-bold outline-none focus:border-amber-400">
+          <textarea id="gapVariaciones" rows="3"
+            class="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-xs outline-none focus:border-amber-400 resize-none">${escapeHtml(variacionesSugeridas)}</textarea>
+          <textarea id="gapRespuesta" rows="4" placeholder="Respuesta que dará el bot..."
+            class="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-xs outline-none focus:border-amber-400 resize-none"></textarea>
+          <label class="flex items-center gap-1.5 text-[11px] text-[var(--black-60)] cursor-pointer select-none">
+            <input type="checkbox" id="gapAcordeon" class="accent-[var(--blue-100)]">
+            Mostrar en la lección como acordeón (visible al estudiante)
+          </label>
+          <p id="gapMsg" class="text-xs hidden"></p>
+          <div class="flex gap-2 mt-1">
+            <button id="gapGuardar" class="px-3 py-2 rounded-xl text-xs font-bold bg-[var(--blue-100)] text-white">Guardar y cerrar el vacío</button>
+            ${estado === 'pendiente'
+              ? `<button id="gapDescartarBtn" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)]">Descartar…</button>`
+              : ''}
+          </div>
         </div>
       </div>
 
@@ -257,8 +357,139 @@ async function abrirDetalle(vacioId) {
   document.getElementById('gapVolver').addEventListener('click', renderGapsPanel)
   document.getElementById('gapGuardar').addEventListener('click', onGuardar)
   wireVerConversacion()
-  wireDescartar(v)
   wireDividir(v)
+  wireAccionesPorEstado(v)
+  if (cierrePendiente) repintarCierrePendiente()
+}
+
+// Estado congelado del reintento: la FAQ YA está en la lección, así que lo único
+// que queda por hacer es cerrar el vacío. Se repinta con los valores que la
+// persona había escrito, deshabilitados, y el aviso del fallo.
+function repintarCierrePendiente() {
+  // Si el vacío estaba resuelto/descartado, el formulario sigue oculto tras su
+  // confirmación; pero el reintento es lo único que tiene sentido hacer, así
+  // que se muestra.
+  document.getElementById('gapResolverWrap').classList.remove('hidden')
+  const f = cierrePendiente.formulario
+  if (f) {
+    document.getElementById('gapLeccion').value = f.leccionId
+    document.getElementById('gapPregunta').value = f.pregunta
+    document.getElementById('gapVariaciones').value = f.variaciones
+    document.getElementById('gapRespuesta').value = f.respuesta
+    document.getElementById('gapAcordeon').checked = f.mostrarAcordeon
+  }
+  CAMPOS_FORMULARIO.forEach(id => { document.getElementById(id).disabled = true })
+  document.getElementById('gapGuardar').textContent = 'Reintentar cerrar el vacío'
+  if (cierrePendiente.mensaje) mostrarMsg(cierrePendiente.mensaje, true)
+}
+
+// ── Vacíos que ya tuvieron una decisión ──────────────────────────────────────
+
+function resueltoHtml(v, leccion, desdeCierre) {
+  const donde = leccion
+    ? `la lección «${escapeHtml(leccion.titulo)}»`
+    : 'una lección que ya no existe'
+  const quien = v.resuelto_por ? ` por ${escapeHtml(v.resuelto_por)}` : ''
+  return `<div class="bg-white border border-[var(--blue-10)] rounded-xl p-3 flex flex-col gap-1.5">
+    <h3 class="text-xs font-black text-[var(--success-150)]">Este vacío ya está resuelto</h3>
+    <p class="text-xs text-[var(--black-100)]">
+      Se resolvió con una FAQ en ${donde}${quien}, ${escapeHtml(hace(v.resuelto_at))}.
+    </p>
+    ${desdeCierre > 0 ? `<p class="text-xs font-bold text-[var(--warning-150)]">
+      ${desdeCierre} ${desdeCierre === 1 ? 'pregunta llegó' : 'preguntas llegaron'} después de resolverlo.</p>` : ''}
+    <p class="text-xs text-[var(--black-60)]">
+      ${desdeCierre > 0
+        ? 'El contenido existe y el bot no lo está recuperando. Escribir otra FAQ no lo arregla.'
+        : 'Si vuelven a preguntarlo, no hará falta escribir otra FAQ: el problema sería que el bot no recupera la lección.'}
+      Revisa que esa lección esté <b>activa</b> y con el <b>embedding al día</b>
+      (en Lecciones: guárdala de nuevo o usa "Re-embeber todo").
+    </p>
+    <div class="flex gap-2 flex-wrap mt-1">
+      <button id="gapIrLecciones" class="px-3 py-2 rounded-xl text-xs font-bold bg-[var(--blue-100)] text-white">Ir a Lecciones a revisarla</button>
+      <button id="gapResolverDeNuevo" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)]">Resolver de nuevo…</button>
+      <button id="gapDescartarBtn" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)]">Descartar…</button>
+    </div>
+  </div>`
+}
+
+function descartadoHtml(v, desdeCierre) {
+  return `<div class="bg-white border border-[var(--blue-10)] rounded-xl p-3 flex flex-col gap-1.5">
+    <h3 class="text-xs font-black text-[var(--black-60)]">Este vacío está descartado</h3>
+    <p class="text-xs text-[var(--black-100)]">
+      Motivo: <b>${escapeHtml(motivoLegible(v.motivo_descarte))}</b> · ${escapeHtml(hace(v.resuelto_at))}.
+    </p>
+    ${v.nota_descarte ? `<p class="text-xs text-[var(--black-60)]">Nota: ${escapeHtml(v.nota_descarte)}</p>` : ''}
+    ${desdeCierre > 0 ? `<p class="text-xs font-bold text-[var(--warning-150)]">
+      ${desdeCierre} ${desdeCierre === 1 ? 'pregunta llegó' : 'preguntas llegaron'} después de descartarlo.</p>` : ''}
+    <div class="flex gap-2 flex-wrap mt-1">
+      <button id="gapResolverDeNuevo" class="px-3 py-2 rounded-xl text-xs font-bold bg-[var(--blue-100)] text-white">Reabrir resolviéndolo…</button>
+    </div>
+  </div>`
+}
+
+// Pide confirmación en #gapConfirmBox antes de hacer algo que no se debería
+// hacer por un clic distraído.
+function pedirConfirmacion({ titulo, texto, okTexto, onOk }) {
+  const box = document.getElementById('gapConfirmBox')
+  box.classList.remove('hidden')
+  box.innerHTML = `<div class="border border-[var(--warning-150)] rounded-xl p-3 flex flex-col gap-1.5">
+    <p class="text-xs font-black text-[var(--warning-150)]">${escapeHtml(titulo)}</p>
+    <p class="text-xs text-[var(--black-60)]">${escapeHtml(texto)}</p>
+    <div class="flex gap-2 mt-1">
+      <button id="gapConfirmOk" class="px-3 py-2 rounded-xl text-xs font-bold bg-[var(--blue-100)] text-white">${escapeHtml(okTexto)}</button>
+      <button id="gapConfirmNo" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)]">Cancelar</button>
+    </div>
+  </div>`
+  const cerrar = () => { box.classList.add('hidden'); box.innerHTML = '' }
+  document.getElementById('gapConfirmNo').addEventListener('click', cerrar)
+  document.getElementById('gapConfirmOk').addEventListener('click', () => { cerrar(); onOk() })
+}
+
+function wireAccionesPorEstado(v) {
+  if (v.estado === 'pendiente') {
+    wireDescartar(v)
+    return
+  }
+
+  const wrap = document.getElementById('gapResolverWrap')
+  const mostrarFormulario = () => {
+    wrap.classList.remove('hidden')
+    wrap.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' })
+  }
+
+  // Resolver de nuevo pone resuelto_at = now(), y la reincidencia se cuenta
+  // contra resuelto_at: el contador vuelve a 0 y el vacío sale de la franja de
+  // arriba sin que nadie haya arreglado nada. Por eso va detrás de un aviso.
+  document.getElementById('gapResolverDeNuevo').addEventListener('click', () => {
+    if (v.estado === 'resuelto') {
+      pedirConfirmacion({
+        titulo: '¿Resolver de nuevo?',
+        texto: 'Resolver otra vez reinicia el contador de reincidencia: este vacío saldrá de "Resueltos que siguen preguntándose" aunque el bot siga sin recuperar la lección. Si el problema es que el bot no la encuentra, escribir otra FAQ no lo arregla.',
+        okTexto: 'Sí, resolver de nuevo',
+        onOk: mostrarFormulario,
+      })
+    } else {
+      pedirConfirmacion({
+        titulo: '¿Reabrir este vacío?',
+        texto: 'Resolverlo lo saca de descartados (se pierde el motivo del descarte) y reinicia su contador de preguntas desde el cierre.',
+        okTexto: 'Sí, reabrir y resolver',
+        onOk: mostrarFormulario,
+      })
+    }
+  })
+
+  if (v.estado === 'resuelto') {
+    document.getElementById('gapIrLecciones').addEventListener('click', () => {
+      // admin-gaps no puede importar a admin.js (ciclo): se usa el mismo botón del
+      // sidebar que usaría la persona.
+      document.querySelector('.admin-nav[data-panel="lessons"]')?.click()
+    })
+    wireDescartar(v, {
+      titulo: '¿Descartar un vacío resuelto?',
+      texto: 'Descartarlo lo desliga de la lección y reinicia el contador de reincidencia: dejará de aparecer en "Resueltos que siguen preguntándose".',
+      okTexto: 'Sí, descartar',
+    })
+  }
 }
 
 // ── Descartar ────────────────────────────────────────────────────────────────
@@ -270,9 +501,17 @@ const MOTIVOS = {
   ruido: 'Ruido',
 }
 
-function wireDescartar(vacio) {
+// Un código desconocido se muestra tal cual en vez de esconderse: mejor ver
+// "otro_motivo" que una celda vacía.
+function motivoLegible(codigo) {
+  if (!codigo) return 'sin motivo registrado'
+  return MOTIVOS[codigo] || codigo
+}
+
+// `confirmar` (opcional) pide confirmación antes de mostrar el formulario.
+function wireDescartar(vacio, confirmar) {
   const box = document.getElementById('gapDescartarBox')
-  document.getElementById('gapDescartarBtn').addEventListener('click', () => {
+  const mostrar = () => {
     box.classList.remove('hidden')
     box.innerHTML = `
       <div class="bg-white border border-[var(--blue-10)] rounded-xl p-3 flex flex-col gap-1.5">
@@ -309,7 +548,9 @@ function wireDescartar(vacio) {
       renderGapsPanel()
       refreshGapsBadge()
     })
-  })
+  }
+  document.getElementById('gapDescartarBtn').addEventListener('click', () =>
+    confirmar ? pedirConfirmacion({ ...confirmar, onOk: mostrar }) : mostrar())
 }
 
 // ── Dividir ──────────────────────────────────────────────────────────────────
@@ -423,13 +664,12 @@ function wireVerConversacion() {
   })
 }
 
-const CAMPOS_FORMULARIO = ['gapLeccion', 'gapPregunta', 'gapVariaciones', 'gapRespuesta', 'gapAcordeon']
-
 async function onGuardar() {
   const btn = document.getElementById('gapGuardar')
 
   btn.disabled = true
   let res
+  let formulario = null
   if (cierrePendiente) {
     btn.textContent = 'Cerrando...'
     const { vacioId, leccionId, pregunta } = cierrePendiente
@@ -441,28 +681,38 @@ async function onGuardar() {
       mostrarMsg('Elige la lección destino.', true)
       return
     }
-    btn.textContent = 'Guardando...'
-    res = await guardarResolucion({
-      vacioId: vacioAbierto.vacio.id,
+    // Se toma la foto del formulario ANTES de escribir: si el cierre falla hay
+    // que poder repintarlo congelado aunque la persona navegue y vuelva.
+    formulario = {
       leccionId,
       pregunta: document.getElementById('gapPregunta').value,
       variaciones: document.getElementById('gapVariaciones').value,
       respuesta: document.getElementById('gapRespuesta').value,
       mostrarAcordeon: document.getElementById('gapAcordeon').checked,
-    })
+    }
+    btn.textContent = 'Guardando...'
+    res = await guardarResolucion({ vacioId: vacioAbierto.vacio.id, ...formulario })
   }
   btn.disabled = false
 
   if (res.soloFaltaCerrar) {
     // La FAQ ya está en la lección: congelar el formulario y ofrecer solo cerrar.
-    cierrePendiente = res.pendiente
-    CAMPOS_FORMULARIO.forEach(id => { document.getElementById(id).disabled = true })
-    btn.textContent = 'Reintentar cerrar el vacío'
-  } else {
-    btn.textContent = cierrePendiente ? 'Reintentar cerrar el vacío' : 'Guardar y cerrar el vacío'
+    // Se conserva el `formulario` de la primera vez: en un segundo fallo del
+    // reintento no hay formulario nuevo que fotografiar.
+    cierrePendiente = {
+      ...res.pendiente,
+      formulario: formulario ?? cierrePendiente?.formulario ?? null,
+      mensaje: res.error,
+    }
+    repintarCierrePendiente()
+    return
   }
 
-  if (res.error) { mostrarMsg(res.error, true); return }
+  if (res.error) {
+    btn.textContent = 'Guardar y cerrar el vacío'
+    mostrarMsg(res.error, true)
+    return
+  }
   cierrePendiente = null
   renderGapsPanel()
   refreshGapsBadge()
@@ -508,7 +758,7 @@ function pintarAvisoEmbed(slot) {
 // Cierra el vacío. Devuelve { error } y, si falla, soloFaltaCerrar + lo que
 // hace falta para reintentar: la lección YA se guardó, así que decirlo en vez
 // de fingir que no pasó nada.
-async function cerrarVacio(vacioId, leccionId, pregunta) {
+async function cerrarVacio(vacioId, leccionId, pregunta, extra = {}) {
   try {
     const { data: { user } } = await supabase.auth.getUser()
     await resolverVacio(vacioId, leccionId, user?.email || '')
@@ -519,7 +769,7 @@ async function cerrarVacio(vacioId, leccionId, pregunta) {
       pendiente: { vacioId, leccionId, pregunta },
     }
   }
-  logActivity('update', 'bot_vacio', pregunta, { leccion_id: leccionId, accion: 'resuelto' })
+  logActivity('update', 'bot_vacio', pregunta, { leccion_id: leccionId, accion: 'resuelto', ...extra })
   return { error: null }
 }
 
@@ -537,11 +787,18 @@ async function guardarResolucion({ vacioId, leccionId, pregunta, variaciones, re
     .from('lecciones').select('id,titulo,categoria,contenido,notas').eq('id', leccionId).single()
   if (errLeer) return { error: `No se pudo leer la lección: ${errLeer.message}` }
 
-  let contenido
+  // contenidoConFaq NO appendea a ciegas: si la lección ya tiene un bot_faq con
+  // la misma pregunta (normalizada), lo reemplaza en su posición. Appendear
+  // duplica la FAQ por cuatro caminos distintos, todos alcanzables: re-resolver
+  // un vacío ya resuelto, dos admins con el mismo vacío abierto, un cierre
+  // fallido seguido de navegación, o cerrar el navegador entre el UPDATE de
+  // `lecciones` y el cierre del vacío. La lógica vive en gap-faq-block.js, con
+  // tests.
+  let contenido, reemplazada
   try {
-    contenido = contenidoConFaq(leccion.contenido, bloque)
+    ;({ contenido, reemplazada } = contenidoConFaqInfo(leccion.contenido, bloque))
   } catch (e) {
-    // contenidoConFaq lanza cuando el parseo daría vacío teniendo contenido.
+    // Lanza cuando el parseo daría vacío teniendo contenido.
     return { error: e.message }
   }
 
@@ -558,8 +815,9 @@ async function guardarResolucion({ vacioId, leccionId, pregunta, variaciones, re
   // Re-embeber depende del UPDATE, no del cierre del vacío: sin esto el bot no
   // encuentra la FAQ recién escrita (match_lessons solo mira el embedding), que
   // es el objetivo entero de la bandeja. Va ANTES de cerrar para que un fallo al
-  // cerrar no lo deje sin correr. No bloquea, pero tampoco se traga el fallo:
-  // el vacío ya habrá salido de la lista y nadie volvería a enterarse.
+  // cerrar no lo deje sin correr. No bloquea (el cierre no espera su resultado),
+  // pero tampoco se traga el fallo: si el vacío se cierra bien, habrá salido de
+  // la lista y nadie volvería a enterarse.
   embedLesson(leccion.id, leccion.titulo, leccion.categoria,
     JSON.parse(contenido), leccion.notas)
     .then(async ok => {
@@ -583,5 +841,6 @@ async function guardarResolucion({ vacioId, leccionId, pregunta, variaciones, re
     })
     .catch(e => console.error('[gaps] fallo tras el re-embebido:', e.message))
 
-  return cerrarVacio(vacioId, leccionId, pregunta)
+  // Queda en el registro si la FAQ reemplazó a una existente en vez de agregarse.
+  return cerrarVacio(vacioId, leccionId, pregunta, reemplazada ? { faq_reemplazada: true } : {})
 }
