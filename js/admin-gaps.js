@@ -2,7 +2,9 @@
 //
 // Vive fuera de js/admin.js (que ya pasa de 3.000 líneas), siguiendo el
 // precedente de admin-analytics.js y admin-bot-analytics.js.
-import { fetchVacios, fetchVaciosSalud, fetchVacioDetalle, resolverVacio } from './gaps-api.js'
+import { fetchVacios, fetchVaciosSalud, fetchVacioDetalle, resolverVacio,
+         descartarVacio, dividirVacio } from './gaps-api.js'
+import { validarDivision } from './gap-split.js'
 import { estadoMostrado, registroEnSilencio } from './gap-lifecycle.js'
 import { contenidoConFaq, buildFaqBlock } from './gap-faq-block.js'
 import { dedupeQuestions } from './faq-suggest.js'
@@ -259,12 +261,133 @@ async function abrirDetalle(vacioId) {
   wireDividir(v)
 }
 
-// PLACEHOLDERS de la Task 13 (descartar y dividir). Existen solo para que
-// abrirDetalle no lance ReferenceError; la Task 13 los reemplaza por las
-// implementaciones reales (si quedan los dos, el módulo no parsea: es a
-// propósito, no se puede olvidar quitarlos).
-function wireDescartar(_vacio) {}
-function wireDividir(_vacio) {}
+// ── Descartar ────────────────────────────────────────────────────────────────
+
+const MOTIVOS = {
+  no_aplica: 'No aplica',
+  es_soporte: 'Es soporte, no academia',
+  duplicado: 'Duplicado de otro vacío',
+  ruido: 'Ruido',
+}
+
+function wireDescartar(vacio) {
+  const box = document.getElementById('gapDescartarBox')
+  document.getElementById('gapDescartarBtn').addEventListener('click', () => {
+    box.classList.remove('hidden')
+    box.innerHTML = `
+      <div class="bg-white border border-[var(--blue-10)] rounded-xl p-3 flex flex-col gap-1.5">
+        <h3 class="text-xs font-black text-[var(--black-60)]">Descartar sin crear contenido</h3>
+        <select id="gapMotivo" class="w-full px-2 py-1.5 rounded-lg border border-[var(--blue-20)] text-xs outline-none">
+          ${Object.entries(MOTIVOS).map(([k, t]) =>
+            `<option value="${escapeHtml(k)}">${escapeHtml(t)}</option>`).join('')}
+        </select>
+        <input id="gapNota" placeholder="Nota (opcional)"
+          class="w-full px-2 py-1.5 rounded-lg border border-[var(--blue-20)] text-xs outline-none">
+        <p id="gapDescartarMsg" class="text-xs hidden"></p>
+        <button id="gapDescartarOk" class="px-3 py-2 rounded-xl text-xs font-bold bg-[var(--black-60)] text-white">
+          Descartar este vacío
+        </button>
+      </div>`
+
+    document.getElementById('gapDescartarOk').addEventListener('click', async () => {
+      const motivo = document.getElementById('gapMotivo').value
+      const nota = document.getElementById('gapNota').value.trim() || null
+      const btn = document.getElementById('gapDescartarOk')
+      btn.disabled = true
+      try {
+        await descartarVacio(vacio.id, motivo, nota)
+      } catch (e) {
+        btn.disabled = false
+        const m = document.getElementById('gapDescartarMsg')
+        m.textContent = `No se pudo descartar: ${e.message}`
+        m.className = 'text-xs text-[var(--error-100)]'
+        return
+      }
+      // El motivo no es burocracia: a los dos meses dice si el detector genera
+      // basura y de qué tipo.
+      logActivity('update', 'bot_vacio', vacio.titulo, { accion: 'descartado', motivo })
+      renderGapsPanel()
+      refreshGapsBadge()
+    })
+  })
+}
+
+// ── Dividir ──────────────────────────────────────────────────────────────────
+
+// Los tres motivos que devuelve validarDivision (y que lanza la RPC con el mismo
+// nombre), dichos de forma que una persona sepa qué hacer.
+const MOTIVOS_DIVISION = {
+  seleccion_vacia: 'Selecciona al menos una pregunta.',
+  seleccion_total: 'Seleccionaste todas: eso no divide nada y dejaría este vacío sin preguntas. Si lo que está mal es el título, edítalo.',
+  pregunta_ajena: 'Alguna pregunta ya no pertenece a este vacío. Vuelve a la bandeja y recárgala.',
+}
+
+// La RPC lanza el código tal cual ('seleccion_total'); gaps-api lo envuelve como
+// "dividir_vacio: seleccion_total". Si trae un código conocido, se traduce.
+function explicarErrorDivision(e) {
+  const msg = String(e?.message ?? e)
+  const codigo = Object.keys(MOTIVOS_DIVISION).find(k => msg.includes(k))
+  return codigo ? MOTIVOS_DIVISION[codigo] : msg
+}
+
+function wireDividir(vacio) {
+  const bar = document.getElementById('gapSplitBar')
+  const seleccion = () =>
+    [...document.querySelectorAll('.gap-pregunta:checked')].map(c => c.value)
+
+  const pintarBarra = () => {
+    const ids = seleccion()
+    if (ids.length === 0) { bar.classList.add('hidden'); return }
+
+    // Se valida en el CLIENTE antes de llamar. La RPC rechaza lo mismo y es la
+    // que manda (es transaccional), pero explicar el motivo acá evita un viaje
+    // perdido y, sobre todo, evita que el usuario no entienda el rechazo.
+    const v = validarDivision(vacioAbierto.preguntas, ids)
+
+    // Marcar otra casilla repinta la barra: sin esto se perdería el título que
+    // la persona ya estaba escribiendo.
+    const tituloPrevio = document.getElementById('gapSplitTitulo')?.value ?? ''
+
+    bar.classList.remove('hidden')
+    bar.innerHTML = v.ok
+      ? `<div class="flex items-center gap-2 flex-wrap">
+           <input id="gapSplitTitulo" placeholder="Título del vacío nuevo (opcional)"
+             class="flex-1 min-w-[160px] px-2 py-1.5 rounded-lg border border-[var(--blue-20)] text-xs outline-none">
+           <button id="gapSplitOk" class="px-3 py-2 rounded-xl text-xs font-bold bg-amber-100 text-amber-700">
+             Mover ${ids.length} a un vacío nuevo
+           </button>
+           <span id="gapSplitMsg" class="text-xs"></span>
+         </div>`
+      : `<p class="text-xs text-[var(--error-100)]">${escapeHtml(MOTIVOS_DIVISION[v.motivo] || 'No se puede dividir así.')}</p>`
+
+    if (!v.ok) return
+    document.getElementById('gapSplitTitulo').value = tituloPrevio
+    document.getElementById('gapSplitOk').addEventListener('click', async () => {
+      const titulo = document.getElementById('gapSplitTitulo').value.trim()
+      const btn = document.getElementById('gapSplitOk')
+      btn.disabled = true
+      let nuevoId
+      try {
+        nuevoId = await dividirVacio(vacio.id, ids, titulo)
+      } catch (e) {
+        btn.disabled = false
+        const m = document.getElementById('gapSplitMsg')
+        m.textContent = `No se pudo dividir: ${explicarErrorDivision(e)}`
+        m.className = 'text-xs text-[var(--error-100)]'
+        return
+      }
+      // 'move' ("Movió") ya existe en actionBadge (js/admin.js): la división
+      // queda auditada sin inventar un tipo de acción nuevo.
+      logActivity('move', 'bot_vacio', vacio.titulo,
+        { desde: vacio.id, hacia: nuevoId, preguntas: ids.length })
+      refreshGapsBadge()   // el vacío nuevo nace pendiente: el contador cambió
+      abrirDetalle(vacio.id)   // recargar: los contadores cambiaron en ambos lados
+    })
+  }
+
+  document.querySelectorAll('.gap-pregunta').forEach(c =>
+    c.addEventListener('change', pintarBarra))
+}
 
 function preguntaHtml(p, i) {
   const verConv = (p.mensajes || []).length
@@ -363,12 +486,15 @@ function avisarEmbedFallido(leccion) {
 }
 
 function pintarAvisoEmbed(slot) {
+  // El slot es un item de un contenedor flex con gap: aunque esté vacío, el gap
+  // se aplica y mete 16px de más. Oculto, el flex lo ignora por completo.
+  slot.hidden = !embedFallido
   if (!embedFallido) { slot.innerHTML = ''; return }
   slot.innerHTML = `<div class="border border-[var(--error-100)] rounded-xl p-3">
     <p class="text-xs font-black text-[var(--error-100)]">El bot aún no puede encontrar la FAQ que acabas de escribir</p>
     <p class="text-xs text-[var(--black-60)] mt-1">
-      La FAQ quedó guardada en la lección «${escapeHtml(embedFallido.titulo)}» y el vacío ya se cerró,
-      pero el re-embebido falló: el bot no la encontrará hasta que se re-embeba.
+      La FAQ quedó guardada en la lección «${escapeHtml(embedFallido.titulo)}», pero el
+      re-embebido falló: el bot no podrá encontrarla hasta que se vuelva a embeber.
       Abre esa lección en el editor y guárdala, o usa "Re-embeber todo" en el panel de Lecciones.
     </p>
     <button id="gapEmbedDescartar" class="mt-2 text-xs font-bold text-[var(--blue-100)] hover:underline">Entendido, descartar aviso</button>
@@ -445,9 +571,15 @@ async function guardarResolucion({ vacioId, leccionId, pregunta, variaciones, re
       // se cierre el navegador. NO la esconde del bot: match_lessons solo mira
       // `embedding is not null`, así que sigue encontrable con su contenido
       // anterior, solo que marcada como pendiente de re-embeber.
-      const { error } = await supabase.from('lecciones')
-        .update({ embedding_updated_at: null }).eq('id', leccion.id)
-      if (error) console.error('[gaps] no se pudo marcar la lección como pendiente de embeber:', error.message)
+      // .select('id') por la misma razón que arriba: un UPDATE bloqueado por RLS
+      // no da error, devuelve 0 filas.
+      const { data: marcadas, error } = await supabase.from('lecciones')
+        .update({ embedding_updated_at: null }).eq('id', leccion.id).select('id')
+      if (error) {
+        console.error('[gaps] no se pudo marcar la lección como pendiente de embeber:', error.message)
+      } else if (!marcadas || marcadas.length !== 1) {
+        console.error('[gaps] el backstop durable NO quedó puesto: el UPDATE de embedding_updated_at no tocó exactamente una fila (¿RLS?). Lección:', leccion.id)
+      }
     })
     .catch(e => console.error('[gaps] fallo tras el re-embebido:', e.message))
 
