@@ -115,7 +115,6 @@ try { history = JSON.parse(storageGet('bold_chat_history') || '[]') } catch { hi
 let conversationId  = null
 let _creating       = false
 let sessionMessages = []
-let pendingCross     = null  // cruce que el usuario acaba de aceptar; se consume en el siguiente envío
 let clarifyCount    = 0   // indagaciones seguidas del bot en esta sesión (tope 2, ver clarify.js)
 let followScroll  = true   // el usuario está al fondo → el scroll acompaña
 let skipAll       = false  // "Mostrar todo": revela el resto sin animar
@@ -637,17 +636,22 @@ function appendCrossButtons(cross, cruceIdPromesa) {
   btns.querySelector('.res-yes').onclick = () => {
     btns.remove()
     cruceIdPromesa.then(id => marcarCruce(id, true))
-    pendingCross = cross
     // Se reenvia la PREGUNTA ORIGINAL, no un "si". n8n busca la leccion
     // aceptada entre las candidatas del mensaje de ESE turno, no por id: con
     // un "si, muestramela" la leccion no aparece en la busqueda y la
-    // aceptacion no hace nada, EN SILENCIO. El segundo argumento es solo lo
-    // que se ve en el chat.
-    sendMessage(cross.pregunta, { textoVisible: 'Sí, muéstramela' })
+    // aceptacion no hace nada, EN SILENCIO. `textoVisible` es solo lo que se
+    // ve en el chat, y `cross` viaja como argumento (no como estado del
+    // modulo): si sendMessage corta en su guarda de entrada, el permiso se va
+    // con la llamada en vez de quedar pegado para el mensaje siguiente.
+    sendMessage(cross.pregunta, { textoVisible: 'Sí, muéstramela', cross })
   }
   btns.querySelector('.res-no').onclick = () => {
     btns.remove()
     cruceIdPromesa.then(id => marcarCruce(id, false))
+    // Sin esto el chat queda mudo: el bot ya dijo que no tiene la respuesta en
+    // su vertical y el usuario acaba de rechazar la unica salida que le
+    // ofrecimos. Es exactamente el caso para el que existe el CTA de soporte.
+    appendSupportCTA('Entendido. Si necesitas ayuda con esto, soporte puede resolverlo contigo.')
   }
   box.appendChild(btns)
   if (followScroll) scrollToBottom()
@@ -669,7 +673,14 @@ function appendSwitchVerticalButton(vertical) {
     </div>`
   wrap.querySelector('.res-btn').onclick = () => {
     wrap.remove()
-    window.aplicarVerticalDesdeChat?.(vertical)
+    // El gancho lo publica renderLessons al final, y renderLessons corta antes
+    // si la consulta falla o no hay lecciones. Con `?.` la llamada no haria
+    // nada Y el mensaje de abajo afirmaria que si: hay que mirar que exista.
+    if (typeof window.aplicarVerticalDesdeChat !== 'function') {
+      appendBubble('bot', `No pude cambiar la vista a ${etiqueta}. Puedes elegirla en la pestaña de Lecciones.`)
+      return
+    }
+    window.aplicarVerticalDesdeChat(vertical)
     appendBubble('bot', `Listo, ahora te muestro contenido de ${etiqueta}.`)
   }
   box.appendChild(wrap)
@@ -760,7 +771,7 @@ function bindAssistantEvents() {
 
 // ── Send message ──────────────────────────────────────────────────────────────
 
-async function sendMessage(text, { textoVisible } = {}) {
+async function sendMessage(text, { textoVisible, cross } = {}) {
   if (!text || sending) return
   sending = true
 
@@ -797,13 +808,11 @@ async function sendMessage(text, { textoVisible } = {}) {
 
   try {
     const sel = getSeleccion()
-    // El permiso del cruce se consume ANTES del fetch: si la peticion falla no
-    // debe quedar pegado para el mensaje siguiente. `cruceVertical` se guarda
-    // aparte porque el boton de cambiar de vertical lo necesita despues, cuando
-    // pendingCross ya es null.
-    const cruceAceptado = pendingCross?.leccion_id || null
-    const cruceVertical = pendingCross?.vertical   || null
-    pendingCross = null
+    // El cruce aceptado llega por argumento, asi que vive y muere con esta
+    // llamada: no hay estado que pueda quedar pegado para el mensaje siguiente
+    // si algo falla antes del fetch.
+    const cruceAceptado = cross?.leccion_id || null
+    const cruceVertical = cross?.vertical   || null
     // Filtrar acá y no en loadFaqContext: el contexto de Bold puede llegar
     // después de la carga inicial de FAQs, y el primer mensaje ya tiene que
     // salir con las de la vertical correcta.

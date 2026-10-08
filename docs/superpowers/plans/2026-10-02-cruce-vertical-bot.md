@@ -298,6 +298,34 @@ Copia exacta de `Buscar lecciones` (mismo `type`, `typeVersion`, `url`, `headerP
 **Conexiones:** la cadena pasa de `Buscar lecciones → Construir prompt` a
 `Buscar lecciones → Buscar en otra vertical → Construir prompt`.
 
+> **⚠️ Los Steps 3 y 4 describen un diseño que NO se desplegó.** Se dejan como
+> estaban porque el porqué del cambio vale más que el plan original, pero **no
+> los sigas**. El código que quedó vivo está transcripto en
+> `n8n/bold-pos-chat/`, y es de ahí que hay que partir.
+>
+> **Qué cambió y por qué.** El plan asumía que el cruce se ofrece *cuando no hay
+> contenido propio* (`!lessons.length`), y por eso ponía la decisión en
+> `Construir prompt`. Al medirlo contra producción esa regla no distinguía nada:
+> una búsqueda vectorial sin filtro casi siempre devuelve algo, y "no hay nada
+> propio" pasaba a cada rato en restaurantes, que solo tenía 8 lecciones. La
+> regla que quedó compara: se ofrece el cruce solo si la lección de la otra
+> vertical le **gana en similitud** a la mejor propia. Eso obligó a mover la
+> decisión a `Formatear respuesta`, que es donde se conocen las dos similitudes
+> y además si el modelo derivó a soporte.
+>
+> **Y aun así no alcanzó.** Medido restaurantes→retail, 4 de 4 preguntas
+> genéricas (impresora, factura, reportes, usuario) cruzaban con márgenes de
+> +0.079 a +0.127, descartando cada vez la respuesta correcta; el caso legítimo
+> (mesas desde retail) daba +0.094, justo en medio. **Ningún umbral los separa.**
+> La causa no era la regla sino el contenido: a restaurantes le faltaban
+> lecciones. Se arregló clasificando
+> (`supabase/seeds/clasificar-lecciones-ambas.sql`, aplicado el 2026-10-08) y el
+> cruce quedó para lo que de verdad es ajeno a la vertical.
+>
+> El texto que el usuario ve tampoco lo redacta el modelo: es una constante
+> (`CRUCE_COPY`) en `formatear-respuesta.js`. Con el prompt, el modelo a veces
+> respondía la pregunta igual en vez de limitarse a ofrecer.
+
 - [ ] **Step 3: `Construir prompt` lee los dos conjuntos y decide**
 
 Insertar justo después del bloque `try { ... } catch (_) { lessons = []; }` que llena `lessons` (alrededor de la línea 48):
