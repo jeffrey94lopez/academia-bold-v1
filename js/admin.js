@@ -15,31 +15,12 @@ import { evaluarBorradoCategoria } from './category-guard.js'
 import { loadSettings, loadSettingsResult, saveSetting, loadVisibilityOverrides, saveLessonVisibility } from './settings.js'
 import { aplicarVisibilidad, visibles } from './lesson-visibility.js'
 import { APP_ENV } from './env.js'
-import { lessonToEmbedText } from './lesson-embed-text.js'
+import { embedLesson, EMBED_WEBHOOK, EMBED_TOKEN } from './lesson-embed.js'
 import { dedupeQuestions, firstUserMessage } from './faq-suggest.js'
 import { draftKey, buildDraft, shouldOfferRestore, relTime } from './lesson-draft.js'
 import { construirCopia, otraVertical, puedeDuplicarse, prepararPayload } from './lesson-duplicate.js'
 import { aplicaA, etiqueta, labelVertical, VERTICALES_CONTENIDO } from './vertical.js'
 import { renderGapsPanel, refreshGapsBadge } from './admin-gaps.js'
-
-const EMBED_WEBHOOK = 'https://n8n.mplasesores.com/webhook/embed-lesson'
-const EMBED_TOKEN   = 'BoldBodi-2026-K9xMvP7q'
-
-// lessonToEmbedText se movió a ./lesson-embed-text.js (módulo puro, testeable).
-// Ahora embebe TODOS los bloques bot_* (antes solo nota y faq) para que el bot
-// pueda recuperar lecciones cuya respuesta vive en Advertencia/Pasos/Relacionado.
-
-async function embedLesson(lessonId, titulo, categoria, blocks, notas) {
-  try {
-    const text = lessonToEmbedText(titulo, categoria, blocks, notas)
-    const res = await fetch(EMBED_WEBHOOK, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': EMBED_TOKEN },
-      body: JSON.stringify({ lessonId, text })
-    })
-    return res.ok
-  } catch (_) { return false }
-}
 
 // Re-embebe las lecciones VISIBLES, mostrando en vivo cuáles se embebieron (✓)
 // y cuáles fallaron (✗). Secuencial a propósito para no saturar el webhook.
