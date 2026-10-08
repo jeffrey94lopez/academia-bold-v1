@@ -154,6 +154,11 @@ export async function refreshGapsBadge() {
 
 let vacioAbierto = null   // { vacio, preguntas } del detalle en pantalla
 
+// Si la FAQ ya quedó escrita pero el vacío no se cerró, acá se guarda a qué
+// lección apuntar. El reintento ejecuta SOLO resolverVacio: volver a pasar por
+// guardarResolucion releería y volvería a agregar el bloque, duplicando la FAQ.
+let cierrePendiente = null   // { vacioId, leccionId, pregunta } | null
+
 async function abrirDetalle(vacioId) {
   const el = document.getElementById('panel-gaps')
   el.innerHTML = `<p class="text-sm text-[var(--black-40)] p-6">Cargando...</p>`
@@ -180,6 +185,7 @@ async function abrirDetalle(vacioId) {
   }
 
   vacioAbierto = detalle
+  cierrePendiente = null   // un detalle nuevo nunca hereda el reintento del anterior
   const v = detalle.vacio
   // Las preguntas reales son lo que permite escribir la respuesta sin adivinar,
   // y también lo que precarga las variaciones.
@@ -282,25 +288,47 @@ function wireVerConversacion() {
   })
 }
 
+const CAMPOS_FORMULARIO = ['gapLeccion', 'gapPregunta', 'gapVariaciones', 'gapRespuesta', 'gapAcordeon']
+
 async function onGuardar() {
   const btn = document.getElementById('gapGuardar')
-  const leccionId = document.getElementById('gapLeccion').value
-  if (!leccionId) { mostrarMsg('Elige la lección destino.', true); return }
 
   btn.disabled = true
-  btn.textContent = 'Guardando...'
-  const { error } = await guardarResolucion({
-    vacioId: vacioAbierto.vacio.id,
-    leccionId,
-    pregunta: document.getElementById('gapPregunta').value,
-    variaciones: document.getElementById('gapVariaciones').value,
-    respuesta: document.getElementById('gapRespuesta').value,
-    mostrarAcordeon: document.getElementById('gapAcordeon').checked,
-  })
+  let res
+  if (cierrePendiente) {
+    btn.textContent = 'Cerrando...'
+    const { vacioId, leccionId, pregunta } = cierrePendiente
+    res = await cerrarVacio(vacioId, leccionId, pregunta)
+  } else {
+    const leccionId = document.getElementById('gapLeccion').value
+    if (!leccionId) {
+      btn.disabled = false
+      mostrarMsg('Elige la lección destino.', true)
+      return
+    }
+    btn.textContent = 'Guardando...'
+    res = await guardarResolucion({
+      vacioId: vacioAbierto.vacio.id,
+      leccionId,
+      pregunta: document.getElementById('gapPregunta').value,
+      variaciones: document.getElementById('gapVariaciones').value,
+      respuesta: document.getElementById('gapRespuesta').value,
+      mostrarAcordeon: document.getElementById('gapAcordeon').checked,
+    })
+  }
   btn.disabled = false
-  btn.textContent = 'Guardar y cerrar el vacío'
 
-  if (error) { mostrarMsg(error, true); return }
+  if (res.soloFaltaCerrar) {
+    // La FAQ ya está en la lección: congelar el formulario y ofrecer solo cerrar.
+    cierrePendiente = res.pendiente
+    CAMPOS_FORMULARIO.forEach(id => { document.getElementById(id).disabled = true })
+    btn.textContent = 'Reintentar cerrar el vacío'
+  } else {
+    btn.textContent = cierrePendiente ? 'Reintentar cerrar el vacío' : 'Guardar y cerrar el vacío'
+  }
+
+  if (res.error) { mostrarMsg(res.error, true); return }
+  cierrePendiente = null
   renderGapsPanel()
   refreshGapsBadge()
 }
@@ -309,6 +337,42 @@ function mostrarMsg(texto, esError) {
   const msg = document.getElementById('gapMsg')
   msg.textContent = texto
   msg.className = `text-xs ${esError ? 'text-[var(--error-100)]' : 'text-[var(--success-150)]'}`
+}
+
+// El re-embebido termina cuando el panel ya puede haberse vuelto a pintar, así
+// que no usa #gapMsg: antepone un aviso al panel, que el siguiente render borra.
+function avisarEmbedFallido() {
+  console.error('[gaps] el re-embebido de la lección falló')
+  const el = document.getElementById('panel-gaps')
+  if (!el) return
+  const aviso = document.createElement('div')
+  aviso.className = 'p-4 md:p-6'
+  aviso.innerHTML = `<div class="border border-[var(--error-100)] rounded-xl p-3">
+    <p class="text-xs font-black text-[var(--error-100)]">El bot aún no puede encontrar la FAQ nueva</p>
+    <p class="text-xs text-[var(--black-60)] mt-1">
+      La FAQ se guardó, pero el re-embebido falló: el bot no la encontrará hasta
+      que vuelvas a embeber la lección.
+    </p>
+  </div>`
+  el.prepend(aviso)
+}
+
+// Cierra el vacío. Devuelve { error } y, si falla, soloFaltaCerrar + lo que
+// hace falta para reintentar: la lección YA se guardó, así que decirlo en vez
+// de fingir que no pasó nada.
+async function cerrarVacio(vacioId, leccionId, pregunta) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    await resolverVacio(vacioId, leccionId, user?.email || '')
+  } catch (e) {
+    return {
+      error: `La FAQ se guardó, pero el vacío no se pudo cerrar: ${e.message}. Usa "Reintentar cerrar el vacío"; no la vuelvas a escribir.`,
+      soloFaltaCerrar: true,
+      pendiente: { vacioId, leccionId, pregunta },
+    }
+  }
+  logActivity('update', 'bot_vacio', pregunta, { leccion_id: leccionId, accion: 'resuelto' })
+  return { error: null }
 }
 
 // Escribe el bloque bot_faq en la lección destino y cierra el vacío.
@@ -343,21 +407,14 @@ async function guardarResolucion({ vacioId, leccionId, pregunta, variaciones, re
     return { error: 'La lección no se actualizó (permisos o la lección ya no existe). El vacío sigue abierto.' }
   }
 
-  const { data: { user } } = await supabase.auth.getUser()
-  try {
-    await resolverVacio(vacioId, leccionId, user?.email || '')
-  } catch (e) {
-    // La lección YA se guardó. Decirlo en vez de fingir que no pasó nada: el
-    // contenido está bien y lo único pendiente es cerrar el vacío.
-    return { error: `La FAQ se guardó, pero el vacío no se pudo cerrar: ${e.message}` }
-  }
-
-  logActivity('update', 'bot_vacio', pregunta, { leccion_id: leccionId, accion: 'resuelto' })
-
-  // Re-embeber al final y sin bloquear: sin esto el bot no encuentra la FAQ
-  // recién escrita, que es el objetivo entero de la bandeja.
+  // Re-embeber depende del UPDATE, no del cierre del vacío: sin esto el bot no
+  // encuentra la FAQ recién escrita (match_lessons solo mira el embedding), que
+  // es el objetivo entero de la bandeja. Va ANTES de cerrar para que un fallo al
+  // cerrar no lo deje sin correr. No bloquea, pero tampoco se traga el fallo:
+  // el vacío ya habrá salido de la lista y nadie volvería a enterarse.
   embedLesson(leccion.id, leccion.titulo, leccion.categoria,
     JSON.parse(contenido), leccion.notas)
+    .then(ok => { if (!ok) avisarEmbedFallido() })
 
-  return { error: null }
+  return cerrarVacio(vacioId, leccionId, pregunta)
 }

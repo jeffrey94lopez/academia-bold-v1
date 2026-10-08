@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildFaqBlock, contenidoConFaq } from '../js/gap-faq-block.js'
+import { buildFaqBlock, contenidoConFaq, contenidoConFaqCon } from '../js/gap-faq-block.js'
 
 test('buildFaqBlock: arma el bloque con la forma de bot_faq v2', () => {
   const b = buildFaqBlock({
@@ -90,8 +90,17 @@ test('contenidoConFaq: lanza si el crudo traía algo y el parseo no produjo bloq
   const faq = buildFaqBlock({ pregunta: 'P', respuesta: 'R' })
   const parseRoto = () => []   // un parseo que pierde contenido sin avisar
   for (const raw of ['<p>algo</p>', '[1, 2', '{"type":"step"}']) {
-    assert.throws(() => contenidoConFaq(raw, faq, parseRoto), /no se pudo parsear/)
+    assert.throws(() => contenidoConFaqCon(raw, faq, parseRoto), /no se pudo parsear/)
   }
   // ...pero un '[]' legítimo pasa aunque el parseo devuelva [].
-  assert.doesNotThrow(() => contenidoConFaq('[]', faq, parseRoto))
+  assert.doesNotThrow(() => contenidoConFaqCon('[]', faq, parseRoto))
+})
+
+test('contenidoConFaq: un parseo que pierde bloques SIGUE lanzando', () => {
+  // El guard es defensa en profundidad contra un parser que todavía no falla.
+  // Un crudo con bloques adentro cuyo parseo devuelva [] es pérdida de datos,
+  // no un array vacío legítimo.
+  const parseRoto = () => []
+  const faq = buildFaqBlock({ pregunta: 'P', respuesta: 'R' })
+  assert.throws(() => contenidoConFaqCon('[{"type":"step"}]', faq, parseRoto), /no se pudo parsear/)
 })

@@ -30,15 +30,17 @@ export function buildFaqBlock({ pregunta, variaciones, respuesta, mostrarAcordeo
   }
 }
 
-// ¿El crudo es literalmente un array JSON válido? '[]' lo es: es una lección a
-// la que le borraron todos los bloques, y resolver un vacío sobre ella es legítimo.
-function esArrayJson(raw) {
-  try { return Array.isArray(JSON.parse(raw)) } catch (_) { return false }
+// ¿El crudo es literalmente un array JSON VACÍO? '[]' lo es: es una lección a la
+// que le borraron todos los bloques, y resolver un vacío sobre ella es legítimo.
+// Un array con bloques adentro NO cuenta: si su parseo da [], es pérdida de datos.
+function esArrayVacioJson(raw) {
+  try { const p = JSON.parse(raw); return Array.isArray(p) && p.length === 0 } catch (_) { return false }
 }
 
-// `parse` se inyecta solo para poder probar el guard: con el parseLessonBlocks
-// real ninguna entrada no vacía y no-array llega a devolver [].
-export function contenidoConFaq(rawContenido, faqBlock, parse = parseLessonBlocks) {
+// Solo para tests: con el parser real la rama del guard es inalcanzable, porque
+// parseLessonBlocks solo devuelve [] para entradas vacías. No se usa en
+// producción; pasarle un parser por error desactivaría el guard.
+export function contenidoConFaqCon(rawContenido, faqBlock, parse) {
   if (!faqBlock || faqBlock.type !== 'bot_faq') {
     throw new Error('contenidoConFaq: se esperaba un bloque bot_faq válido')
   }
@@ -49,9 +51,13 @@ export function contenidoConFaq(rawContenido, faqBlock, parse = parseLessonBlock
   // el parseo falló de una forma que no previmos y estamos a un JSON.stringify
   // de borrar la lección. Lanzar es la única salida segura.
   const traiaAlgo = typeof rawContenido === 'string' && rawContenido.trim().length > 0
-  if (traiaAlgo && blocks.length === 0 && !esArrayJson(rawContenido)) {
+  if (traiaAlgo && blocks.length === 0 && !esArrayVacioJson(rawContenido)) {
     throw new Error('contenidoConFaq: el contenido no se pudo parsear; abortado para no vaciar la lección')
   }
 
   return JSON.stringify([...blocks, faqBlock])
+}
+
+export function contenidoConFaq(rawContenido, faqBlock) {
+  return contenidoConFaqCon(rawContenido, faqBlock, parseLessonBlocks)
 }
