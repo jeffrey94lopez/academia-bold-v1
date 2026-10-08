@@ -40,10 +40,14 @@ export async function renderGapsPanel() {
       fetchVaciosSalud(),
     ])
   } catch (e) {
-    el.innerHTML = `<div class="p-6">
-      <p class="text-sm font-bold text-[var(--error-100)]">No se pudo leer la bandeja de vacíos.</p>
-      <p class="text-xs text-[var(--black-40)] mt-1">${escapeHtml(e.message)}</p>
+    el.innerHTML = `<div class="p-6 flex flex-col gap-4">
+      <div id="gapEmbedAviso"></div>
+      <div>
+        <p class="text-sm font-bold text-[var(--error-100)]">No se pudo leer la bandeja de vacíos.</p>
+        <p class="text-xs text-[var(--black-40)] mt-1">${escapeHtml(e.message)}</p>
+      </div>
     </div>`
+    pintarAvisoEmbed(document.getElementById('gapEmbedAviso'))
     return
   }
 
@@ -55,6 +59,7 @@ export async function renderGapsPanel() {
 
   el.innerHTML = `
     <div class="p-4 md:p-6 flex flex-col gap-4">
+      <div id="gapEmbedAviso"></div>
       ${silencio.enSilencio ? avisoSilencioHtml(silencio) : ''}
       ${Number(salud?.sin_clasificar) > 0 ? sinClasificarHtml(salud.sin_clasificar) : ''}
       ${vuelven.length ? franjaReincidentesHtml(vuelven) : ''}
@@ -70,6 +75,7 @@ export async function renderGapsPanel() {
       </div>
     </div>`
 
+  pintarAvisoEmbed(document.getElementById('gapEmbedAviso'))
   el.querySelectorAll('.gap-row').forEach(b =>
     b.addEventListener('click', () => abrirDetalle(b.dataset.vacio)))
 }
@@ -158,6 +164,12 @@ let vacioAbierto = null   // { vacio, preguntas } del detalle en pantalla
 // lección apuntar. El reintento ejecuta SOLO resolverVacio: volver a pasar por
 // guardarResolucion releería y volvería a agregar el bloque, duplicando la FAQ.
 let cierrePendiente = null   // { vacioId, leccionId, pregunta } | null
+
+// Un re-embebido fallido deja la FAQ escrita y el vacío CERRADO (fuera de la
+// bandeja) con el bot incapaz de encontrarla. El aviso no puede vivir en un
+// prepend: el propio onGuardar repinta el panel justo después y se lo lleva.
+// Vive en una bandera que renderGapsPanel pinta hasta que alguien la descarte.
+let embedFallido = null   // { leccionId, titulo } | null
 
 async function abrirDetalle(vacioId) {
   const el = document.getElementById('panel-gaps')
@@ -339,22 +351,32 @@ function mostrarMsg(texto, esError) {
   msg.className = `text-xs ${esError ? 'text-[var(--error-100)]' : 'text-[var(--success-150)]'}`
 }
 
-// El re-embebido termina cuando el panel ya puede haberse vuelto a pintar, así
-// que no usa #gapMsg: antepone un aviso al panel, que el siguiente render borra.
-function avisarEmbedFallido() {
-  console.error('[gaps] el re-embebido de la lección falló')
-  const el = document.getElementById('panel-gaps')
-  if (!el) return
-  const aviso = document.createElement('div')
-  aviso.className = 'p-4 md:p-6'
-  aviso.innerHTML = `<div class="border border-[var(--error-100)] rounded-xl p-3">
-    <p class="text-xs font-black text-[var(--error-100)]">El bot aún no puede encontrar la FAQ nueva</p>
+// El re-embebido termina cuando el panel ya puede haberse vuelto a pintar (o
+// cuando el usuario está en otro panel), así que no usa #gapMsg ni un prepend:
+// levanta la bandera `embedFallido` y, si la lista está en pantalla, pinta el
+// aviso ahí mismo. Si no lo está, renderGapsPanel lo pintará la próxima vez.
+function avisarEmbedFallido(leccion) {
+  console.error('[gaps] el re-embebido de la lección falló:', leccion.id)
+  embedFallido = { leccionId: leccion.id, titulo: leccion.titulo }
+  const slot = document.getElementById('gapEmbedAviso')
+  if (slot) pintarAvisoEmbed(slot)
+}
+
+function pintarAvisoEmbed(slot) {
+  if (!embedFallido) { slot.innerHTML = ''; return }
+  slot.innerHTML = `<div class="border border-[var(--error-100)] rounded-xl p-3">
+    <p class="text-xs font-black text-[var(--error-100)]">El bot aún no puede encontrar la FAQ que acabas de escribir</p>
     <p class="text-xs text-[var(--black-60)] mt-1">
-      La FAQ se guardó, pero el re-embebido falló: el bot no la encontrará hasta
-      que vuelvas a embeber la lección.
+      La FAQ quedó guardada en la lección «${escapeHtml(embedFallido.titulo)}» y el vacío ya se cerró,
+      pero el re-embebido falló: el bot no la encontrará hasta que se re-embeba.
+      Abre esa lección en el editor y guárdala, o usa "Re-embeber todo" en el panel de Lecciones.
     </p>
+    <button id="gapEmbedDescartar" class="mt-2 text-xs font-bold text-[var(--blue-100)] hover:underline">Entendido, descartar aviso</button>
   </div>`
-  el.prepend(aviso)
+  document.getElementById('gapEmbedDescartar').addEventListener('click', () => {
+    embedFallido = null
+    renderGapsPanel()
+  })
 }
 
 // Cierra el vacío. Devuelve { error } y, si falla, soloFaltaCerrar + lo que
@@ -414,7 +436,20 @@ async function guardarResolucion({ vacioId, leccionId, pregunta, variaciones, re
   // el vacío ya habrá salido de la lista y nadie volvería a enterarse.
   embedLesson(leccion.id, leccion.titulo, leccion.categoria,
     JSON.parse(contenido), leccion.notas)
-    .then(ok => { if (!ok) avisarEmbedFallido() })
+    .then(async ok => {
+      if (ok) return
+      avisarEmbedFallido(leccion)
+      // Backstop durable: el indicador del panel de Lecciones cuenta las que
+      // tienen embedding_updated_at nulo, así que esto hace que la lección
+      // aparezca como "sin embedding actualizado" aunque se pierda el aviso o
+      // se cierre el navegador. NO la esconde del bot: match_lessons solo mira
+      // `embedding is not null`, así que sigue encontrable con su contenido
+      // anterior, solo que marcada como pendiente de re-embeber.
+      const { error } = await supabase.from('lecciones')
+        .update({ embedding_updated_at: null }).eq('id', leccion.id)
+      if (error) console.error('[gaps] no se pudo marcar la lección como pendiente de embeber:', error.message)
+    })
+    .catch(e => console.error('[gaps] fallo tras el re-embebido:', e.message))
 
   return cerrarVacio(vacioId, leccionId, pregunta)
 }
