@@ -58,7 +58,9 @@ esta vía, se ajusta el documento de la Etapa 3.
 ## Receptor (nuestro lado) — ya implementado (2026-09-09)
 
 `js/bold-context.js` escucha el `postMessage`, valida el origen
-(`https://pos.bold.co`, único aceptado), normaliza y **copia solo los campos
+(`https://pos.bold.co` y `https://pos.stg.bold.co`, los dos únicos aceptados;
+staging se agregó el 2026-10-02 porque es donde Bold prueba, y su POS de staging
+embebe nuestra academia de producción), normaliza y **copia solo los campos
 pedidos** — si Bold manda un token, no entra al portal. Expone
 `onContextoBold()`, que dispara también para quien se suscribe tarde (el mensaje
 puede llegar mientras el portal está cargando).

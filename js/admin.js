@@ -12,12 +12,14 @@ import { remapContentUrl } from './content-url.js'
 import { parseLessonBlocks } from './lesson-blocks.js'
 import { extractBucketUrls, countReferences, diffBrokenUrls, pathFromBucketUrl } from './bucket-urls.js'
 import { evaluarBorradoCategoria } from './category-guard.js'
-import { loadSettings, loadSettingsResult, saveSetting } from './settings.js'
+import { loadSettings, loadSettingsResult, saveSetting, loadVisibilityOverrides, saveLessonVisibility } from './settings.js'
+import { aplicarVisibilidad, visibles } from './lesson-visibility.js'
 import { APP_ENV } from './env.js'
 import { lessonToEmbedText } from './lesson-embed-text.js'
 import { dedupeQuestions, firstUserMessage } from './faq-suggest.js'
 import { draftKey, buildDraft, shouldOfferRestore, relTime } from './lesson-draft.js'
-import { construirCopia, otraVertical, prepararPayload } from './lesson-duplicate.js'
+import { construirCopia, otraVertical, puedeDuplicarse, prepararPayload } from './lesson-duplicate.js'
+import { aplicaA, etiqueta, labelVertical, VERTICALES_CONTENIDO } from './vertical.js'
 
 const EMBED_WEBHOOK = 'https://n8n.mplasesores.com/webhook/embed-lesson'
 const EMBED_TOKEN   = 'BoldBodi-2026-K9xMvP7q'
@@ -281,21 +283,27 @@ async function renderHomePanel() {
   // era el día UTC: después de las 7pm de Bogotá ya contaba el día siguiente.
   const desdeHoy = bizStartOfDay(new Date()).toISOString()
   const [
-    { count: lessonesCount, error: lessonesErr },
+    { data: leccionesRows, error: lessonesErr },
     { count: convsCount, error: convsErr },
     { count: faqCount, error: faqErr },
     { count: glosarioCount, error: glosarioErr },
-    { data: activity }
+    { data: activity },
+    visOverrides
   ] = await Promise.all([
-    supabase.from('lecciones').select('*', { count: 'exact', head: true }).eq('active', true),
+    // Filas en vez de un count: el número tiene que reflejar lo que ve ESTE
+    // entorno. Si en sandbox ocultaste una lección, acá también baja.
+    supabase.from('lecciones').select('id,active'),
     // started_at, NO created_at: esa columna no existe en bodi_conversations y
     // la consulta fallaba con 42703. supabase-js no lanza, devuelve { error },
     // así que el contador mostraba 0 en silencio.
     supabase.from('bodi_conversations').select('*', { count: 'exact', head: true }).gte('started_at', desdeHoy),
     supabase.from('preguntas_frecuentes').select('*', { count: 'exact', head: true }),
     supabase.from('glosario').select('*', { count: 'exact', head: true }),
-    supabase.from('activity_log').select('action,entity_type,entity_name,created_at').order('created_at', { ascending: false }).limit(5)
+    supabase.from('activity_log').select('action,entity_type,entity_name,created_at').order('created_at', { ascending: false }).limit(5),
+    loadVisibilityOverrides()
   ])
+
+  const lessonesCount = visibles(aplicarVisibilidad(leccionesRows, visOverrides, APP_ENV)).length
 
   function timeAgo(iso) {
     const diff = Math.floor((Date.now() - new Date(iso)) / 1000)
@@ -446,13 +454,16 @@ async function renderLessonsPanel() {
   quillInstances = {}
   const el = document.getElementById('panel-lessons')
 
-  const [{ data: cats }, { data: lessons }, portalSettings] = await Promise.all([
+  const [{ data: cats }, { data: lessons }, portalSettings, visOverrides] = await Promise.all([
     supabase.from('categorias').select('*').order('orden'),
     supabase.from('lecciones').select('*').order('orden'),
     loadSettings(),
+    loadVisibilityOverrides(),
   ])
   currentCategories = cats || []
-  const allLessons = lessons || []
+  // aplicarVisibilidad, NO visibles(): el admin pinta las ocultas en gris con
+  // su etiqueta, no las quita de la lista.
+  const allLessons = aplicarVisibilidad(lessons, visOverrides, APP_ENV)
   const verticalLabels = { retail: 'Retail', restaurantes: 'Restaurantes' }
   const plataformaLabels = { web: 'Web', mobile: 'Mobile' }
 
@@ -610,6 +621,10 @@ async function renderLessonsPanel() {
                   <button type="button" data-value="restaurantes" class="choice-opt flex-1 rounded-xl border-[1.5px] border-[var(--blue-20)] px-2 py-2 text-center text-[var(--black-60)] transition-colors">
                     <i data-lucide="utensils" class="w-4 h-4 mx-auto mb-0.5"></i>
                     <span class="block text-[11px] font-black">Restaurantes</span>
+                  </button>
+                  <button type="button" data-value="ambas" class="choice-opt flex-1 rounded-xl border-[1.5px] border-[var(--blue-20)] px-2 py-2 text-center text-[var(--black-60)] transition-colors">
+                    <i data-lucide="layers" class="w-4 h-4 mx-auto mb-0.5"></i>
+                    <span class="block text-[11px] font-black">Ambas</span>
                   </button>
                 </div>
               </div>
@@ -1000,7 +1015,7 @@ async function renderLessonsPanel() {
     // El panel filtra por adminVertical, así que la copia queda fuera de la
     // vista actual: el aviso dice dónde aterrizó y en qué estado.
     if (esCopia) {
-      showToast(`Copia creada en ${payload.vertical === 'retail' ? 'Retail' : 'Restaurantes'}, oculta y sin IA. Cambia el filtro de vertical para editarla.`)
+      showToast(`Copia creada en ${labelVertical(payload.vertical)}, oculta y sin IA. Cambia el filtro de vertical para editarla.`)
     }
     clearDraft(draftKey(id))     // guardado OK → el borrador ya no hace falta
     formEsDuplicado = false
@@ -1014,7 +1029,7 @@ function renderGroupedLessons(allLessons, searchQuery) {
   const list = document.getElementById('lessonsList')
   if (!list) return
   const porVertical = allLessons.filter(l =>
-    (l.vertical || 'retail') === adminVertical &&
+    aplicaA(l, adminVertical) &&
     (adminPlataforma === 'all' || (l.plataforma || 'web') === adminPlataforma))
   const q = searchQuery.toLowerCase().trim()
   const filtered = q
@@ -1111,6 +1126,7 @@ function renderGroupedLessons(allLessons, searchQuery) {
 }
 
 function lessonCardHtml(l) {
+  const dup = puedeDuplicarse(l)
   const destino = otraVertical(l.vertical)
   return `
     <div class="lesson-card bg-white rounded-xl border ${l.active === false ? 'border-[var(--black-10)] opacity-50' : 'border-[var(--blue-10)]'} p-3.5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2 cursor-pointer hover:border-[var(--blue-100)] hover:shadow-sm transition-all" data-id="${l.id}">
@@ -1119,8 +1135,8 @@ function lessonCardHtml(l) {
           <p class="font-bold text-sm text-[var(--black-100)] min-w-0 sm:truncate">${escapeHtml(l.titulo)}</p>
           <span class="shrink-0 text-[10px] text-[var(--black-40)]">#${escapeHtml(String(l.orden))}</span>
           <span class="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-[var(--black-40)] bg-[var(--background-page)] px-1.5 py-0.5 rounded-full">
-            <i data-lucide="${(l.vertical || 'retail') === 'retail' ? 'store' : 'utensils'}" class="w-3 h-3"></i>
-            ${(l.vertical || 'retail') === 'retail' ? 'Retail' : 'Restaurantes'} · ${(l.plataforma || 'web') === 'web' ? 'Web' : 'Mobile'}
+            <i data-lucide="${etiqueta(l).icon}" class="w-3 h-3"></i>
+            ${escapeHtml(etiqueta(l).texto)}
           </span>
           ${l.active === false ? '<span class="shrink-0 text-[10px] font-bold text-[var(--black-40)] bg-[var(--black-10)] px-1.5 py-0.5 rounded-full">Oculta</span>' : ''}
           ${!l.embedding ? '<span class="shrink-0 text-[10px] font-bold text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-full">Sin IA</span>' : ''}
@@ -1143,7 +1159,7 @@ function lessonCardHtml(l) {
         <button data-slug="${escapeHtml(l.slug || '')}" class="copy-link p-1.5 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Copiar link de la lección">
           <i data-lucide="link" class="w-4 h-4"></i>
         </button>
-        <button data-id="${l.id}" class="dup-lesson p-1.5 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Duplicar en ${destino === 'retail' ? 'Retail' : 'Restaurantes'}">
+        <button data-id="${l.id}" ${dup ? '' : 'disabled'} class="dup-lesson p-1.5 rounded-lg ${dup ? 'hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]' : 'text-[var(--black-40)] opacity-50 cursor-not-allowed'}" title="${dup ? `Duplicar en ${labelVertical(destino)}` : 'Ya sirve a las dos verticales'}">
           <i data-lucide="copy" class="w-4 h-4"></i>
         </button>
         <button data-id="${l.id}" data-titulo="${escapeHtml(l.titulo)}" class="del-lesson p-1.5 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Eliminar">
@@ -1155,6 +1171,7 @@ function lessonCardHtml(l) {
 
 function lessonCardGridHtml(l) {
   const cat = currentCategories.find(c => c.nombre === l.categoria)
+  const dup = puedeDuplicarse(l)
   const destino = otraVertical(l.vertical)
   return `
     <div class="lesson-card bg-white rounded-xl border ${l.active === false ? 'border-[var(--black-10)] opacity-50' : 'border-[var(--blue-10)]'} p-3.5 cursor-pointer hover:border-[var(--blue-100)] hover:shadow-sm transition-all flex flex-col gap-2" data-id="${l.id}">
@@ -1169,8 +1186,8 @@ function lessonCardGridHtml(l) {
       ${l.descripcion ? `<p class="text-xs text-[var(--black-40)] line-clamp-2">${escapeHtml(l.descripcion)}</p>` : ''}
       ${cat ? `<span class="self-start text-[10px] font-bold text-[var(--black-40)] bg-[var(--background-page)] px-2 py-0.5 rounded-full">${escapeHtml(cat.emoji)} ${escapeHtml(cat.nombre)}</span>` : ''}
       <span class="self-start shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-[var(--black-40)] bg-[var(--background-page)] px-1.5 py-0.5 rounded-full">
-        <i data-lucide="${(l.vertical || 'retail') === 'retail' ? 'store' : 'utensils'}" class="w-3 h-3"></i>
-        ${(l.vertical || 'retail') === 'retail' ? 'Retail' : 'Restaurantes'} · ${(l.plataforma || 'web') === 'web' ? 'Web' : 'Mobile'}
+        <i data-lucide="${etiqueta(l).icon}" class="w-3 h-3"></i>
+        ${escapeHtml(etiqueta(l).texto)}
       </span>
       <div class="flex gap-1 mt-auto pt-2 border-t border-[var(--blue-10)]">
         <button data-id="${l.id}" data-active="${l.active === false ? 'false' : 'true'}" class="toggle-lesson flex-1 flex items-center justify-center py-1 rounded-lg transition-colors ${l.active === false ? 'text-[var(--black-40)] hover:text-[var(--success-150)]' : 'text-[var(--success-150)] hover:text-[var(--black-40)]'}" title="${l.active === false ? 'Mostrar a estudiantes' : 'Ocultar a estudiantes'}">
@@ -1188,7 +1205,7 @@ function lessonCardGridHtml(l) {
         <button data-slug="${escapeHtml(l.slug || '')}" class="copy-link flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Copiar link de la lección">
           <i data-lucide="link" class="w-3.5 h-3.5"></i>
         </button>
-        <button data-id="${l.id}" class="dup-lesson flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]" title="Duplicar en ${destino === 'retail' ? 'Retail' : 'Restaurantes'}">
+        <button data-id="${l.id}" ${dup ? '' : 'disabled'} class="dup-lesson flex-1 flex items-center justify-center py-1 rounded-lg ${dup ? 'hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]' : 'text-[var(--black-40)] opacity-50 cursor-not-allowed'}" title="${dup ? `Duplicar en ${labelVertical(destino)}` : 'Ya sirve a las dos verticales'}">
           <i data-lucide="copy" class="w-3.5 h-3.5"></i>
         </button>
         <button data-id="${l.id}" data-titulo="${escapeHtml(l.titulo)}" class="del-lesson flex-1 flex items-center justify-center py-1 rounded-lg hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]">
@@ -1206,7 +1223,9 @@ function wireLessonCards() {
     btn.addEventListener('click', async e => {
       e.stopPropagation()
       const newActive = btn.dataset.active === 'false'
-      const { error } = await supabase.from('lecciones').update({ active: newActive }).eq('id', btn.dataset.id)
+      // En prod escribe lecciones.active; fuera de prod, solo el override de
+      // este entorno (ver saveLessonVisibility en js/settings.js).
+      const { error } = await saveLessonVisibility(btn.dataset.id, newActive)
       if (!error) { showToast(newActive ? 'Lección visible para estudiantes.' : 'Lección oculta para estudiantes.'); renderLessonsPanel() }
       else showToast('Error al actualizar.')
     })
@@ -1768,6 +1787,12 @@ async function renderFaqPanel() {
     console.error('[renderFaqPanel] Error cargando datos:', err)
   }
 
+  let faqVertical = 'all'   // 'all' | 'retail' | 'restaurantes'
+  // 'all' muestra todo; una vertical concreta muestra las suyas MÁS las 'ambas'.
+  const visiblesFaq = () => faqVertical === 'all'
+    ? items
+    : items.filter(f => aplicaA(f, faqVertical))
+
   function renderList(list) {
     return list.length ? list.map(f => `
       <div data-id="${f.id}" class="faq-item bg-white border border-[var(--blue-10)] rounded-xl px-4 py-3 flex items-start gap-3">
@@ -1776,12 +1801,14 @@ async function renderFaqPanel() {
             <p class="font-bold text-sm text-[var(--blue-100)]">${escapeHtml(f.pregunta)}</p>
             ${f.leccion_id ? '<span aria-label="Tiene lección relacionada" class="text-[10px] font-bold bg-[var(--blue-10)] text-[var(--blue-100)] px-1.5 py-0.5 rounded-full">📚 Lección</span>' : ''}
             ${f.link_url ? '<span aria-label="Tiene link externo" class="text-[10px] font-bold bg-[var(--black-10)] text-[var(--black-60)] px-1.5 py-0.5 rounded-full">🔗 Link</span>' : ''}
+            <span class="text-[10px] font-bold bg-[var(--background-page)] text-[var(--black-40)] px-1.5 py-0.5 rounded-full">${escapeHtml(labelVertical(f.vertical))}</span>
           </div>
           <p class="text-xs text-[var(--black-60)] mt-0.5 line-clamp-2">${escapeHtml(f.respuesta)}</p>
         </div>
         <div class="flex gap-1.5 shrink-0">
           <button data-id="${f.id}" data-pregunta="${escapeHtml(f.pregunta)}" data-respuesta="${escapeHtml(f.respuesta)}"
             data-leccion-id="${f.leccion_id || ''}" data-link-url="${escapeHtml(f.link_url || '')}"
+            data-vertical="${escapeHtml(f.vertical || 'ambas')}"
             class="edit-faq px-3 py-1.5 text-xs font-bold rounded-lg bg-[var(--blue-10)] text-[var(--blue-100)] hover:bg-[var(--blue-20)]">Editar</button>
           <button data-id="${f.id}" data-pregunta="${escapeHtml(f.pregunta)}"
             class="del-faq px-3 py-1.5 text-xs font-bold rounded-lg bg-[var(--coral-10)] text-[var(--coral-100)] hover:bg-[var(--coral-30)]">Eliminar</button>
@@ -1805,10 +1832,15 @@ async function renderFaqPanel() {
         </button>
       </div>
     </div>
+    <div id="faqVerticalChips" class="flex gap-2 mb-3">
+      <button data-v="all" class="faq-vchip px-3 py-1.5 rounded-full text-xs font-bold border border-[var(--blue-100)] bg-[var(--blue-10)] text-[var(--blue-100)]">Todas</button>
+      <button data-v="retail" class="faq-vchip px-3 py-1.5 rounded-full text-xs font-bold border border-[var(--blue-20)] text-[var(--black-60)]">Retail</button>
+      <button data-v="restaurantes" class="faq-vchip px-3 py-1.5 rounded-full text-xs font-bold border border-[var(--blue-20)] text-[var(--black-60)]">Restaurantes</button>
+    </div>
     <input id="searchFaq" type="text" placeholder="🔍  Buscar pregunta..."
       class="w-full px-4 py-2.5 rounded-xl border border-[var(--blue-20)] bg-white text-sm outline-none focus:border-[var(--blue-100)] mb-3">
     <div id="faqList" class="space-y-2">
-      ${renderList(items)}
+      ${renderList(visiblesFaq())}
     </div>
     <div id="faqFormInline" class="hidden mt-3 bg-white rounded-2xl border border-[var(--blue-20)] p-4">
       <input type="hidden" id="faqId">
@@ -1816,6 +1848,10 @@ async function renderFaqPanel() {
       <input id="faqPregunta" placeholder="Pregunta frecuente" required class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] mb-2">
       <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Respuesta</label>
       <textarea id="faqRespuesta" placeholder="Respuesta" rows="3" required class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] resize-none mb-2"></textarea>
+      <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Vertical</label>
+      <select id="faqVertical" class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] mb-2 bg-white">
+        ${VERTICALES_CONTENIDO.map(v => `<option value="${v.key}">${v.label}</option>`).join('')}
+      </select>
       <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1 mt-1">Lección relacionada (opcional)</label>
       <select id="faqLeccionId" class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] mb-2 bg-white">
         <option value="">— Ninguna —</option>
@@ -1834,17 +1870,33 @@ async function renderFaqPanel() {
 
   document.getElementById('searchFaq').addEventListener('input', e => {
     const q = e.target.value.toLowerCase()
-    const filtered = items.filter(f => f.pregunta.toLowerCase().includes(q) || f.respuesta.toLowerCase().includes(q))
+    const filtered = visiblesFaq().filter(f => f.pregunta.toLowerCase().includes(q) || f.respuesta.toLowerCase().includes(q))
     document.getElementById('faqList').innerHTML = renderList(filtered)
     bindFaqActions()
   })
 
-  function showFaqForm(id = '', pregunta = '', respuesta = '', leccionId = '', linkUrl = '') {
+  document.querySelectorAll('.faq-vchip').forEach(b => b.addEventListener('click', () => {
+    faqVertical = b.dataset.v
+    document.querySelectorAll('.faq-vchip').forEach(x => {
+      const on = x.dataset.v === faqVertical
+      x.classList.toggle('border-[var(--blue-100)]', on)
+      x.classList.toggle('bg-[var(--blue-10)]', on)
+      x.classList.toggle('text-[var(--blue-100)]', on)
+      x.classList.toggle('border-[var(--blue-20)]', !on)
+      x.classList.toggle('text-[var(--black-60)]', !on)
+    })
+    document.getElementById('searchFaq').value = ''
+    document.getElementById('faqList').innerHTML = renderList(visiblesFaq())
+    bindFaqActions()
+  }))
+
+  function showFaqForm(id = '', pregunta = '', respuesta = '', leccionId = '', linkUrl = '', vertical = 'ambas') {
     document.getElementById('faqId').value = id
     document.getElementById('faqPregunta').value = pregunta
     document.getElementById('faqRespuesta').value = respuesta
     document.getElementById('faqLeccionId').value = leccionId
     document.getElementById('faqLinkUrl').value = linkUrl
+    document.getElementById('faqVertical').value = vertical
     document.getElementById('faqFormError').classList.add('hidden')
     document.getElementById('faqFormInline').classList.remove('hidden')
     document.getElementById('faqPregunta').focus()
@@ -1854,7 +1906,7 @@ async function renderFaqPanel() {
 
   function bindFaqActions() {
     document.querySelectorAll('.edit-faq').forEach(b => b.addEventListener('click', () =>
-      showFaqForm(b.dataset.id, b.dataset.pregunta, b.dataset.respuesta, b.dataset.leccionId || '', b.dataset.linkUrl || '')))
+      showFaqForm(b.dataset.id, b.dataset.pregunta, b.dataset.respuesta, b.dataset.leccionId || '', b.dataset.linkUrl || '', b.dataset.vertical || 'ambas')))
     document.querySelectorAll('.del-faq').forEach(b => b.addEventListener('click', async () => {
       if (!confirm(`¿Eliminar "${b.dataset.pregunta}"?`)) return
       await supabase.from('preguntas_frecuentes').delete().eq('id', b.dataset.id)
@@ -1877,12 +1929,13 @@ async function renderFaqPanel() {
     const respuesta = document.getElementById('faqRespuesta').value.trim()
     const leccion_id = document.getElementById('faqLeccionId').value || null
     const link_url = document.getElementById('faqLinkUrl').value.trim() || null
+    const vertical = document.getElementById('faqVertical').value || 'ambas'
     if (!pregunta || !respuesta) { errorEl.textContent = 'La pregunta y respuesta son requeridas.'; errorEl.classList.remove('hidden'); return }
     btn.disabled = true; btn.textContent = 'Guardando...'
     let savedId = id
     const { data: saved, error } = id
-      ? await supabase.from('preguntas_frecuentes').update({ pregunta, respuesta, leccion_id, link_url }).eq('id', id).select('id').single()
-      : await supabase.from('preguntas_frecuentes').insert({ pregunta, respuesta, leccion_id, link_url }).select('id').single()
+      ? await supabase.from('preguntas_frecuentes').update({ pregunta, respuesta, leccion_id, link_url, vertical }).eq('id', id).select('id').single()
+      : await supabase.from('preguntas_frecuentes').insert({ pregunta, respuesta, leccion_id, link_url, vertical }).select('id').single()
     if (error) { errorEl.textContent = 'Error: ' + error.message; errorEl.classList.remove('hidden'); btn.disabled = false; btn.textContent = 'Guardar'; return }
     if (saved?.id) savedId = saved.id
     logActivity(id ? 'update' : 'create', 'preguntas_frecuentes', pregunta)
@@ -1910,15 +1963,22 @@ async function renderGlossaryPanel() {
   const { data } = await supabase.from('glosario').select('*').order('termino')
   const items = data || []
 
+  let glosVertical = 'all'
+  const visiblesGlos = () => glosVertical === 'all'
+    ? items
+    : items.filter(g => aplicaA(g, glosVertical))
+
   function renderList(list) {
     return list.length ? list.map(g => `
       <div data-id="${g.id}" class="glos-item bg-white border border-[var(--blue-10)] rounded-xl px-4 py-3 flex items-center gap-3">
         <div class="flex-1 min-w-0">
           <p class="font-bold text-sm text-[var(--blue-100)]">${escapeHtml(g.termino)}</p>
+          <span class="text-[10px] font-bold bg-[var(--background-page)] text-[var(--black-40)] px-1.5 py-0.5 rounded-full">${escapeHtml(labelVertical(g.vertical))}</span>
           <p class="text-xs text-[var(--black-60)] mt-0.5">${escapeHtml(g.definicion)}</p>
         </div>
         <div class="flex gap-1.5 shrink-0">
           <button data-id="${g.id}" data-term="${escapeHtml(g.termino)}" data-def="${escapeHtml(g.definicion)}"
+            data-vertical="${escapeHtml(g.vertical || 'ambas')}"
             class="edit-term px-3 py-1.5 text-xs font-bold rounded-lg bg-[var(--blue-10)] text-[var(--blue-100)] hover:bg-[var(--blue-20)]">Editar</button>
           <button data-id="${g.id}"
             class="del-term px-3 py-1.5 text-xs font-bold rounded-lg bg-[var(--coral-10)] text-[var(--coral-100)] hover:bg-[var(--coral-30)]">Eliminar</button>
@@ -1942,10 +2002,15 @@ async function renderGlossaryPanel() {
         </button>
       </div>
     </div>
+    <div id="glosVerticalChips" class="flex gap-2 mb-3">
+      <button data-v="all" class="glos-vchip px-3 py-1.5 rounded-full text-xs font-bold border border-[var(--blue-100)] bg-[var(--blue-10)] text-[var(--blue-100)]">Todas</button>
+      <button data-v="retail" class="glos-vchip px-3 py-1.5 rounded-full text-xs font-bold border border-[var(--blue-20)] text-[var(--black-60)]">Retail</button>
+      <button data-v="restaurantes" class="glos-vchip px-3 py-1.5 rounded-full text-xs font-bold border border-[var(--blue-20)] text-[var(--black-60)]">Restaurantes</button>
+    </div>
     <input id="searchGlosario" type="text" placeholder="🔍  Buscar término..."
       class="w-full px-4 py-2.5 rounded-xl border border-[var(--blue-20)] bg-white text-sm outline-none focus:border-[var(--blue-100)] mb-3">
     <div id="glosarioList" class="space-y-2">
-      ${renderList(items)}
+      ${renderList(visiblesGlos())}
     </div>
     <div id="termFormInline" class="hidden mt-3 bg-white rounded-2xl border border-[var(--blue-20)] p-4">
       <input type="hidden" id="termId">
@@ -1953,6 +2018,10 @@ async function renderGlossaryPanel() {
       <input id="termTermino" placeholder="Término" required class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] mb-2">
       <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Definición</label>
       <textarea id="termDefinicion" placeholder="Definición" rows="2" required class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] resize-none mb-2"></textarea>
+      <label class="block text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1">Vertical</label>
+      <select id="termVertical" class="w-full px-3 py-2 rounded-xl border border-[var(--blue-20)] text-sm outline-none focus:border-[var(--blue-100)] mb-2 bg-white">
+        ${VERTICALES_CONTENIDO.map(v => `<option value="${v.key}">${v.label}</option>`).join('')}
+      </select>
       <div class="flex gap-2">
         <button id="cancelTerm" class="flex-1 py-2 rounded-xl border border-[var(--blue-20)] text-sm font-bold text-[var(--black-60)]">Cancelar</button>
         <button id="saveTerm" class="flex-1 py-2 rounded-xl bg-[var(--blue-100)] text-white text-sm font-bold">Guardar</button>
@@ -1963,15 +2032,31 @@ async function renderGlossaryPanel() {
 
   document.getElementById('searchGlosario').addEventListener('input', e => {
     const q = e.target.value.toLowerCase()
-    const filtered = items.filter(g => g.termino.toLowerCase().includes(q) || g.definicion.toLowerCase().includes(q))
+    const filtered = visiblesGlos().filter(g => g.termino.toLowerCase().includes(q) || g.definicion.toLowerCase().includes(q))
     document.getElementById('glosarioList').innerHTML = renderList(filtered)
     bindGlosarioActions()
   })
 
-  function showForm(id = '', term = '', def = '') {
+  document.querySelectorAll('.glos-vchip').forEach(b => b.addEventListener('click', () => {
+    glosVertical = b.dataset.v
+    document.querySelectorAll('.glos-vchip').forEach(x => {
+      const on = x.dataset.v === glosVertical
+      x.classList.toggle('border-[var(--blue-100)]', on)
+      x.classList.toggle('bg-[var(--blue-10)]', on)
+      x.classList.toggle('text-[var(--blue-100)]', on)
+      x.classList.toggle('border-[var(--blue-20)]', !on)
+      x.classList.toggle('text-[var(--black-60)]', !on)
+    })
+    document.getElementById('searchGlosario').value = ''
+    document.getElementById('glosarioList').innerHTML = renderList(visiblesGlos())
+    bindGlosarioActions()
+  }))
+
+  function showForm(id = '', term = '', def = '', vertical = 'ambas') {
     document.getElementById('termId').value = id
     document.getElementById('termTermino').value = term
     document.getElementById('termDefinicion').value = def
+    document.getElementById('termVertical').value = vertical
     document.getElementById('termFormInline').classList.remove('hidden')
     document.getElementById('termTermino').focus()
     document.querySelectorAll('.glos-item').forEach(el => el.classList.remove('!border-[var(--blue-100)]'))
@@ -1980,7 +2065,7 @@ async function renderGlossaryPanel() {
 
   function bindGlosarioActions() {
     document.querySelectorAll('.edit-term').forEach(b => b.addEventListener('click', () =>
-      showForm(b.dataset.id, b.dataset.term, b.dataset.def)))
+      showForm(b.dataset.id, b.dataset.term, b.dataset.def, b.dataset.vertical || 'ambas')))
     document.querySelectorAll('.del-term').forEach(b => b.addEventListener('click', async () => {
       if (!confirm('¿Eliminar este término?')) return
       await supabase.from('glosario').delete().eq('id', b.dataset.id)
@@ -2000,6 +2085,7 @@ async function renderGlossaryPanel() {
     const payload = {
       termino:    document.getElementById('termTermino').value.trim(),
       definicion: document.getElementById('termDefinicion').value.trim(),
+      vertical:   document.getElementById('termVertical').value || 'ambas',
     }
     let savedId = id
     const { data: saved, error } = id

@@ -4,6 +4,7 @@ import { storageRemove } from '../js/storage.js'
 import {
   getSeleccion, setSeleccion, filtrarPorSeleccion, etiqueta,
   plataformasHabilitadas, verticalesVisibles, resolverSeleccion,
+  aplicaA, VERTICALES_CONTENIDO, labelVertical, verticalHabilitada, VERTICALES,
 } from '../js/vertical.js'
 
 // El storage es compartido entre tests (mismo módulo cacheado): cada test
@@ -127,4 +128,126 @@ test('resolverSeleccion: plataforma guardada deshabilitada (aunque tenga leccion
 test('resolverSeleccion: sin verticales visibles devuelve la selección recibida tal cual', () => {
   const seleccion = { vertical: 'restaurantes', plataforma: 'mobile' }
   assert.deepEqual(resolverSeleccion([], {}, seleccion), seleccion)
+})
+
+test('aplicaA: ambas aplica a las dos verticales', () => {
+  assert.equal(aplicaA({ vertical: 'ambas' }, 'retail'), true)
+  assert.equal(aplicaA({ vertical: 'ambas' }, 'restaurantes'), true)
+})
+
+test('aplicaA: una vertical concreta solo aplica a la suya', () => {
+  assert.equal(aplicaA({ vertical: 'retail' }, 'retail'), true)
+  assert.equal(aplicaA({ vertical: 'retail' }, 'restaurantes'), false)
+  assert.equal(aplicaA({ vertical: 'restaurantes' }, 'restaurantes'), true)
+  assert.equal(aplicaA({ vertical: 'restaurantes' }, 'retail'), false)
+})
+
+test('aplicaA: vertical ausente, null o basura cuenta como retail', () => {
+  assert.equal(aplicaA({}, 'retail'), true)
+  assert.equal(aplicaA({ vertical: null }, 'retail'), true)
+  assert.equal(aplicaA({ vertical: '' }, 'restaurantes'), false)
+  assert.equal(aplicaA(null, 'retail'), true)
+})
+
+test('filtrarPorSeleccion incluye las lecciones ambas', () => {
+  const ls = [
+    { titulo: 'A', vertical: 'retail',       plataforma: 'web' },
+    { titulo: 'B', vertical: 'restaurantes', plataforma: 'web' },
+    { titulo: 'C', vertical: 'ambas',        plataforma: 'web' },
+    { titulo: 'D', vertical: 'ambas',        plataforma: 'mobile' },
+  ]
+  const r = filtrarPorSeleccion(ls, { vertical: 'restaurantes', plataforma: 'web' })
+  assert.deepEqual(r.map(l => l.titulo), ['B', 'C'])
+})
+
+test('etiqueta: ambas trae su propio icono y label', () => {
+  assert.deepEqual(etiqueta({ vertical: 'ambas', plataforma: 'mobile' }),
+    { icon: 'layers', texto: 'Ambas · Mobile' })
+})
+
+test('labelVertical: nombre suelto para contenido sin plataforma', () => {
+  assert.equal(labelVertical('retail'), 'Retail')
+  assert.equal(labelVertical('restaurantes'), 'Restaurantes')
+  assert.equal(labelVertical('ambas'), 'Ambas')
+  assert.equal(labelVertical(null), 'Retail')
+})
+
+// Una FAQ y un término de glosario no tienen `plataforma`: aplicaA solo mira
+// `vertical`, así que la misma regla sirve para las tres tablas.
+test('aplicaA sirve igual para FAQ y glosario (sin plataforma)', () => {
+  const faq  = { pregunta: '¿Cómo divido una cuenta?', vertical: 'restaurantes' }
+  const term = { termino: 'Comanda', vertical: 'restaurantes' }
+  const pago = { pregunta: '¿Cómo proceso un pago?', vertical: 'ambas' }
+  assert.equal(aplicaA(faq, 'restaurantes'), true)
+  assert.equal(aplicaA(faq, 'retail'), false)
+  assert.equal(aplicaA(term, 'retail'), false)
+  assert.equal(aplicaA(pago, 'retail'), true)
+  assert.equal(aplicaA(pago, 'restaurantes'), true)
+})
+
+test('VERTICALES_CONTENIDO trae las 3 opciones y VERTICALES sigue con 2', () => {
+  assert.deepEqual(VERTICALES_CONTENIDO.map(v => v.key), ['retail', 'restaurantes', 'ambas'])
+  assert.deepEqual(VERTICALES.map(v => v.key), ['retail', 'restaurantes'])
+})
+
+test('setSeleccion sigue rechazando ambas como selección del usuario', () => {
+  limpiarSeleccion()
+  setSeleccion({ vertical: 'ambas' })
+  assert.equal(getSeleccion().vertical, 'retail')
+})
+
+test('verticalesVisibles: una vertical con solo lecciones ambas es visible', () => {
+  const ls = [{ vertical: 'ambas', plataforma: 'web' }]
+  assert.deepEqual(verticalesVisibles(ls, {}), ['retail', 'restaurantes'])
+})
+
+test('verticalHabilitada respeta el switch de app_settings', () => {
+  assert.equal(verticalHabilitada({}, 'retail'), true)
+  assert.equal(verticalHabilitada({ vertical_retail_enabled: 'false' }, 'retail'), false)
+  assert.equal(verticalHabilitada({ vertical_retail_enabled: 'true' }, 'retail'), true)
+})
+
+test('resolverSeleccion verticalFija: respeta la vertical aunque no tenga lecciones', () => {
+  const ls = [{ vertical: 'retail', plataforma: 'web' }]
+  assert.deepEqual(
+    resolverSeleccion(ls, {}, { vertical: 'restaurantes', plataforma: 'web' }, { verticalFija: true }),
+    { vertical: 'restaurantes', plataforma: 'web' })
+})
+
+test('resolverSeleccion verticalFija: sigue resolviendo la plataforma deshabilitada', () => {
+  const ls = [{ vertical: 'restaurantes', plataforma: 'mobile' }]
+  const settings = { plataforma_restaurantes_web_enabled: 'false' }
+  assert.deepEqual(
+    resolverSeleccion(ls, settings, { vertical: 'restaurantes', plataforma: 'web' }, { verticalFija: true }),
+    { vertical: 'restaurantes', plataforma: 'mobile' })
+})
+
+test('resolverSeleccion verticalFija: el switch del admin gana sobre Bold', () => {
+  const ls = [{ vertical: 'retail', plataforma: 'web' }]
+  const settings = { vertical_restaurantes_enabled: 'false' }
+  const r = resolverSeleccion(ls, settings, { vertical: 'restaurantes', plataforma: 'web' }, { verticalFija: true })
+  assert.equal(r.vertical, 'retail')
+})
+
+test('resolverSeleccion sin verticalFija se comporta igual que antes', () => {
+  const ls = [{ vertical: 'retail', plataforma: 'web' }]
+  const r = resolverSeleccion(ls, {}, { vertical: 'restaurantes', plataforma: 'web' })
+  assert.equal(r.vertical, 'retail')
+})
+
+test('resolverSeleccion verticalFija: early return si plataforma está habilitada (sin lecciones)', () => {
+  const ls = [{ vertical: 'retail', plataforma: 'web' }]
+  const r = resolverSeleccion(ls, {}, { vertical: 'restaurantes', plataforma: 'web' }, { verticalFija: true })
+  assert.equal(r.vertical, 'restaurantes')
+  assert.equal(r.plataforma, 'web')
+})
+
+test('resolverSeleccion verticalFija: todas las plataformas deshabilitadas cae a plataforma original', () => {
+  const ls = [{ vertical: 'restaurantes', plataforma: 'web' }]
+  const settings = {
+    plataforma_restaurantes_web_enabled: 'false',
+    plataforma_restaurantes_mobile_enabled: 'false',
+  }
+  const r = resolverSeleccion(ls, settings, { vertical: 'restaurantes', plataforma: 'web' }, { verticalFija: true })
+  assert.equal(r.plataforma, 'web')
 })

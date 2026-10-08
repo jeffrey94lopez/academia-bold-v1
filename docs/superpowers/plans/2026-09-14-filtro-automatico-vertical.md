@@ -370,21 +370,11 @@ git commit -m "feat(vertical): la vertical que manda Bold ya no se sobrescribe"
 - Consumes: nada.
 - Produces: `preguntas_frecuentes.vertical` y `glosario.vertical` (`text NOT NULL DEFAULT 'ambas'`), y `lecciones.vertical` aceptando `'ambas'`.
 
-- [ ] **Step 1: Averiguar el nombre real de la constraint**
+- [ ] **Step 1: Escribir la migración (sin depender del nombre de la constraint)**
 
-No asumas que se llama `lecciones_vertical_check`: la creó Postgres y si el nombre no coincide, el `drop ... if exists` no hace nada y el `add` falla por duplicado. Pídele al usuario que corra esto en el SQL Editor y te pase el resultado:
+No asumas que la constraint se llama `lecciones_vertical_check`: la nombró Postgres, y si no coincide, un `drop constraint if exists` con el nombre equivocado no hace nada y el `add` siguiente falla por duplicado. En vez de preguntar el nombre, la migración lo busca sola y avisa cuál borró.
 
-```sql
-select con.conname, pg_get_constraintdef(con.oid)
-from pg_constraint con
-join pg_class rel on rel.oid = con.conrelid
-join pg_namespace nsp on nsp.oid = rel.relnamespace
-where nsp.nspname = 'public' and rel.relname = 'lecciones' and con.contype = 'c';
-```
-
-- [ ] **Step 2: Escribir la migración**
-
-Crear `supabase/migrations/add_vertical_ambas.sql` con el nombre de constraint que devolvió el paso 1 (abajo va el nombre por defecto de Postgres; cámbialo si difiere):
+Crear `supabase/migrations/add_vertical_ambas.sql`:
 
 ```sql
 -- Tercer valor de `vertical`: 'ambas', para el contenido que sirve a las dos
@@ -401,7 +391,28 @@ Crear `supabase/migrations/add_vertical_ambas.sql` con el nombre de constraint q
 -- Ejecutar UNA sola vez en el SQL Editor del proyecto Supabase, ANTES de
 -- desplegar el frontend que usa estos valores.
 
-alter table public.lecciones drop constraint if exists lecciones_vertical_check;
+-- Borra la CHECK que hoy limita `vertical` a dos valores, se llame como se
+-- llame. Se busca por su definición y no por su nombre porque el nombre lo
+-- puso Postgres: si adivináramos mal, el `drop ... if exists` no haría nada
+-- y el `add` de abajo fallaría por duplicado. Avisa cuál borró.
+do $$
+declare c record;
+begin
+  for c in
+    select con.conname
+    from pg_constraint con
+    join pg_class rel on rel.oid = con.conrelid
+    join pg_namespace nsp on nsp.oid = rel.relnamespace
+    where nsp.nspname = 'public'
+      and rel.relname = 'lecciones'
+      and con.contype = 'c'
+      and pg_get_constraintdef(con.oid) ilike '%vertical%'
+  loop
+    raise notice 'Borrando constraint %', c.conname;
+    execute format('alter table public.lecciones drop constraint %I', c.conname);
+  end loop;
+end $$;
+
 alter table public.lecciones add constraint lecciones_vertical_check
   check (vertical in ('retail', 'restaurantes', 'ambas'));
 
@@ -434,11 +445,11 @@ select 'glosario', count(*) filter (where vertical is null),
 from public.glosario;
 ```
 
-- [ ] **Step 3: Pedirle al usuario que la ejecute**
+- [ ] **Step 2: Pedirle al usuario que la ejecute**
 
 El agente no ejecuta migraciones. Avísale al usuario que la corra en el SQL Editor y que confirme la salida de los dos controles.
 
-- [ ] **Step 4: Verificar por REST, no por la UI**
+- [ ] **Step 3: Verificar por REST, no por la UI**
 
 `supabase-js` no lanza en error y un `?? 0` en el render fabrica datos creíbles, así que la comprobación va contra PostgREST crudo. La clave anon está en `js/supabase.js`.
 
@@ -452,7 +463,7 @@ curl -s "https://tczcngfhuendmldafbrc.supabase.co/rest/v1/glosario?select=id,ver
 
 Expected: las dos respuestas traen `"vertical":"ambas"` en cada fila. Si viene `{"code":"42703"}` la columna no existe y la migración no corrió.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add supabase/migrations/add_vertical_ambas.sql
@@ -556,7 +567,9 @@ git commit -m "feat(bot): match_lessons sirve tambien las lecciones marcadas 'am
 - Consumes: nada.
 - Produces: `isStaff() -> boolean` exportada desde `js/utils.js`.
 
-**Por qué acá:** `resources.js` la va a necesitar en la Tarea 7 y hoy es privada de `lessons.js`. Va a `utils.js` y no a `vertical.js` porque es modo de operación del portal, no algo propio de las verticales.
+**Por qué acá:** hoy `isStaff()` es privada de `lessons.js`, que importa `supabase.js` (URL de CDN) y toca el DOM — o sea, **no se puede probar desde Node**. La Tarea 6 la vuelve load-bearing: pasa a decidir si un comercio puede ver contenido de otra vertical, que es comportamiento con consecuencias. Moverla a `utils.js` es lo que permite escribirle pruebas. Va a `utils.js` y no a `vertical.js` porque es modo de operación del portal, no algo propio de las verticales.
+
+(La Tarea 7 **no** la usa: `resources.js` filtra con `getSeleccion().vertical`, que en modo staff ya refleja lo que el staff eligió a mano. Si lees una versión anterior del plan que decía lo contrario, estaba equivocada.)
 
 - [ ] **Step 1: Escribir la prueba que falla**
 
@@ -640,7 +653,7 @@ Expected: en `lessons.js` solo el import y los usos (línea ~227), ninguna defin
 
 ```bash
 git add js/utils.js js/lessons.js tests/utils.test.mjs
-git commit -m "refactor(portal): isStaff se mueve a utils para compartirla con resources"
+git commit -m "refactor(portal): isStaff se mueve a utils para poder probarla"
 ```
 
 ---
@@ -679,21 +692,21 @@ Cambiar la línea 82:
 
 - [ ] **Step 2: Pasar la bandera a `resolverSeleccion`**
 
-Las dos llamadas cambian. La de la línea ~403 (dentro de `applySeleccion`):
+Son **tres** llamadas, no dos. Todas llevan el mismo cuarto argumento `{ verticalFija: verticalFijadaPorBold() }`:
 
-```js
-    sel = resolverSeleccion(allLessons, settings, getSeleccion(), { verticalFija: verticalFijadaPorBold() })
-```
+1. **Línea ~61**, el arranque: `resolverSeleccion(allLessons, settings, seleccionGuardada)`
+2. **Línea ~415**, dentro de `applySeleccion`: `resolverSeleccion(allLessons, settings, getSeleccion())`
+3. **Línea ~575**, dentro de `refreshLessons()`: `resolverSeleccion(allLessons, settings, sel)`
 
-Y la del arranque (línea ~48, donde se calcula la selección inicial a partir de `seleccionGuardada`): agregarle el mismo cuarto argumento.
+La tercera es la que más importa y es fácil de pasar por alto: `refreshLessons()` corre en cada actualización realtime de la tabla `lecciones`. Si se queda sin la bandera, basta con que alguien edite una lección para que el portal voltee en silencio a un comercio de restaurantes hacia Retail — exactamente lo que la decisión 3 del spec existe para impedir.
 
 Run: `grep -n "resolverSeleccion(" js/lessons.js`
-Expected: las dos llamadas llevan `{ verticalFija: verticalFijadaPorBold() }`.
+Expected: **tres** llamadas, y las tres con `{ verticalFija: verticalFijadaPorBold() }`.
 
 - [ ] **Step 3: Verificar que los tests existentes siguen verdes**
 
 Run: `node --test tests/vertical.test.mjs tests/utils.test.mjs`
-Expected: PASS. (`lessons.js` no tiene pruebas unitarias: depende del DOM y de supabase. Se verifica en navegador en la Tarea 12.)
+Expected: PASS. (`lessons.js` no tiene pruebas unitarias: depende del DOM y de supabase. Se verifica en navegador en la Tarea 14.)
 
 - [ ] **Step 4: Commit**
 
@@ -788,10 +801,10 @@ onContextoBold(() => {
 
 - [ ] **Step 5: Verificar que el módulo sigue cargando**
 
-`resources.js` importa `supabase.js` (URL de CDN), así que no se puede importar desde Node. La verificación es en navegador, en la Tarea 12. Acá basta confirmar que no hay errores de sintaxis:
+`resources.js` importa `supabase.js` (URL de CDN), así que no se puede importar desde Node. La verificación es en navegador, en la Tarea 14. Acá basta confirmar que no hay errores de sintaxis:
 
-Run: `node --check js/resources.js`
-Expected: sin salida (éxito). Si se queja de `import`, renómbralo mentalmente: usa `node --input-type=module --check < js/resources.js`.
+Run: `node --input-type=module --check < js/resources.js`
+Expected: sin salida y exit 0. **No uses `node --check js/resources.js`**: sobre un archivo con `import` ese comando sale 0 siempre, incluso con el archivo roto — verificado en Node v24.18.0. El `--input-type=module` con redirección sí falla (exit 1) cuando hay error de sintaxis.
 
 - [ ] **Step 6: Commit**
 
@@ -986,7 +999,7 @@ En `lessonCardHtml` y `lessonCardGridHtml`, la línea `const destino = otraVerti
 Y en los dos botones `.dup-lesson` (líneas ~1117 y ~1159) agregar el atributo y el título alterno. Para el de `lessonCardHtml`:
 
 ```html
-        <button data-id="${l.id}" ${dup ? '' : 'disabled'} class="dup-lesson p-1.5 rounded-lg ${dup ? 'hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]' : 'text-[var(--black-10)] cursor-not-allowed'}" title="${dup ? `Duplicar en ${destino === 'retail' ? 'Retail' : 'Restaurantes'}` : 'Ya sirve a las dos verticales'}">
+        <button data-id="${l.id}" ${dup ? '' : 'disabled'} class="dup-lesson p-1.5 rounded-lg ${dup ? 'hover:bg-[var(--blue-10)] text-[var(--black-40)] hover:text-[var(--blue-100)]' : 'text-[var(--black-40)] opacity-50 cursor-not-allowed'}" title="${dup ? `Duplicar en ${destino === 'retail' ? 'Retail' : 'Restaurantes'}` : 'Ya sirve a las dos verticales'}">
 ```
 
 Para el de `lessonCardGridHtml`, el mismo cambio sobre su clase (`flex-1 flex items-center justify-center py-1 rounded-lg`).
@@ -995,7 +1008,7 @@ Sumar `puedeDuplicarse` al import de `./lesson-duplicate.js` en `js/admin.js`.
 
 - [ ] **Step 9: Verificar sintaxis y pruebas**
 
-Run: `node --check js/admin.js && node --test tests/lesson-duplicate.test.mjs tests/vertical.test.mjs`
+Run: `node --input-type=module --check < js/admin.js && node --test tests/lesson-duplicate.test.mjs tests/vertical.test.mjs`
 Expected: PASS
 
 - [ ] **Step 10: Commit**
@@ -1125,7 +1138,7 @@ En el handler de `saveFaq`, leer el valor y sumarlo a los dos payloads:
 
 - [ ] **Step 6: Verificar sintaxis**
 
-Run: `node --check js/admin.js`
+Run: `node --input-type=module --check < js/admin.js`
 Expected: sin salida.
 
 - [ ] **Step 7: Commit**
@@ -1244,7 +1257,7 @@ Y el `payload` de `saveTerm`:
 
 - [ ] **Step 6: Verificar sintaxis**
 
-Run: `node --check js/admin.js`
+Run: `node --input-type=module --check < js/admin.js`
 Expected: sin salida.
 
 - [ ] **Step 7: Commit**
@@ -1400,7 +1413,7 @@ En `createConversation`:
 
 - [ ] **Step 2: Verificar sintaxis**
 
-Run: `node --check js/assistant.js`
+Run: `node --input-type=module --check < js/assistant.js`
 Expected: sin salida.
 
 - [ ] **Step 3: Verificar contra la base, no contra la UI**
@@ -1436,8 +1449,10 @@ git commit -m "feat(analytics): guardar vertical y plataforma en cada conversaci
 
 - [ ] **Step 1: Correr toda la batería de pruebas**
 
-Run: `node --test tests/`
-Expected: PASS en todo. Si algún test que no tocaste falla, para y arréglalo antes de seguir.
+Run: `node --test tests/*.test.mjs`
+Expected: PASS en todo (365 tests antes de empezar este plan). Si algún test que no tocaste falla, para y arréglalo antes de seguir.
+
+**No uses `node --test tests/`** sin el glob: en este Node intenta cargar `tests` como módulo y revienta con `MODULE_NOT_FOUND`, que parece una regresión y no lo es. El glob además deja fuera los archivos `*.test-NEFI-PC.mjs`, que son duplicados de otra máquina.
 
 - [ ] **Step 2: Levantar el portal**
 

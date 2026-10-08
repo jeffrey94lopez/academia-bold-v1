@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { getYouTubeId, slugify } from '../js/utils.js'
+import { getYouTubeId, slugify, isStaff } from '../js/utils.js'
 
 test('formatos clásicos: watch?v= y youtu.be', () => {
   assert.equal(getYouTubeId('https://www.youtube.com/watch?v=dQw4w9WgXcQ'), 'dQw4w9WgXcQ')
@@ -46,4 +46,41 @@ test('slugify: vacío o sin caracteres válidos → cadena vacía', () => {
   assert.equal(slugify(''), '')
   assert.equal(slugify(null), '')
   assert.equal(slugify('***'), '')
+})
+
+// isStaff lee window.location.search y localStorage; en Node no existen, así
+// que se montan mínimos antes de importar nada que los use.
+function conEntorno({ search = '', store = {} } = {}) {
+  globalThis.window = { location: { search } }
+  globalThis.localStorage = {
+    getItem: k => (k in store ? store[k] : null),
+    setItem: (k, v) => { store[k] = String(v) },
+    removeItem: k => { delete store[k] },
+  }
+  return store
+}
+
+test('isStaff: sin parámetro ni marca guardada es false', () => {
+  conEntorno()
+  assert.equal(isStaff(), false)
+})
+
+test('isStaff: ?staff=1 activa y queda recordado', () => {
+  const store = conEntorno({ search: '?staff=1' })
+  assert.equal(isStaff(), true)
+  assert.equal(store.bold_staff, '1')
+  conEntorno({ search: '', store })
+  assert.equal(isStaff(), true)
+})
+
+test('isStaff: ?staff=0 lo apaga', () => {
+  const store = conEntorno({ search: '?staff=0', store: { bold_staff: '1' } })
+  assert.equal(isStaff(), false)
+  assert.equal(store.bold_staff, undefined)
+})
+
+test('isStaff: un entorno sin window devuelve false en vez de lanzar', () => {
+  delete globalThis.window
+  delete globalThis.localStorage
+  assert.equal(isStaff(), false)
 })

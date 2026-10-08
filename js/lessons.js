@@ -3,12 +3,14 @@ import { renderBlocks } from './block-renderer.js'
 import { parseLessonBlocks } from './lesson-blocks.js'
 import { track } from './analytics.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
-import { escapeHtml } from './utils.js'
-import { VERTICALES, PLATAFORMAS, getSeleccion, setSeleccion, filtrarPorSeleccion, plataformasHabilitadas, verticalesVisibles, resolverSeleccion } from './vertical.js'
-import { onContextoBold, seleccionDesdeContexto } from './bold-context.js'
+import { escapeHtml, isStaff } from './utils.js'
+import { VERTICALES, PLATAFORMAS, aplicaA, getSeleccion, setSeleccion, filtrarPorSeleccion, plataformasHabilitadas, verticalesVisibles, resolverSeleccion } from './vertical.js'
+import { onContextoBold, seleccionDesdeContexto, getContextoBold } from './bold-context.js'
 import { crearSuscripcionReanudable } from './realtime-lifecycle.js'
 import { createReadingTracker } from './reading-tracker.js'
-import { loadSettings } from './settings.js'
+import { loadSettings, loadVisibilityOverrides } from './settings.js'
+import { aplicarVisibilidad, visibles } from './lesson-visibility.js'
+import { APP_ENV } from './env.js'
 
 // Telemetría de lectura: un tracker por sesión de portal. Se arranca al abrir
 // una lección y se vacía al salir de la pestaña u ocultar la página.
@@ -23,31 +25,29 @@ window.addEventListener('pagehide', () => readingTracker.flush('pagehide'))
 // incrustados en el nombre); las claves internas de agrupación no se tocan.
 const stripEmoji = s => (s || '').replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '').trim()
 
-// Modo staff: se activa una vez con ?staff=1 en la URL (queda recordado en el
-// navegador) y se desactiva con ?staff=0. Controla herramientas internas.
-function isStaff() {
-  try {
-    const p = new URLSearchParams(window.location.search)
-    if (p.get('staff') === '1') localStorage.setItem('bold_staff', '1')
-    else if (p.get('staff') === '0') localStorage.removeItem('bold_staff')
-    return localStorage.getItem('bold_staff') === '1'
-  } catch { return false }
-}
-
 async function renderLessons() {
   const container = document.getElementById('section-lessons')
 
   container.innerHTML = '<div class="flex items-center justify-center h-full text-[var(--black-60)] text-sm">Cargando lecciones...</div>'
 
-  const [lessonsRes, catsRes, loadedSettings] = await Promise.all([
-    supabase.from('lecciones').select('*').eq('active', true).order('orden'),
+  // En prod el filtro sigue siendo del servidor: así el portal real NO recibe
+  // ni una lección oculta, y ningún error en el merge podría exponerla. Fuera
+  // de prod hay que traerlas todas, porque lecciones.active es el valor de
+  // producción y el que manda es el override del entorno.
+  const leccionesQuery = APP_ENV === 'prod'
+    ? supabase.from('lecciones').select('*').eq('active', true).order('orden')
+    : supabase.from('lecciones').select('*').order('orden')
+
+  const [lessonsRes, catsRes, loadedSettings, overrides] = await Promise.all([
+    leccionesQuery,
     supabase.from('categorias').select('*').order('orden'),
     loadSettings(),
+    loadVisibilityOverrides(),
   ])
-  let allLessons = lessonsRes.data || []
+  let allLessons = visibles(aplicarVisibilidad(lessonsRes.data, overrides, APP_ENV))
   let settings = loadedSettings
   const seleccionGuardada = getSeleccion()
-  let sel = resolverSeleccion(allLessons, settings, seleccionGuardada)
+  let sel = resolverSeleccion(allLessons, settings, seleccionGuardada, { verticalFija: verticalFijadaPorBold() })
   if (sel.vertical !== seleccionGuardada.vertical || sel.plataforma !== seleccionGuardada.plataforma) {
     setSeleccion(sel)
   }
@@ -75,12 +75,21 @@ async function renderLessons() {
   }
   rebuildGrouped()
 
+  // Bold POS nos dice la vertical del comercio, así que elegirla a mano no tiene
+  // sentido: se oculta la tarjeta. El chip Web/Mobile SÍ se queda — Bold no manda
+  // `platform` (va fijo en 'web'), y sin el chip nadie podría llegar a las
+  // lecciones Mobile. ?staff=1 devuelve el selector para que soporte pueda
+  // revisar la vertical contraria.
+  function verticalFijadaPorBold() {
+    return !!getContextoBold()?.vertical && !isStaff()
+  }
+
   // Selector de vertical (tarjetas con icono) + plataforma (chips).
   // Mismo markup en móvil y desktop; se regenera al cambiar la selección.
   function selectorHtml() {
     const verticalesShown  = VERTICALES.filter(v => verticalesVisibles(allLessons, settings).includes(v.key))
     const plataformasShown = PLATAFORMAS.filter(p => plataformasHabilitadas(settings, sel.vertical).includes(p.key))
-    const showVerticales  = verticalesShown.length >= 2
+    const showVerticales  = verticalesShown.length >= 2 && !verticalFijadaPorBold()
     const showPlataformas = plataformasShown.length >= 2
 
     if (!showVerticales && !showPlataformas) return ''
@@ -401,7 +410,7 @@ async function renderLessons() {
   function applySeleccion(cambio, { origen = 'usuario' } = {}) {
     const previo = sel
     setSeleccion(cambio)
-    sel = resolverSeleccion(allLessons, settings, getSeleccion())
+    sel = resolverSeleccion(allLessons, settings, getSeleccion(), { verticalFija: verticalFijadaPorBold() })
     searchQuery = ''
     for (const id of ['ls-desk-search', 'ls-cat-search', 'ls-mob-search']) {
       const inp = document.getElementById(id)
@@ -552,12 +561,16 @@ async function renderLessons() {
 
   // ── Realtime refresh ──────────────────────────────────────────────────────
   async function refreshLessons() {
-    const { data: freshLessons, error: err } = await supabase
-      .from('lecciones').select('*').eq('active', true).order('orden')
+    const [{ data: freshLessons, error: err }, overrides] = await Promise.all([
+      APP_ENV === 'prod'
+        ? supabase.from('lecciones').select('*').eq('active', true).order('orden')
+        : supabase.from('lecciones').select('*').order('orden'),
+      loadVisibilityOverrides(),
+    ])
     if (err || !freshLessons) return
 
-    allLessons = freshLessons
-    sel = resolverSeleccion(allLessons, settings, sel)
+    allLessons = visibles(aplicarVisibilidad(freshLessons, overrides, APP_ENV))
+    sel = resolverSeleccion(allLessons, settings, sel, { verticalFija: verticalFijadaPorBold() })
     lessons = filtrarPorSeleccion(allLessons, sel)
     rebuildGrouped()
 
@@ -584,12 +597,17 @@ async function renderLessons() {
   window.openLessonById = (id) => {
     // Las FAQs (js/resources.js) son compartidas entre verticales/plataformas
     // y pueden enlazar una lección fuera de la selección activa. Por eso la
-    // búsqueda parte de `allLessons` (sin filtrar) en vez de `lessons`.
+    // búsqueda parte de `allLessons` (sin filtrar) en vez de `lessons`: la
+    // lección se abre aunque no esté visible. La vertical solo se cambia si la
+    // lección no aplica a la actual Y Bold no la fijó (si la fijó, el selector
+    // está oculto y el comercio no podría volver). La plataforma sí cambia
+    // siempre: Bold no la manda, el chip es del usuario.
     const lesson = allLessons.find(l => String(l.id) === String(id))
     if (!lesson) { console.warn('[openLessonById] Lección no encontrada:', id); return }
-    const lessonVertical = lesson.vertical || 'retail'
     const lessonPlataforma = lesson.plataforma || 'web'
-    if (lessonVertical !== sel.vertical || lessonPlataforma !== sel.plataforma) {
+    const cambiaVertical = !aplicaA(lesson, sel.vertical) && !verticalFijadaPorBold()
+    const lessonVertical = cambiaVertical ? (lesson.vertical || 'retail') : sel.vertical
+    if (cambiaVertical || lessonPlataforma !== sel.plataforma) {
       // Cambia de contexto: persiste la selección, refiltra `lessons`/`grouped`
       // y re-renderiza los selectores. Deja activeLesson en null y la pantalla
       // en 'categories'; la lógica de abajo la reemplaza abriendo la lección.
@@ -610,6 +628,11 @@ async function renderLessons() {
     if (mobContent) renderLessonContent(mobContent, lesson)
     showScreen('content')
   }
+
+  // El asistente ofrece cambiar de vertical tras un cruce. Se expone por
+  // `window` y no por import porque lessons.js no exporta nada: su estado vive
+  // dentro de renderLessons().
+  window.aplicarVerticalDesdeChat = (vertical) => applySeleccion({ vertical }, { origen: 'cruce-bot' })
 
   window.openLessonBySlug = (slug) => {
     const lesson = allLessons.find(l => l.slug === slug)
@@ -640,6 +663,10 @@ async function renderLessons() {
         await refreshLessons()
         showToast('Lecciones actualizadas ✓')
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leccion_visibilidad' }, async () => {
+        await refreshLessons()
+        showToast('Lecciones actualizadas ✓')
+      })
       .subscribe(),
     remove: (channel) => supabase.removeChannel(channel),
   })
@@ -657,9 +684,12 @@ async function renderLessons() {
     if (!cambio) return
     const igual = (cambio.vertical ?? sel.vertical) === sel.vertical &&
                   (cambio.plataforma ?? sel.plataforma) === sel.plataforma
-    // Ya estábamos donde Bold dice: persistir y no re-renderizar (si el usuario
-    // está leyendo una lección, un re-render lo devolvería a las categorías).
-    if (igual) { setSeleccion(cambio); return }
+    // Ya estábamos donde Bold dice: persistir y repintar SOLO el selector. No
+    // se llama a applySeleccion porque un re-render completo devolvería a las
+    // categorías a quien esté leyendo una lección; pero el selector sí tiene
+    // que repintarse, porque la tarjeta de vertical se pintó cuando el
+    // contexto todavía no había llegado y hay que esconderla.
+    if (igual) { setSeleccion(cambio); renderSelectors(); return }
     applySeleccion(cambio, { origen: 'bold' })
   })
 }

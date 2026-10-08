@@ -7,9 +7,18 @@
 // borradores. Nada se escribe en la base hasta que el admin le da Guardar.
 
 // Convención del repo (ver js/vertical.js): vertical ausente o desconocida
-// cuenta como retail.
+// cuenta como retail. OJO: 'ambas' es un valor CONOCIDO y aun así cae en el
+// else de abajo (devuelve 'restaurantes'), lo cual no significa nada: una
+// lección 'ambas' ya está en las dos verticales. Por eso existe
+// puedeDuplicarse() aparte; quien arme un botón de duplicar debe consultarla.
 export function otraVertical(vertical) {
   return vertical === 'restaurantes' ? 'retail' : 'restaurantes'
+}
+
+// Duplicar una lección 'ambas' no significa nada: ya sirve a las dos verticales,
+// y otraVertical('ambas') devolvería 'restaurantes' por el else del ternario.
+export function puedeDuplicarse(leccion) {
+  return (leccion?.vertical || 'retail') !== 'ambas'
 }
 
 // Campos que el formulario de lecciones sabe leer (ver openLessonForm).

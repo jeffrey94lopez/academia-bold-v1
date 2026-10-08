@@ -2,8 +2,14 @@
 // Página interna (embed-test.html) para que el equipo dev de Bold confirme, en
 // vivo, que su postMessage llega y trae los campos correctos. No toca la app.
 
+// La lista de orígenes aceptados se importa en vez de copiarse: si divergieran,
+// esta página le diría a Bold que su origen está mal cuando el portal real sí lo
+// acepta (o al revés), que es exactamente el tipo de pista falsa que una página
+// de diagnóstico no puede dar.
+import { ORIGENES_BOLD, esOrigenBold } from './bold-context.js'
+
 const ACADEMIA_ORIGIN = window.location.origin
-const BOLD_ORIGIN     = 'https://pos.bold.co'
+const BOLD_ORIGINS    = ORIGENES_BOLD.join(' o ')
 
 // Detección de valores de relleno: si llegan tal cual, es que se copiaron
 // literales en vez de leerse de la sesión. Solo cadenas evidentemente falsas;
@@ -53,9 +59,9 @@ function renderEnv() {
     ['Origen de esta página', ACADEMIA_ORIGIN, 'ok'],
     ['¿Está dentro de un iframe?', embebido ? 'Sí' : 'No — abrila desde el POS para la prueba real', embebido ? 'ok' : 'warn'],
     ['Origen del contenedor', anc || (embebido ? '(no visible en este navegador)' : '—'),
-      anc ? (anc === BOLD_ORIGIN ? 'ok' : 'warn') : 'off'],
+      anc ? (esOrigenBold(anc) ? 'ok' : 'warn') : 'off'],
     ['document.referrer', document.referrer || '(vacío)', document.referrer ? 'ok' : 'off'],
-    ['Origen que aceptamos', BOLD_ORIGIN, 'ok'],
+    ['Orígenes que aceptamos', BOLD_ORIGINS, 'ok'],
     ['targetOrigin que deben usar', ACADEMIA_ORIGIN, 'ok'],
     ['localStorage disponible', storageOk() ? 'Sí' : 'No (particionado por el navegador)', storageOk() ? 'ok' : 'warn'],
   ]
@@ -92,9 +98,9 @@ function validar(d, origin) {
 
   // El origen lo fija el navegador: no es falsificable desde la página.
   add('origin del mensaje', origin,
-    origin === BOLD_ORIGIN ? 'ok' : 'bad',
-    origin === BOLD_ORIGIN ? 'Coincide con el origen que aceptamos.'
-      : `En producción solo aceptamos ${BOLD_ORIGIN}. Desde otro origen el mensaje se descarta.`)
+    esOrigenBold(origin) ? 'ok' : 'bad',
+    esOrigenBold(origin) ? 'Coincide con uno de los orígenes que aceptamos.'
+      : `Solo aceptamos ${BOLD_ORIGINS}. Desde otro origen el mensaje se descarta.`)
 
   add('type', d.type, d.type === 'bold:context' ? 'ok' : 'warn',
     d.type === 'bold:context' ? '' : 'Se esperaba exactamente "bold:context".')
@@ -178,8 +184,8 @@ function renderCampos() {
     const avisos = filas.filter(f => f.estado === 'warn').length
     b.className = 'banner wait'
     b.innerHTML = (avisos
-      ? 'Contexto recibido <b>con ' + avisos + ' aviso' + (avisos > 1 ? 's' : '') + '</b>, y además no vino de <code>' + esc(BOLD_ORIGIN) + '</code>.'
-      : 'Los <b>datos están bien</b>, pero el mensaje no vino de <code>' + esc(BOLD_ORIGIN) + '</code>.') +
+      ? 'Contexto recibido <b>con ' + avisos + ' aviso' + (avisos > 1 ? 's' : '') + '</b>, y además no vino de <code>' + esc(BOLD_ORIGINS) + '</code>.'
+      : 'Los <b>datos están bien</b>, pero el mensaje no vino de <code>' + esc(BOLD_ORIGINS) + '</code>.') +
       '<small>Lo segundo es normal si estás probando fuera del POS. Repetí la prueba desde pos.bold.co para el visto bueno final.</small>'
   } else if (hayAviso) {
     b.className = 'banner wait'

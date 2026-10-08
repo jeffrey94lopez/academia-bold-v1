@@ -11,9 +11,24 @@
 
 import { storageRemove } from './storage.js'
 
-// Único origen del que aceptamos contexto. Es el que está documentado en el
-// requerimiento que se le envió a Bold; ampliarlo requiere actualizar el doc.
-export const ORIGENES_BOLD = ['https://pos.bold.co']
+// Orígenes de los que aceptamos contexto. Son los documentados en el
+// requerimiento que se le envió a Bold; ampliar esta lista requiere
+// actualizar el doc.
+//
+// OJO: el CSP del proyecto deja `frame-ancestors *`, o sea que CUALQUIERA
+// puede embebernos. Esta lista es, por lo tanto, lo único que impide que un
+// sitio arbitrario nos afirme la identidad de un comercio (nombre, cuenta,
+// vertical) que después viaja al bot y se guarda en las conversaciones.
+// Agregar un origen acá amplía esa superficie: hacerlo solo con dominios de
+// Bold y con razón escrita.
+//
+// `pos.stg.bold.co` es el staging de Bold, agregado el 2026-10-02 porque ahí
+// prueban la integración — y su POS de staging embebe nuestra academia de
+// PRODUCCIÓN, así que no alcanzaba con aceptarlo fuera de prod.
+export const ORIGENES_BOLD = [
+  'https://pos.bold.co',
+  'https://pos.stg.bold.co',
+]
 
 // business_type de Bold → vertical nuestra. Toleramos variantes porque el
 // string exacto de restaurantes está pendiente de confirmación de Bold.

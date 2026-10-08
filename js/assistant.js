@@ -4,11 +4,12 @@ import { renderMarkdown, renderBotHtml } from './markdown.js'
 import { storageGet, storageSet, storageRemove } from './storage.js'
 import { typewrite, skipActiveTypewriter } from './typewriter.js'
 import { isNearBottom } from './reload-policy.js'
-import { getSeleccion } from './vertical.js'
+import { getSeleccion, aplicaA } from './vertical.js'
 import { getContextoBold, onContextoBold } from './bold-context.js'
 import { nextClarifyCount, chatRequestBody, shouldAskResolution } from './clarify.js'
 import { inactivitySettings, isStaleConversation } from './inactivity.js'
 import { loadSettingsResult } from './settings.js'
+import { registrarCruce, marcarCruce } from './cruce-vertical.js'
 
 const N8N_URL     = '/api/chat'
 
@@ -35,7 +36,7 @@ export async function loadFaqContext() {
   try {
     const { data } = await supabase
       .from('preguntas_frecuentes')
-      .select('pregunta, respuesta')
+      .select('pregunta, respuesta, vertical')
       .order('orden')
       .order('created_at')
     cachedFaqs = data || []
@@ -134,9 +135,21 @@ async function createConversation() {
   storageSet('bold_session_id', sessionId)
   const id = crypto.randomUUID()
   try {
+    const fila = { id, session_id: sessionId, messages: [], status: 'active' }
+    // Vertical/plataforma solo se guardan si vinieron de Bold. Sin contexto,
+    // getSeleccion() devuelve el 'retail' por defecto: escribirlo fabricaría un
+    // dato que luego no se distingue de un comercio retail real; un null sí.
+    // account_id va en el mismo bloque: sin contexto de Bold tampoco hay cuenta.
+    const contextoBold = getContextoBold()
+    if (contextoBold?.vertical) {
+      const { vertical, plataforma } = getSeleccion()
+      fila.vertical = vertical
+      fila.plataforma = plataforma
+      fila.account_id = contextoBold.accountId || null
+    }
     const { error } = await supabase
       .from('bodi_conversations')
-      .insert({ id, session_id: sessionId, messages: [], status: 'active' })
+      .insert(fila)
     if (error) throw new Error(error.message)
     conversationId = id
     // El INSERT deja last_activity_at con el default now() de la columna: hay que
@@ -577,7 +590,7 @@ function appendIdleNotice() {
 function appendResolutionButtons() {
   const box = document.getElementById('chatMessages')
   if (!box) return
-  document.querySelectorAll('.resolution-btns').forEach(el => el.remove())
+  document.querySelectorAll('.resolution-btns:not(.switch-vertical-btns)').forEach(el => el.remove())
   const btns = document.createElement('div')
   btns.className = 'resolution-btns'
   btns.innerHTML = `
@@ -596,6 +609,81 @@ function appendResolutionButtons() {
   btns.querySelector('.res-yes').onclick = () => resolveConversation(true, btns)
   btns.querySelector('.res-no').onclick  = () => resolveConversation(false, btns)
   box.appendChild(btns)
+  if (followScroll) scrollToBottom()
+}
+
+// Botones del cruce entre verticales. Reusa el CSS de los de resolucion: es el
+// mismo patron visual (una pregunta corta con dos salidas) y no justifica
+// estilos propios.
+// `cruceIdPromesa` es la promesa de registrarCruce, NO su resultado: el chat no
+// espera la red para mostrar los botones, y el id solo se necesita cuando el
+// usuario hace clic.
+function appendCrossButtons(cross, cruceIdPromesa) {
+  // `cross.pregunta` la agrega el llamador: es la pregunta que provoco la
+  // oferta, y hay que reenviarla tal cual al aceptar (ver abajo).
+  const box = document.getElementById('chatMessages')
+  if (!box) return
+  document.querySelectorAll('.cross-btns').forEach(el => el.remove())
+  const btns = document.createElement('div')
+  btns.className = 'resolution-btns cross-btns'
+  const etiqueta = cross.vertical === 'restaurantes' ? 'Restaurantes' : 'Retail'
+  btns.innerHTML = `
+    <p class="resolution-label">¿Quieres ver la información de ${escapeHtml(etiqueta)}?</p>
+    <div class="resolution-actions">
+      <button class="res-btn res-yes">Sí, muéstramela</button>
+      <button class="res-btn res-no">No, gracias</button>
+    </div>`
+  btns.querySelector('.res-yes').onclick = () => {
+    btns.remove()
+    cruceIdPromesa.then(id => marcarCruce(id, true))
+    // Se reenvia la PREGUNTA ORIGINAL, no un "si". n8n busca la leccion
+    // aceptada entre las candidatas del mensaje de ESE turno, no por id: con
+    // un "si, muestramela" la leccion no aparece en la busqueda y la
+    // aceptacion no hace nada, EN SILENCIO. `textoVisible` es solo lo que se
+    // ve en el chat, y `cross` viaja como argumento (no como estado del
+    // modulo): si sendMessage corta en su guarda de entrada, el permiso se va
+    // con la llamada en vez de quedar pegado para el mensaje siguiente.
+    sendMessage(cross.pregunta, { textoVisible: 'Sí, muéstramela', cross })
+  }
+  btns.querySelector('.res-no').onclick = () => {
+    btns.remove()
+    cruceIdPromesa.then(id => marcarCruce(id, false))
+    // Sin esto el chat queda mudo: el bot ya dijo que no tiene la respuesta en
+    // su vertical y el usuario acaba de rechazar la unica salida que le
+    // ofrecimos. Es exactamente el caso para el que existe el CTA de soporte.
+    appendSupportCTA('Entendido. Si necesitas ayuda con esto, soporte puede resolverlo contigo.')
+  }
+  box.appendChild(btns)
+  if (followScroll) scrollToBottom()
+}
+
+// Tras aceptar un cruce: ofrece cambiar la vertical de la sesion. No pasa por el
+// bot, cambia la seleccion en el navegador.
+function appendSwitchVerticalButton(vertical) {
+  const box = document.getElementById('chatMessages')
+  if (!box) return
+  const etiqueta = vertical === 'restaurantes' ? 'Restaurantes' : 'Retail'
+  const wrap = document.createElement('div')
+  // `switch-vertical-btns` es solo un gancho para querySelectorAll (no es CSS):
+  // evita que appendResolutionButtons lo borre al pintar sus botones.
+  wrap.className = 'resolution-btns switch-vertical-btns'
+  wrap.innerHTML = `
+    <div class="resolution-actions">
+      <button class="res-btn res-yes">Ver siempre contenido de ${escapeHtml(etiqueta)}</button>
+    </div>`
+  wrap.querySelector('.res-btn').onclick = () => {
+    wrap.remove()
+    // El gancho lo publica renderLessons al final, y renderLessons corta antes
+    // si la consulta falla o no hay lecciones. Con `?.` la llamada no haria
+    // nada Y el mensaje de abajo afirmaria que si: hay que mirar que exista.
+    if (typeof window.aplicarVerticalDesdeChat !== 'function') {
+      appendBubble('bot', `No pude cambiar la vista a ${etiqueta}. Puedes elegirla en la pestaña de Lecciones.`)
+      return
+    }
+    window.aplicarVerticalDesdeChat(vertical)
+    appendBubble('bot', `Listo, ahora te muestro contenido de ${etiqueta}.`)
+  }
+  box.appendChild(wrap)
   if (followScroll) scrollToBottom()
 }
 
@@ -683,7 +771,7 @@ function bindAssistantEvents() {
 
 // ── Send message ──────────────────────────────────────────────────────────────
 
-async function sendMessage(text) {
+async function sendMessage(text, { textoVisible, cross } = {}) {
   if (!text || sending) return
   sending = true
 
@@ -699,6 +787,9 @@ async function sendMessage(text) {
   }
   clearIdleTimer()
   removeIdleNotice()
+  // Cualquier mensaje nuevo invalida la oferta de cruce anterior: un clic tardio
+  // reenviaria una pregunta vieja y registraria una aceptacion que no corresponde.
+  document.querySelectorAll('.cross-btns, .switch-vertical-btns').forEach(el => el.remove())
 
   if (!conversationId) await createConversation()
 
@@ -708,7 +799,7 @@ async function sendMessage(text) {
 
   document.getElementById('quickQueries')?.classList.add('hidden')
 
-  appendBubble('user', text)
+  appendBubble('user', textoVisible || text)
   history.push({ role: 'user', content: text })
 
   const typing = document.getElementById('typingIndicator')
@@ -716,12 +807,22 @@ async function sendMessage(text) {
   scrollToBottom()
 
   try {
+    const sel = getSeleccion()
+    // El cruce aceptado llega por argumento, asi que vive y muere con esta
+    // llamada: no hay estado que pueda quedar pegado para el mensaje siguiente
+    // si algo falla antes del fetch.
+    const cruceAceptado = cross?.leccion_id || null
+    const cruceVertical = cross?.vertical   || null
+    // Filtrar acá y no en loadFaqContext: el contexto de Bold puede llegar
+    // después de la carga inicial de FAQs, y el primer mensaje ya tiene que
+    // salir con las de la vertical correcta.
+    const faqsDeLaVertical = cachedFaqs.filter(f => aplicaA(f, sel.vertical))
     const res  = await fetch(N8N_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(chatRequestBody({
-        message: text, history, faqContext: cachedFaqs,
-        clarifyCount, seleccion: getSeleccion(), contexto: getContextoBold(),
+        message: text, history, faqContext: faqsDeLaVertical,
+        clarifyCount, seleccion: sel, contexto: getContextoBold(), cruceAceptado,
       }))
     })
     const data = await res.json()
@@ -750,6 +851,24 @@ async function sendMessage(text) {
       if (data.media?.length) appendMedia(data.media)
     }
     hideSkipButton()
+    if (data.cross_vertical) {
+      // Sin await: registrarCruce hace una llamada de red y el usuario no debe
+      // esperarla para ver los botones. marcarCruce resuelve la promesa al clic.
+      // registrarCruce captura sus propios errores y devuelve null, no rechaza.
+      const cruceId = registrarCruce({
+        conversationId: conversationId,
+        accountId: getContextoBold()?.accountId,
+        verticalComercio: sel.vertical,
+        cross: data.cross_vertical,
+      })
+      // `text` es la pregunta de ESTE turno, la que provoco la oferta.
+      // Hay que arrastrarla: al aceptar se reenvia tal cual, porque n8n
+      // busca la leccion aceptada entre las candidatas del mensaje.
+      appendCrossButtons({ ...data.cross_vertical, pregunta: text }, cruceId)
+    }
+    if (cruceAceptado && cruceVertical && !data.cross_vertical) {
+      appendSwitchVerticalButton(cruceVertical)
+    }
     if (data.support_redirected) appendSupportCTA()
     else if (data.knowledge_gap) appendSupportCTA('¿Deseas consultar algo adicional o quieres contactarte a soporte?')
     // El botón "¿Logré resolver tu duda?" solo cuando hubo respuesta real: no en
@@ -762,7 +881,10 @@ async function sendMessage(text) {
 
     history.push({ role: 'assistant', content: reply })
     storageSet('bold_chat_history', JSON.stringify(history.slice(-20)))
-    sessionMessages.push({ role: 'user', content: text })
+    // El transcripto guarda lo que el usuario dijo ("Sí, muéstramela"), no la
+    // pregunta que viajo al bot: la repeticion se leeria como friccion en la
+    // auto-evaluacion. `history` (arriba) NO cambia: el bot necesita la pregunta real.
+    sessionMessages.push({ role: 'user', content: textoVisible || text })
     sessionMessages.push({ role: 'assistant', content: reply })
     clarifyCount = nextClarifyCount(clarifyCount, data)
 

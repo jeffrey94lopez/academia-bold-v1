@@ -1,6 +1,8 @@
-// Acceso a app_settings acotado al entorno del deploy. Único lugar del front
-// que habla con esa tabla: si alguien vuelve a hacer un .from('app_settings')
-// suelto, se rompe el aislamiento entre sandbox y producción.
+// Acceso a los datos que dependen del entorno del deploy: los toggles de
+// app_settings y la visibilidad por lección. Único lugar del front que habla
+// con esas dos tablas — si alguien vuelve a hacer un .from('app_settings') o
+// un .from('leccion_visibilidad') suelto, se rompe el aislamiento entre
+// sandbox y producción.
 import { supabase } from './supabase.js'
 import { APP_ENV, mergeSettings } from './env.js'
 
@@ -49,4 +51,40 @@ export async function saveSetting(key, value) {
   return supabase
     .from('app_settings')
     .upsert({ key, value: String(value), env: APP_ENV }, { onConflict: 'key,env' })
+}
+
+// ── Visibilidad de lecciones (ver js/lesson-visibility.js) ─────────────────
+
+// Overrides de visibilidad del entorno actual. En prod devuelve [] SIN
+// consultar: producción vive en lecciones.active y la tabla tiene un check que
+// prohíbe filas 'prod'. Así el portal real no paga latencia por esto y, más
+// importante, no hay forma de que un override lo afecte.
+export async function loadVisibilityOverrides() {
+  if (APP_ENV === 'prod') return []
+
+  const { data, error } = await supabase
+    .from('leccion_visibilidad')
+    .select('leccion_id,active,env')
+    .eq('env', APP_ENV)
+
+  if (error) {
+    // Igual que loadSettings: no lanzamos (esto se await-ea dentro de renders),
+    // pero el fallo no se descarta en silencio. Sin overrides el entorno ve la
+    // visibilidad de producción, que es el lado conservador.
+    console.error('[settings] no se pudo leer leccion_visibilidad:', error.message)
+    return []
+  }
+  return data || []
+}
+
+// El switch del ojo en el admin. En prod escribe la columna de siempre; en
+// cualquier otro entorno escribe su propio override y no toca lecciones.
+export async function saveLessonVisibility(leccionId, active) {
+  if (APP_ENV === 'prod') {
+    return supabase.from('lecciones').update({ active }).eq('id', leccionId)
+  }
+  return supabase
+    .from('leccion_visibilidad')
+    .upsert({ leccion_id: leccionId, env: APP_ENV, active, updated_at: new Date().toISOString() },
+            { onConflict: 'leccion_id,env' })
 }

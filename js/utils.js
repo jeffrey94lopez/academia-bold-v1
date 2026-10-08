@@ -57,3 +57,15 @@ export function exportCSV(rows, filename, columns) {
   a.click()
   URL.revokeObjectURL(a.href)
 }
+
+// Modo staff: se activa una vez con ?staff=1 en la URL (queda recordado en el
+// navegador) y se desactiva con ?staff=0. Controla herramientas internas y el
+// escape para ver la vertical contraria cuando Bold POS ya fijó una.
+export function isStaff() {
+  try {
+    const p = new URLSearchParams(window.location.search)
+    if (p.get('staff') === '1') localStorage.setItem('bold_staff', '1')
+    else if (p.get('staff') === '0') localStorage.removeItem('bold_staff')
+    return localStorage.getItem('bold_staff') === '1'
+  } catch { return false }
+}

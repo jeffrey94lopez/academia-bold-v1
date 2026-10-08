@@ -58,6 +58,7 @@ test('chatRequestBody incluye clarify_count y esparce la selección', () => {
     clarify_count: 2,
     vertical: 'retail',
     plataforma: 'web',
+    supports_cross: true,
   })
 })
 
@@ -81,4 +82,50 @@ test('chatRequestBody: con contexto agrega account_id y business_name (y nada de
   assert.equal(body.business_name, 'Pollos')
   // El correo del usuario NO viaja al bot ni al LLM (ver doc §7.4).
   assert.equal(JSON.stringify(body).includes('ana@comercio.com'), false)
+})
+
+test('chatRequestBody manda la vertical y las FAQ tal cual las recibe', () => {
+  const faqs = [{ pregunta: 'a', respuesta: 'b' }]
+  const body = chatRequestBody({
+    message: 'hola', history: [], faqContext: faqs, clarifyCount: 0,
+    seleccion: { vertical: 'restaurantes', plataforma: 'web' },
+  })
+  assert.equal(body.vertical, 'restaurantes')
+  assert.equal(body.plataforma, 'web')
+  assert.deepEqual(body.faq_context, faqs)
+})
+
+test('chatRequestBody: cross_vertical_accepted solo cuando se pasa', () => {
+  const base = { message: 'hola', history: [], faqContext: [], clarifyCount: 0,
+                 seleccion: { vertical: 'retail', plataforma: 'web' } }
+  assert.equal('cross_vertical_accepted' in chatRequestBody(base), false)
+
+  const con = chatRequestBody({ ...base, cruceAceptado: 'abc-123' })
+  assert.equal(con.cross_vertical_accepted, 'abc-123')
+})
+
+test('chatRequestBody: un cruceAceptado vacío no ensucia el body', () => {
+  const base = { message: 'hola', history: [], faqContext: [], clarifyCount: 0,
+                 seleccion: { vertical: 'retail', plataforma: 'web' } }
+  assert.equal('cross_vertical_accepted' in chatRequestBody({ ...base, cruceAceptado: null }), false)
+  assert.equal('cross_vertical_accepted' in chatRequestBody({ ...base, cruceAceptado: '' }), false)
+})
+
+test('chatRequestBody: siempre declara supports_cross, pase lo que pase', () => {
+  const base = { message: 'hola', history: [], faqContext: [], clarifyCount: 0,
+                 seleccion: { vertical: 'retail', plataforma: 'web' } }
+  // Las tres combinaciones que importan. La del medio es la que atrapa un
+  // `if (!cruceAceptado)`, que dejaria a n8n sin la puerta justo en el turno
+  // de aceptacion.
+  assert.equal(chatRequestBody(base).supports_cross, true)
+  assert.equal(chatRequestBody({ ...base, cruceAceptado: 'abc-123' }).supports_cross, true)
+  assert.equal(chatRequestBody({ ...base, contexto: { accountId: '1', businessName: 'X' } }).supports_cross, true)
+})
+
+test('shouldAskResolution: no pregunta en el turno del cruce', () => {
+  assert.equal(shouldAskResolution({ cross_vertical: { leccion_id: 'x', titulo: 'T', vertical: 'restaurantes' } }), false)
+})
+
+test('shouldAskResolution: sigue preguntando en una respuesta normal', () => {
+  assert.equal(shouldAskResolution({ response: 'ok' }), true)
 })
