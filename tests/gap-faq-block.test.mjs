@@ -76,3 +76,22 @@ test('contenidoConFaq: convive con un bot_faq que ya existía', () => {
 test('contenidoConFaq: sin bloque válido lanza en vez de escribir basura', () => {
   assert.throws(() => contenidoConFaq('[]', null), /bloque/)
 })
+
+test('contenidoConFaq: un array vacío válido ("[]") no es un fallo de parseo', () => {
+  // Una lección a la que le borraron todos los bloques tiene contenido = "[]".
+  for (const raw of ['[]', '  []  ', '\n[]\n']) {
+    const out = JSON.parse(contenidoConFaq(raw, buildFaqBlock({ pregunta: 'P', respuesta: 'R' })))
+    assert.equal(out.length, 1)
+    assert.equal(out[0].type, 'bot_faq')
+  }
+})
+
+test('contenidoConFaq: lanza si el crudo traía algo y el parseo no produjo bloques', () => {
+  const faq = buildFaqBlock({ pregunta: 'P', respuesta: 'R' })
+  const parseRoto = () => []   // un parseo que pierde contenido sin avisar
+  for (const raw of ['<p>algo</p>', '[1, 2', '{"type":"step"}']) {
+    assert.throws(() => contenidoConFaq(raw, faq, parseRoto), /no se pudo parsear/)
+  }
+  // ...pero un '[]' legítimo pasa aunque el parseo devuelva [].
+  assert.doesNotThrow(() => contenidoConFaq('[]', faq, parseRoto))
+})
