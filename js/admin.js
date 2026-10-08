@@ -20,6 +20,7 @@ import { dedupeQuestions, firstUserMessage } from './faq-suggest.js'
 import { draftKey, buildDraft, shouldOfferRestore, relTime } from './lesson-draft.js'
 import { construirCopia, otraVertical, puedeDuplicarse, prepararPayload } from './lesson-duplicate.js'
 import { aplicaA, etiqueta, labelVertical, VERTICALES_CONTENIDO } from './vertical.js'
+import { renderGapsPanel, refreshGapsBadge } from './admin-gaps.js'
 
 const EMBED_WEBHOOK = 'https://n8n.mplasesores.com/webhook/embed-lesson'
 const EMBED_TOKEN   = 'BoldBodi-2026-K9xMvP7q'
@@ -268,6 +269,7 @@ async function init() {
 
   const savedPanel = localStorage.getItem('admin_panel') || 'home'
   switchPanel(savedPanel)
+  refreshGapsBadge()
 }
 
 async function renderHomePanel() {
@@ -399,7 +401,7 @@ function switchPanel(panel) {
   const labels = {
     home: 'Inicio', lessons: 'Lecciones', faq: 'P. Frecuentes',
     glossary: 'Glosario', material: 'Material', 'material-apoyo': 'Mat. de apoyo',
-    suggestions: 'Sugerencias', results: 'Resultados', analytics: 'Analytics',
+    suggestions: 'Sugerencias', gaps: 'Vacíos del bot', results: 'Resultados', analytics: 'Analytics',
     activity: 'Registro', profile: 'Mi perfil'
   }
   const bc = document.getElementById('adminBreadcrumb')
@@ -412,6 +414,7 @@ function switchPanel(panel) {
   if (panel === 'material') { currentFolderPath = ''; renderMaterialPanel() }
   if (panel === 'material-apoyo') renderMaterialApoyoPanel()
   if (panel === 'suggestions') renderSuggestionsPanel()
+  if (panel === 'gaps') renderGapsPanel()
   if (panel === 'results') renderResultsPanel()
   if (panel === 'analytics') renderAnalytics()
   if (panel === 'activity') renderActivityLogPanel()
