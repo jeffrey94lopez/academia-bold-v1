@@ -823,6 +823,7 @@ async function sendMessage(text, { textoVisible, cross } = {}) {
       body: JSON.stringify(chatRequestBody({
         message: text, history, faqContext: faqsDeLaVertical,
         clarifyCount, seleccion: sel, contexto: getContextoBold(), cruceAceptado,
+        conversationId,
       }))
     })
     const data = await res.json()

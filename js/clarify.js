@@ -36,11 +36,16 @@ export function shouldAskResolution(data) {
 // `cruceAceptado` es el id de la lección de la otra vertical que el usuario
 // aceptó ver: hace que n8n responda desde ella saltándose el filtro, pero solo
 // en ese turno.
-export function chatRequestBody({ message, history, faqContext, clarifyCount, seleccion, contexto, cruceAceptado }) {
+export function chatRequestBody({ message, history, faqContext, clarifyCount, seleccion, contexto, cruceAceptado, conversationId }) {
   const body = { message, history, faq_context: faqContext, clarify_count: clarifyCount, ...seleccion }
   if (contexto?.accountId)    body.account_id    = contexto.accountId
   if (contexto?.businessName) body.business_name = contexto.businessName
   if (cruceAceptado)          body.cross_vertical_accepted = cruceAceptado
+  // Lo usa n8n para ligar el vacío que registra con la conversación que lo
+  // produjo. Se OMITE si todavía no hay fila: la de bodi_conversations se crea
+  // de forma asíncrona y en el primer turno el POST al bot puede adelantarse,
+  // así que mandar un id inexistente rompería la FK del lado del registro.
+  if (conversationId)         body.conversation_id = conversationId
   // Puerta de version: n8n solo OFRECE el cruce cuando ve esta clave. NO la
   // condiciones ni la quites — tiene que ir en TODA peticion, incluido el turno
   // de aceptacion. Sin ella, un portal viejo (produccion sin desplegar, o un
