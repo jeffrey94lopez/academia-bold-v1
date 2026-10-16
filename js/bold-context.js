@@ -97,6 +97,22 @@ export function normalizarContexto(data) {
   }
 }
 
+// Slug de lección: el mismo formato que genera el admin (minúsculas, dígitos y
+// guiones). Se valida porque el mensaje viene de fuera y el slug termina
+// buscándose en la lista de lecciones; nada de lo que no encaje entra.
+const SLUG_LECCION = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+const MAX_SLUG = 160
+
+/**
+ * Convierte un `bold:open-lesson` en el slug a abrir. Devuelve `null` si el
+ * mensaje no es de ese tipo o el slug no tiene forma de slug.
+ */
+export function normalizarAbrirLeccion(data) {
+  if (!data || typeof data !== 'object' || data.type !== 'bold:open-lesson') return null
+  const s = typeof data.slug === 'string' ? data.slug.trim().toLowerCase() : ''
+  return s && s.length <= MAX_SLUG && SLUG_LECCION.test(s) ? s : null
+}
+
 /** Selección a aplicar: solo los campos que Bold sí mandó. `null` si ninguno. */
 export function seleccionDesdeContexto(ctx) {
   if (!ctx) return null
@@ -130,6 +146,32 @@ export function onContextoBold(cb) {
   suscriptores.add(cb)
   if (contexto) { try { cb(contexto) } catch (e) { console.error('[bold-context]', e) } }
   return () => suscriptores.delete(cb)
+}
+
+// Pedido de abrir una lección (`bold:open-lesson`). Puede llegar antes de que
+// las lecciones estén cargadas y haya alguien escuchando; en ese caso queda
+// pendiente y se entrega al primer suscriptor. A diferencia del contexto, se
+// consume: abrir la misma lección dos veces es lo que el usuario pidió.
+let leccionPendiente = null
+const suscriptoresLeccion = new Set()
+
+function entregarLeccion() {
+  if (!leccionPendiente || !suscriptoresLeccion.size) return
+  const slug = leccionPendiente
+  leccionPendiente = null
+  for (const cb of suscriptoresLeccion) {
+    try { cb(slug) } catch (e) { console.error('[bold-context] abrir lección:', e) }
+  }
+}
+
+/**
+ * Avisa cuando Bold pida abrir una lección. Si el pedido ya había llegado, el
+ * callback corre de una vez.
+ */
+export function onAbrirLeccion(cb) {
+  suscriptoresLeccion.add(cb)
+  entregarLeccion()
+  return () => suscriptoresLeccion.delete(cb)
 }
 
 /** Borra la identidad que guardaban versiones anteriores del portal. */
@@ -167,6 +209,8 @@ export function initBoldContext(win = typeof window !== 'undefined' ? window : n
 
   win.addEventListener('message', e => {
     if (!esOrigenBold(e.origin)) return          // el navegador fija e.origin
+    const slug = normalizarAbrirLeccion(e.data)
+    if (slug) { leccionPendiente = slug; entregarLeccion(); return }
     const ctx = normalizarContexto(e.data)
     if (!ctx) return
     contexto = ctx

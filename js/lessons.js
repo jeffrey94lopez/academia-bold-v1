@@ -5,7 +5,7 @@ import { track } from './analytics.js'
 import { copyLessonToWhatsApp } from './whatsapp-copy.js'
 import { escapeHtml, isStaff } from './utils.js'
 import { VERTICALES, PLATAFORMAS, aplicaA, getSeleccion, setSeleccion, filtrarPorSeleccion, plataformasHabilitadas, verticalesVisibles, resolverSeleccion } from './vertical.js'
-import { onContextoBold, seleccionDesdeContexto, getContextoBold } from './bold-context.js'
+import { onContextoBold, onAbrirLeccion, seleccionDesdeContexto, getContextoBold } from './bold-context.js'
 import { crearSuscripcionReanudable } from './realtime-lifecycle.js'
 import { createReadingTracker } from './reading-tracker.js'
 import { loadSettings, loadVisibilityOverrides } from './settings.js'
@@ -691,6 +691,19 @@ async function renderLessons() {
     // contexto todavía no había llegado y hay que esconderla.
     if (igual) { setSeleccion(cambio); renderSelectors(); return }
     applySeleccion(cambio, { origen: 'bold' })
+  })
+
+  // Bold pide abrir una lección sin recargar el iframe (`bold:open-lesson`).
+  // Misma ruta que el link `?leccion=`, pero con el portal ya abierto. Si el
+  // pedido llegó antes de que hubiera lecciones, bold-context lo guarda y se
+  // entrega acá apenas nos suscribimos.
+  onAbrirLeccion(slug => {
+    if (!allLessons.some(l => l.slug === slug)) {
+      console.warn('[bold:open-lesson] Lección no encontrada para el slug:', slug)
+      return
+    }
+    window.switchTab?.('lessons')
+    window.openLessonBySlug(slug)
   })
 }
 
