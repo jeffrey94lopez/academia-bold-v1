@@ -118,9 +118,11 @@ body {
 /* ── Desktop layout offset ── */
 /* El portal tiene el sidebar FIJO (md:fixed w-56), así que su main se desplaza
    14rem. El admin usa sidebar STICKY dentro de un flex, así que su main NO lleva
-   ese offset (si no, queda un hueco de 14rem entre el menú y el contenido). */
+   ese offset (si no, queda un hueco de 14rem entre el menú y el contenido).
+   #onboarding-resume (Task 8) va fuera de <main> pero debajo del mismo header,
+   así que necesita el mismo corrimiento o su texto queda tapado por el sidebar. */
 @media (min-width: 768px) {
-  main { margin-left: 14rem; }
+  main, #onboarding-resume { margin-left: 14rem; }
   #adminApp main { margin-left: 0; }
 }
 

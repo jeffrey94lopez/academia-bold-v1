@@ -1,12 +1,14 @@
-import { initBoldContext } from './bold-context.js'
+import { initBoldContext, onContextoBold, getContextoBold } from './bold-context.js'
 import './assistant.js'
 import './lessons.js'
 import './resources.js'
 import { loadSettings } from './settings.js'
 import { startLiveUpdates } from './live-updates.js'
 import { initCourseTab } from './course-tab.js'
-import { storageGet, storageSet } from './storage.js'
+import { storageGet, storageSet, storageRemove } from './storage.js'
 import { shouldShowNavHint, NAV_HINT_KEY } from './nav-hint.js'
+import { claveAvance, cargarAvance } from './onboarding-progress.js'
+import { modeloTarjeta } from './onboarding-resume.js'
 
 // Escucha el `bold:context` del POS y le avisa que ya estamos listos. Va
 // primero: cuanto antes se instale, menos chance de perder el mensaje.
@@ -84,5 +86,42 @@ if (navHint && shouldShowNavHint(storageGet(NAV_HINT_KEY))) {
     storageSet(NAV_HINT_KEY, 'true')
   })
 }
+
+// Tarjeta para retomar/empezar el recorrido guiado (Task 8). Navega al mismo
+// onboarding.html que abre el link directo; `?desde=ayuda` le dice al
+// recorrido que debe volver aquí en vez de avisarle a Bold (onboarding.js).
+const DESTINO_RECORRIDO = 'onboarding.html?desde=ayuda'
+const io = { get: storageGet, set: storageSet, remove: storageRemove }
+const onbResumeEl = document.getElementById('onboarding-resume')
+
+function renderOnboardingResume() {
+  if (!onbResumeEl) return
+  const cuenta = getContextoBold()?.accountId ?? null
+  const modelo = modeloTarjeta(cargarAvance(io, cuenta))
+
+  if (modelo.tipo === 'continuar') {
+    onbResumeEl.innerHTML = `
+      <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-[var(--blue-100)] text-white">
+        <span class="text-sm font-semibold">Continúa tu recorrido (paso ${modelo.paso} de ${modelo.total})</span>
+        <a href="${DESTINO_RECORRIDO}" class="shrink-0 px-3 py-2 rounded-full bg-white text-[var(--blue-100)] text-xs font-bold">Continuar</a>
+      </div>`
+  } else {
+    const texto = modelo.tipo === 'repetir' ? 'Repetir el recorrido guiado de Bold POS' : 'Recorrido guiado de Bold POS'
+    onbResumeEl.innerHTML = `<a href="${DESTINO_RECORRIDO}" class="onb-resume-link block text-xs text-[var(--blue-100)] underline">${texto}</a>`
+    if (modelo.tipo === 'repetir') {
+      // Ruling C: "repetir" solo borra el avance guardado; onboarding.html ya
+      // crea un runId nuevo cuando no encuentra nada que retomar.
+      onbResumeEl.querySelector('.onb-resume-link')
+        ?.addEventListener('click', () => storageRemove(claveAvance(cuenta)))
+    }
+  }
+  onbResumeEl.classList.remove('hidden')
+}
+
+renderOnboardingResume()
+// La clave de localStorage depende de la cuenta: si bold:context llega
+// después de este primer render (caso normal embebido en Bold POS), hay que
+// recalcular con el accountId real para no mostrar/perder el avance de otra.
+onContextoBold(() => renderOnboardingResume())
 
 lucide.createIcons()

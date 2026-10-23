@@ -28,6 +28,13 @@
     </a>
   </header>
 
+  <!-- Tarjeta para retomar/empezar el recorrido guiado (Task 8): vacía hasta
+       que main.js decide qué mostrar según el avance guardado (puede no haber
+       nada que mostrar, por eso arranca "hidden"). Fuera de <main> porque no
+       es una de las pestañas: es un atajo que conviene ver sin importar cuál
+       esté abierta. -->
+  <div id="onboarding-resume" class="hidden shrink-0 mx-3 mt-2"></div>
+
   <!-- Main content -->
   <main class="flex-1 overflow-hidden relative">
     <div id="section-assistant" class="absolute inset-0 section-enter"></div>
