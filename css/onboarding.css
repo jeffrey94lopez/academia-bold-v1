@@ -310,3 +310,110 @@
   align-self: center; width: 34px; height: 34px; border-radius: 50%; background: #5ccb8f; color: var(--onb-blanco);
   display: inline-flex; align-items: center; justify-content: center;
 }
+
+/* =====================================================================
+   Página del recorrido (onboarding.html): barra, escenario, guía, toasts
+   y pantallas propias (bienvenida, cierre, avisos).
+   ===================================================================== */
+
+/* El atributo hidden tiene que ganarle a cualquier display de estas clases. */
+.onb-body [hidden] { display: none !important; }
+
+/* La página llena la ventana: el panel de pago de la réplica se apoya en la
+   altura completa del escenario. */
+.onb-body {
+  margin: 0; height: 100vh; height: 100dvh; overflow: hidden;
+  display: flex; flex-direction: column;
+  background: var(--bold-bg); color: var(--onb-texto);
+  font-family: 'Montserrat', system-ui, sans-serif;
+}
+.onb-stage { position: relative; flex: 1; min-height: 0; overflow: auto; }
+.onb-stage > .onb-app { height: 100%; min-height: 0; }
+/* style.css desplaza todo <main> 14rem en escritorio (sidebar del portal). */
+.onb-main { margin-left: 0; }
+
+.onb-barra {
+  position: relative; z-index: 1001; flex-shrink: 0;
+  display: flex; align-items: center; gap: 14px; height: 44px; padding: 0 16px;
+  background: var(--onb-blanco); border-bottom: 1px solid var(--onb-borde);
+}
+.onb-barra-paso { font-size: 13px; font-weight: 700; color: var(--bold-navy); white-space: nowrap; min-width: 92px; }
+.onb-barra-progreso { flex: 0 1 320px; height: 6px; border-radius: 999px; background: var(--onb-borde); overflow: hidden; }
+.onb-barra-relleno { display: block; height: 100%; width: 0; background: var(--bold-red); border-radius: inherit; transition: width 0.3s ease; }
+.onb-barra-saltar {
+  margin-left: auto; background: none; border: 0; padding: 6px 4px;
+  font: inherit; font-size: 12px; font-weight: 700; color: var(--bold-navy); text-decoration: underline; cursor: pointer;
+}
+.onb-barra-saltar:hover { color: var(--bold-red); }
+
+/* Foco de la guía: el recuadro deja ver el ancla y su sombra oscurece el
+   resto. No atrapa clics: el controlador decide qué hacer con cada uno. */
+.onb-foco {
+  position: fixed; z-index: 1000; pointer-events: none; border-radius: 8px;
+  box-shadow: 0 0 0 2px var(--bold-red), 0 0 0 9999px rgba(18, 30, 108, 0.42);
+  transition: left 0.18s ease, top 0.18s ease, width 0.18s ease, height 0.18s ease;
+}
+.onb-burbuja {
+  position: fixed; z-index: 1002; width: 280px; padding: 12px 14px;
+  background: var(--bold-navy); color: var(--onb-blanco); border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  font-family: 'Montserrat', system-ui, sans-serif; font-size: 13px; line-height: 1.45;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.onb-burbuja::before {
+  content: ''; position: absolute; width: 12px; height: 12px; background: var(--bold-navy); transform: rotate(45deg);
+}
+.onb-burbuja[data-lado="derecha"]::before { left: -6px; top: calc(var(--onb-flecha, 20px) - 6px); }
+.onb-burbuja[data-lado="izquierda"]::before { right: -6px; top: calc(var(--onb-flecha, 20px) - 6px); }
+.onb-burbuja[data-lado="abajo"]::before { top: -6px; left: calc(var(--onb-flecha, 20px) - 6px); }
+.onb-burbuja[data-lado="arriba"]::before { bottom: -6px; left: calc(var(--onb-flecha, 20px) - 6px); }
+.onb-burbuja[data-lado="ninguno"]::before { display: none; }
+.onb-burbuja p { margin: 0; }
+.onb-burbuja-aviso { background: #fff4d6; color: #7a5300; border-radius: 6px; padding: 6px 8px; font-size: 12px; font-weight: 600; }
+.onb-burbuja-siguiente {
+  align-self: flex-end; border: 0; border-radius: 999px; padding: 6px 16px;
+  background: var(--onb-blanco); color: var(--bold-navy); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.onb-burbuja-siguiente:hover { background: #fde7e9; }
+.onb-burbuja-siguiente:focus-visible { outline: 2px solid var(--bold-red); outline-offset: 2px; }
+
+/* Confirmaciones tipo Bold ("El ítem fue creado exitosamente"). */
+.onb-toasts { position: fixed; z-index: 1003; top: 56px; right: 16px; display: flex; flex-direction: column; gap: 8px; }
+.onb-toast {
+  background: var(--onb-verde); color: var(--onb-blanco); border-radius: 8px; padding: 10px 16px;
+  font-size: 13px; font-weight: 600; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+
+/* Pantallas propias del recorrido. */
+.onb-especial { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px 16px; box-sizing: border-box; }
+.onb-especial-card {
+  width: 100%; max-width: 560px; box-sizing: border-box; padding: 32px;
+  background: var(--onb-blanco); border-radius: 16px; box-shadow: 0 8px 30px rgba(18, 30, 108, 0.08);
+  display: flex; flex-direction: column; gap: 14px;
+}
+.onb-especial-titulo { margin: 0; font-size: 22px; line-height: 1.25; font-weight: 800; color: var(--bold-navy); }
+.onb-especial-sub { margin: 8px 0 0; font-size: 15px; font-weight: 700; color: var(--bold-navy); }
+.onb-especial-texto { margin: 0; font-size: 14px; line-height: 1.5; color: var(--onb-texto); }
+.onb-especial-lista { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.onb-especial-check { list-style: none; padding-left: 0; }
+.onb-especial-check li { position: relative; padding-left: 24px; }
+.onb-especial-check li::before { content: '✓'; position: absolute; left: 0; color: var(--onb-verde); font-weight: 800; }
+.onb-especial-practica { margin: 0; background: #fff4d6; color: #7a5300; border-radius: 8px; padding: 8px 12px; font-size: 13px; font-weight: 600; }
+.onb-especial-botones { display: flex; gap: 10px; flex-wrap: wrap; }
+.onb-especial-botones .onb-btn { font-family: inherit; font-size: 13px; padding: 10px 22px; cursor: pointer; }
+.onb-especial-lecciones { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.onb-especial-link { color: var(--bold-navy); font-weight: 600; }
+.onb-especial-link:hover { color: var(--bold-red); }
+
+/* BolBot (Task 7 los muestra). */
+.onb-bot-btn {
+  position: fixed; z-index: 1001; right: 20px; bottom: 20px;
+  border: 0; border-radius: 999px; padding: 12px 18px; cursor: pointer;
+  background: var(--bold-navy); color: var(--onb-blanco); font: inherit; font-size: 13px; font-weight: 700;
+  box-shadow: 0 6px 18px rgba(18, 30, 108, 0.3);
+}
+.onb-bot-panel {
+  position: fixed; z-index: 1004; top: 44px; right: 0; bottom: 0; width: min(420px, 100%);
+  background: var(--onb-blanco); box-shadow: -8px 0 24px rgba(0, 0, 0, 0.15); overflow: hidden;
+}
+.onb-bot-panel #section-assistant { position: absolute; inset: 0; }

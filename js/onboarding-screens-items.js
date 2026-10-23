@@ -146,7 +146,7 @@ export function flujo(estado) {
     const salida = m.tipo === 'Salida'
     const ancla = salida ? 'ledger-salida' : 'ledger-entrada'
     return `<tr class="${salida ? 'onb-fila-roja' : ''}" data-onb="${ancla}">
-  <td>${t(fechaHora(salida ? fechaBase : undefined))}</td>
+  <td>${t(fechaHora(salida ? fechaBase : it.creado))}</td>
   <td>${t(it.nombre)}</td>
   <td>${t(it.categoria)}</td>
   <td>${t(m.tipo)}</td>
