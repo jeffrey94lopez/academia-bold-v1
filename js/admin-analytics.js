@@ -1,6 +1,7 @@
 ﻿import { supabase } from './supabase.js'
 import { escapeHtml, exportCSV } from './utils.js'
-import { rangeControlsHtml, wireRangeControls } from './analytics-ui.js'
+import { rangeControlsHtml, wireRangeControls, onboardingFunnelHtml } from './analytics-ui.js'
+import { fetchOnboardingFunnel } from './analytics-api.js'
 import { BIZ_TZ, bizParts, bizDate, bizDow, bizStartOfDay, bizEndOfDay } from './biz-time.js'
 import { leccionesDelCurso } from './course-lessons.js'
 import { ordenarCurso } from './course-order.js'
@@ -166,6 +167,7 @@ export async function renderAnalyticsPanel(from = null, to = null) {
     </div>
 
     <div id="analytics-body"></div>
+    <div id="analytics-onboarding" class="mt-4"></div>
   `
 
   wireRangeControls(el, 'analytics', (f, t) => renderAnalyticsPanel(f, t))
@@ -186,6 +188,26 @@ export async function renderAnalyticsPanel(from = null, to = null) {
   })
 
   renderAnalyticsBody(el.querySelector('#analytics-body'), ev, from, to)
+  renderOnboardingFunnel(el.querySelector('#analytics-onboarding'), from, to)
+}
+
+// El embudo del recorrido va APARTE del Promise.all de arriba y sin await: su
+// RPC (analytics_onboarding_funnel) no existe hasta que se corra la migración,
+// y un fallo acá no puede tumbar el resto de la pestaña. fetchOnboardingFunnel
+// lanza cuando la RPC devuelve error (callRpc), así que el catch cubre también
+// "function not found" — supabase-js por sí solo no lanzaría.
+async function renderOnboardingFunnel(slot, from, to) {
+  if (!slot) return
+  let funnel = null
+  try {
+    funnel = await fetchOnboardingFunnel(from, to)
+  } catch (e) {
+    console.warn('[analytics] embudo del recorrido no disponible:', e.message)
+  }
+  // Si el admin cambió de rango mientras esperábamos, este slot ya no está en
+  // la página: no pisar la vista nueva con datos del rango viejo.
+  if (!slot.isConnected) return
+  slot.innerHTML = onboardingFunnelHtml(funnel)
 }
 
 function renderAnalyticsBody(container, ev, from, to) {

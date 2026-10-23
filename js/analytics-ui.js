@@ -1,6 +1,7 @@
 // Helpers de UI compartidos por las vistas de analytics (shell, bot, exec, lecciones).
 // Rango de fechas (presets + calendario), tarjeta KPI y nota "se afina con LLM".
 import { bizParts, bizDate, fmtBizDay, parseBizDay } from './biz-time.js'
+import { escapeHtml } from './utils.js'
 
 // Los cortes son días de la zona de negocio, no del navegador del admin: "Hoy"
 // es el día calendario de Bogotá, el mismo con el que agrupan las RPC.
@@ -137,4 +138,83 @@ export function lifecycleBar(lifecycle) {
     { count: l.abandonada      || 0, label: 'abandonadas',             colorClass: 'bg-[var(--black-10)]',    textClass: 'text-[var(--black-60)]' },
     { count: l.escalada        || 0, label: 'escaladas a soporte',     colorClass: 'bg-[var(--warning-150)]', textClass: 'text-white' },
   ])
+}
+
+// Tarjeta de embudo: una barra por etapa, % sobre la PRIMERA etapa (no sobre la
+// anterior) para que la caída total se lea de un vistazo. Es el markup que
+// tenía inline el embudo del curso del dashboard de Lecciones (borrado en
+// a85ab0a); se saca acá para que cualquier embudo se vea igual. `titulo` y las
+// etiquetas son constantes del código: no se escapan.
+export function funnelCardHtml(titulo, etapas) {
+  const base = etapas[0]?.[1] || 0
+  return `
+    <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4">
+      <p class="text-sm font-bold text-[var(--black-100)] mb-3">${titulo}</p>
+      ${etapas.map(([label, n]) => {
+        const pct = base ? Math.round(100 * (n || 0) / base) : 0
+        return `<div class="mb-2">
+          <div class="flex justify-between text-xs mb-0.5"><span class="text-[var(--black-60)]">${label}</span><span class="font-bold text-[var(--black-100)]">${n || 0} <span class="text-[var(--black-40)]">(${pct}%)</span></span></div>
+          <div class="h-2 rounded-full bg-[var(--black-10)]"><div class="h-2 rounded-full bg-[var(--blue-100)]" style="width:${pct}%"></div></div>
+        </div>`
+      }).join('')}
+    </div>`
+}
+
+// Pasos numerados del recorrido (js/onboarding-steps.js, sin bienvenida ni
+// cierre) con la etiqueta que ve el admin. No se importa PASOS de allá para no
+// acoplar el admin al módulo de la página del recorrido.
+const PASOS_RECORRIDO = [
+  ['crear_item', 'Creó el ítem'],
+  ['ver_items', 'Vio sus productos'],
+  ['venta', 'Hizo la venta'],
+  ['gasto', 'Registró el gasto'],
+  ['facturas', 'Vio facturas'],
+  ['inventario', 'Vio inventario'],
+]
+// Saltar y abrir el bot también se puede en la bienvenida y en el cierre, que
+// no son etapas del embudo pero sí aparecen en los desgloses por paso.
+const PASOS_DESGLOSE = [['bienvenida', 'Bienvenida'], ...PASOS_RECORRIDO, ['cierre', 'Cierre']]
+const ETIQUETA_PASO = Object.fromEntries(PASOS_DESGLOSE)
+
+// Desglose "paso → n". Las claves salen de payload.step, que escribe el
+// navegador del cliente (analytics_events acepta inserts de anon): un paso
+// desconocido se muestra escapado, nunca como HTML.
+function porPasoHtml(titulo, porPaso) {
+  const entradas = Object.entries(porPaso || {}).filter(([, n]) => n > 0)
+  const orden = k => { const i = PASOS_DESGLOSE.findIndex(([id]) => id === k); return i < 0 ? 99 : i }
+  entradas.sort((a, b) => orden(a[0]) - orden(b[0]))
+  const filas = entradas.map(([k, n]) => `
+        <div class="flex justify-between text-xs"><span class="text-[var(--black-60)]">${escapeHtml(ETIQUETA_PASO[k] || k)}</span><span class="font-bold text-[var(--black-100)]">${Number(n) || 0}</span></div>`).join('')
+  return `
+      <div>
+        <p class="text-[10px] font-bold text-[var(--black-40)] uppercase tracking-wide mb-1">${titulo}</p>
+        ${filas || '<p class="text-xs text-[var(--black-40)]">—</p>'}
+      </div>`
+}
+
+// Tarjeta "Recorrido guiado" del dashboard de Lecciones. `funnel` es la salida
+// de analytics_onboarding_funnel, o null cuando la RPC falló (p. ej. todavía no
+// se corrió la migración): en ese caso, y con 0 corridas, estado vacío.
+export function onboardingFunnelHtml(funnel) {
+  if (!funnel || !funnel.started) {
+    return `
+    <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4">
+      <p class="text-sm font-bold text-[var(--black-100)] mb-1">Recorrido guiado</p>
+      <p class="text-xs text-[var(--black-40)]">Sin datos del recorrido todavía.</p>
+    </div>`
+  }
+  const steps = funnel.steps || {}
+  const etapas = [
+    ['Empezó', funnel.started],
+    ...PASOS_RECORRIDO.map(([id, label]) => [label, steps[id]]),
+    ['Terminó', funnel.completed],
+  ]
+  return `
+    <div class="flex flex-col gap-3">
+      ${funnelCardHtml('Recorrido guiado', etapas)}
+      <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4 grid grid-cols-2 gap-4">
+        ${porPasoHtml('Saltaron en:', funnel.skipped_by_step)}
+        ${porPasoHtml('Abrieron el bot en:', funnel.bot_by_step)}
+      </div>
+    </div>`
 }

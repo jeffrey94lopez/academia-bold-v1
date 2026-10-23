@@ -1,6 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { computeRange, sentimentBar, lifecycleBar, frictionBar } from '../js/analytics-ui.js'
+import {
+  computeRange, sentimentBar, lifecycleBar, frictionBar, funnelCardHtml, onboardingFunnelHtml,
+} from '../js/analytics-ui.js'
 import { fmtBizDay } from '../js/biz-time.js'
 
 // 20:30 UTC del 20 de julio = 3:30pm del 20 en Bogotá. Instante fijo para que
@@ -116,4 +118,59 @@ test('frictionBar sin datos no lanza y da anchos 0%', () => {
 
 test('frictionBar con entrada indefinida no lanza', () => {
   assert.doesNotThrow(() => frictionBar(undefined))
+})
+
+test('funnelCardHtml calcula % sobre la primera etapa', () => {
+  const html = funnelCardHtml('Recorrido guiado', [['Empezó', 10], ['Terminó', 4]])
+  assert.ok(html.includes('Recorrido guiado')); assert.ok(html.includes('(40%)')); assert.ok(html.includes('(100%)'))
+})
+
+test('funnelCardHtml con base 0 no divide por cero', () => {
+  assert.ok(funnelCardHtml('X', [['A', 0], ['B', 0]]).includes('(0%)'))
+})
+
+test('funnelCardHtml trata conteos ausentes como 0', () => {
+  const html = funnelCardHtml('X', [['A', 5], ['B', undefined]])
+  assert.ok(html.includes('0 <span class="text-[var(--black-40)]">(0%)</span>'))
+})
+
+const FUNNEL = {
+  started: 10,
+  steps: { crear_item: 8, ver_items: 7, venta: 6, gasto: 5, facturas: 4, inventario: 4 },
+  completed: 4,
+  skipped_by_step: { venta: 2 },
+  bot_by_step: { crear_item: 3 },
+}
+
+test('onboardingFunnelHtml arma las 8 etapas en orden con % sobre Empezó', () => {
+  const html = onboardingFunnelHtml(FUNNEL)
+  const etapas = ['Empezó', 'Creó el ítem', 'Vio sus productos', 'Hizo la venta',
+    'Registró el gasto', 'Vio facturas', 'Vio inventario', 'Terminó']
+  let pos = -1
+  for (const e of etapas) {
+    const i = html.indexOf(e)
+    assert.ok(i > pos, `"${e}" debe aparecer después de la etapa anterior`)
+    pos = i
+  }
+  assert.ok(html.includes('(80%)')) // crear_item 8/10
+  assert.ok(html.includes('Recorrido guiado'))
+})
+
+test('onboardingFunnelHtml lista saltos y bot por paso con su etiqueta', () => {
+  const html = onboardingFunnelHtml(FUNNEL)
+  assert.ok(html.includes('Saltaron en:'))
+  assert.ok(html.includes('Abrieron el bot en:'))
+  assert.match(html, /Hizo la venta[^<]*<\/span>\s*<span[^>]*>2</)
+  assert.match(html, /Creó el ítem[^<]*<\/span>\s*<span[^>]*>3</)
+})
+
+test('onboardingFunnelHtml sin datos (RPC ausente o 0 corridas) muestra estado vacío', () => {
+  assert.ok(onboardingFunnelHtml(null).includes('Sin datos del recorrido todavía'))
+  assert.ok(onboardingFunnelHtml({ started: 0, steps: {} }).includes('Sin datos del recorrido todavía'))
+})
+
+test('onboardingFunnelHtml escapa pasos desconocidos (payload lo escribe el cliente)', () => {
+  const html = onboardingFunnelHtml({ ...FUNNEL, skipped_by_step: { '<img src=x onerror=alert(1)>': 1 } })
+  assert.ok(!html.includes('<img'))
+  assert.ok(html.includes('&lt;img'))
 })
