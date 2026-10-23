@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   AVISO_FUERA, TOAST_ITEM, TOAST_GASTO, aplicarAccion, campoValido, confirmarCampo, empezar,
   escribirCampo, escribirCantidad, pantallaActual, ponerseAlDia, precioTotalBorrador, progreso,
-  resumenCierre, siguiente, transicion, usarEjemplo,
+  resumenCierre, siguiente, transicion, usarEjemplo, botAbiertoAlInicio,
 } from '../js/onboarding-flow.js'
 import { crearEstadoInicial } from '../js/onboarding-state.js'
 import { SUBPASOS, subpasoActual } from '../js/onboarding-steps.js'
@@ -214,4 +214,11 @@ test('posicionBurbuja: derecha si cabe; si no, el lado con más espacio y dentro
   assert.ok(grande.top >= 12 && grande.top + b.height <= vista.height - 12)
   // La flecha nunca se sale de la burbuja.
   assert.ok(der.flecha >= 14 && der.flecha <= b.height - 14)
+})
+
+test('botAbiertoAlInicio: abierto desde 1280 px, cerrado por debajo', () => {
+  assert.equal(botAbiertoAlInicio(1280), true)
+  assert.equal(botAbiertoAlInicio(1920), true)
+  assert.equal(botAbiertoAlInicio(1279), false)
+  assert.equal(botAbiertoAlInicio(1024), false)
 })

@@ -10,7 +10,7 @@ import { nextClarifyCount, chatRequestBody, shouldAskResolution } from './clarif
 import { inactivitySettings, isStaleConversation } from './inactivity.js'
 import { loadSettingsResult } from './settings.js'
 import { registrarCruce, marcarCruce } from './cruce-vertical.js'
-import { getBotOrigin } from './bot-origin.js'
+import { getBotOrigin, notificarMensajeBot } from './bot-origin.js'
 
 const N8N_URL     = '/api/chat'
 
@@ -808,6 +808,9 @@ async function sendMessage(text, { textoVisible, cross } = {}) {
 
   appendBubble('user', textoVisible || text)
   history.push({ role: 'user', content: text })
+  // Una vez por mensaje del usuario, y solo con origen (el recorrido guiado
+  // cuenta en qué paso le escriben); en el portal no hay origen y no se llama.
+  if (getBotOrigin().origin) notificarMensajeBot()
 
   const typing = document.getElementById('typingIndicator')
   typing.classList.remove('hidden')

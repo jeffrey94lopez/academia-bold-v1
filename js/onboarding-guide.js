@@ -89,7 +89,14 @@ function elementoAncla() {
 function reubicar() {
   if (!actual || !burbuja) return
   const el = elementoAncla()
-  const vista = { width: window.innerWidth, height: window.innerHeight }
+  // El ancho útil termina donde termina el escenario, no la ventana: con el
+  // panel de BolBot abierto, una burbuja ubicada contra el borde derecho de
+  // la ventana quedaba debajo del panel.
+  const finEscenario = actual.root.getBoundingClientRect().right
+  const vista = {
+    width: finEscenario > 0 ? Math.min(window.innerWidth, finEscenario) : window.innerWidth,
+    height: window.innerHeight,
+  }
   const tam = { width: burbuja.offsetWidth, height: burbuja.offsetHeight }
   if (!el) {
     // Sin ancla (no debería pasar: los tests de pantallas cubren todas) la

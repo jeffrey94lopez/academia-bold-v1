@@ -1,6 +1,6 @@
 ﻿import { supabase } from './supabase.js'
 import { escapeHtml, exportCSV } from './utils.js'
-import { rangeControlsHtml, wireRangeControls, onboardingFunnelHtml } from './analytics-ui.js'
+import { rangeControlsHtml, wireRangeControls, onboardingFunnelHtml, onboardingSectionHtml, rangoRecorrido } from './analytics-ui.js'
 import { fetchOnboardingFunnel } from './analytics-api.js'
 import { BIZ_TZ, bizParts, bizDate, bizDow, bizStartOfDay, bizEndOfDay } from './biz-time.js'
 import { leccionesDelCurso } from './course-lessons.js'
@@ -79,7 +79,22 @@ export async function renderResultsPanel() {
         </tbody>
       </table>
     </div>
+    <div id="results-onboarding"></div>
   `
+  renderOnboardingSection(el.querySelector('#results-onboarding'))
+}
+
+// Bloque del recorrido guiado bajo la tabla del curso, con su propio rango.
+// Se llama sin await: la tabla del curso no espera al embudo ni se cae si su
+// RPC todavía no existe (ver renderOnboardingFunnel).
+function renderOnboardingSection(slot, dias = 30) {
+  if (!slot) return
+  slot.innerHTML = onboardingSectionHtml(dias)
+  const { from, to } = rangoRecorrido(dias, new Date())
+  slot.querySelector('#onboarding-rango')?.addEventListener('change', e => {
+    renderOnboardingSection(slot, Number(e.target.value) || 30)
+  })
+  renderOnboardingFunnel(slot.querySelector('#onboarding-funnel'), from, to)
 }
 
 export async function renderAnalyticsPanel(from = null, to = null) {
@@ -167,7 +182,6 @@ export async function renderAnalyticsPanel(from = null, to = null) {
     </div>
 
     <div id="analytics-body"></div>
-    <div id="analytics-onboarding" class="mt-4"></div>
   `
 
   wireRangeControls(el, 'analytics', (f, t) => renderAnalyticsPanel(f, t))
@@ -188,12 +202,11 @@ export async function renderAnalyticsPanel(from = null, to = null) {
   })
 
   renderAnalyticsBody(el.querySelector('#analytics-body'), ev, from, to)
-  renderOnboardingFunnel(el.querySelector('#analytics-onboarding'), from, to)
 }
 
-// El embudo del recorrido va APARTE del Promise.all de arriba y sin await: su
-// RPC (analytics_onboarding_funnel) no existe hasta que se corra la migración,
-// y un fallo acá no puede tumbar el resto de la pestaña. fetchOnboardingFunnel
+// El embudo del recorrido va APARTE de la carga del curso y sin await: su RPC
+// (analytics_onboarding_funnel) no existe hasta que se corra la migración, y
+// un fallo acá no puede tumbar la tabla de resultados. fetchOnboardingFunnel
 // lanza cuando la RPC devuelve error (callRpc), así que el catch cubre también
 // "function not found" — supabase-js por sí solo no lanzaría.
 async function renderOnboardingFunnel(slot, from, to) {
@@ -204,8 +217,8 @@ async function renderOnboardingFunnel(slot, from, to) {
   } catch (e) {
     console.warn('[analytics] embudo del recorrido no disponible:', e.message)
   }
-  // Si el admin cambió de rango mientras esperábamos, este slot ya no está en
-  // la página: no pisar la vista nueva con datos del rango viejo.
+  // Si el admin cambió de rango (o de panel) mientras esperábamos, este slot ya
+  // no está en la página: no pisar la vista nueva con datos del rango viejo.
   if (!slot.isConnected) return
   slot.innerHTML = onboardingFunnelHtml(funnel)
 }

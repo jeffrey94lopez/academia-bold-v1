@@ -20,6 +20,10 @@ export function crearTelemetria({ track, getRunId, getAccountId }) {
     salto(step) { track('onboarding_skip', payload({ step })) },
     retomo(step) { track('onboarding_resume', payload({ step })) },
     fin() { track('onboarding_complete', payload({})) },
+    // Solo aperturas a mano con el botón: la automática (pantallas anchas) no
+    // es una decisión del usuario y no se cuenta.
     botAbierto(step) { track('onboarding_bot_open', payload({ step })) },
+    // Cada mensaje que el usuario le manda a BolBot desde el recorrido.
+    mensajeBot(step) { track('onboarding_bot_message', payload({ step })) },
   }
 }

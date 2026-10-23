@@ -17,7 +17,7 @@ import { renderPantalla } from './onboarding-screens.js'
 import { t, AVISO_PRACTICA } from './onboarding-screens-ui.js'
 import { mostrarBurbuja, ocultarBurbuja, botonSiguiente } from './onboarding-guide.js'
 import * as flujo from './onboarding-flow.js'
-import { setBotOrigin } from './bot-origin.js'
+import { setBotOrigin, onMensajeBot } from './bot-origin.js'
 
 const io = { get: storageGet, set: storageSet, remove: storageRemove }
 const stage = document.getElementById('onb-stage')
@@ -347,18 +347,22 @@ const botBtn = document.getElementById('onb-bot-btn')
 const botPanel = document.getElementById('onb-bot-panel')
 let botCargado = null
 
-function abrirBot() {
+// `manual`: lo abrió el usuario con el botón. La apertura automática (pantalla
+// ancha, al cargar) no cuenta como "abrió el bot" ni le quita el foco a la
+// guía, que lo lleva al campo del paso.
+function abrirBot({ manual = true } = {}) {
   botPanel.hidden = false
   document.body.classList.add('onb-con-bot')
   botBtn.setAttribute('aria-expanded', 'true')
-  telemetria.botAbierto(estado.step)
-  // Se dibuja solo en #section-assistant al importarse. Hasta el primer clic
-  // no se carga: quien no abre el bot no paga las consultas de FAQs y chips.
+  if (manual) telemetria.botAbierto(estado.step)
+  // Se dibuja solo en #section-assistant al importarse. Hasta que se abre no
+  // se carga: quien no lo abre no paga las consultas de FAQs y chips. En
+  // pantallas anchas arranca abierto, así que ahí se carga desde el inicio.
   botCargado ??= import('./assistant.js').catch(err => {
     botCargado = null
     console.error('[onboarding] no se pudo cargar BolBot:', err)
   })
-  botCargado.then(enfocarChat)
+  if (manual) botCargado.then(enfocarChat)
   // El escenario se angostó: la guía escucha resize para reubicar el foco y la burbuja.
   window.dispatchEvent(new Event('resize'))
 }
@@ -390,11 +394,24 @@ botBtn.addEventListener('click', () => (botPanel.hidden ? abrirBot() : cerrarBot
 document.getElementById('onb-bot-cerrar').addEventListener('click', cerrarBot)
 botPanel.addEventListener('keydown', ev => { if (ev.key === 'Escape') cerrarBot() })
 
+// Cada mensaje que el usuario le manda al bot desde aquí (assistant.js avisa
+// por bot-origin.js con el paso en que iba). Es la métrica del bot: con el
+// panel abierto por defecto, abrirlo ya no dice si tenía una duda.
+onMensajeBot(({ step }) => telemetria.mensajeBot(step ?? estado.step))
+
 // Misma convención que el portal (main.js): solo un 'false' explícito apaga el
 // bot; si la lectura falla, queda visible.
+// El ancho se mide al cargar y la apertura automática pasa una sola vez: si el
+// usuario lo cierra, queda cerrado por el resto de la visita (nada lo reabre
+// al cambiar de paso ni al redimensionar).
+const abrirAlInicio = flujo.botAbiertoAlInicio(window.innerWidth)
 import('./settings.js')
   .then(m => m.loadSettings(['bot_enabled']))
-  .then(s => { if (s.bot_enabled !== 'false') botBtn.hidden = false })
+  .then(s => {
+    if (s.bot_enabled === 'false') return
+    botBtn.hidden = false
+    if (abrirAlInicio) abrirBot({ manual: false })
+  })
   .catch(err => console.error('[onboarding] no se pudo leer bot_enabled:', err))
 
 // ── Eventos de la réplica ───────────────────────────────────────────────────

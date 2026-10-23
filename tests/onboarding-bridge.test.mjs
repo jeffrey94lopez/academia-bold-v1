@@ -62,3 +62,10 @@ test('telemetría: inicio y fin omiten step, e incluyen account_id cuando existe
   assert.deepEqual(calls[0], ['onboarding_start', { run_id: 'r1', vertical: 'retail', account_id: '42' }])
   assert.deepEqual(calls[1], ['onboarding_complete', { run_id: 'r1', vertical: 'retail', account_id: '42' }])
 })
+
+test('telemetría: mensajeBot registra cada mensaje al bot con el paso', () => {
+  const calls = []
+  const t = crearTelemetria({ track: (e, p) => calls.push([e, p]), getRunId: () => 'r1', getAccountId: () => null })
+  t.mensajeBot('venta')
+  assert.deepEqual(calls[0], ['onboarding_bot_message', { run_id: 'r1', step: 'venta', vertical: 'retail' }])
+})

@@ -7,10 +7,16 @@
 --
 -- Etapas: onboarding_start -> onboarding_step_complete por paso (crear_item,
 -- ver_items, venta, gasto, facturas, inventario) -> onboarding_complete.
--- Además, por paso: en cuál se saltaron (onboarding_skip) y en cuál abrieron
--- BolBot (onboarding_bot_open). Todo filtrado por created_at dentro del rango,
--- así que una corrida empezada antes del rango aporta a los pasos pero no a
--- "Empezó" (mismo criterio que analytics_course_funnel).
+-- Además, por paso: en cuál se saltaron (onboarding_skip), en cuál abrieron
+-- BolBot con el botón (onboarding_bot_open) y en cuál le escribieron
+-- (onboarding_bot_message). En pantallas anchas el bot arranca abierto, así
+-- que "lo abrió" casi no dice nada; "le escribió" es la métrica que se muestra.
+--
+-- COHORTE: todo se cuenta sobre las corridas cuyo onboarding_start cae en el
+-- rango. Sus eventos posteriores cuentan aunque pasen de p_to (quien empezó el
+-- último día del rango y terminó al día siguiente sí terminó). Así ninguna
+-- etapa pasa del 100% de "Empezó": antes, una corrida empezada antes del rango
+-- aportaba a los pasos y no a "Empezó".
 --
 -- payload.step lo escribe el navegador del cliente: los desgloses por paso se
 -- agrupan por el valor tal cual y el admin lo escapa al mostrarlo.
@@ -28,19 +34,28 @@ stable
 security definer
 set search_path = public
 as $$
-  with o as (
-    select event_type, payload->>'run_id' as run_id, payload->>'step' as step
+  with cohorte as (
+    select distinct payload->>'run_id' as run_id
     from analytics_events
-    where created_at >= p_from and created_at <= p_to
-      and event_type like 'onboarding\_%'
+    where event_type = 'onboarding_start'
+      and created_at >= p_from and created_at <= p_to
       and payload->>'run_id' is not null
+  ),
+  o as (
+    -- Sin tope superior a propósito (ver COHORTE). El >= p_from solo acota la
+    -- búsqueda: ningún evento de la corrida es anterior a su inicio.
+    select e.event_type, e.payload->>'run_id' as run_id, e.payload->>'step' as step
+    from analytics_events e
+    join cohorte c on c.run_id = e.payload->>'run_id'
+    where e.created_at >= p_from
+      and e.event_type like 'onboarding\_%'
   ),
   done as (
     select step, count(distinct run_id) as n
     from o where event_type = 'onboarding_step_complete' group by step
   )
   select jsonb_build_object(
-    'started',   (select count(distinct run_id) from o where event_type = 'onboarding_start'),
+    'started',   (select count(*) from cohorte),
     'steps',     jsonb_build_object(
       'crear_item', coalesce((select n from done where step = 'crear_item'), 0),
       'ver_items',  coalesce((select n from done where step = 'ver_items'),  0),
@@ -59,7 +74,12 @@ as $$
       select jsonb_object_agg(step, n) from (
         select step, count(distinct run_id) as n
         from o where event_type = 'onboarding_bot_open' and step is not null group by step
-      ) b), '{}'::jsonb)
+      ) b), '{}'::jsonb),
+    'bot_message_by_step', coalesce((
+      select jsonb_object_agg(step, n) from (
+        select step, count(distinct run_id) as n
+        from o where event_type = 'onboarding_bot_message' and step is not null group by step
+      ) m), '{}'::jsonb)
   );
 $$;
 
@@ -68,5 +88,6 @@ grant  execute on function public.analytics_onboarding_funnel(timestamptz, times
 
 -- ── Verificación (como admin logueado, o en el SQL Editor) ──────────────────
 -- Esperado: {"started": n, "steps": {...6 claves...}, "completed": n,
---            "skipped_by_step": {...}, "bot_by_step": {...}}
+--            "skipped_by_step": {...}, "bot_by_step": {...},
+--            "bot_message_by_step": {...}}
 -- select public.analytics_onboarding_funnel(now() - interval '30 days', now());

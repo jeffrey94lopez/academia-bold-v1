@@ -152,9 +152,12 @@ export function funnelCardHtml(titulo, etapas) {
       <p class="text-sm font-bold text-[var(--black-100)] mb-3">${titulo}</p>
       ${etapas.map(([label, n]) => {
         const pct = base ? Math.round(100 * (n || 0) / base) : 0
+        // El número se muestra tal cual, pero la barra no se sale de su riel:
+        // una etapa puede pasar del 100% si los conteos no son de la misma cohorte.
+        const ancho = Math.max(0, Math.min(100, pct))
         return `<div class="mb-2">
           <div class="flex justify-between text-xs mb-0.5"><span class="text-[var(--black-60)]">${label}</span><span class="font-bold text-[var(--black-100)]">${n || 0} <span class="text-[var(--black-40)]">(${pct}%)</span></span></div>
-          <div class="h-2 rounded-full bg-[var(--black-10)]"><div class="h-2 rounded-full bg-[var(--blue-100)]" style="width:${pct}%"></div></div>
+          <div class="h-2 rounded-full bg-[var(--black-10)]"><div class="h-2 rounded-full bg-[var(--blue-100)]" style="width:${ancho}%"></div></div>
         </div>`
       }).join('')}
     </div>`
@@ -171,7 +174,7 @@ const PASOS_RECORRIDO = [
   ['facturas', 'Vio facturas'],
   ['inventario', 'Vio inventario'],
 ]
-// Saltar y abrir el bot también se puede en la bienvenida y en el cierre, que
+// Saltar y escribirle al bot también se puede en la bienvenida y en el cierre, que
 // no son etapas del embudo pero sí aparecen en los desgloses por paso.
 const PASOS_DESGLOSE = [['bienvenida', 'Bienvenida'], ...PASOS_RECORRIDO, ['cierre', 'Cierre']]
 const ETIQUETA_PASO = Object.fromEntries(PASOS_DESGLOSE)
@@ -192,7 +195,7 @@ function porPasoHtml(titulo, porPaso) {
       </div>`
 }
 
-// Tarjeta "Recorrido guiado" del dashboard de Lecciones. `funnel` es la salida
+// Tarjeta "Recorrido guiado" de Resultados del curso. `funnel` es la salida
 // de analytics_onboarding_funnel, o null cuando la RPC falló (p. ej. todavía no
 // se corrió la migración): en ese caso, y con 0 corridas, estado vacío.
 export function onboardingFunnelHtml(funnel) {
@@ -214,7 +217,37 @@ export function onboardingFunnelHtml(funnel) {
       ${funnelCardHtml('Recorrido guiado', etapas)}
       <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4 grid grid-cols-2 gap-4">
         ${porPasoHtml('Saltaron en:', funnel.skipped_by_step)}
-        ${porPasoHtml('Abrieron el bot en:', funnel.bot_by_step)}
+        ${porPasoHtml('Le escribieron al bot en:', funnel.bot_message_by_step)}
       </div>
     </div>`
+}
+
+// Bloque "Recorrido guiado (onboarding)" bajo la tabla de Resultados del curso.
+// Va aparte del curso (otros números, otro rango): el recorrido es la práctica
+// de Bold POS, no las lecciones. El embudo se pinta después en #onboarding-funnel.
+const RANGOS_RECORRIDO = [[7, 'Últimos 7 días'], [30, 'Últimos 30 días'], [90, 'Últimos 90 días']]
+
+export function onboardingSectionHtml(dias = 30) {
+  const opciones = RANGOS_RECORRIDO.map(([n, label]) =>
+    `<option value="${n}"${n === dias ? ' selected' : ''}>${label}</option>`).join('')
+  return `
+    <section class="mt-4">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
+        <div>
+          <h3 class="text-sm font-black">Recorrido guiado (onboarding)</h3>
+          <p class="text-xs text-[var(--black-40)] mt-0.5">Va aparte del curso: es la práctica guiada de Bold POS, no cuenta en los registrados ni en quienes completaron.</p>
+        </div>
+        <select id="onboarding-rango" aria-label="Rango del recorrido guiado" class="px-2 py-1 rounded border border-[var(--blue-20)] text-xs">${opciones}</select>
+      </div>
+      <div id="onboarding-funnel"><p class="text-[var(--black-40)] text-sm">Cargando recorrido...</p></div>
+    </section>`
+}
+
+// Los últimos `dias` días de negocio (Bogotá) contando hoy, como computeRange.
+export function rangoRecorrido(dias, now) {
+  const { year, month, day } = bizParts(now)
+  return {
+    from: bizDate(year, month, day - (dias - 1)),
+    to: bizDate(year, month, day, 23, 59, 59, 999),
+  }
 }

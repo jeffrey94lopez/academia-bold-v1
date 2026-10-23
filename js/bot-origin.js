@@ -23,3 +23,22 @@ export function setBotOrigin(origin, step) {
 export function getBotOrigin() {
   return { ...actual }
 }
+
+// Cada mensaje que el usuario le manda al bot. Lo dispara assistant.js solo
+// cuando hay origen (en el portal no hay suscriptores ni origen, y nada
+// cambia) y lo escucha onboarding.js para la métrica: con el bot abierto por
+// defecto, "lo abrió en el paso X" dejó de decir algo; "le escribió" sí.
+const suscriptores = new Set()
+
+export function onMensajeBot(cb) {
+  suscriptores.add(cb)
+  return () => { suscriptores.delete(cb) }
+}
+
+export function notificarMensajeBot() {
+  const o = getBotOrigin()
+  for (const cb of suscriptores) {
+    // Un fallo de la telemetría no puede cortar el envío del mensaje al bot.
+    try { cb({ ...o }) } catch (err) { console.error('[bot-origin] suscriptor de mensajes:', err) }
+  }
+}

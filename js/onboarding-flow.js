@@ -336,3 +336,13 @@ export function progreso(estado) {
   const total = SUBPASOS[estado.step].length
   return Math.min(1, ((n - 1) + estado.sub / total) / TOTAL_PASOS)
 }
+
+// Desde este ancho el panel de BolBot (380 px) cabe al lado de la réplica sin
+// apretarla: arranca abierto. Entre 1024 y 1279 le quitaría demasiado espacio
+// y arranca cerrado (se abre con el botón).
+const ANCHO_BOT_ABIERTO = 1280
+
+/** ¿El panel de BolBot arranca abierto con una ventana de este ancho? */
+export function botAbiertoAlInicio(ancho) {
+  return ancho >= ANCHO_BOT_ABIERTO
+}

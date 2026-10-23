@@ -379,6 +379,9 @@
 
 /* Confirmaciones tipo Bold ("El ítem fue creado exitosamente"). */
 .onb-toasts { position: fixed; z-index: 1003; top: 56px; right: 16px; display: flex; flex-direction: column; gap: 8px; }
+/* Con BolBot abierto los toasts se corren a la izquierda del panel (que está
+   por encima): si no, el "creado exitosamente" quedaba tapado. */
+.onb-con-bot .onb-toasts { right: calc(min(380px, 100%) + 16px); }
 .onb-toast {
   background: var(--onb-verde); color: var(--onb-blanco); border-radius: 8px; padding: 10px 16px;
   font-size: 13px; font-weight: 600; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);

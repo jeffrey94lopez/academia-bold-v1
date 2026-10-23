@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  computeRange, sentimentBar, lifecycleBar, frictionBar, funnelCardHtml, onboardingFunnelHtml,
+  computeRange, sentimentBar, onboardingSectionHtml, rangoRecorrido, lifecycleBar, frictionBar, funnelCardHtml, onboardingFunnelHtml,
 } from '../js/analytics-ui.js'
 import { fmtBizDay } from '../js/biz-time.js'
 
@@ -139,7 +139,8 @@ const FUNNEL = {
   steps: { crear_item: 8, ver_items: 7, venta: 6, gasto: 5, facturas: 4, inventario: 4 },
   completed: 4,
   skipped_by_step: { venta: 2 },
-  bot_by_step: { crear_item: 3 },
+  bot_by_step: { gasto: 1 },
+  bot_message_by_step: { crear_item: 3 },
 }
 
 test('onboardingFunnelHtml arma las 8 etapas en orden con % sobre Empezó', () => {
@@ -159,7 +160,9 @@ test('onboardingFunnelHtml arma las 8 etapas en orden con % sobre Empezó', () =
 test('onboardingFunnelHtml lista saltos y bot por paso con su etiqueta', () => {
   const html = onboardingFunnelHtml(FUNNEL)
   assert.ok(html.includes('Saltaron en:'))
-  assert.ok(html.includes('Abrieron el bot en:'))
+  assert.ok(html.includes('Le escribieron al bot en:'))
+  // El bot arranca abierto: "lo abrió" ya no dice nada, se muestra quién le escribió.
+  assert.ok(!html.includes('Abrieron el bot en:'))
   assert.match(html, /Hizo la venta[^<]*<\/span>\s*<span[^>]*>2</)
   assert.match(html, /Creó el ítem[^<]*<\/span>\s*<span[^>]*>3</)
 })
@@ -173,4 +176,36 @@ test('onboardingFunnelHtml escapa pasos desconocidos (payload lo escribe el clie
   const html = onboardingFunnelHtml({ ...FUNNEL, skipped_by_step: { '<img src=x onerror=alert(1)>': 1 } })
   assert.ok(!html.includes('<img'))
   assert.ok(html.includes('&lt;img'))
+})
+
+test('funnelCardHtml topa el ancho de la barra en 100% aunque una etapa supere a la primera', () => {
+  const html = funnelCardHtml('X', [['A', 10], ['B', 15]])
+  assert.ok(html.includes('(150%)'), 'el número real se sigue mostrando')
+  assert.ok(html.includes('width:100%'))
+  assert.ok(!html.includes('width:150%'))
+})
+
+test('funnelCardHtml nunca da un ancho negativo', () => {
+  assert.ok(!funnelCardHtml('X', [['A', 10], ['B', -3]]).includes('width:-'))
+})
+
+test('onboardingSectionHtml: bloque aparte del curso con su propio rango (30 días por defecto)', () => {
+  const html = onboardingSectionHtml(30)
+  assert.ok(html.includes('Recorrido guiado (onboarding)'))
+  assert.match(html, /aparte del curso/i)
+  for (const t of ['Últimos 7 días', 'Últimos 30 días', 'Últimos 90 días']) assert.ok(html.includes(t), t)
+  assert.match(html, /<option value="30" selected>/)
+  assert.ok(!/<option value="7" selected>/.test(html))
+  assert.ok(html.includes('id="onboarding-funnel"'))
+  assert.match(onboardingSectionHtml(90), /<option value="90" selected>/)
+})
+
+test('rangoRecorrido: N días de negocio que terminan hoy (Bogotá)', () => {
+  const now = new Date('2026-10-22T15:00:00Z') // 10:00 en Bogotá
+  const { from, to } = rangoRecorrido(7, now)
+  assert.equal(fmtBizDay(from), '2026-10-16')
+  assert.equal(fmtBizDay(to), '2026-10-22')
+  assert.equal(from.toISOString(), '2026-10-16T05:00:00.000Z')
+  assert.equal(to.toISOString(), '2026-10-23T04:59:59.999Z')
+  assert.equal(fmtBizDay(rangoRecorrido(30, now).from), '2026-09-23')
 })
