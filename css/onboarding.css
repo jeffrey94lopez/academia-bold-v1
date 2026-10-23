@@ -1,0 +1,312 @@
+/* css/onboarding.css — réplica de Bold POS retail para el recorrido guiado.
+   Solo clases onb-*: tw.css está precompilado y no trae clases nuevas.
+   Referencia visual: pos.stg.bold.co (capturas 1519x784). */
+
+:root {
+  --bold-navy: #121e6c;
+  --bold-red: #ee424e;
+  --bold-bg: #f5f6fa;
+  --onb-red-hover: #d93441;
+  --onb-texto: #1f2437;
+  --onb-muted: #6b7088;
+  --onb-borde: #e6e8f0;
+  --onb-campo: #f3f4f8;
+  --onb-verde: #2f9e6e;
+  --onb-verde-bg: #e8f6ef;
+  --onb-blanco: #ffffff;
+  --onb-radio: 8px;
+}
+
+.onb-app {
+  font-family: 'Montserrat', system-ui, sans-serif;
+  color: var(--onb-texto);
+  background: var(--bold-bg);
+  font-size: 12px;
+  line-height: 1.4;
+  height: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.onb-app *, .onb-app *::before, .onb-app *::after { box-sizing: border-box; }
+.onb-app button { font-family: inherit; cursor: pointer; }
+.onb-app h1, .onb-app h2, .onb-app h3, .onb-app p { margin: 0; }
+
+.onb-ico { width: 16px; height: 16px; flex-shrink: 0; }
+
+/* --- Barra superior --- */
+.onb-topbar {
+  display: flex; align-items: center; gap: 16px;
+  height: 36px; padding: 0 16px;
+  background: var(--onb-blanco);
+}
+.onb-logo { font-size: 22px; font-weight: 800; color: var(--bold-navy); letter-spacing: -1px; }
+.onb-logo-o { color: var(--bold-red); }
+.onb-practica {
+  flex: 1; text-align: center;
+  background: #fff4d6; color: #7a5300;
+  border-radius: 999px; padding: 4px 12px;
+  font-size: 11px; font-weight: 600;
+}
+.onb-topbar-der { display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 600; color: var(--bold-navy); }
+.onb-negocio em { font-style: normal; font-weight: 400; color: var(--onb-muted); }
+.onb-topbar-ayuda {
+  width: 20px; height: 20px; border: 1.5px solid var(--bold-navy); border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 11px;
+}
+.onb-avatar {
+  width: 26px; height: 26px; border-radius: 50%; background: var(--bold-navy); color: var(--onb-blanco);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700;
+}
+
+/* --- Cuerpo + menú lateral --- */
+.onb-cuerpo { flex: 1; display: flex; min-height: 0; }
+.onb-sidebar {
+  width: 160px; flex-shrink: 0; margin: 4px 0 8px 6px; padding: 10px 6px;
+  background: var(--onb-blanco); border-radius: 10px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.onb-sidebar-usuario { display: flex; flex-direction: column; padding: 0 4px; color: var(--bold-navy); font-size: 11px; }
+.onb-sidebar-usuario span { font-size: 10px; color: var(--onb-muted); }
+.onb-sidebar-sucursal {
+  display: flex; align-items: center; gap: 6px; padding: 6px 8px;
+  border: 1px solid var(--onb-borde); border-radius: 6px; font-size: 10px; color: var(--bold-navy);
+}
+.onb-sidebar-sucursal span { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.onb-btn-nueva-venta {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--bold-navy); color: var(--onb-blanco); border: 0; border-radius: 4px;
+  padding: 7px 8px; font-size: 11px; font-weight: 700;
+}
+.onb-menu { display: flex; flex-direction: column; gap: 1px; margin-top: 8px; }
+.onb-menu-secundario { margin-top: 10px; }
+.onb-menu-item, .onb-menu-sub {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  background: transparent; border: 0; border-radius: 6px; text-align: left;
+  padding: 7px 6px; font-size: 10.5px; color: #3b4060; letter-spacing: 0.2px;
+}
+.onb-menu-item span { flex: 1; }
+.onb-menu-item .onb-ico { width: 13px; height: 13px; color: #3b4060; }
+.onb-menu-item-sec { padding: 5px 6px; }
+.onb-menu-item:hover, .onb-menu-sub:hover { background: var(--bold-bg); }
+.onb-menu-activo { background: var(--bold-bg); color: var(--bold-navy); font-weight: 600; }
+.onb-menu-caret { display: inline-flex; flex: 0 !important; }
+.onb-menu-caret.onb-abierto { transform: rotate(180deg); }
+.onb-menu-subs { display: flex; flex-direction: column; padding-left: 14px; }
+.onb-menu-sub { font-size: 10.5px; padding: 6px; }
+.onb-menu-sub .onb-ico { width: 12px; height: 12px; color: var(--onb-muted); }
+
+.onb-main { position: relative; flex: 1; min-width: 0; overflow: auto; }
+
+/* --- Página genérica --- */
+.onb-pagina { padding: 12px 18px 24px; display: flex; flex-direction: column; gap: 10px; }
+.onb-encabezado { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; }
+.onb-titulo { display: flex; align-items: center; gap: 6px; font-size: 17px; font-weight: 700; color: var(--bold-navy); }
+.onb-atras { display: inline-flex; background: none; border: 0; color: var(--bold-navy); padding: 0; }
+.onb-acciones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.onb-acciones.onb-izq { justify-content: flex-start; }
+.onb-sub { color: var(--onb-muted); }
+.onb-card { background: var(--onb-blanco); border-radius: var(--onb-radio); }
+.onb-muted { color: var(--onb-muted); }
+.onb-rojo { color: var(--bold-red); }
+.onb-verde { color: var(--onb-verde); }
+.onb-negrita { font-weight: 700; color: var(--bold-navy); }
+.onb-centro { text-align: center; display: flex; justify-content: center; gap: 6px; }
+.onb-der { text-align: right; }
+.onb-pad { padding: 6px 10px; }
+.onb-vacio { padding: 24px; text-align: center; color: var(--onb-muted); }
+.onb-mostrando { font-size: 10px; color: var(--onb-muted); }
+.onb-hr { border: 0; border-top: 1px solid var(--onb-borde); margin: 4px 0; }
+
+/* --- Botones --- */
+.onb-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border-radius: 999px; padding: 7px 18px; font-size: 11px; font-weight: 700;
+  border: 1.5px solid transparent; white-space: nowrap;
+}
+.onb-btn .onb-ico { width: 14px; height: 14px; }
+.onb-btn-primario { background: var(--bold-red); color: var(--onb-blanco); }
+.onb-btn-primario:hover { background: var(--onb-red-hover); }
+.onb-btn-secundario { background: var(--onb-blanco); color: var(--bold-red); border-color: var(--bold-red); }
+.onb-btn-navy { background: var(--bold-navy); color: var(--onb-blanco); }
+.onb-btn-gris { background: var(--onb-campo); color: var(--bold-navy); border-color: var(--onb-borde); font-weight: 600; }
+.onb-btn-ejemplo { background: var(--onb-blanco); color: var(--bold-navy); border: 1.5px dashed var(--bold-navy); }
+.onb-btn-chico { padding: 6px 14px; font-size: 10px; }
+.onb-btn-mini { padding: 4px 10px; font-size: 8px; border-radius: 999px; }
+.onb-btn-apagado { opacity: 0.6; }
+.onb-btn-chico:not(.onb-btn-navy):not(.onb-btn-gris) { background: var(--bold-red); color: var(--onb-blanco); }
+.onb-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%; border: 0; background: var(--onb-campo); color: var(--bold-navy);
+}
+.onb-link { display: inline-flex; align-items: center; gap: 4px; color: var(--bold-navy); font-weight: 700; text-decoration: underline; cursor: pointer; white-space: nowrap; }
+
+/* --- Formularios --- */
+.onb-form-layout { display: flex; gap: 12px; align-items: flex-start; }
+.onb-form-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.onb-form-lado { width: 210px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; }
+.onb-form { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.onb-h2 { font-size: 13px; font-weight: 700; color: var(--bold-navy); }
+.onb-h3 { font-size: 12px; font-weight: 700; color: var(--bold-navy); }
+.onb-campo { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.onb-label { font-size: 11px; font-weight: 600; color: var(--bold-navy); }
+.onb-label-suave { font-size: 12px; color: var(--bold-navy); }
+.onb-req { color: var(--bold-red); }
+.onb-ayuda { font-size: 9.5px; color: var(--onb-muted); }
+.onb-input {
+  width: 100%; font-family: inherit; font-size: 11px; color: var(--onb-texto);
+  background: var(--onb-campo); border: 1.5px solid transparent; border-radius: 6px; padding: 7px 10px; min-height: 30px;
+}
+.onb-input:focus { outline: none; border-color: var(--bold-navy); background: var(--onb-blanco); }
+.onb-input::placeholder { color: #9aa0b4; }
+.onb-input:disabled, .onb-select:disabled { color: var(--onb-muted); cursor: not-allowed; }
+.onb-input-error { border-color: var(--bold-red); }
+.onb-input-calculado, .onb-input-fijo { display: flex; align-items: center; gap: 6px; }
+.onb-input-calculado { font-weight: 600; }
+.onb-textarea { min-height: 54px; resize: vertical; }
+.onb-error { font-size: 10px; color: var(--bold-red); font-weight: 600; }
+.onb-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.onb-fila-campo { display: flex; align-items: center; gap: 8px; }
+.onb-precio-fila { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px; align-items: start; }
+.onb-operador { padding-top: 24px; color: #9aa0b4; font-weight: 700; font-size: 14px; }
+.onb-mas-cuadro {
+  display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 26px;
+  background: var(--bold-navy); color: var(--onb-blanco); border-radius: 3px; cursor: pointer;
+}
+.onb-mas-cuadro .onb-ico { width: 12px; height: 12px; }
+.onb-imagen {
+  height: 110px; border-radius: 10px; background: #c9cbe0; color: #8c8fb5;
+  display: flex; align-items: center; justify-content: center;
+}
+.onb-imagen .onb-ico { width: 48px; height: 48px; }
+.onb-switch {
+  display: inline-flex; align-items: center; width: 32px; height: 18px; padding: 2px;
+  border-radius: 999px; background: #d5d8e3; transition: background 0.15s;
+}
+.onb-switch-bola { width: 14px; height: 14px; border-radius: 50%; background: var(--onb-blanco); transition: transform 0.15s; }
+.onb-switch-on { background: var(--bold-red); }
+.onb-switch-on .onb-switch-bola { transform: translateX(14px); }
+.onb-switch-btn { background: none; border: 0; padding: 0; width: fit-content; }
+.onb-sucursales { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--onb-borde); padding-top: 8px; }
+.onb-bloqueado { opacity: 0.45; }
+.onb-check { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+.onb-check input { accent-color: var(--bold-red); }
+.onb-sucursal-card { gap: 2px; }
+.onb-sucursal-card small { font-size: 9px; color: var(--onb-muted); }
+.onb-sucursal-card strong { font-size: 13px; font-weight: 500; }
+.onb-dato { display: flex; flex-direction: column; gap: 2px; }
+.onb-dato span { font-size: 10px; font-weight: 600; color: var(--bold-navy); }
+.onb-dato strong { font-weight: 500; background: var(--onb-campo); border-radius: 6px; padding: 7px 10px; }
+
+/* --- Listas y tablas --- */
+.onb-filtros { display: flex; gap: 10px; }
+.onb-filtros-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 760px; align-self: center; width: 100%; }
+.onb-filtro {
+  flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  background: var(--onb-blanco); border: 1px solid var(--onb-borde); border-radius: 6px;
+  padding: 7px 10px; color: var(--onb-muted); font-size: 11px;
+}
+.onb-buscador {
+  flex: 2; display: flex; align-items: center; gap: 8px;
+  background: var(--onb-blanco); border: 1px solid var(--onb-borde); border-radius: 999px; padding: 6px 12px; color: var(--onb-muted);
+}
+.onb-input-limpio { flex: 1; border: 0; outline: none; background: transparent; font-family: inherit; font-size: 11px; }
+.onb-tabla-wrap { overflow-x: auto; }
+.onb-tabla { width: 100%; border-collapse: collapse; font-size: 11px; }
+.onb-tabla th {
+  text-align: left; font-weight: 700; color: var(--bold-navy);
+  padding: 9px 10px; border-bottom: 1.5px solid var(--onb-borde);
+}
+.onb-tabla td { padding: 10px; border-bottom: 1px solid var(--onb-borde); vertical-align: middle; }
+.onb-fila-cliente td { background: #f8f9ff; }
+.onb-fila-roja td { color: var(--bold-red); }
+.onb-miniatura { display: inline-flex; width: 28px; height: 22px; border-radius: 4px; background: #c9cbe0; color: #8c8fb5; align-items: center; justify-content: center; }
+.onb-tag { display: inline-block; padding: 2px 10px; margin-right: 4px; border-radius: 999px; font-size: 10px; }
+.onb-tag-verde { background: var(--onb-verde-bg); color: var(--onb-verde); }
+.onb-tags-cab { width: fit-content; }
+.onb-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.onb-kpi { padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+.onb-kpi span { color: var(--onb-muted); }
+.onb-kpi strong { font-size: 18px; color: var(--bold-navy); }
+
+/* Facturas de Venta */
+.onb-factura {
+  width: 100%; display: grid; grid-template-columns: 110px 1fr auto; gap: 16px; align-items: center;
+  background: var(--onb-blanco); border: 0; border-bottom: 1px solid var(--onb-borde); padding: 8px 12px; text-align: left; font-size: 11px;
+}
+.onb-factura:hover { background: #f8f9ff; }
+.onb-factura-dia { display: flex; flex-direction: column; align-items: center; }
+.onb-factura-dia strong { font-size: 20px; font-weight: 500; }
+.onb-factura-dia small { font-size: 10px; }
+.onb-factura-info { display: flex; flex-direction: column; }
+.onb-factura-der { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.onb-factura-cab { display: flex; justify-content: space-between; gap: 20px; font-size: 11px; }
+
+/* --- Punto de venta --- */
+.onb-pos { display: flex; gap: 12px; padding: 8px 12px; height: 100%; min-height: 540px; }
+.onb-pos-izq { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.onb-pos-izq .onb-buscador { flex: none; }
+.onb-pos-barra { display: flex; justify-content: space-between; align-items: center; }
+.onb-orden { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--bold-navy); border-bottom: 2px solid var(--bold-navy); padding-bottom: 2px; }
+.onb-productos { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; align-content: start; }
+.onb-producto {
+  position: relative; display: flex; flex-direction: column; background: var(--onb-blanco);
+  border: 1.5px solid transparent; border-radius: 4px; padding: 0; overflow: hidden; font-size: 10px;
+}
+.onb-producto:hover { border-color: var(--bold-navy); }
+.onb-producto-precio { position: absolute; top: 4px; right: 6px; font-size: 10px; }
+.onb-producto-img { height: 84px; display: flex; align-items: center; justify-content: center; background: #f0f0f2; color: #c4c4c8; }
+.onb-producto-img .onb-ico { width: 40px; height: 40px; }
+.onb-producto-nombre { padding: 8px 6px; font-weight: 700; text-align: center; }
+.onb-carrito {
+  width: 44%; max-width: 560px; flex-shrink: 0; background: var(--onb-blanco); border-radius: 6px;
+  padding: 10px; display: flex; flex-direction: column; gap: 8px;
+}
+.onb-lineas { flex: 1; min-height: 120px; display: flex; flex-direction: column; }
+.onb-linea { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--onb-borde); }
+.onb-cantidad { width: 40px; text-align: center; background: var(--onb-blanco); border-color: var(--onb-borde); }
+.onb-linea-info { flex: 1; display: flex; flex-direction: column; font-size: 10px; }
+.onb-linea-info small { font-size: 8.5px; color: var(--onb-muted); }
+.onb-linea-precio { font-size: 11px; }
+.onb-borrar { border: 1.5px solid var(--bold-red); background: var(--onb-blanco); color: var(--bold-red); border-radius: 50%; }
+.onb-aviso { margin-top: 8px; padding: 6px 10px; background: #fff4d6; color: #7a5300; border-radius: 6px; font-size: 10.5px; }
+.onb-totales { display: flex; flex-direction: column; gap: 3px; font-size: 11px; }
+.onb-totales p { display: flex; justify-content: space-between; }
+.onb-totales-der { margin-left: auto; width: 260px; padding: 10px; }
+.onb-total-fila { font-weight: 700; }
+.onb-vaciar { display: flex; justify-content: flex-end; }
+.onb-vaciar span { background: var(--onb-campo); padding: 4px 8px; border-radius: 4px; font-size: 9px; font-weight: 700; color: var(--bold-navy); cursor: pointer; }
+.onb-btn-vender { width: 100%; padding: 9px; }
+
+/* Panel lateral (pago, venta completada) sobre el POS oscurecido */
+.onb-con-drawer { position: relative; height: 100%; min-height: 540px; }
+.onb-velo { position: absolute; inset: 0; background: rgba(20, 24, 40, 0.45); }
+.onb-drawer {
+  position: absolute; top: 0; right: 0; bottom: 0; background: var(--onb-blanco);
+  display: flex; flex-direction: column; padding: 12px; gap: 10px; box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
+}
+.onb-drawer-ancho { width: min(820px, 78%); }
+.onb-drawer-angosto { width: min(600px, 62%); }
+.onb-drawer-cuerpo { flex: 1; display: flex; gap: 8px; min-height: 0; overflow: auto; }
+.onb-drawer-pie { display: flex; gap: 8px; }
+.onb-drawer-pie .onb-btn { flex: 1; }
+.onb-panel { flex: 1; border: 1px solid #8c8fa3; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+.onb-panel:first-child { flex: 0 0 38%; }
+.onb-panel-titulo { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; }
+.onb-panel-titulo.onb-chico { font-size: 13px; color: var(--onb-texto); }
+.onb-total-grande { font-size: 26px; font-weight: 800; color: var(--bold-navy); }
+.onb-metodos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.onb-metodo { display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: 0; font-size: 10.5px; color: var(--onb-texto); padding: 4px; border-radius: 6px; }
+.onb-metodo:hover { background: var(--bold-bg); }
+.onb-metodo-ico {
+  width: 34px; height: 34px; border-radius: 8px; background: #f0f1f6; color: var(--bold-navy);
+  display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px;
+}
+.onb-chips { display: flex; gap: 8px; flex-wrap: wrap; width: fit-content; }
+.onb-chip { border: 1px solid var(--onb-borde); background: #eef0f5; color: var(--onb-texto); border-radius: 999px; padding: 3px 10px; font-size: 10px; }
+.onb-chip-activo { border-color: var(--bold-red); color: var(--bold-red); background: var(--onb-blanco); }
+.onb-venta-ok { flex: 1; display: flex; flex-direction: column; gap: 12px; }
+.onb-check-ok {
+  align-self: center; width: 34px; height: 34px; border-radius: 50%; background: #5ccb8f; color: var(--onb-blanco);
+  display: inline-flex; align-items: center; justify-content: center;
+}
