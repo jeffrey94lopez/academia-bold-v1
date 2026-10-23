@@ -311,7 +311,6 @@ function renderExplorer(convs) {
         <input id="bot-search" placeholder="🔎 buscar en mensajes…" class="px-2 py-1 rounded border border-[var(--blue-20)] text-xs flex-1 min-w-[160px]">
         ${filterChips('estado', 'Estado', [['', 'Todas'], ['no_resuelta', 'No resuelta'], ['resuelta', 'Resuelta'], ['ambigua', 'Ambigua']])}
         ${filterChips('life', 'Cierre', [['', 'Todas'], ['cerrada_cliente', 'Cerró'], ['abandonada', 'Abandonó'], ['escalada', 'Escaló']])}
-        ${filterChips('origin', 'Origen', [['', 'Todas'], ['onboarding', 'Solo recorrido guiado']])}
       </div>
     </div>
     <div id="bot-conv-list" class="border-t border-[var(--blue-10)]">${convRows(convs)}</div>
@@ -350,7 +349,6 @@ function convRows(convs) {
         ${c.sentiment === 'negativo' ? '<span class="text-[10px] px-2 rounded-full border border-[var(--error-100)] text-[var(--error-100)]">Neg</span>' : ''}
         ${lifecycleBadge(c.lifecycle)}
         ${c.bot_no_info ? '<span class="text-[10px] px-2 rounded-full border border-[var(--warning-150)] text-[var(--warning-150)]">Sin info</span>' : ''}
-        ${c.origin === 'onboarding' ? '<span class="text-[10px] px-2 rounded-full border border-[var(--blue-100)] text-[var(--blue-100)]">Recorrido</span>' : ''}
         <span class="ml-auto text-[var(--black-40)]">${escapeHtml(c.cat || '')}</span>
       </div>
     </div>
@@ -366,7 +364,7 @@ function wireExplorer(el, convs, from, to) {
     toggle.textContent = hidden ? 'Filtros ▾' : 'Filtros ▴'
   })
 
-  const state = { estado: '', life: '', category: '', search: '', no_info: '', origin: '' }
+  const state = { estado: '', life: '', category: '', search: '', no_info: '' }
   const summaryEl = el.querySelector('#bot-filter-summary')
 
   // Mapea el state del explorador al shape que espera fetchBotConversations.
@@ -378,14 +376,11 @@ function wireExplorer(el, convs, from, to) {
     if (state.category) f.category = state.category
     if (state.no_info) f.no_info = true
     if (state.search) f.search = state.search
-    // Solo con el filtro puesto: sin él, fetchBotConversations no manda
-    // p_origin y la llamada sirve también contra la RPC sin migrar.
-    if (state.origin) f.origin = state.origin
     return f
   }
 
   const syncChips = () => {
-    ['estado', 'life', 'origin'].forEach(g => {
+    ['estado', 'life'].forEach(g => {
       el.querySelectorAll(`.bot-fchip[data-group="${g}"]`).forEach(c => {
         const on = c.dataset.val === state[g]
         c.className = `bot-fchip px-2 py-1 rounded-full text-[11px] border ${on ? 'bg-[var(--blue-100)] text-white border-[var(--blue-100)]' : 'text-[var(--black-60)] border-[var(--blue-20)]'}`
@@ -397,7 +392,6 @@ function wireExplorer(el, convs, from, to) {
     estado: { resuelta: 'Resuelta', no_resuelta: 'No resuelta', ambigua: 'Ambigua' },
     life: { cerrada_cliente: 'Cerró', abandonada: 'Abandonó', escalada: 'Escaló' },
     no_info: { 1: 'Sin contenido para responder' },
-    origin: { onboarding: 'Solo recorrido guiado' },
   }
   const friendlyFilterLabel = (k, v) => (FILTER_LABELS[k] && FILTER_LABELS[k][v]) || v
 
@@ -408,18 +402,7 @@ function wireExplorer(el, convs, from, to) {
   }
 
   const refresh = async () => {
-    let rows
-    try {
-      rows = await fetchBotConversations(from, to, { ...activeFilters(), limit: 100 })
-    } catch (e) {
-      // Sin esto el error quedaba como promesa rechazada sin manejar y la lista
-      // seguía mostrando las filas del filtro anterior como si fueran las del
-      // nuevo. Caso esperable: "Solo recorrido guiado" antes de correr
-      // update_analytics_bot_conversations_origin.sql.
-      el.querySelector('#bot-conv-list').innerHTML = `<p class="p-3 text-xs text-[var(--error-100)]">No se pudieron cargar las conversaciones: ${escapeHtml(e.message)}</p>`
-      renderSummary()
-      return
-    }
+    const rows = await fetchBotConversations(from, to, { ...activeFilters(), limit: 100 })
     el.querySelector('#bot-conv-list').innerHTML = convRows(rows)
     bindRows(el, rows)
     renderSummary()
@@ -427,7 +410,7 @@ function wireExplorer(el, convs, from, to) {
 
   const applyFilters = (partial, { replace } = {}) => {
     if (replace) {
-      state.estado = ''; state.life = ''; state.category = ''; state.search = ''; state.no_info = ''; state.origin = ''
+      state.estado = ''; state.life = ''; state.category = ''; state.search = ''; state.no_info = ''
       const searchInput = el.querySelector('#bot-search')
       if (searchInput) searchInput.value = ''
     }
@@ -499,7 +482,6 @@ function exportBotCsv(convs, from, to) {
     { label: 'Estado', getValue: r => r.eff_status || '' },
     { label: 'Sentimiento', getValue: r => r.sentiment || '' },
     { label: 'Cómo terminó', getValue: r => r.lifecycle || '' },
-    { label: 'Origen', getValue: r => r.origin === 'onboarding' ? 'Recorrido guiado' : 'Portal' },
     { label: 'Primera pregunta', getValue: r => r.first_user_msg || '' },
     { label: 'Mensajes (JSON)', getValue: r => JSON.stringify(r.messages || []) },
   ])

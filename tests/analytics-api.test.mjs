@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   fetchLessonsSummary, fetchBotSummary, fetchBotTrend,
   getSupabaseClient, _resetAnalyticsClientCache,
-  fetchBotConversations, fetchContentGaps, fetchOnboardingFunnel,
+  fetchBotConversations, fetchContentGaps,
 } from '../js/analytics-api.js'
 
 function fakeClient(captured) {
@@ -106,35 +106,3 @@ test('fetchContentGaps usa analytics_content_gaps', async () => {
   assert.equal(cap.params.p_from, new Date('2026-06-01T00:00:00Z').toISOString())
 })
 
-
-test('fetchBotConversations manda p_origin', async () => {
-  let params; const client = { rpc: async (n, p) => { params = p; return { data: [], error: null } } }
-  await fetchBotConversations(new Date(0), new Date(1), { origin: 'onboarding' }, client)
-  assert.equal(params.p_origin, 'onboarding')
-})
-
-// Ruling F: la RPC desplegada todavía tiene 10 args. PostgREST resuelve la
-// función por NOMBRES de parámetro, así que mandar p_origin (aunque sea null)
-// a la versión sin migrar da "function not found" y rompe el explorador vivo.
-test('fetchBotConversations sin filtro de origen NO manda p_origin (firma de hoy intacta)', async () => {
-  const cap = {}
-  await fetchBotConversations(new Date(0), new Date(1), { no_info: true }, fakeClient(cap))
-  assert.equal('p_origin' in cap.params, false)
-  assert.deepEqual(Object.keys(cap.params), [
-    'p_from', 'p_to', 'p_status', 'p_sentiment', 'p_support', 'p_category',
-    'p_search', 'p_limit', 'p_lifecycle', 'p_no_info',
-  ])
-})
-
-test('fetchOnboardingFunnel usa analytics_onboarding_funnel con fechas ISO', async () => {
-  const cap = {}
-  const from = new Date('2026-10-01T00:00:00Z')
-  const to = new Date('2026-10-22T00:00:00Z')
-  await fetchOnboardingFunnel(from, to, fakeClient(cap))
-  assert.equal(cap.name, 'analytics_onboarding_funnel')
-  assert.deepEqual(cap.params, { p_from: from.toISOString(), p_to: to.toISOString() })
-})
-
-test('fetchOnboardingFunnel lanza si la RPC no existe (supabase-js no lanza solo)', async () => {
-  await assert.rejects(() => fetchOnboardingFunnel(new Date(0), new Date(1), errorClient()), /analytics_onboarding_funnel: boom/)
-})

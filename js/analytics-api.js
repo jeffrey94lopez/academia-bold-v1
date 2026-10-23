@@ -67,7 +67,7 @@ export async function fetchBotTrend(months = 6, client) {
 
 export async function fetchBotConversations(from, to, filters = {}, client) {
   if (!client) client = await getSupabaseClient()
-  const params = {
+  return callRpc(client, 'analytics_bot_conversations', {
     p_from: from.toISOString(),
     p_to: to.toISOString(),
     p_status: filters.status ?? null,
@@ -78,25 +78,6 @@ export async function fetchBotConversations(from, to, filters = {}, client) {
     p_limit: filters.limit ?? null,
     p_lifecycle: filters.lifecycle ?? null,
     p_no_info: filters.no_info ?? null,
-  }
-  // p_origin SOLO cuando hay filtro de origen. PostgREST elige la función por
-  // los nombres de los parámetros: mandarle p_origin (aunque sea null) a la
-  // versión de 10 args — la que está viva hasta que corra
-  // update_analytics_bot_conversations_origin.sql — da "function not found" y
-  // rompe el explorador de BolBot entero. Así, sin el filtro, la llamada es
-  // idéntica a la de antes y funciona con o sin la migración.
-  if (filters.origin) params.p_origin = filters.origin
-  return callRpc(client, 'analytics_bot_conversations', params)
-}
-
-// Embudo del recorrido guiado (onboarding.html), contado por corridas
-// (payload.run_id) y no por sesión: una corrida retomada otro día abre otra
-// sesión del navegador pero es el mismo intento.
-export async function fetchOnboardingFunnel(from, to, client) {
-  if (!client) client = await getSupabaseClient()
-  return callRpc(client, 'analytics_onboarding_funnel', {
-    p_from: from.toISOString(),
-    p_to: to.toISOString(),
   })
 }
 

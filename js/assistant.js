@@ -148,12 +148,9 @@ async function createConversation() {
       fila.plataforma = plataforma
       fila.account_id = contextoBold.accountId || null
     }
-    // Solo se escribe cuando hay origen: así el INSERT del portal no nombra la
-    // columna y sigue funcionando aunque la migración add_origin_* no se haya
-    // corrido. Las del recorrido sí fallan hasta entonces (el catch de abajo
-    // deja el chat andando sin fila).
-    const { origin } = getBotOrigin()
-    if (origin) fila.origin = origin
+    // La marca `origin = 'onboarding'` se escribe cuando exista la columna
+    // (migración add_origin_bodi_conversations, que sube junto con el admin).
+    // Mientras tanto las conversaciones del recorrido se guardan como las demás.
     const { error } = await supabase
       .from('bodi_conversations')
       .insert(fila)
