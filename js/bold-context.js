@@ -197,6 +197,22 @@ function origenDelContenedor(win) {
 }
 
 /**
+ * Adónde dirigir un mensaje al contenedor que nos embebe: `null` si no
+ * estamos embebidos (`win.parent === win`) o si el contenedor conocido no es
+ * de Bold (cualquiera puede embebernos, pero no le hablamos); el origen si el
+ * navegador lo expone y es de Bold; `'*'` si el navegador no lo expone
+ * (Firefox no tiene `ancestorOrigins`) — en ese caso el mensaje no debe llevar
+ * ningún dato. La usan tanto el handshake de abajo como `onboarding-bridge.js`
+ * para cerrar el recorrido o pedir una navegación.
+ */
+export function destinoContenedor(win) {
+  if (win.parent === win) return null
+  const contenedor = origenDelContenedor(win)
+  if (!contenedor) return '*'
+  return esOrigenBold(contenedor) ? contenedor : null
+}
+
+/**
  * Instala la escucha del `bold:context` y avisa al contenedor que ya estamos
  * listos (`academia:ready`), reintentando por si su listener se registra tarde.
  * Idempotente: llamarlo dos veces no duplica nada.
@@ -219,15 +235,9 @@ export function initBoldContext(win = typeof window !== 'undefined' ? window : n
     }
   })
 
-  // El handshake solo tiene sentido embebidos; suelto, no hay a quién avisar.
-  if (win.parent === win) return
-
-  // Si el navegador nos dice quién nos embebe: le hablamos solo a Bold, y a
-  // nadie más (cualquiera puede embebernos, pero el handshake no es para ellos).
-  // Si no lo dice (Firefox), va a '*': el mensaje no lleva ningún dato.
-  const contenedor = origenDelContenedor(win)
-  if (contenedor && !esOrigenBold(contenedor)) return
-  const destino = contenedor || '*'
+  // El handshake solo tiene sentido si hay a quién avisar.
+  const destino = destinoContenedor(win)
+  if (destino === null) return
 
   let intentos = 0
   const avisar = () => {
