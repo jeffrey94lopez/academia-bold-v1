@@ -17,6 +17,7 @@ import { renderPantalla } from './onboarding-screens.js'
 import { t, AVISO_PRACTICA } from './onboarding-screens-ui.js'
 import { mostrarBurbuja, ocultarBurbuja, botonSiguiente } from './onboarding-guide.js'
 import * as flujo from './onboarding-flow.js'
+import { setBotOrigin } from './bot-origin.js'
 
 const io = { get: storageGet, set: storageSet, remove: storageRemove }
 const stage = document.getElementById('onb-stage')
@@ -180,6 +181,9 @@ function restaurarFoco(f) {
 }
 
 function render({ tope = false, aviso = '' } = {}) {
+  // Todo cambio de paso pasa por aquí (aplicar, adoptar la cuenta, arranque):
+  // el bot siempre manda el paso en que va el usuario, no uno viejo.
+  setBotOrigin('onboarding', estado.step)
   actualizarBarra()
   if (especial) {
     ocultarBurbuja()
@@ -333,6 +337,65 @@ const ACCIONES_PAGINA = {
 }
 
 document.getElementById('onb-saltar').addEventListener('click', saltar)
+
+// ── BolBot ──────────────────────────────────────────────────────────────────
+// assistant.js y settings.js importan el cliente de Supabase desde un CDN: con
+// import estático, si el CDN falla se cae TODO este módulo y con él el
+// recorrido. Dinámicos, lo peor que pasa es que el botón del bot no aparece.
+
+const botBtn = document.getElementById('onb-bot-btn')
+const botPanel = document.getElementById('onb-bot-panel')
+let botCargado = null
+
+function abrirBot() {
+  botPanel.hidden = false
+  document.body.classList.add('onb-con-bot')
+  botBtn.setAttribute('aria-expanded', 'true')
+  telemetria.botAbierto(estado.step)
+  // Se dibuja solo en #section-assistant al importarse. Hasta el primer clic
+  // no se carga: quien no abre el bot no paga las consultas de FAQs y chips.
+  botCargado ??= import('./assistant.js').catch(err => {
+    botCargado = null
+    console.error('[onboarding] no se pudo cargar BolBot:', err)
+  })
+  botCargado.then(enfocarChat)
+  // El escenario se angostó: la guía escucha resize para reubicar el foco y la burbuja.
+  window.dispatchEvent(new Event('resize'))
+}
+
+// El import resuelve antes de que el chat exista: renderAssistant espera las
+// sugerencias y los toggles. La primera vez se espera a que aparezca el campo.
+function enfocarChat() {
+  const cont = document.getElementById('section-assistant')
+  const enfocar = () => {
+    const input = document.getElementById('chatInput')
+    if (input && !botPanel.hidden) input.focus({ preventScroll: true })
+    return !!input
+  }
+  if (enfocar()) return
+  const obs = new MutationObserver(() => { if (enfocar()) obs.disconnect() })
+  obs.observe(cont, { childList: true })
+}
+
+function cerrarBot() {
+  if (botPanel.hidden) return
+  botPanel.hidden = true
+  document.body.classList.remove('onb-con-bot')
+  botBtn.setAttribute('aria-expanded', 'false')
+  window.dispatchEvent(new Event('resize'))
+  botBtn.focus({ preventScroll: true })
+}
+
+botBtn.addEventListener('click', () => (botPanel.hidden ? abrirBot() : cerrarBot()))
+document.getElementById('onb-bot-cerrar').addEventListener('click', cerrarBot)
+botPanel.addEventListener('keydown', ev => { if (ev.key === 'Escape') cerrarBot() })
+
+// Misma convención que el portal (main.js): solo un 'false' explícito apaga el
+// bot; si la lectura falla, queda visible.
+import('./settings.js')
+  .then(m => m.loadSettings(['bot_enabled']))
+  .then(s => { if (s.bot_enabled !== 'false') botBtn.hidden = false })
+  .catch(err => console.error('[onboarding] no se pudo leer bot_enabled:', err))
 
 // ── Eventos de la réplica ───────────────────────────────────────────────────
 

@@ -22,15 +22,24 @@
     <div id="onb-progreso" class="onb-barra-progreso" role="progressbar" aria-label="Avance del recorrido" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
       <span id="onb-progreso-relleno" class="onb-barra-relleno"></span>
     </div>
+    <!-- En la barra y no flotando sobre la réplica: abajo a la derecha tapaba
+         el botón "Vender" de la pantalla de venta. Aparece si el bot está activo. -->
+    <button id="onb-bot-btn" type="button" class="onb-bot-btn" aria-controls="onb-bot-panel" aria-expanded="false" hidden>¿Tienes una duda?</button>
     <button id="onb-saltar" type="button" class="onb-barra-saltar">Saltar recorrido</button>
   </header>
 
   <!-- La pantalla: réplica de Bold POS o una pantalla propia del recorrido. -->
   <div id="onb-stage" class="onb-stage"></div>
 
-  <!-- BolBot (Task 7 lo muestra y conecta; queda oculto hasta entonces). -->
-  <button id="onb-bot-btn" type="button" class="onb-bot-btn" hidden>¿Tienes una duda?</button>
-  <aside id="onb-bot-panel" class="onb-bot-panel" hidden><div id="section-assistant"></div></aside>
+  <!-- BolBot: el panel se abre a la derecha y el escenario se angosta para que
+       la guía siga a la vista. Su botón vive en la barra de arriba. -->
+  <aside id="onb-bot-panel" class="onb-bot-panel" aria-label="BolBot" hidden>
+    <div class="onb-bot-cabecera">
+      <span>Pregúntale a BolBot</span>
+      <button id="onb-bot-cerrar" type="button" class="onb-bot-cerrar" aria-label="Cerrar BolBot">&times;</button>
+    </div>
+    <div class="onb-bot-cuerpo"><div id="section-assistant"></div></div>
+  </aside>
 
   <div id="onb-toasts" class="onb-toasts" aria-live="polite"></div>
 

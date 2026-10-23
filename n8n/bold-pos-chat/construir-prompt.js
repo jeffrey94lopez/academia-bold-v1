@@ -71,6 +71,23 @@ if (vertical === 'restaurantes') {
   verticalInstruccion = 'El comercio es un RETAIL. H\u00e1blale en sus t\u00e9rminos: productos, inventario, proveedores, cat\u00e1logo. No le ofrezcas funciones propias de restaurantes (mesas, comandas, divisi\u00f3n de cuenta).';
 }
 
+// ── Recorrido guiado (onboarding.html) ──────────────────────────────────
+// El portal manda onboarding_step solo cuando el chat se abre dentro del
+// recorrido de práctica. El valor llega del navegador y va al system prompt:
+// se acepta SOLO un id de paso conocido, para que no sea una vía de meterle
+// texto arbitrario al prompt. Sin el campo, el prompt queda como siempre.
+var PASOS_RECORRIDO = {
+  bienvenida: 'la bienvenida', crear_item: 'crear un ítem', ver_items: 'ver la lista de ítems',
+  venta: 'hacer una venta', gasto: 'registrar un gasto', facturas: 'ver el historial de ventas',
+  inventario: 'ver el historial de inventario', cierre: 'el cierre del recorrido'
+};
+var onboardingStep = null;
+try { onboardingStep = $('Webhook').first().json.body.onboarding_step || null; } catch(_) {}
+var recorridoInstruccion = '';
+if (onboardingStep && Object.prototype.hasOwnProperty.call(PASOS_RECORRIDO, onboardingStep)) {
+  recorridoInstruccion = 'El usuario está en el recorrido guiado de práctica de Bold POS (una copia que no guarda nada en su cuenta), en el paso "' + onboardingStep + '" (' + PASOS_RECORRIDO[onboardingStep] + '). Responde sobre cómo funciona Bold POS real, en pocas líneas: está en medio de la práctica.';
+}
+
 // ── Cruce entre verticales ──────────────────────────────────────────────
 var cruceCandidatas = [];
 try {
@@ -127,7 +144,9 @@ var escalationRule = escalate
 var systemPrompt = [
   'Fecha actual: ' + now + '.',
   'Eres bolbot POS, el asistente virtual de Bold POS. Ayudas a usuarios con dudas sobre la plataforma.',
-  verticalInstruccion,
+  // Pegada a la de vertical y no como elemento propio: sin recorrido, el prompt
+  // queda idéntico byte a byte al de antes de este cambio.
+  verticalInstruccion + (recorridoInstruccion ? '\n' + recorridoInstruccion : ''),
   '',
   'Tono: Profesional pero c\u00e1lido. Claro, directo y amable.',
   '',

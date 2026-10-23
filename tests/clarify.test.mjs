@@ -151,3 +151,9 @@ test('chatRequestBody: omite conversation_id mientras la conversación no existe
     assert.equal('conversation_id' in chatRequestBody({ ...base, conversationId: v }), false)
   }
 })
+
+test('chatRequestBody incluye onboarding_step solo si viene', () => {
+  const base = { message: 'hola', history: [], faqContext: [], clarifyCount: 0, seleccion: { vertical: 'retail' } }
+  assert.equal(chatRequestBody(base).onboarding_step, undefined)
+  assert.equal(chatRequestBody({ ...base, onboardingStep: 'crear_item' }).onboarding_step, 'crear_item')
+})

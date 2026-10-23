@@ -10,6 +10,7 @@ import { nextClarifyCount, chatRequestBody, shouldAskResolution } from './clarif
 import { inactivitySettings, isStaleConversation } from './inactivity.js'
 import { loadSettingsResult } from './settings.js'
 import { registrarCruce, marcarCruce } from './cruce-vertical.js'
+import { getBotOrigin } from './bot-origin.js'
 
 const N8N_URL     = '/api/chat'
 
@@ -147,6 +148,12 @@ async function createConversation() {
       fila.plataforma = plataforma
       fila.account_id = contextoBold.accountId || null
     }
+    // Solo se escribe cuando hay origen: así el INSERT del portal no nombra la
+    // columna y sigue funcionando aunque la migración add_origin_* no se haya
+    // corrido. Las del recorrido sí fallan hasta entonces (el catch de abajo
+    // deja el chat andando sin fila).
+    const { origin } = getBotOrigin()
+    if (origin) fila.origin = origin
     const { error } = await supabase
       .from('bodi_conversations')
       .insert(fila)
@@ -823,7 +830,7 @@ async function sendMessage(text, { textoVisible, cross } = {}) {
       body: JSON.stringify(chatRequestBody({
         message: text, history, faqContext: faqsDeLaVertical,
         clarifyCount, seleccion: sel, contexto: getContextoBold(), cruceAceptado,
-        conversationId,
+        conversationId, onboardingStep: getBotOrigin().step,
       }))
     })
     const data = await res.json()
