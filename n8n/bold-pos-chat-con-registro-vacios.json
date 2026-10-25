@@ -1,0 +1,1543 @@
+{
+ "id": "dZGuYJbRbG6h8aqv",
+ "name": "Bold POS Chat",
+ "description": null,
+ "active": true,
+ "activeVersionId": "173ee4b5-7571-4145-b819-5231de7a255a",
+ "createdAt": "2026-05-15T05:50:00.313Z",
+ "updatedAt": "2026-10-25T21:54:39.586Z",
+ "isArchived": false,
+ "versionId": "173ee4b5-7571-4145-b819-5231de7a255a",
+ "versionCounter": 498,
+ "sourceWorkflowId": null,
+ "triggerCount": 1,
+ "nodes": [
+  {
+   "id": "58ad28ee-f910-48e5-8424-d5bfc51971c9",
+   "name": "Webhook",
+   "webhookId": "bold-pos-chat-wh-001",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [
+    -400,
+    -48
+   ],
+   "parameters": {
+    "httpMethod": "POST",
+    "path": "bold-pos-chat",
+    "responseMode": "responseNode",
+    "options": {}
+   }
+  },
+  {
+   "id": "validate-input-001",
+   "name": "Validar input y token",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    -176,
+    -48
+   ],
+   "parameters": {
+    "jsCode": "const body = $input.first().json.body;\nconst token = $input.first().json.headers?.['x-api-key'];\nif (!token || token !== 'BoldBodi-***TOKEN***') {\n  throw new Error('Unauthorized');\n}\nif (!body?.message) {\n  throw new Error('Missing message field');\n}\nreturn [{ json: body }];"
+   }
+  },
+  {
+   "id": "clasificar-intencion-001",
+   "name": "Clasificar intenci?n",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4,
+   "retryOnFail": true,
+   "maxTries": 5,
+   "waitBetweenTries": 5000,
+   "position": [
+    48,
+    -48
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "https://us-central1-aiplatform.googleapis.com/v1beta1/projects/gen-lang-client-0047287949/locations/us-central1/endpoints/openapi/chat/completions",
+    "authentication": "predefinedCredentialType",
+    "nodeCredentialType": "googleApi",
+    "sendBody": true,
+    "contentType": "raw",
+    "rawContentType": "application/json",
+    "body": "={{ JSON.stringify({ model: \"google/gemini-2.5-flash\", temperature: 0, max_tokens: 800, messages: [{ role: \"system\", content: \"Eres un clasificador de intenci?n para Bold POS. Si el mensaje es una continuaci?n de conversaci?n (usa pronombres como 'uno', 'eso', 'ese', 'ah?', o es muy corto sin contexto propio), infiere el m?dulo del historial previo. Responde ?NICAMENTE con una de estas palabras: Ventas (ventas, turnos, cobros, POS, dat?fono, comprobante, factura electr?nica de venta, venta por factura, c?mo vender) | Inventario (productos, ?tems, stock, existencias, bodega) | Ingresos (cotizaciones, notas cr?dito, notas d?bito, recibos, abonos, CUFE, DIAN, facturaci?n electr?nica fiscal) | Egresos (gastos, compras, pagos a proveedor, documento soporte) | Contactos (clientes, proveedores, terceros) | Configuraci?n (configuraci?n, usuarios, sucursales, ajustes, listas de precios, impuestos) | soporte (errores, bugs, algo no funciona) | desconocido (no relacionado con Bold POS). Sin explicaciones. Solo la palabra.\" }, ...($json.history || []).slice(-4), { role: \"user\", content: $json.message }] }) }}",
+    "options": {}
+   },
+   "credentials": {
+    "googleApi": {
+     "id": "BNCQGKUXcm47Rid3",
+     "name": "Vertex - BoldBot"
+    }
+   }
+  },
+  {
+   "id": "normalizar-intencion-001",
+   "name": "Normalizar intenci?n",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    272,
+    -48
+   ],
+   "parameters": {
+    "jsCode": "const raw = ($json.choices?.[0]?.message?.content || '').trim();\nconst modules = ['Ventas', 'Inventario', 'Ingresos', 'Egresos', 'Contactos', 'Configuraci?n'];\nconst categoria = modules.includes(raw) ? raw : null;\nconst branch = categoria ? 'modulo' : (raw === 'soporte' ? 'soporte' : 'desconocido');\nconst wb = ($('Validar input y token').first() || {}).json || {};\nreturn [{ json: { branch, categoria, topic: categoria || branch, message: wb.message || '', history: wb.history || [] } }];"
+   }
+  },
+  {
+   "id": "router-modulo-001",
+   "name": "Router m?dulo?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [
+    720,
+    48
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict",
+      "version": 1
+     },
+     "conditions": [
+      {
+       "id": "cond-modulo",
+       "leftValue": "={{ $json.branch }}",
+       "rightValue": "modulo",
+       "operator": {
+        "type": "string",
+        "operation": "equals"
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "router-soporte-001",
+   "name": "Router soporte?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [
+    944,
+    48
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict",
+      "version": 1
+     },
+     "conditions": [
+      {
+       "id": "cond-soporte",
+       "leftValue": "={{ $json.branch }}",
+       "rightValue": "soporte",
+       "operator": {
+        "type": "string",
+        "operation": "equals"
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "buscar-lecciones-001",
+   "name": "Buscar lecciones",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4,
+   "alwaysOutputData": true,
+   "position": [
+    720,
+    -144
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "https://tczcngfhuendmldafbrc.supabase.co/rest/v1/rpc/match_lessons",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "apikey",
+       "value": "eyJ***KEY***"
+      },
+      {
+       "name": "Authorization",
+       "value": "Bearer eyJ***KEY***"
+      },
+      {
+       "name": "Content-Type",
+       "value": "application/json"
+      }
+     ]
+    },
+    "sendBody": true,
+    "contentType": "raw",
+    "rawContentType": "application/json",
+    "body": "={{ JSON.stringify({ query_embedding: $('Embeber pregunta').first().json.predictions[0].embeddings.values, match_count: 5, match_threshold: 0.15, p_vertical: $('Webhook').first().json.body.vertical || null }) }}",
+    "options": {}
+   }
+  },
+  {
+   "id": "construir-prompt-001",
+   "name": "Construir prompt",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    944,
+    -144
+   ],
+   "parameters": {
+    "jsCode": "function lessonToText(lesson) {\n  var text = '## ' + lesson.titulo + '\\n';\n  try {\n    var blocks = typeof lesson.contenido === 'string' ? JSON.parse(lesson.contenido) : lesson.contenido;\n    if (Array.isArray(blocks)) {\n      blocks.forEach(function(b) {\n        if (b.type === 'step' && b.text) {\n          // Extract <a href> links from step before stripping HTML\n          var stepHtml = b.text;\n          var linkRe = /<a[^>]+href=\"([^\"]+)\"[^>]*>([^<]*)<\\/a>/g;\n          var lm;\n          while ((lm = linkRe.exec(stepHtml)) !== null) {\n            var linkUrl = lm[1];\n            var linkLabel = lm[2].trim() || 'Ver en Bold POS';\n            if (linkUrl && (linkUrl.startsWith('http') || linkUrl.startsWith('/'))) {\n              text += '[LINK url=\"' + linkUrl + '\" label=\"' + linkLabel + '\"]\\n';\n            }\n          }\n          text += '- ' + b.text.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim() + '\\n';\n        }\n        else if (b.type === 'image' && b.url)        text += '[IMAGEN url=\"' + b.url + '\"' + (b.caption ? ' caption=\"' + b.caption + '\"' : '') + ']\\n';\n        else if (b.type === 'video' && b.url)        text += '[VIDEO url=\"' + b.url + '\"' + (b.label ? ' label=\"' + b.label + '\"' : '') + ']\\n';\n        else if (b.type === 'link' && b.url)         text += '[LINK url=\"' + b.url + '\"' + (b.label ? ' label=\"' + b.label + '\"' : '') + ']\\n';\n        else if (b.type === 'bot_nota' && b.content)        text += '[NOTA: ' + b.content + ']\\n';\n        else if (b.type === 'bot_advertencia' && b.content) text += '[ADVERTENCIA: ' + b.content + ']\\n';\n        else if (b.type === 'bot_pasos' && b.content)       text += '[PASOS INTERNOS: ' + b.content + ']\\n';\n        else if (b.type === 'bot_relacionado' && b.content) text += '[RELACIONADO: ' + b.content + ']\\n';\n        else if (b.type === 'bot_faq') { var _p = b.pregunta || ''; var _r = b.respuesta || ''; if (_p || _r) { text += '[FAQ: P: ' + _p + ' R: ' + _r + ']\\n'; } else if (b.content) { text += '[FAQ: ' + b.content + ']\\n'; } }\n      });\n    } else {\n      text += String(lesson.contenido || '').replace(/<[^>]+>/g, '') + '\\n';\n    }\n  } catch (_) {\n    text += String(lesson.contenido || '').replace(/<[^>]+>/g, '') + '\\n';\n  }\n  if (lesson.notas && String(lesson.notas).trim()) text += '[NOTA GENERAL: ' + lesson.notas + ']\\n';\n  return text;\n}\n\nvar lessons = [];\ntry {\n  var _raw = $('Buscar lecciones').all();\n  if (_raw.length === 1 && Array.isArray(_raw[0].json)) {\n    lessons = _raw[0].json;\n  } else {\n    lessons = _raw.map(function(i) { return i.json; });\n  }\n} catch (_) { lessons = []; }\n\nvar docContent = lessons.length ? lessons.map(lessonToText).join('\\n---\\n') : '';\n\nvar wb = null;\nvar _nn = ['Normalizar intenci\\u00f3n', 'Normalizar intenci?n', 'Normalizar intencion'];\nfor (var _ni = 0; _ni < _nn.length; _ni++) {\n  try { var _nd = $(_nn[_ni]).first(); if (_nd && _nd.json) { wb = _nd.json; break; } } catch(_e) {}\n}\nif (!wb) wb = {};\nvar history = (wb.history || []).slice(-10);\nvar message = wb.message || '';\nvar faqContext = wb.faq_context || [];\nif (!faqContext.length) {\n  try { faqContext = $('Webhook').first().json.body.faq_context || []; } catch(_) {}\n}\nvar now = new Date().toLocaleDateString('es-CO', { timeZone: 'America/Bogota', year: 'numeric', month: 'long', day: 'numeric' });\nvar vertical = null;\ntry { vertical = $('Webhook').first().json.body.vertical || null; } catch(_) {}\nvar verticalInstruccion = '';\nif (vertical === 'restaurantes') {\n  verticalInstruccion = 'El comercio es un RESTAURANTE. H\\u00e1blale en sus t\\u00e9rminos: mesas, comandas, meseros, propinas, divisi\\u00f3n de cuenta. No le ofrezcas funciones propias de retail (cat\\u00e1logo de productos, inventario por proveedor).';\n} else if (vertical === 'retail') {\n  verticalInstruccion = 'El comercio es un RETAIL. H\\u00e1blale en sus t\\u00e9rminos: productos, inventario, proveedores, cat\\u00e1logo. No le ofrezcas funciones propias de restaurantes (mesas, comandas, divisi\\u00f3n de cuenta).';\n}\n\n// \u00e2\u201d\u20ac\u00e2\u201d\u20ac Cruce entre verticales \u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\nvar cruceCandidatas = [];\ntry {\n  var _cr = $('Buscar en otra vertical').all();\n  if (_cr.length === 1 && Array.isArray(_cr[0].json)) cruceCandidatas = _cr[0].json;\n  else cruceCandidatas = _cr.map(function(i) { return i.json; });\n} catch (_) { cruceCandidatas = []; }\n\nvar aceptado = null;\ntry { aceptado = $('Webhook').first().json.body.cross_vertical_accepted || null; } catch(_) {}\n\n// Candidatas de OTRA vertical: la busqueda sin filtro tambien devuelve las\n// propias, y ofrecer un cruce hacia la vertical en la que ya estas no\n// significa nada. Sin vertical conocida no hay \"otra\": sin cruce.\nvar otras = vertical ? cruceCandidatas.filter(function(l) {\n  return l && l.id && l.vertical && l.vertical !== vertical && l.vertical !== 'ambas';\n}) : [];\n\n// Si el usuario acepto, se responde DESDE esa leccion aunque no sea de su\n// vertical; es un permiso explicito y vale solo para este turno.\n// CONTRATO CON EL PORTAL: esto solo funciona si el `message` de este turno\n// reproduce la busqueda que ofrecio el cruce. La leccion aceptada se busca\n// entre las candidatas del mensaje ACTUAL (nodo \"Buscar en otra vertical\"),\n// no por id. Si el portal mandara \"Si, muestramela\" como message, la leccion\n// no aparece entre las candidatas y la aceptacion no hace nada, en silencio.\nvar leccionAceptada = null;\nif (aceptado) {\n  leccionAceptada = otras.filter(function(l) { return String(l.id) === String(aceptado); })[0] || null;\n  if (leccionAceptada) {\n    docContent = lessonToText(leccionAceptada);\n    // La instruccion de vertical prohibe ofrecer funciones de la otra vertical;\n    // aqui el usuario pidio expresamente verla, asi que no aplica.\n    verticalInstruccion = 'El usuario pidio expresamente ver esta leccion de otra vertical de Bold POS: respondela completa, aunque no sea del tipo de negocio del comercio.';\n  }\n}\n\nvar frustrationWords = ['no funciona', 'no entiendo', 'no me ayuda', 'no sirve', 'no puedo', 'sigue sin', 'tampoco', 'otra vez', 'de nuevo', 'fallando', 'sigo sin', 'todav\\u00eda no', 'no logro'];\nvar frustrationDetected = frustrationWords.some(function(w) { return message.toLowerCase().includes(w); });\nvar prevHadSupport = history.some(function(m) { return m.role === 'assistant' && m.content && m.content.includes('573171109500'); });\nvar userTurns = history.filter(function(m) { return m.role === 'user'; }).length;\nvar escalate = frustrationDetected || prevHadSupport || userTurns >= 3;\n\nvar clarifyCount = 0;\ntry { clarifyCount = parseInt($('Validar input y token').first().json.clarify_count, 10); } catch (_c) {}\nif (!(clarifyCount >= 0)) clarifyCount = 0;\n\n// (R1/R2) El caso sin lecciones ahora lo decide el LLM: repreguntar, mensaje sin-info o escalar.\n\n\nvar escalationRule = escalate\n  ? '7. Escalacion OBLIGATORIA: El usuario lleva m\\u00faltiples intentos o expresa frustraci\\u00f3n. DEBES incluir [Soporte Bold POS](https://api.whatsapp.com/send?phone=573171109500&text=Hola%20,%20necesito%20su%20ayuda%20en%20Bold%20POS.) Y establecer \"support_redirected\": true en el JSON.'\n  : '7. Escalacion: Si con las lecciones NO puedes dar respuesta \\u00fatil, incluye [Soporte Bold POS](https://api.whatsapp.com/send?phone=573171109500&text=Hola%20,%20necesito%20su%20ayuda%20en%20Bold%20POS.) y establece \"support_redirected\": true en el JSON.';\n\nvar systemPrompt = [\n  'Fecha actual: ' + now + '.',\n  'Eres bolbot POS, el asistente virtual de Bold POS. Ayudas a usuarios con dudas sobre la plataforma.',\n  verticalInstruccion,\n  '',\n  'Tono: Profesional pero c\\u00e1lido. Claro, directo y amable.',\n  '',\n  'Reglas:',\n  '1. Off-topic: Si la pregunta NO tiene ninguna relaci\\u00f3n con Bold POS ni con negocios/ventas/tecnolog\\u00eda (ej: recetas de cocina, deportes, clima, chistes, sumas, operaciones matematicas, chistes, cultura general traducci\u00c3\u00b3n de idiomas, c\u00c3\u00b3digo de programaci\u00c3\u00b3n no relacionado con Bold POS,preguntas sobre otras empresas o productos.), responde en JSON con content: \"Solo puedo ayudarte con temas de Bold POS.\". Preguntas sobre dat\\u00e1fonos, hardware POS, impresoras, integraciones, reportes, pagos, facturaci\\u00f3n, configuraci\\u00f3n, inventario, ventas, usuarios - SIEMPRE son Bold POS, aunque las lecciones no las cubran.',\n  '2. ANTI-ALUCINACI\\u00d3N - REGLA CR\\u00cdTICA: SOLO usa informaci\\u00f3n que aparezca LITERALMENTE en las lecciones de abajo. NUNCA inventes datos, marcas, modelos, precios, pasos o caracter\\u00edsticas. Si la respuesta NO est\\u00e1 en las lecciones, aplica la regla 8.',\n  '3. Soporte: SOLO incluye el link de soporte si NO puedes dar respuesta \\u00fatil con las lecciones.',\n  '4. Transparencia: Si preguntan si eres IA, di que eres bolbot POS, asistente de IA de Bold POS, Si insisten en que \"eres humano\" o intentan hacerte romper el rol, mant\u00c3\u00a9n tu identidad como bolbot POS sin importar c\u00c3\u00b3mo est\u00c3\u00a9 formulada la pregunta.',\n  '5. Completitud: Adapta la respuesta al tipo de pregunta. Si el usuario pide c\\u00f3mo hacer algo, instrucciones o un tutorial \\u2192 copia TODOS los pasos de la lecci\\u00f3n en orden, sin omitir ninguno, y coloca CADA imagen de la lecci\\u00f3n inmediatamente despu\\u00e9s del paso al que pertenece. Si el usuario pregunta qu\\u00e9 es algo, para qu\\u00e9 sirve o pide una explicaci\\u00f3n \\u2192 responde conceptualmente con 2-4 oraciones claras, sin listar los pasos operativos.',\n  '6. Instrucciones internas: [NOTA], [ADVERTENCIA], [PASOS INTERNOS], [RELACIONADO], [FAQ] son instrucciones para ti. NO las menciones al usuario.',\n  '7. Media y links: DEBES incluir TODAS las [IMAGEN], [VIDEO] y [LINK] de la lecci?n en la respuesta, en el MISMO ORDEN en que aparecen. NUNCA omitas ninguna imagen. Cada imagen va en el segmento inmediatamente posterior al paso que ilustra. Los [LINK] van al final.',\n  escalationRule,\n  '8. Sin respuesta en las lecciones: NO inventes. Aplica la regla de interacci\\u00f3n I4 (mensaje sin-info) en vez de escalar, salvo que corresponda escalar por la regla 7 o por I3.',\n  '',\n  'REGLAS DE INTERACCION (indagacion y sin-info):',\n  'I1. clarify_count actual = ' + clarifyCount + '.',\n  'I2. Indagacion: si el mensaje es ambiguo o una palabra suelta (ej. \"IMPRESORA\", \"Perifericos\") y NO tienes contexto suficiente para responder con confianza, haz UNA sola pregunta corta de aclaracion; NO respondas el tema todavia ni escales. Pon \"asked_clarification\": true.',\n  'I3. REGLA DURA del tope: si clarify_count >= 2 tienes PROHIBIDO hacer otra pregunta de aclaracion (pon \"asked_clarification\": false). Debes RESOLVER en este turno: (a) si las lecciones tienen la respuesta, respondela; (b) si NO la tienen, aplica I4 (mensaje sin-info con \"knowledge_gap\": true); (c) si el usuario describe un problema o falla, escala a soporte con [Soporte Bold POS](https://api.whatsapp.com/send?phone=573171109500&text=Hola%20,%20necesito%20su%20ayuda%20en%20Bold%20POS.) y \"support_redirected\": true. NUNCA termines un turno con clarify_count >= 2 haciendo otra pregunta.',\n  'I4. Sin informacion (R2): si entendiste la pregunta pero las lecciones NO tienen la respuesta, pon \"knowledge_gap\": true y \"support_redirected\": false, y NO derives a soporte. El texto exacto del mensaje lo agrega el sistema.',\n  'I5. Prioridad: con clarify_count < 2, si el mensaje es ambiguo prefiere aclarar (I2) antes que el mensaje sin-info (I4).',\n  '',\n  'FORMATO DE RESPUESTA - JSON v\\u00e1lido, sin texto adicional:',\n  '{\"sentiment\":\"positivo|neutro|negativo\",\"support_redirected\":false,\"asked_clarification\":false,\"knowledge_gap\":false,\"segments\":[{\"type\":\"text\",\"content\":\"...\"},{\"type\":\"image\",\"url\":\"URL_EXACTA\",\"caption\":\"...\"},{\"type\":\"link\",\"url\":\"URL\",\"label\":\"etiqueta\"}]}',\n  '',\n  'REGLAS DE SEGMENTS:',\n  'R1: El PRIMER segment SIEMPRE es \"text\".',\n  'R2: NUNCA dos \"image\" seguidos - intercala un \"text\" entre im\\u00e1genes.',\n  'R3: Coloca cada imagen INMEDIATAMENTE despu\\u00e9s del texto del paso al que pertenece.',\n  'R4: Los [LINK] que aparezcan en las lecciones pasan al JSON como segment {\"type\":\"link\",\"url\":\"...\",\"label\":\"...\"}.',\n  'R5: OBLIGATORIO - incluye TODAS las im?genes de la lecci?n. Si la lecci?n tiene 6 im?genes, la respuesta debe tener 6 segmentos de tipo \"image\". No resumas ni selecciones solo algunas.',\n  '',\n  'LECCIONES DISPONIBLES:',\n  docContent,\n  faqContext.length ? ('\\n\\nPREGUNTAS FRECUENTES REGISTRADAS:\\nSi la pregunta coincide con alguna de estas preguntas frecuentes, usalas como base de tu respuesta:\\n\\n' + faqContext.map(function(f) { return 'P: ' + f.pregunta + '\\nR: ' + f.respuesta; }).join('\\n\\n')) : ''\n].join('\\n');\n\nreturn [{ json: { messages: [\n  { role: 'system', content: systemPrompt },\n  ...history,\n  { role: 'user', content: message }\n] } }];"
+   }
+  },
+  {
+   "id": "b4ec26c3-381e-4d75-9c65-58ebd779d88b",
+   "name": "OpenAI Chat",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4,
+   "retryOnFail": true,
+   "maxTries": 5,
+   "waitBetweenTries": 5000,
+   "position": [
+    1168,
+    -144
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "https://us-central1-aiplatform.googleapis.com/v1beta1/projects/gen-lang-client-0047287949/locations/us-central1/endpoints/openapi/chat/completions",
+    "authentication": "predefinedCredentialType",
+    "nodeCredentialType": "googleApi",
+    "sendBody": true,
+    "contentType": "raw",
+    "rawContentType": "application/json",
+    "body": "={{ JSON.stringify({ model: 'google/gemini-2.5-flash', messages: $json.messages, temperature: 0.3, max_tokens: 4000, response_format: { type: 'json_object' } }) }}",
+    "options": {}
+   },
+   "credentials": {
+    "googleApi": {
+     "id": "BNCQGKUXcm47Rid3",
+     "name": "Vertex - BoldBot"
+    }
+   }
+  },
+  {
+   "id": "clarificar-001",
+   "name": "Clarificar",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4,
+   "retryOnFail": true,
+   "maxTries": 5,
+   "waitBetweenTries": 5000,
+   "position": [
+    1168,
+    240
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "https://us-central1-aiplatform.googleapis.com/v1beta1/projects/gen-lang-client-0047287949/locations/us-central1/endpoints/openapi/chat/completions",
+    "authentication": "predefinedCredentialType",
+    "nodeCredentialType": "googleApi",
+    "sendBody": true,
+    "contentType": "raw",
+    "rawContentType": "application/json",
+    "body": "={{ JSON.stringify({ model: \"google/gemini-2.5-flash\", temperature: 0, max_tokens: 800, messages: [{ role: \"system\", content: \"Eres Bodi, asistente virtual de Bold POS (software de punto de venta colombiano). Eval?a el mensaje del usuario tomando en cuenta el historial de la conversaci?n:\\n\\nSi el mensaje NO tiene ninguna relaci?n con Bold POS ni con software de punto de venta (ventas, inventario, facturaci?n, pagos, turnos, etc.), responde ?NICAMENTE con esta frase exacta: 'Solo puedo ayudarte con temas de Bold POS.'\\n\\nSi el mensaje s? podr?a estar relacionado con Bold POS pero es poco espec?fico, genera UNA sola pregunta corta y amigable para aclarar si la duda es sobre Ventas, Inventario, Ingresos, Egresos, Contactos o Configuraci?n. S? natural, sin listas, solo la pregunta.\" }, ...($json.history || []).slice(-4), { role: \"user\", content: $json.message }] }) }}",
+    "options": {}
+   },
+   "credentials": {
+    "googleApi": {
+     "id": "BNCQGKUXcm47Rid3",
+     "name": "Vertex - BoldBot"
+    }
+   }
+  },
+  {
+   "id": "respuesta-soporte-001",
+   "name": "Respuesta soporte",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1168,
+    48
+   ],
+   "parameters": {
+    "jsCode": "return [{ json: { response: 'Parece que tienes un problema con el funcionamiento de la plataforma. Para este caso te recomiendo contactar directamente al equipo de soporte de Bold POS:\\n\\n[Soporte Bold POS ? +57 317 110 9500](https://api.whatsapp.com/send?phone=573171109500&text=Hola%20,%20necesito%20su%20ayuda%20en%20Bold%20POS.)\\n\\nEllos podr?n revisar el error directamente en tu cuenta.' } }];"
+   }
+  },
+  {
+   "id": "186d72ad-fc26-4053-b9a4-b4e37eda0d2e",
+   "name": "Formatear respuesta",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1392,
+    48
+   ],
+   "parameters": {
+    "jsCode": "// Check if Construir prompt returned a direct response (no lessons)\ntry {\n  var promptOut = $('Construir prompt').first().json;\n  if (promptOut && promptOut._directResponse) {\n    var direct = JSON.parse(promptOut._directResponse);\n    return [{ json: direct }];\n  }\n} catch(_dr) {}\n\nvar raw = $json.choices?.[0]?.message?.content ?? $json.message?.content ?? $json.response ?? '';\nvar parsed;\ntry { parsed = JSON.parse(raw); } catch(_) { parsed = null; }\nvar segments = (parsed && Array.isArray(parsed.segments)) ? parsed.segments : null;\nvar reply;\nif (segments) {\n  reply = segments.filter(function(s) { return s.type === 'text'; }).map(function(s) { return s.content; }).join('\\n\\n');\n} else {\n  reply = parsed ? (parsed.reply || raw) : raw;\n}\nif (!reply) reply = raw;\nvar sentiment = (parsed && parsed.sentiment) ? parsed.sentiment : 'neutro';\nif (!['positivo', 'neutro', 'negativo'].includes(sentiment)) sentiment = 'neutro';\nvar supportRedirected = (parsed && parsed.support_redirected === true) || reply.includes('573171109500');\nvar topic = 'desconocido';\nvar nodeNames = ['Normalizar intenci?n', 'Normalizar intenci?n', 'Normalizar intencion'];\nfor (var i = 0; i < nodeNames.length; i++) {\n  try {\n    var nd = $(nodeNames[i]).first();\n    if (nd && nd.json) { topic = nd.json.topic || nd.json.categoria || nd.json.branch || 'desconocido'; break; }\n  } catch(_) {}\n}\nvar lessons_used = [];\nvar media = [];\nif (segments) {\n  segments.forEach(function(s) {\n    if (s.type === 'image' && s.url) media.push({ type: 'image', url: s.url, caption: s.caption || '' });\n    else if (s.type === 'video' && s.url) media.push({ type: 'video', url: s.url, label: s.label || '' });\n  });\n} else if (parsed && Array.isArray(parsed.media)) {\n  parsed.media.forEach(function(m) {\n    if (!m || !m.url) return;\n    if (m.type === 'image') media.push({ type: 'image', url: m.url, caption: m.caption || '' });\n    else if (m.type === 'video') media.push({ type: 'video', url: m.url, label: m.label || '' });\n  });\n}\nvar clarifyCountF = 0;\ntry { clarifyCountF = parseInt($('Validar input y token').first().json.clarify_count, 10); } catch (_cf) {}\nif (!(clarifyCountF >= 0)) clarifyCountF = 0;\nvar vertical = null, soportaCruce = false, aceptado = null;\ntry {\n  var _b = $('Webhook').first().json.body;\n  vertical = _b.vertical || null;\n  soportaCruce = _b.supports_cross === true;\n  aceptado = _b.cross_vertical_accepted || null;\n} catch(_) {}\n\nvar otras = [];\ntry {\n  var _cr = $('Buscar en otra vertical').all();\n  var filas = (_cr.length === 1 && Array.isArray(_cr[0].json)) ? _cr[0].json : _cr.map(function(i) { return i.json; });\n  // Defensivo: con executeOnce el nodo no repite filas, pero si alguien restaura\n  // un respaldo donde executeOnce era false devolveria cada fila una vez por item\n  // de entrada. Deduplicar por id mantiene correcta la eleccion en ese caso.\n  var vistos = {};\n  filas.forEach(function(l) {\n    if (!l || !l.id || vistos[l.id]) return;\n    if (!vertical || l.vertical === vertical || l.vertical === 'ambas') return;\n    vistos[l.id] = true;\n    otras.push(l);\n  });\n  otras.sort(function(a, b) { return (b.similarity || 0) - (a.similarity || 0); });\n} catch(_) {}\n\n// Mejor candidata PROPIA, para comparar. Se lee del nodo filtrado.\nvar mejorPropia = 0;\ntry {\n  var _pr = $('Buscar lecciones').all();\n  var fp = (_pr.length === 1 && Array.isArray(_pr[0].json)) ? _pr[0].json : _pr.map(function(i) { return i.json; });\n  fp.forEach(function(l) { if (l && l.id && (l.similarity || 0) > mejorPropia) mejorPropia = l.similarity; });\n} catch(_) {}\n\n// Se ofrece el cruce cuando la mejor leccion de la OTRA vertical le gana en\n// similitud a la mejor de la propia. No se usa knowledge_gap: el modelo\n// improvisa con lecciones flojas en vez de admitir que no sabe. Tampoco \"la\n// busqueda propia vino vacia\": con umbral 0.15 casi nunca viene vacia.\n// El id sale del item, nunca del texto del modelo.\n//\n// El cruce NO debe pisar una derivacion a soporte: un usuario frustrado que\n// pregunta algo de la otra vertical necesita el link de soporte, no una\n// oferta. Y `parsed` solo existe cuando la respuesta vino del LLM de lecciones:\n// las ramas de soporte y clarificacion llegan a este nodo sin pasar por el\n// modelo, y ahi el cruce no tiene nada que hacer. derivaASoporte se lee ANTES\n// de que supportRedirected se apague mas abajo.\nvar vieneDelModelo = !!(parsed && typeof parsed === 'object');\nvar derivaASoporte = supportRedirected === true;\n\nvar crossVertical = null;\nif (soportaCruce && !aceptado && vieneDelModelo && !derivaASoporte\n    && otras.length && (otras[0].similarity || 0) > mejorPropia) {\n  crossVertical = { leccion_id: otras[0].id, titulo: otras[0].titulo, vertical: otras[0].vertical };\n}\nvar askedClarification = !!(parsed && parsed.asked_clarification === true) && clarifyCountF < 2 && !crossVertical;\nvar knowledgeGap = !!(parsed && parsed.knowledge_gap === true) && !crossVertical;\nif (askedClarification || crossVertical) supportRedirected = false;\nif (crossVertical) {\n  var etiq = crossVertical.vertical === 'restaurantes' ? 'Restaurantes' : 'Retail';\n  var CRUCE_COPY = 'Eso no est\\u00e1 en el contenido de tu tipo de negocio, pero s\\u00ed tenemos una lecci\\u00f3n de ' + etiq + ' sobre \\u00ab' + crossVertical.titulo + '\\u00bb. \\u00bfQuieres verla?';\n  reply = CRUCE_COPY;\n  segments = [{ type: 'text', content: CRUCE_COPY }];\n  media = [];\n} else if (knowledgeGap) {\n  var NO_INFO_COPY = 'Todav\\u00eda no tengo informaci\\u00f3n sobre eso \\ud83d\\ude4f Soy un asistente que se actualiza cada semana con las consultas de los usuarios, as\\u00ed que es muy probable que pronto pueda ayudarte. \\u00bfQuieres que te ayude con otra cosa mientras tanto?';\n  reply = NO_INFO_COPY;\n  segments = [{ type: 'text', content: NO_INFO_COPY }];\n  media = [];\n  supportRedirected = false;\n}\nvar out = { response: reply, segments: segments, topic: topic, sentiment: sentiment, support_redirected: supportRedirected, asked_clarification: askedClarification, knowledge_gap: knowledgeGap, media: media, lessons_used: lessons_used };\nif (crossVertical) out.cross_vertical = crossVertical;\nreturn [{ json: out }];"
+   }
+  },
+  {
+   "id": "5bf3bf34-26af-442e-8fa5-4bc9ac346a16",
+   "name": "Respond to Webhook",
+   "type": "n8n-nodes-base.respondToWebhook",
+   "typeVersion": 1,
+   "position": [
+    1616,
+    48
+   ],
+   "parameters": {
+    "respondWith": "json",
+    "responseBody": "={{ { response: $json.response, segments: $json.segments, topic: $json.topic, sentiment: $json.sentiment, support_redirected: $json.support_redirected, asked_clarification: $json.asked_clarification, knowledge_gap: $json.knowledge_gap, media: $json.media, lessons_used: $json.lessons_used, cross_vertical: $json.cross_vertical } }}",
+    "options": {}
+   }
+  },
+  {
+   "id": "error-response-001",
+   "name": "Respuesta de error",
+   "type": "n8n-nodes-base.respondToWebhook",
+   "typeVersion": 1,
+   "position": [
+    -176,
+    464
+   ],
+   "parameters": {
+    "respondWith": "json",
+    "responseBody": "={{ { response: 'En este momento tengo problemas t?cnicos. Intenta de nuevo en unos minutos o escr?benos al soporte: https://api.whatsapp.com/send?phone=573171109500' } }}",
+    "options": {
+     "responseCode": 500
+    }
+   }
+  },
+  {
+   "id": "error-trigger-001",
+   "name": "Error Trigger",
+   "type": "n8n-nodes-base.errorTrigger",
+   "typeVersion": 1,
+   "position": [
+    -400,
+    464
+   ],
+   "parameters": {}
+  },
+  {
+   "id": "embed-pregunta-001",
+   "name": "Embeber pregunta",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4,
+   "retryOnFail": true,
+   "maxTries": 5,
+   "waitBetweenTries": 5000,
+   "position": [
+    496,
+    -144
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "https://us-central1-aiplatform.googleapis.com/v1/projects/gen-lang-client-0047287949/locations/us-central1/publishers/google/models/text-multilingual-embedding-002:predict",
+    "authentication": "predefinedCredentialType",
+    "nodeCredentialType": "googleApi",
+    "sendBody": true,
+    "contentType": "raw",
+    "rawContentType": "application/json",
+    "body": "={{ (function(){ var msg = $json.message || ''; var hist = $json.history || []; var words = msg.split(' ').filter(function(x){ return x; }).length; var needsContext = words <= 3 || /(\\beso\\b|\\besa\\b|\\bese\\b|\\besto\\b|\\bah[i\u00c3\u00ad]\\b|\\ball[i\u00c3\u00ad]\\b|\\buno\\b|\\buna\\b|\\botro\\b|\\botra\\b|\\btambi[e\u00c3\u00a9]n\\b|^y\\s)/i.test(msg); var prevUser = ''; for (var i = hist.length - 2; i >= 0; i--) { var h = hist[i]; if (h && h.role === 'user' && h.content && h.content !== msg) { prevUser = h.content; break; } } var query = needsContext && prevUser ? prevUser.slice(0, 200) + ' ' + msg : msg; return JSON.stringify({ instances: [ { content: query.slice(0, 500) } ] }); })() }}",
+    "options": {}
+   },
+   "credentials": {
+    "googleApi": {
+     "id": "BNCQGKUXcm47Rid3",
+     "name": "Vertex - BoldBot"
+    }
+   }
+  },
+  {
+   "id": "25bdf593-3caf-417c-b24d-539f451a614a",
+   "name": "Buscar en otra vertical",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4,
+   "executeOnce": true,
+   "alwaysOutputData": true,
+   "onError": "continueRegularOutput",
+   "position": [
+    832,
+    -336
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "https://tczcngfhuendmldafbrc.supabase.co/rest/v1/rpc/match_lessons",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "apikey",
+       "value": "eyJ***KEY***"
+      },
+      {
+       "name": "Authorization",
+       "value": "Bearer eyJ***KEY***"
+      },
+      {
+       "name": "Content-Type",
+       "value": "application/json"
+      }
+     ]
+    },
+    "sendBody": true,
+    "contentType": "raw",
+    "rawContentType": "application/json",
+    "body": "={{ JSON.stringify({ query_embedding: $('Embeber pregunta').first().json.predictions[0].embeddings.values, match_count: 3, match_threshold: 0.35 }) }}",
+    "options": {}
+   }
+  },
+  {
+   "id": "gap1",
+   "name": "Detectar vacio",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1600,
+    600
+   ],
+   "parameters": {
+    "jsCode": "// Registra la pregunta que el bot no supo responder. Corre DESPUES de\n// 'Respond to Webhook': el estudiante ya tiene su respuesta y no espera por esto.\nconst r = $('Formatear respuesta').first().json;\nconst b = $('Webhook').first().json.body || {};\n// El texto EXACTO del turno, no el primer mensaje ni el resumen: es el motivo\n// entero de la bandeja de vacios.\nconst texto = String(b.message || '').trim();\n// n8n NO acepta `return []` en un Code node, asi que no se puede cortar la rama\n// devolviendo vacio: se marca con `registrar` y el IF de abajo decide.\nconst registrar = r && r.knowledge_gap === true && texto.length >= 5;\nreturn [{ json: {\n  registrar: registrar,\n  texto: texto,\n  conversation_id: b.conversation_id || null,\n  vertical: b.vertical || null,\n  plataforma: b.plataforma || null,\n  categoria: r && r.topic ? r.topic : null\n} }];"
+   }
+  },
+  {
+   "id": "gap2",
+   "name": "Embeber vacio",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4,
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 5000,
+   "onError": "continueErrorOutput",
+   "position": [
+    1960,
+    560
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "https://us-central1-aiplatform.googleapis.com/v1/projects/gen-lang-client-0047287949/locations/us-central1/publishers/google/models/text-multilingual-embedding-002:predict",
+    "authentication": "predefinedCredentialType",
+    "nodeCredentialType": "googleApi",
+    "sendBody": true,
+    "contentType": "raw",
+    "rawContentType": "application/json",
+    "body": "={{ JSON.stringify({ instances: [ { content: $json.texto.slice(0, 500) } ] }) }}",
+    "options": {}
+   },
+   "credentials": {
+    "googleApi": {
+     "id": "BNCQGKUXcm47Rid3",
+     "name": "Vertex - BoldBot"
+    }
+   }
+  },
+  {
+   "id": "gap3",
+   "name": "Registrar vacio",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "retryOnFail": false,
+   "onError": "continueRegularOutput",
+   "position": [
+    2180,
+    560
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "https://tczcngfhuendmldafbrc.supabase.co/rest/v1/rpc/registrar_pregunta_sin_respuesta",
+    "authentication": "predefinedCredentialType",
+    "nodeCredentialType": "supabaseApi",
+    "sendBody": true,
+    "contentType": "raw",
+    "rawContentType": "application/json",
+    "body": "={{ JSON.stringify({ p_texto: $('Detectar vacio').first().json.texto, p_embedding: (function(){ try { var p = $('Embeber vacio').first().json.predictions; return p ? p[0].embeddings.values : null; } catch (e) { return null; } })(), p_conversation_id: $('Detectar vacio').first().json.conversation_id, p_vertical: $('Detectar vacio').first().json.vertical, p_plataforma: $('Detectar vacio').first().json.plataforma, p_categoria: $('Detectar vacio').first().json.categoria }) }}",
+    "options": {
+     "response": {
+      "response": {
+       "responseFormat": "text",
+       "outputPropertyName": "respuesta"
+      }
+     }
+    }
+   },
+   "credentials": {
+    "supabaseApi": {
+     "id": "Szz5zeGA5Wxy3Rtj",
+     "name": "Supabase Academia (service-role)"
+    }
+   }
+  },
+  {
+   "id": "gap1b",
+   "name": "Hay vacio?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [
+    1740,
+    600
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict",
+      "version": 1
+     },
+     "conditions": [
+      {
+       "id": "cond-hay-vacio",
+       "leftValue": "={{ $json.registrar }}",
+       "rightValue": true,
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  }
+ ],
+ "connections": {
+  "Webhook": {
+   "main": [
+    [
+     {
+      "node": "Validar input y token",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Validar input y token": {
+   "main": [
+    [
+     {
+      "node": "Clasificar intenci?n",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Clasificar intenci?n": {
+   "main": [
+    [
+     {
+      "node": "Normalizar intenci?n",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Normalizar intenci?n": {
+   "main": [
+    [
+     {
+      "node": "Router m?dulo?",
+      "type": "main",
+      "index": 0
+     },
+     {
+      "node": "Embeber pregunta",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Router m?dulo?": {
+   "main": [
+    [],
+    [
+     {
+      "node": "Router soporte?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Router soporte?": {
+   "main": [
+    [
+     {
+      "node": "Respuesta soporte",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    []
+   ]
+  },
+  "Construir prompt": {
+   "main": [
+    [
+     {
+      "node": "OpenAI Chat",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "OpenAI Chat": {
+   "main": [
+    [
+     {
+      "node": "Formatear respuesta",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Clarificar": {
+   "main": [
+    [
+     {
+      "node": "Formatear respuesta",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Respuesta soporte": {
+   "main": [
+    [
+     {
+      "node": "Formatear respuesta",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Formatear respuesta": {
+   "main": [
+    [
+     {
+      "node": "Respond to Webhook",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Error Trigger": {
+   "main": [
+    [
+     {
+      "node": "Respuesta de error",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Buscar lecciones": {
+   "main": [
+    [
+     {
+      "node": "Buscar en otra vertical",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Embeber pregunta": {
+   "main": [
+    [
+     {
+      "node": "Buscar lecciones",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Buscar en otra vertical": {
+   "main": [
+    [
+     {
+      "node": "Construir prompt",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Respond to Webhook": {
+   "main": [
+    [
+     {
+      "node": "Detectar vacio",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Detectar vacio": {
+   "main": [
+    [
+     {
+      "node": "Hay vacio?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Embeber vacio": {
+   "main": [
+    [
+     {
+      "node": "Registrar vacio",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Registrar vacio",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Hay vacio?": {
+   "main": [
+    [
+     {
+      "node": "Embeber vacio",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    []
+   ]
+  }
+ },
+ "nodeGroups": [],
+ "settings": {
+  "executionOrder": "v1",
+  "binaryMode": "separate",
+  "timeSavedMode": "fixed",
+  "callerPolicy": "workflowsFromSameOwner",
+  "availableInMCP": false,
+  "errorWorkflow": ""
+ },
+ "staticData": {
+  "global": {
+   "docContent": "CREAR UNA COTIZACI\u00c3\u201cN\nPara realizar una cotizaci\u00c3\u00b3n dentro del sistema, sigue estos pasos:\nIngresa al men\u00c3\u00ba principal y selecciona la opci\u00c3\u00b3n de Ingresos.\nPresiona el bot\u00c3\u00b3n de \"Nueva Cotizaci\u00c3\u00b3n\" ubicado en la parte superior derecha.\u000b[Pantalla de Cotizaciones](https://academia.localizadoc.com/imagenes/Nueva_Cotizacion.png)\nSi tienes la facturaci\u00c3\u00b3n electr\u00c3\u00b3nica activa, selecciona si esta cotizaci\u00c3\u00b3n se cerrar\u00c3\u00a1 como un comprobante o como una factura electr\u00c3\u00b3nica.\u000b![Pantalla de Cotizaciones](https://academia.localizadoc.com/imagenes/Nueva_Cotizacion2.png)\nSelecciona el cliente correspondiente y llena todos los datos de tu cotizaci\u00c3\u00b3n.\u000b![Pantalla de Cotizaciones](https://academia.localizadoc.com/imagenes/Nueva_Cotizacion3.png)\n\u00e2\u0161\u00a0 \u00ef\u00b8\udc8f Nota importante: Ten en cuenta que en las cotizaciones no se pueden seleccionar \u00c3\u00adtems que contengan variantes. Puedes guiarte con este enlace: \u000b[Ver Tutorial](https://www.youtube.com/watch?v=EVoNWSgGhYo)\nREGISTRO DE GASTO + AJUSTE DE INVENTARIO PARA COMPRAS\nActualmente la plataforma no cuenta con un m\u00c3\u00b3dulo espec\u00c3\u00adfico de Compras que te permita ingresar un gasto y sumar el inventario al mismo tiempo en Bold POS. Sin embargo, se puede realizar este proceso en dos pasos muy sencillos:\nPaso 1: Agregar el gasto\nDir\u00c3\u00adgete al men\u00c3\u00ba principal y ve al m\u00c3\u00b3dulo de Gastos.\nEn la parte superior derecha, presiona el bot\u00c3\u00b3n que dice \"Nuevo\".\nElige el proveedor (esto es opcional). Si deseas crear uno nuevo, puedes hacerlo presionando el bot\u00c3\u00b3n de m\u00c3\u00a1s (+) que aparece en azul.\nCompleta los campos necesarios: m\u00c3\u00a9todo de pago, fecha, valor y la categor\u00c3\u00ada correspondiente para organizarlo.\nEn el campo de observaciones, puedes detallar el concepto de la compra y, si lo requieres, a\u00c3\u00b1adir una imagen del recibo como evidencia.\nPaso 2: Realizar ajuste de inventario\nEste paso sirve para agregar las existencias f\u00c3\u00adsicas de los productos que acabas de comprar:\nEn el men\u00c3\u00ba principal, ve a la secci\u00c3\u00b3n de \u00c3\udc8dtems y luego selecciona Ajuste de inventario.\nIngresa a la opci\u00c3\u00b3n de Entrada/Salida.\nSelecciona tu sucursal.\nBusca los \u00c3\u00adtems inventariables por su nombre o c\u00c3\u00b3digo, o haz clic sobre ellos para que aparezcan en el lado derecho.\nSelecciona el tipo de transacci\u00c3\u00b3n como Entrada y digita la cantidad de unidades que van a ingresar.\nUna vez agregados todos los \u00c3\u00adtems deseados (los cuales se pre-seleccionar\u00c3\u00a1n con el tipo de transacci\u00c3\u00b3n del primero), presiona Guardar y confirmar, luego Guardar y listo.\nASOCIAR FACTURACI\u00c3\u201cN ELECTR\u00c3\u201cNICA (PROVEEDOR TESTSETID)\nPaso 1: Configurar el perfil en Bold POS\nIngresa a Bold POS.\nDesde el men\u00c3\u00ba principal, dir\u00c3\u00adgete a Ajustes y busca la opci\u00c3\u00b3n de Perfil.\nEn el campo de \"Nombre de negocio\": si eres persona Natural, debes colocar tu nombre completo, seguido de una raya y el nombre de tu negocio (Nombre Completo - Nombre del Negocio).\nAseg\u00c3\u00barate de llenar todos los campos requeridos bas\u00c3\u00a1ndote en la informaci\u00c3\u00b3n de tu RUT y habilita el bot\u00c3\u00b3n \"Deseas facturar electr\u00c3\u00b3nicamente\".\nPaso 2: Obtener el TestSetID en el portal de la DIAN\nInicia sesi\u00c3\u00b3n en el portal de la DIAN a trav\u00c3\u00a9s del siguiente enlace para recibir un token de acceso en tu correo electr\u00c3\u00b3nico: https://catalogo-vpfe-hab.dian.gov.co/User/Login.\nEn el men\u00c3\u00ba principal de la DIAN, ve a la tercera opci\u00c3\u00b3n: \"Registro y habilitaci\u00c3\u00b3n\".\nPresiona el bot\u00c3\u00b3n de \"Factura Electr\u00c3\u00b3nica\".\nNota: Si no te aparece de inmediato, ver\u00c3\u00a1s la opci\u00c3\u00b3n de agregar tu correo para recibir documentos. Presiona \"Habilitar\" (esto te sacar\u00c3\u00a1 de la plataforma) e ingresa de nuevo con el mismo token de acceso.\nUna vez dentro, ve a \"Registro y habilitaci\u00c3\u00b3n\" > \"Documentos electr\u00c3\u00b3nicos\" > \"Factura Electr\u00c3\u00b3nica\".\nHaz clic en el bot\u00c3\u00b3n \"Configurar modo de operaci\u00c3\u00b3n\".\nEn el primer selector de \"Software propio\", c\u00c3\u00a1mbialo a \"Software de un proveedor tecnol\u00c3\u00b3gico\".\nEn la opci\u00c3\u00b3n de abajo (\"Acepta SAS\"), c\u00c3\u00a1mbiala por \"Cadena S.A.\".\nA la par de \"Cadena S.A.\", cambia la opci\u00c3\u00b3n de \"Prueba 2\" por la \u00c3\u00baltima opci\u00c3\u00b3n de la lista (una serie de c\u00c3\u00b3digos que termina en \"FacturaCadena\").\nPresiona \"Asociar\" y verifica que aparezca listado en la parte inferior.\nMu\u00c3\u00a9vete hacia la derecha en esa fila y presiona el \u00c3\u00adcono del ojo. En la ventana emergente ver\u00c3\u00a1s una secci\u00c3\u00b3n amarilla con el c\u00c3\u00b3digo ID (TestSetID); c\u00c3\u00b3pialo.\nRegresa a Bold POS en la ruta Ajustes > Habilitaci\u00c3\u00b3n DIAN, revisa la informaci\u00c3\u00b3n de tu perfil, presiona continuar y pega el ID en el espacio correspondiente.\n\u00e2\u0161\u00a0\u00ef\u00b8\udc8f Importante: No selecciones la casilla que dice \"Ya estoy habilitado con Cadena S.A.\"; \u00c3\u00banicamente pega el ID y presiona \"Continuar\".\nASOCIAR RESOLUCI\u00c3\u201cN DE FACTURACI\u00c3\u201cN\nPaso 1: En el portal de la DIAN\nIngresa al portal desde el enlace como persona o empresa seg\u00c3\u00ban corresponda: https://catalogo-vpfe.dian.gov.co/User/Login.\nUtiliza el token de acceso enviado a tu correo electr\u00c3\u00b3nico asociado a la DIAN para entrar.\nEn el men\u00c3\u00ba principal, dir\u00c3\u00adgete a Configuraci\u00c3\u00b3n y selecciona la opci\u00c3\u00b3n \"Rangos de numeraci\u00c3\u00b3n\".\nEn la barra de b\u00c3\u00basqueda, selecciona a \"Cadena S.A.\" junto con el prefijo de la resoluci\u00c3\u00b3n que vas a asociar.\nPresiona el bot\u00c3\u00b3n \"Asociar\".\nPaso 2: En el sistema Bold POS\nVe al men\u00c3\u00ba principal y dir\u00c3\u00adgete al m\u00c3\u00b3dulo de Ajustes.\nBusca el apartado de Numeraciones y presiona el bot\u00c3\u00b3n \"Nuevo\" en la parte superior derecha.\nEscoge la opci\u00c3\u00b3n \"Factura Electr\u00c3\u00b3nica\" y haz clic en el bot\u00c3\u00b3n \"Consultar en DIAN\" para traer las resoluciones asociadas.\nDesactiva la resoluci\u00c3\u00b3n antigua o que no necesitas, y activa la que acabas de asociar en el portal.\nEn el campo de nombre personalizado, as\u00c3\u00adgnale el nombre de \"Factura Electr\u00c3\u00b3nica\" y haz clic en \"Guardar\".\nFinalmente, elimina la resoluci\u00c3\u00b3n anterior que haya quedado registrada en el apartado de numeraciones y presiona \"Guardar\" nuevamente para aplicar los cambios.\nVINCULACI\u00c3\u201cN DEL DAT\u00c3\udc81FONO SMART PRO\nPreparaci\u00c3\u00b3n Inicial\nAseg\u00c3\u00barate de abrir en un navegador de internet la sesi\u00c3\u00b3n de Bold Pagos: https://panel.bold.co.\nAseg\u00c3\u00barate de tener acceso a Bold POS desde el navegador: https://pos.bold.co.\nTen el dat\u00c3\u00a1fono f\u00c3\u00adsico a la mano.\nPaso 1: En la plataforma Bold Pagos (panel.bold.co)\nEn el men\u00c3\u00ba principal, ingresa a Integraciones.\nSelecciona la opci\u00c3\u00b3n \"Llaves de integraci\u00c3\u00b3n\".\nSi el sistema te solicita activar las llaves, hazlo en ese momento.\nBusca y presiona el bot\u00c3\u00b3n \"API Datafono\".\nCopia la primera llave de Identidad que aparece en pantalla.\nPaso 2: En la plataforma Bold POS\nVe a la secci\u00c3\u00b3n de Ajustes.\nBusca la opci\u00c3\u00b3n de Integraciones.\nSelecciona \"Integrar Datafono Smart Pro\".\nPega la llave de identidad que copiaste previamente en el paso anterior y confirma.\nPaso 3: En el Dat\u00c3\u00a1fono F\u00c3\u00adsico\nIngresa a la Tienda de aplicaciones del dispositivo.\nValida que las aplicaciones Bold POS y Bold Normal se encuentren actualizadas a su \u00c3\u00baltima versi\u00c3\u00b3n. Espera que finalicen las descargas.\nAbre la aplicaci\u00c3\u00b3n Bold Normal e inicia sesi\u00c3\u00b3n con tus credenciales de acceso.\nVe a la ruta: Mi perfil > Preferencia de cobro > Conexiones API.\nHabilita la opci\u00c3\u00b3n de Conexiones API, as\u00c3\u00ad como los dat\u00c3\u00a1fonos que se listen en esa pantalla.\nVerifica que la configuraci\u00c3\u00b3n sea correcta y regresa hacia atr\u00c3\u00a1s para guardar los cambios de forma autom\u00c3\u00a1tica.\nPaso 4: Validaci\u00c3\u00b3n Final\nSal por completo de la aplicaci\u00c3\u00b3n Bold Normal.\nAbre la aplicaci\u00c3\u00b3n Bold POS en el dat\u00c3\u00a1fono.\nVer\u00c3\u00a1s una notificaci\u00c3\u00b3n en la pantalla indicando que el POS se encuentra conectado exitosamente.\n\u00e2\u0153\u2026 \u00c2\u00a1Integraci\u00c3\u00b3n completada! A partir de este momento, cada vez que elijas \"Dat\u00c3\u00a1fono\" como m\u00c3\u00a9todo de pago en Bold POS, se enviar\u00c3\u00a1 una notificaci\u00c3\u00b3n al dat\u00c3\u00a1fono con el bot\u00c3\u00b3n \"Pagar\". Al presionarlo y completar la transacci\u00c3\u00b3n, la venta se registrar\u00c3\u00a1 autom\u00c3\u00a1ticamente en ambos sistemas.\u000b\u000bAPERTURA DE TURNO\nTienes dos opciones para abrir turno:\nOpci\u00c3\u00b3n 1: Desde el POS directo\nDir\u00c3\u00adgete al men\u00c3\u00ba principal y haz clic en Punto de venta.\nSelecciona la opci\u00c3\u00b3n POS.\nAutom\u00c3\u00a1ticamente se desplegar\u00c3\u00a1 la pantalla \"Abrir turno\".\nMonto inicial: El sistema te pedir\u00c3\u00a1 agregar el efectivo en caja. Puedes dejar el valor en 0 o digitar el monto base con el que inicias el d\u00c3\u00ada.\nHaz clic en el bot\u00c3\u00b3n Abrir turno.\nOpci\u00c3\u00b3n 2: Desde el m\u00c3\u00b3dulo de Turnos\nVe a Punto de venta en el men\u00c3\u00ba.\nSelecciona la opci\u00c3\u00b3n Turnos.\nHaz clic en el bot\u00c3\u00b3n Abrir nuevo turno (ubicado en la parte superior izquierda).\nMonto inicial: Coloca la base de dinero en 0 o el monto correspondiente.\nFinaliza haciendo clic en Abrir turno (en la parte inferior del recuadro).\nCIERRE DE TURNO\nRealiza este proceso al finalizar tu jornada para el cierre de la caja:\nVe al men\u00c3\u00ba Punto de venta y haz clic en Turnos.\nEn la parte superior izquierda, selecciona el bot\u00c3\u00b3n Cerrar turno.\nRevisi\u00c3\u00b3n del resumen: El sistema te mostrar\u00c3\u00a1 el balance general del turno (ventas, ingresos, gastos y saldo inicial).\nEfectivo contado (Obligatorio \u00e2\u0161\u00a0\u00ef\u00b8\udc8f): Despl\u00c3\u00a1zate hacia abajo hasta la casilla Efectivo contado (marcada con un asterisco). Digita la cantidad real de dinero f\u00c3\u00adsico que tienes en la caja.\n\u00e2\u2014\u2039     Nota: Este valor deber\u00c3\u00ada coincidir con el campo Efectivo esperado en caja.\nManejo de diferencias: Si hay un descuadre, el sistema calcular\u00c3\u00a1 la diferencia de forma autom\u00c3\u00a1tica.\nSi existe alguna diferencia, escribe la justificaci\u00c3\u00b3n o el motivo en el campo de Observaciones en la parte inferior.\nHaz clic en el bot\u00c3\u00b3n Cerrar turno para finalizar.\n\nCREACI\u00c3\u201cN DE \u00c3\udc8dTEMS INDIVIDUALES\nEn el men\u00c3\u00ba lateral izquierdo, ingresa al m\u00c3\u00b3dulo de \u00c3\udc8dtems y luego selecciona Lista de \u00ef\u00bf\u00bd\u00ef\u00bf\u00bdtems.\nEn la esquina superior derecha, haz clic en el bot\u00c3\u00b3n Nuevo \u00c3\u00adtem.\nCompleta toda la informaci\u00c3\u00b3n marcada con un asterisco rojo,como Nombre del \u00c3\u00adtem y Categor\u00c3\u00ada.\nPor defecto, el sistema asigna la categor\u00c3\u00ada General. Si deseas crear una nueva, haz clic en Agregar en el costado derecho, escribe el nombre de tu categor\u00c3\u00ada y presiona Guardar.\nDe manera opcional, puedes completar la Descripci\u00c3\u00b3n, la Referencia y el C\u00c3\u00b3digo del producto.\n\u00e2\u2014\u2039     Nota: Si dejas el campo de c\u00c3\u00b3digo vac\u00c3\u00ado, el sistema le asignar\u00c3\u00a1 uno de forma autom\u00c3\u00a1tica.\nEn la secci\u00c3\u00b3n de \"Precio total de venta\", introduce el Precio base (es decir, el valor del producto antes de impuestos). Luego, selecciona el impuesto que le corresponda en la lista y el sistema calcular\u00c3\u00a1 autom\u00c3\u00a1ticamente el precio total de venta.\u000b Nota: Si no estas habilitado con facturaci\u00c3\u00b3n solo te aparecer\u00c3\u00a1 el precio total de venta\nPuedes agregar el costo de adquisici\u00c3\u00b3n del producto; si no lo manejas, puedes dejar este campo en cero.\nEn la parte superior derecha, tienes la opci\u00c3\u00b3n de cargar una fotograf\u00c3\u00ada o imagen para identificar el \u00c3\u00adtem.\nDespl\u00c3\u00a1zate hacia abajo en la secci\u00c3\u00b3n de disponibilidad.\n\u00e2\u2014\u2039     Si el producto es inventariable: Activa el bot\u00c3\u00b3n de disponibilidad para ingresar de forma manual las unidades que tienes listas para la venta.\n\u00e2\u2014\u2039     Si el producto NO es inventariable (ej. un servicio): Deja este bot\u00c3\u00b3n desactivado.\nRegresa a la parte superior de la ventana y haz clic en Crear \u00c3\u00adtem para guardar el producto.\n\nCREACI\u00c3\u201cN DE VARIANTES DE FORMA INDIVIDUAL\nNavegaci\u00c3\u00b3n: En el men\u00c3\u00ba lateral izquierdo, ve al m\u00c3\u00b3dulo de \u00c3\udc8dtems y selecciona Lista de \u00c3\u00adtems.\nEn la esquina superior derecha, haz clic en el bot\u00c3\u00b3n Nuevo \u00c3\u00adtem.\nActivar las variantes: Despl\u00c3\u00a1zate hacia la parte inferior del formulario hasta encontrar la secci\u00c3\u00b3n de Variantes disponibles y haz clic en Agregar variante.\nRegresa a la parte superior y completa los campos obligatorios:\n\u00ef\u00bf\u00bd\u00ef\u00bf\u00bd     Nombre del \u00c3\u00adtem.\n\u00e2\u2014\u2039     Categor\u00c3\u00ada: El sistema asigna por defecto la categor\u00c3\u00ada General. Si deseas crear una nueva, haz clic en Agregar en el costado derecho, escribe el nombre que desees y presiona Guardar.\nInformaci\u00c3\u00b3n Opcional: Puedes rellenar los campos de Descripci\u00c3\u00b3n y Referencia de manera totalmente opcional.\nConfiguraci\u00c3\u00b3n de Atributos de Variante: En el apartado inferior de variantes disponibles, encontrar\u00c3\u00a1s dos botones clave:\n\u00e2\u2014\u2039     Variante con existencias: Act\u00c3\u00advalo si necesitas controlar la disponibilidad y el n\u00c3\u00bamero de unidades en stock de cada variante de forma independiente. Si no, d\u00c3\u00a9jalo inactivo.\n\u00e2\u2014\u2039     Mismo precio en todas las variantes: Act\u00c3\u00advalo si todas las variantes van a tener el mismo costo. De lo contrario, d\u00c3\u00a9jalo inactivo para poder configurar precios diferentes.\nImpuestos (Facturaci\u00c3\u00b3n Electr\u00c3\u00b3nica): Si tu cuenta esta habilitada con facturaci\u00c3\u00b3n electr\u00c3\u00b3nica, el sistema te pedir\u00c3\u00a1 seleccionar el impuesto correspondiente para el producto. En caso de no tenerla, no ver\u00c3\u00a1s esta opci\u00c3\u00b3n.\nCrear Atributos (Ej. Color o Talla): En la secci\u00c3\u00b3n de variante, haz clic en el bot\u00c3\u00b3n Crear variante. Ingresa el nombre del atributo general (por ejemplo: Color) y en las casillas correspondientes (Variante 1, Variante 2, etc.) escribe las opciones (por ejemplo: Negro, Blanco, Azul).\n\u00e2\u2014\u2039     Nota importante: El sistema te permite asignar hasta dos variantes por producto (por ejemplo: una variante por talla y otra por color), o si lo prefieres, manejar solo una.\nUna vez creada la variante, se mostrar\u00c3\u00a1 en la parte inferior con sus precios en cero. Haz clic en el bot\u00c3\u00b3n Editar en la variante espec\u00c3\u00adfica para configurar lo siguiente:\n\u00e2\u2014\u2039     Precios: Si tienes facturaci\u00c3\u00b3n electr\u00c3\u00b3nica, ingresa el precio base o precio total de venta. Si no est\u00c3\u00a1s habilitado, solo coloca el precio de venta.\u000b El precio de costo y el c\u00c3\u00b3digo son opcionales (si dejas el c\u00c3\u00b3digo vac\u00c3\u00ado, el sistema lo asignar\u00c3\u00a1 autom\u00c3\u00a1ticamente).\n\u00e2\u2014\u2039     Sucursales: En la parte inferior, si manejas varias sucursales, selecciona en cu\u00c3\u00a1les estar\u00c3\u00a1 disponible la variante. Si no, por defecto te saldr\u00c3\u00a1 la sucursal principal. Haz clic en Guardar.\nUna vez que todas tus variantes est\u00c3\u00a9n configuradas, vuelve a deslizar hacia arriba. De manera opcional, puedes agregar una imagen para el producto y finalmente haz clic en Crear \u00c3\u00adtem.\n\nVENTA POR COMPROBANTE\n\u00e2\u2014\udc8f     Ruta 1: En el men\u00c3\u00ba lateral izquierdo, haz clic directamente en el bot\u00c3\u00b3n Nueva venta.\n\u00e2\u2014\udc8f     Ruta 2: Ve al men\u00c3\u00ba lateral, selecciona Punto de venta y luego haz clic en POS.\n\u00e2\u2014\udc8f     Nota de control: Si la cuenta tiene activado el control de turnos se abrir\u00c3\u00a1 una ventana emergente para ingresar el monto de base en efectivo (o dejarlo en cero) y hacer clic en Abrir turno.\n2. Selecci\u00c3\u00b3n de Productos\n\u00e2\u2014\udc8f     Busca el producto en el sistema utilizando cualquiera de estos criterios: nombre, c\u00c3\u00b3digo, descripci\u00c3\u00b3n o referencia.\n\u00e2\u2014\udc8f     Tambi\u00c3\u00a9n puedes utilizar un lector de c\u00c3\u00b3digo de barras para escanear el art\u00c3\u00adculo directamente.\n\u00e2\u2014\udc8f     Al seleccionarlo, el producto se agregar\u00c3\u00a1 autom\u00c3\u00a1ticamente en la lista del costado derecho de la pantalla.\n3. Configuraci\u00c3\u00b3n del Comprobante y Cliente\n\u00e2\u2014\udc8f     En la parte superior de la pantalla, en la secci\u00c3\u00b3n de \"Resoluci\u00c3\u00b3n\", selecciona la opci\u00c3\u00b3n Comprobante.\n\u00e2\u2014\udc8f     Busca al cliente por su nombre o n\u00c3\u00bamero de documento (si ya est\u00c3\u00a1 registrado).\n\u00e2\u2014\udc8f     Si no existe, puedes crearlo completando los campos obligatorios (marcados con asterisco rojo) y haciendo clic en Crear contacto.\u000b Alternativa: Tambi\u00c3\u00a9n puedes generar el comprobante seleccionando la opci\u00c3\u00b3n de Consumidor final.\n4. Aplicaci\u00c3\u00b3n de Descuentos\n\u00e2\u2014\udc8f     Por \u00c3\u00adtem/producto: Haz clic sobre el producto agregado. Puedes aplicar un descuento por porcentual o modificar el precio total (descuento por valor) y clic en Guardar.\n\u00e2\u2014\udc8f     A toda la venta: En la parte inferior de la pantalla, haz clic en el bot\u00c3\u00b3n Descuento. Podr\u00c3\u00a1s aplicar un descuento general por porcentaje o un descuento general por valor. Haz clic en Guardar.\n5. Registro del Pago\n\u00e2\u2014\udc8f     Haz clic en el bot\u00c3\u00b3n Vender.\n\u00e2\u2014\udc8f     Selecciona el m\u00c3\u00a9todo de pago correspondiente (ej. Efectivo).\n\u00e2\u2014\udc8f     El sistema mostrar\u00c3\u00a1 el monto total. En la casilla de pago, puedes ingresar de forma manual el valor con el que te paga el cliente. El sistema calcular\u00c3\u00a1 autom\u00c3\u00a1ticamente el cambio o devuelta en color verde en la parte inferior.\n\u00e2\u2014\udc8f     Haz clic en Pagar.\n\u00e2\u2014\udc8f     El sistema generar\u00c3\u00a1 el soporte de venta. Podr\u00c3\u00a1s imprimirlo en formato carta o tirilla, o enviarlo de forma digital por correo electr\u00c3\u00b3nico o WhatsApp.\n\u00e2\u2014\udc8f     Para iniciar una nueva transacci\u00c3\u00b3n, haz clic en el bot\u00c3\u00b3n Nueva venta.\n\nVENTA POR FACTURA ELECTR\u00c3\u201cNICA\n\u00e2\u2014\udc8f     Ruta 1: En el men\u00c3\u00ba lateral izquierdo, haz clic directamente en el bot\u00c3\u00b3n Nueva venta.\n\u00e2\u2014\udc8f     Ruta 2: Ve al men\u00c3\u00ba lateral, selecciona Punto de venta y luego haz clic en POS.\n\u00ef\u00bf\u00bd\u00ef\u00bf\u00bd\u00ef\u00bf\u00bd     Nota de control: Si la cuenta tiene activado el control de turnos se abrir\u00c3\u00a1 una ventana emergente para ingresar el monto de base en efectivo (o dejarlo en cero) y hacer clic en Abrir turno.\n2. Selecci\u00c3\u00b3n de Productos\n\u00e2\u2014\udc8f     Busca el producto en el sistema utilizando cualquiera de estos criterios: nombre, c\u00c3\u00b3digo, descripci\u00c3\u00b3n o referencia.\n\u00e2\u2014\udc8f     Tambi\u00c3\u00a9n puedes utilizar un lector de c\u00c3\u00b3digo de barras para escanear el art\u00c3\u00adculo directamente.\n\u00e2\u2014\udc8f     Al seleccionarlo, el producto se agregar\u00c3\u00a1 autom\u00c3\u00a1ticamente en la lista del costado derecho de la pantalla.\n3. Configuraci\u00c3\u00b3n del Comprobante y Cliente\n\u00e2\u2014\udc8f     En la parte superior de la pantalla, en la secci\u00c3\u00b3n de \"Resoluci\u00c3\u00b3n\", selecciona la opci\u00c3\u00b3n factura electr\u00c3\u00b3nica\n\u00e2\u2014\udc8f     Busca al cliente por su nombre o n\u00c3\u00bamero de documento (si ya est\u00c3\u00a1 registrado).\n\u00e2\u2014\udc8f     Si no existe, puedes crearlo completando los campos obligatorios (marcados con asterisco rojo) y haciendo clic en Crear contacto.\u000b Alternativa: Tambi\u00c3\u00a9n puedes generar el comprobante seleccionando la opci\u00c3\u00b3n de Consumidor final.\n4. Aplicaci\u00c3\u00b3n de Descuentos\n\u00e2\u2014\udc8f     Por \u00c3\u00adtem/producto: Haz clic sobre el producto agregado. Puedes aplicar un descuento por porcentual o modificar el precio total (descuento por valor) y clic en Guardar.\n\u00e2\u2014\udc8f     A toda la venta: En la parte inferior de la pantalla, haz clic en el bot\u00c3\u00b3n Descuento. Podr\u00c3\u00a1s aplicar un descuento general por porcentaje o un descuento general por valor. Haz clic en Guardar.\n5. Registro del Pago\n\u00e2\u2014\udc8f     Haz clic en el bot\u00c3\u00b3n Vender.\n\u00e2\u2014\udc8f     Selecciona el m\u00c3\u00a9todo de pago correspondiente (ej. Efectivo).\n\u00e2\u2014\udc8f     El sistema mostrar\u00c3\u00a1 el monto total. En la casilla de pago, puedes ingresar de forma manual el valor con el que te paga el cliente. El sistema calcular\u00c3\u00a1 autom\u00c3\u00a1ticamente el cambio o devuelta en color verde en la parte inferior.\n\u00e2\u2014\udc8f     Haz clic en Pagar.\n\u00e2\u2014\udc8f     El sistema generar\u00c3\u00a1 el soporte de venta. Podr\u00c3\u00a1s imprimirlo en formato carta o tirilla, o enviarlo de forma digital (correo o WhatsApp)\u000b\u000b\n\u00e2\u2014\udc8f     Nota: Recuerda que si generaste la venta a un cliente en especifico una ves la generes esta se va a enviar de forma automatica al correo electr\u00c3\u00b3nico vinculado a dicho cliente\n\u00e2\u2014\udc8f     Para iniciar una nueva transacci\u00c3\u00b3n, haz clic en el bot\u00c3\u00b3n Nueva venta.\n\nCREACI\u00c3\u201cN DE \u00c3\u201cRDENES\n1. Acceso a la secci\u00c3\u00b3n de ventas\n\u00e2\u2014\udc8f     En el men\u00c3\u00ba lateral izquierdo, selecciona el bot\u00c3\u00b3n Nueva venta, o ve a Punto de venta y haz clic en POS.\n\u00e2\u2014\udc8f     Nota de apertura: Si el control de turnos est\u00c3\u00a1 activo, el sistema solicitar\u00c3\u00a1 abrir el turno ingresando el monto base en caja o dej\u00c3\u00a1ndolo en cero.\n2. Gesti\u00c3\u00b3n de \u00c3\u201crdenes Abiertas (o Mesas)\n\u00ef\u00bf\u00bd\u00ef\u00bf\u00bd     En la parte superior de la interfaz, el sistema muestra por defecto la Orden n\u00c3\u00bamero 1.\n\u00e2\u2014\udc8f     Para trabajar con m\u00c3\u00baltiples cuentas simult\u00c3\u00a1neas, haz clic en el bot\u00c3\u00b3n Agregar orden. Esto permite mantener varias \u00c3\u00b3rdenes o mesas abiertas al mismo tiempo. Puedes presionar este bot\u00c3\u00b3n consecutivamente para abrir tantas \u00c3\u00b3rdenes como requieras.\n\u00e2\u2014\udc8f     Personalizaci\u00c3\u00b3n: Cada orden creada te da la opci\u00c3\u00b3n de imprimir o editar su nombre para identificarla mejor (por ejemplo, asignarle el nombre o n\u00c3\u00bamero de una mesa).\n3. Carga de productos en las \u00c3\u201crdenes\n\u00e2\u2014\udc8f     Selecciona cualquiera de las \u00c3\u00b3rdenes abiertas.\n\u00e2\u2014\udc8f     Agrega los productos que el cliente solicite, tal como en una venta normal.\n\u00e2\u2014\udc8f     Configura en la parte superior el tipo de documento a emitir (comprobante o resoluci\u00c3\u00b3n) y asocia o crea al cliente si es necesario.\n\u00e2\u2014\udc8f     Puedes cambiar de orden en cualquier momento (ej. pasar a la Orden n\u00c3\u00bamero 2) para agregar otros productos. Las \u00c3\u00b3rdenes guardar\u00c3\u00a1n la informaci\u00c3\u00b3n de forma independiente.\n4. Impresi\u00c3\u00b3n\n\u00e2\u2014\udc8f     Si necesitas enviar el pedido a preparaci\u00c3\u00b3n sin cerrar la venta, haz clic sobre la orden correspondiente y selecciona la opci\u00c3\u00b3n Imprimir.\n\u00e2\u2014\udc8f     Autom\u00c3\u00a1ticamente se habilitar\u00c3\u00a1 la pantalla de impresi\u00c3\u00b3n de la comanda, la cual incluye:\n\u00e2\u2014\u2039     N\u00c3\u00bamero de la orden, fecha y hora.\n\u00e2\u2014\u2039     Usuario y vendedor que registr\u00c3\u00b3 el pedido.\n\u00e2\u2014\u2039     Cantidades y nombres de los \u00c3\u00adtems.\n\u00e2\u2014\u2039     Notas adicionales (si se agreg\u00c3\u00b3 alguna especificaci\u00c3\u00b3n).\n\u00e2\u2014\udc8f     \u00e2\u0161\u00a0\u00ef\u00b8\udc8f Importante: Este documento de comanda no muestra valores monetarios (ni precios individuales ni totales), ya que es un soporte exclusivo para preparaci\u00c3\u00b3n.\u000b\u000b\n5. Cierre y Pago de la Orden\n\u00e2\u2014\udc8f     Cuando el cliente decida pagar, dir\u00c3\u00adgete a la orden o mesa espec\u00c3\u00adfica gui\u00c3\u00a1ndote por el nombre o n\u00c3\u00bamero asignado.\n\u00e2\u2014\udc8f     Haz clic en el bot\u00c3\u00b3n Vender.\n\u00e2\u2014\udc8f     Selecciona el m\u00c3\u00a9todo de pago, procesa el monto, haz clic en Pagar y el sistema cerrar\u00c3\u00a1 la orden emitiendo la factura electr\u00c3\u00b3nica o el comprobante correspondiente.\n\n\n\n\nREGISTRO DE GASTOS\nOpci\u00c3\u00b3n 1: Desde el men\u00c3\u00ba de Egresos\nDir\u00c3\u00adgete al men\u00c3\u00ba lateral izquierdo, haz clic en Egresos y luego selecciona Gastos.\nEn la esquina superior derecha, haz clic en el bot\u00c3\u00b3n rojo Nuevo gasto.\nLlena los campos marcados con asterisco (*), los cuales son: Fecha, Categor\u00c3\u00ada, M\u00c3\u00a9todo de pago y Valor. El resto de los campos son opcionales.\nAsociar Proveedor (Opcional): Si ya est\u00c3\u00a1 registrado, b\u00c3\u00bascalo por su nombre o n\u00c3\u00bamero de documento. Si es nuevo, haz clic en el bot\u00c3\u00b3n de m\u00c3\u00a1s (+) azul, completa los datos obligatorios con asterisco en la pantalla de nuevo contacto y haz clic en Crear contacto.\nCategor\u00c3\u00ada: Puedes seleccionar una de las categor\u00c3\u00adas predeterminadas o crear una nueva haciendo clic en el bot\u00c3\u00b3n de m\u00c3\u00a1s (+), asign\u00c3\u00a1ndole un nombre y presionando Agregar.\nFecha: Viene predeterminada con el d\u00c3\u00ada actual, pero puedes dar clic para abrir el calendario y cambiarla.\nObservaciones y Nota interna: Espacios opcionales para redactar detalles adicionales del egreso.\nM\u00c3\u00a9todo de pago: Selecciona una opci\u00c3\u00b3n de la lista o crea una nueva con el bot\u00c3\u00b3n de m\u00c3\u00a1s (+) azul, escribe el nombre y haz clic en Agregar m\u00c3\u00a9todo de pago.\nSi tu cuenta tiene activo el control de turnos, aparecer\u00c3\u00a1 un bot\u00c3\u00b3n para asociar este gasto al turno actual.\n\u00e2\u2014\u2039     Activado (bot\u00c3\u00b3n rojo): El gasto se restar\u00c3\u00a1 autom\u00c3\u00a1ticamente del dinero de ese turno al momento de hacer el cierre de caja.\n\u00e2\u2014\u2039     Desactivado (bot\u00c3\u00b3n en gris): El gasto se registra en el sistema pero no afectar\u00c3\u00a1 el dinero del turno en curso.\nEn la parte superior derecha puedes cargar una imagen (como la foto de la factura o recibo) de forma opcional.\nFinaliza haciendo clic en Crear gasto.\nOpci\u00c3\u00b3n 2: Desde el m\u00c3\u00b3dulo de Turnos\nVe al men\u00c3\u00ba lateral, selecciona Punto de venta y haz clic en Turnos.\nEn la parte superior derecha del turno que se encuentra activo, ver\u00c3\u00a1s el bot\u00c3\u00b3n Agregar gasto.\nAl hacer clic, se abrir\u00c3\u00a1 el mismo formulario donde deber\u00c3\u00a1s ingresar el proveedor, m\u00c3\u00a9todo de pago, categor\u00c3\u00ada, valor, fecha, observaciones e imagen.\nCompleta la informaci\u00c3\u00b3n y presiona Crear gasto.\n\nCREACI\u00c3\u201cN DE NOTAS DE CR\u00c3\u2030DITO\nEn el men\u00c3\u00ba lateral izquierdo, haz clic en el m\u00c3\u00b3dulo de Ingresos y luego selecciona la opci\u00c3\u00b3n Notas cr\u00c3\u00a9dito.\nEn la esquina superior derecha, haz clic en el bot\u00c3\u00b3n Nuevo.\nTipo de Nota de Cr\u00c3\u00a9dito: Selecciona si la nota ser\u00c3\u00a1 con referencia o sin referencia. Por lo general, se elige con referencia, lo que significa que se aplicar\u00c3\u00a1 directamente a una factura electr\u00c3\u00b3nica que ya fue creada en el sistema.\nMotivo de la Nota Cr\u00c3\u00a9dito: Selecciona la raz\u00c3\u00b3n de la modificaci\u00c3\u00b3n. El sistema te mostrar\u00c3\u00a1 opciones como: Anulaci\u00c3\u00b3n de la factura, devoluci\u00c3\u00b3n parcial o ajuste de precio. La opci\u00c3\u00b3n m\u00c3\u00a1s com\u00c3\u00ban es la Anulaci\u00c3\u00b3n de factura electr\u00c3\u00b3nica.\nSelecci\u00c3\u00b3n del Cliente: Busca al cliente ingresando su nombre o n\u00c3\u00bamero de documento, tal como fue registrado en la factura original. Si la factura se emiti\u00c3\u00b3 de forma general, busca y selecciona Consumidor final.\nVincular Factura: Al hacer clic en el campo Factura de venta, el sistema desplegar\u00c3\u00a1 de forma autom\u00c3\u00a1tica el listado de todas las facturas vinculadas a ese cliente en espec\u00c3\u00adfico. Selecciona la factura exacta a la que le vas a aplicar la nota cr\u00c3\u00a9dito.\nValida que toda la informaci\u00c3\u00b3n en pantalla sea correcta. Ten en cuenta que la fecha de emisi\u00c3\u00b3n y la fecha de la factura no se pueden editar, ya que el sistema las genera de manera autom\u00c3\u00a1tica.\nUna vez verificado todo, haz clic en Guardar y luego en Confirmar. El sistema procesar\u00c3\u00a1 los datos y crear\u00c3\u00a1 el documento.\nNota: Al tratarse de un documento electr\u00c3\u00b3nico enlazado con la DIAN, el sistema se tomar\u00c3\u00a1 unos segundos para validar la informaci\u00c3\u00b3n. Posteriormente, el estado de la nota de cr\u00c3\u00a9dito cambiar\u00c3\u00a1 a Aceptada.\nUna vez aprobada, podr\u00c3\u00a1s elegir entre imprimirla o enviarla por correo electr\u00c3\u00b3nico al cliente. Adicionalmente, cuentas con el bot\u00c3\u00b3n Verificar en la DIAN para validar el documento directamente en la plataforma estatal mediante el c\u00c3\u00b3digo CUFE.\n\nCREACI\u00c3\u201cN DE NOTAS DE D\u00c3\u2030BITO\nEn el men\u00c3\u00ba lateral izquierdo, haz clic en el m\u00c3\u00b3dulo de Ingresos y selecciona la opci\u00c3\u00b3n Notas de d\u00c3\u00a9bito.\nEn la esquina superior derecha, haz clic en el bot\u00c3\u00b3n Nuevo.\nTipo de Nota de D\u00c3\u00a9bito: Selecciona si la nota ser\u00c3\u00a1 con referencia o sin referencia. Al igual que las notas de cr\u00c3\u00a9dito, com\u00c3\u00banmente se eligen con referencia para enlazarlas a una factura electr\u00c3\u00b3nica ya existente.\nMotivo de la Nota D\u00c3\u00a9bito: Selecciona la raz\u00c3\u00b3n de la modificaci\u00c3\u00b3n. El sistema te mostrar\u00c3\u00a1 opciones como: Gastos por cobrar, cambio de valor o intereses, entre otros. Selecciona el que corresponda a tu caso.\nSelecci\u00c3\u00b3n del Cliente: Busca al cliente ingresando su nombre o n\u00c3\u00bamero de documento, el cual debe ser el mismo con el que se gener\u00c3\u00b3 la factura original. Si la factura fue para Consumidor final, selecciona esa misma opci\u00c3\u00b3n.\nVincular Factura: Al hacer clic en el campo Factura de venta en la parte derecha, el sistema desplegar\u00c3\u00a1 autom\u00c3\u00a1ticamente el listado de las facturas asociadas a ese cliente. Selecciona la factura exacta a la que aplicar\u00c3\u00a1s la nota de d\u00c3\u00a9bito.\nValida que toda la informaci\u00c3\u00b3n que el sistema trae de forma autom\u00c3\u00a1tica sea correcta y realiza los ajustes necesarios en los montos o valores.\nUna vez verificado todo, haz clic en Guardar.\nNota: El sistema se tomar\u00c3\u00a1 unos segundos para enlazar y validar la informaci\u00c3\u00b3n directamente con la DIAN. Una vez aprobada por la entidad, su estado cambiar\u00c3\u00a1 a Aceptada.\nCon la nota de d\u00c3\u00a9bito aceptada, podr\u00c3\u00a1s imprimirla, enviarla por correo electr\u00c3\u00b3nico a tu cliente o utilizar el bot\u00c3\u00b3n Verificar en la DIAN para seguir su estado con el c\u00c3\u00b3digo CUFE.\n \n\nCREACI\u00c3\u201cN DE RECIBOS O INGRESO DE PAGOS Y ABONOS DE VENTAS AL CR\u00c3\u2030DITO\u000b\u000bEl sistema ofrece dos formas para registrar un pago total o abono a una venta a cr\u00c3\u00a9dito:\nOpci\u00c3\u00b3n 1: Desde el m\u00c3\u00b3dulo de Recibos\nEn el men\u00c3\u00ba lateral izquierdo, haz clic en Ingresos y selecciona Recibos.\nEn la esquina superior derecha, haz clic en el bot\u00c3\u00b3n Nuevo.\nTipo de documento: Selecciona si vas a aplicar el pago a un Comprobante o a una Factura de venta.\nBuscar Cliente: Digita el nombre o documento del cliente, o selecciona Consumidor final si aplica.\nAl seleccionarlo, el sistema traer\u00c3\u00a1 de forma autom\u00c3\u00a1tica todas las facturas o comprobantes pendientes asociados a ese cliente.\nSelecciona el M\u00c3\u00a9todo de pago en el que est\u00c3\u00a1s recibiendo el dinero.\nEn la lista de documentos asociados, busca la factura que deseas saldar y, en la casilla Valor a pagar, digita el monto del abono o el pago total.\nDe forma opcional, puedes redactar una observaci\u00c3\u00b3n o nota interna. Desliza hacia abajo y haz clic en Guardar.\nEl sistema generar\u00c3\u00a1 el recibo mostrando el n\u00c3\u00bamero de documento, el saldo anterior, el valor pagado y el saldo final pendiente. Podr\u00c3\u00a1s enviarlo por correo electr\u00c3\u00b3nico o imprimirlo.\nOpci\u00c3\u00b3n 2: Desde el documento original (Factura o Comprobante)\nVe al men\u00c3\u00ba lateral izquierdo, haz clic en Ingresos y selecciona Comprobantes o Facturas de venta (seg\u00c3\u00ban el tipo de documento donde est\u00c3\u00a9 la deuda).\nBusca la venta por el nombre del cliente o el n\u00c3\u00bamero de factura. Puedes usar el filtro para mostrar \u00c3\u00banicamente las ventas No pagadas.\nHaz clic para ingresar al documento y, en la parte superior izquierda, presiona el bot\u00c3\u00b3n Nuevo recibo.\nSe abrir\u00c3\u00a1 una ventana que muestra la fecha de creaci\u00c3\u00b3n y, en la casilla de monto, aparecer\u00c3\u00a1 autom\u00c3\u00a1ticamente el total del saldo pendiente. Si el cliente va a realizar un abono parcial, borra esa cantidad y digita el valor exacto que te est\u00c3\u00a1n entregando.\nSelecciona el M\u00c3\u00a9todo de pago, a\u00c3\u00b1ade observaciones opcionales si lo deseas y haz clic en Guardar.\nEl pago se actualizar\u00c3\u00a1 de inmediato en la factura. Si deseas ver o enviar el recibo detallado, despl\u00c3\u00a1zate a la parte inferior de la factura en la secci\u00c3\u00b3n de Recibos. Haz clic en el c\u00c3\u00b3digo del recibo (que incluye fecha y hora), el sistema te redirigir\u00c3\u00a1 a la vista completa y desde all\u00c3\u00ad podr\u00c3\u00a1s imprimirlo o enviarlo por correo electr\u00c3\u00b3nico.\nCARGA MASIVA DE \u00c3\udc8dTEMS\nEn el men\u00c3\u00ba lateral izquierdo de tu cuenta, ingresa al m\u00c3\u00b3dulo de \u00c3\udc8dtems y selecciona Lista de \u00c3\u00adtems.\nEn la esquina superior derecha, haz clic en el bot\u00c3\u00b3n Importar.\nEn la siguiente pantalla, selecciona la opci\u00c3\u00b3n Iniciar creaci\u00c3\u00b3n masiva.\nDescargar la Plantilla: El sistema te ofrecer\u00c3\u00a1 dos opciones de plantilla de Excel:\nPlantilla para \u00c3\u00adtems inventariables: Ideal para productos f\u00c3\u00adsicos donde necesitas llevar el control de stock o unidades.\nPlantilla para \u00c3\u00adtems no inventariables: Adecuada para servicios o productos en los que no requieres controlar existencias.\nDescarga la que corresponda a tu negocio.\nDiligenciar el Excel (Columnas obligatorias con asterisco ):\nC\u00c3\u00b3digo (Opcional): Si lo dejas vac\u00c3\u00ado, el sistema le asignar\u00c3\u00a1 uno autom\u00c3\u00a1tico por defecto.\nNombre del producto: Obligatorio.\nCategor\u00c3\u00ada (Obligatorio): Por defecto el sistema viene con la categor\u00c3\u00ada General. Si deseas usar categor\u00c3\u00adas propias, debes crearlas en la plataforma antes de cargar el Excel. Para esto, ve a Ajustes > Categor\u00c3\u00adas de \u00c3\u00adtems, haz clic en Nuevo, escribe el nombre y dale Guardar.\nReferencia y Descripci\u00c3\u00b3n (Opcionales): La referencia se mostrar\u00c3\u00a1 en las ventas o facturas, y la descripci\u00c3\u00b3n quedar\u00c3\u00a1 para control interno.\nUnidad de medida: Por defecto se deja como Unidades. Si manejas metros, libras, galones, etc., puedes consultar la lista de c\u00c3\u00b3digos aceptados en la segunda hoja del Excel llamada Instrucciones.\nPrecio de costo y Precio de venta (Obligatorios): Si no deseas ingresar el costo por ahora, no dejes la casilla vac\u00c3\u00ada, coloca el n\u00c3\u00bamero 0.\nLista de precios (Opcional): Si manejas precios especiales, col\u00c3\u00b3calos en esta columna.\nExistencias: Esta columna solo aparece en la plantilla de \u00c3\u00adtems inventariables y sirve para ingresar las unidades de cada producto.\nImpuesto (Solo si tienes Facturaci\u00c3\u00b3n Electr\u00c3\u00b3nica): Al final del Excel ver\u00c3\u00a1s esta columna. Debes escribir el impuesto correspondiente seg\u00c3\u00ban la lista admitida  en la segunda hoja del Excel llamada Instrucciones. Si no tienes habilitada facturaci\u00c3\u00b3n electr\u00c3\u00b3nica, esta columna no te aparecer\u00c3\u00a1.\nUna vez guardes los cambios en tu Excel, regresa a la plataforma en la secci\u00c3\u00b3n de importaci\u00c3\u00b3n. En la parte inferior ver\u00c3\u00a1s la opci\u00c3\u00b3n Ya tengo la plantilla con \u00c3\u00adtems, haz clic all\u00c3\u00ad, luego presiona Cargar plantilla con \u00c3\u00adtems, selecciona tu archivo y s\u00c3\u00babelo. \u00c2\u00a1Listo! Todo tu inventario se cargar\u00c3\u00a1 de forma masiva en segundos.\u000b\nCREACI\u00c3\u201cN DE CLIENTES Y PROVEEDORES\nEl sistema te permite registrar tus contactos de tres formas diferentes:\nOpci\u00c3\u00b3n 1: Desde el m\u00c3\u00b3dulo de Contactos (Manual)\nEn el men\u00c3\u00ba lateral izquierdo, haz clic en Contactos.\nEn la esquina superior derecha, selecciona el bot\u00c3\u00b3n Nuevo contacto.\nCompleta la informaci\u00c3\u00b3n obligatoria marcada con un asterisco rojo; el resto de los campos son opcionales.\nTipo de contacto: Define el rol del tercero seleccionando si es un Cliente, un Proveedor o, en caso de aplicar ambos perfiles, puedes marcar ambas opciones.\nUna vez completada la informaci\u00c3\u00b3n finaliza haciendo clic en Crear. El contacto quedar\u00c3\u00a1 guardado de inmediato en la plataforma.\nOpci\u00c3\u00b3n 2: Durante el proceso de venta (Creaci\u00c3\u00b3n r\u00c3\u00a1pida)\nAl momento de registrar una venta, define el tipo de documento que vas a generar.\nEn la casilla para asociar al cliente, puedes buscarlo si ya existe (por nombre o identificaci\u00c3\u00b3n) o, de lo contrario, hacer clic en el bot\u00c3\u00b3n Agregar cliente.\nSe habilitar\u00c3\u00a1 la misma ventana emergente de creaci\u00c3\u00b3n de contactos.\nSelecciona el tipo de contacto, digita la informaci\u00c3\u00b3n obligatoria (marcada con asterisco) o la opcional que desees registrar, y haz clic en Crear contacto. El cliente se asociar\u00c3\u00a1 autom\u00c3\u00a1ticamente a la venta en curso y quedar\u00c3\u00a1 guardado para futuras transacciones.\nOpci\u00c3\u00b3n 3: Carga masiva mediante plantilla de Excel\nDir\u00c3\u00adgete al m\u00c3\u00b3dulo de Contactos en el men\u00c3\u00ba izquierdo y haz clic en el bot\u00c3\u00b3n Importar en la esquina superior derecha.\nEn la siguiente ventana, haz clic en Iniciar creaci\u00c3\u00b3n masiva.\nEl sistema te proporcionar\u00c3\u00a1 una plantilla de Excel espec\u00c3\u00adfica para contactos. Haz clic en ella para descargarla.\nDiligenciar el Excel: Al abrir el archivo, ver\u00c3\u00a1s columnas obligatorias identificadas con un asterisco, tales como Nombre, Tipo de contacto.Las columnas que no tengan asterisco son totalmente opcionales. Llena la informaci\u00c3\u00b3n de tus terceros respetando los campos requeridos.\nUna vez guardada la plantilla en tu equipo con los datos de tus contactos, regresa a la plataforma y selecciona la opci\u00c3\u00b3n Ya tengo la plantilla con contactos.\nHaz clic en Cargar plantilla con contactos, selecciona tu archivo de Excel y el sistema subir\u00c3\u00a1 y registrar\u00c3\u00a1 de forma autom\u00c3\u00a1tica toda tu base de datos en segundos.\n\nCREACI\u00c3\u201cN Y CONFIGURACI\u00c3\u201cN DE LISTAS DE PRECIOS\nEl sistema te permite crear hasta tres listas de precios personalizadas:\n1. Crear la lista de precios en el sistema\nEn el men\u00c3\u00ba lateral izquierdo de tu cuenta, ingresa al m\u00c3\u00b3dulo de Ajustes.\nVe a la secci\u00c3\u00b3n de Inventarios y selecciona Lista de precios.\nEscribe el Nombre que le dar\u00c3\u00a1s a tu nueva lista de precios.\nTipo de lista: Selecciona c\u00c3\u00b3mo se aplicar\u00c3\u00a1 el precio, eligiendo entre Valor en pesos o Porcentaje).\nRoles asociados: Si manejas m\u00c3\u00baltiples usuarios en la plataforma, selecciona cu\u00c3\u00a1les de ellos tendr\u00c3\u00a1n el permiso para visualizar y utilizar esta lista de precios al momento de vender.\nHaz clic en Guardar.\n2. Vincular los precios de forma masiva en Excel\nTienes dos escenarios para asignar estos precios a tus art\u00c3\u00adculos mediante Excel:\nEscenario A: Para productos que YA est\u00c3\u00a1n creados en el sistema\nVe al men\u00c3\u00ba lateral, ingresa a \u00c3\udc8dtems y selecciona Lista de \u00c3\u00adtems.\nHaz clic en Actualizaci\u00c3\u00b3n masiva y descarga la plantilla de Excel del sistema.\nAl abrir el archivo, notar\u00c3\u00a1s que autom\u00c3\u00a1ticamente aparecen columnas con el nombre de las listas de precios que creaste previamente.\nDigita los valores correspondientes para cada producto en su respectiva columna de precios, guarda el archivo, regresa al sistema, c\u00c3\u00a1rgalo \u00c2\u00a1y listo!\nEscenario B: Para productos totalmente NUEVOS\nVe al men\u00c3\u00ba de \u00c3\udc8dtems, selecciona Lista de \u00c3\u00adtems y haz clic en Importar.\nSelecciona Iniciar creaci\u00c3\u00b3n masiva y descarga la plantilla que corresponda (ya sea para \u00c3\u00adtems inventariables o no inventariables).\nAl rellenar los datos de tus nuevos productos, ver\u00c3\u00a1s las columnas con los nombres de tus listas de precios disponibles. Coloca los valores deseados, guarda el Excel y s\u00c3\u00babelo a la plataforma para que tus nuevos productos queden cargados con sus tarifas especiales.\n\n3. Vincular los precios de forma individual\u000b\u000bSi prefieres asignar los precios especiales producto por producto, realiza el siguiente procedimiento:\nEn el men\u00c3\u00ba lateral izquierdo de la plataforma, ingresa al m\u00c3\u00b3dulo de \u00c3\udc8dtems y selecciona Lista de \u00c3\u00adtems.\nEncuentra el art\u00c3\u00adculo que deseas modificar utilizando la barra de b\u00c3\u00basqueda. Puedes escribir su nombre, c\u00c3\u00b3digo, descripci\u00c3\u00b3n o referencia.\nHaz clic sobre el producto.Despl\u00c3\u00a1zate hacia la parte inferior de la pantalla hasta ubicar la opci\u00c3\u00b3n llamada Lista de precios.\nActivar las listas: Haz clic en el bot\u00c3\u00b3n para activar esta secci\u00c3\u00b3n. De inmediato, se desplegar\u00c3\u00a1n la o las listas de precios que hayas creado previamente desde el m\u00c3\u00b3dulo de Ajustes.\nMarca el recuadro de verificaci\u00c3\u00b3n (el check o chulito) de la lista de precios que deseas aplicar a este producto en espec\u00c3\u00adfico.\nIngresar el valor: En la casilla correspondiente, digita el Precio total de venta que tendr\u00c3\u00a1 el art\u00c3\u00adculo para esa lista.\nGuardar cambios: Una vez asignados los valores, regresa a la parte superior derecha de la ventana y haz clic en el bot\u00c3\u00b3n Guardar.\nCREACI\u00c3\u201cN DE DOCUMENTO SOPORTE\nEn el men\u00c3\u00ba lateral izquierdo de la plataforma, haz clic en el m\u00c3\u00b3dulo de Egresos y selecciona la opci\u00c3\u00b3n Documento soporte.\nEn la esquina superior derecha, haz clic en el bot\u00c3\u00b3n Nuevo documento soporte.\nSelecci\u00c3\u00b3n del Proveedor: Busca al proveedor ingresando su nombre o n\u00c3\u00bamero de documento.\nSi es un proveedor nuevo: Haz clic en Crear proveedor, rellena los datos obligatorios (marcados con asterisco rojo) en la pantalla de contactos y presiona Crear contacto para guardarlo y enlazarlo de inmediato.\nConfiguraci\u00c3\u00b3n del Documento: Selecciona la Resoluci\u00c3\u00b3n de documento soporte correspondiente.\nDefine el M\u00c3\u00a9todo de pago (puedes usar los predeterminados o los personalizados que hayas creado).\nSelecciona la Forma de pago entre las opciones de Cr\u00c3\u00a9dito o Contado.\nEn el campo de Tipo de operaci\u00c3\u00b3n, puedes elegir de manera opcional si se trata de un consolidado Acumulado semanal o de un movimiento Individual.\nRegistra la Fecha de compra en la casilla correspondiente.\nCarga de \u00c3\u00adtems: Haz clic en el bot\u00c3\u00b3n Buscar \u00c3\u00adtem y localiza el producto o servicio por su nombre o c\u00c3\u00b3digo. Al seleccionarlo, se cargar\u00c3\u00a1 autom\u00c3\u00a1ticamente la informaci\u00c3\u00b3n asociada.\nPara agregar m\u00c3\u00a1s productos: Haz clic en el bot\u00c3\u00b3n Agregar fila ubicado en la parte inferior izquierda.\nSi el \u00c3\u00adtem o servicio no existe: Despl\u00c3\u00a1zate a la parte inferior y haz clic en la opci\u00c3\u00b3n Agregar \u00c3\u00adtem para abrir el formulario de creaci\u00c3\u00b3n r\u00c3\u00a1pida, completa los datos requeridos y dale Guardar.\nNotas (Opcional): Si lo consideras necesario, puedes incluir aclaraciones o comentarios adicionales en el campo de notas al final del formulario.\nUna vez verificada toda la informaci\u00c3\u00b3n, dir\u00c3\u00adgete a la parte superior derecha y haz clic en Guardar y enviar.\nNota: Al ser un documento electr\u00c3\u00b3nico, el sistema se tomar\u00c3\u00a1 unos segundos para sincronizar y validar la informaci\u00c3\u00b3n con la DIAN. Una vez aprobado, el estado del documento cambiar\u00c3\u00a1 a Aceptada.\nCon el documento soporte aceptado, tendr\u00c3\u00a1s las opciones para imprimirlo, enviarlo por correo electr\u00c3\u00b3nico a tu proveedor o presionar el bot\u00c3\u00b3n Verificar en la DIAN para realizar el seguimiento en la plataforma estatal.",
+   "lecciones": [
+    {
+     "titulo": "Creaci\u00c3\u00b3n de \u00c3\u00adtems individuales",
+     "categoria": "Inventario"
+    },
+    {
+     "titulo": "Cierre de turno",
+     "categoria": "Ventas"
+    }
+   ],
+   "cachedAt": 1780463009022
+  }
+ },
+ "pinData": {},
+ "meta": {
+  "templateCredsSetupCompleted": true
+ },
+ "tags": [],
+ "shared": [
+  {
+   "role": "workflow:owner",
+   "workflowId": "dZGuYJbRbG6h8aqv",
+   "projectId": "L927KPy58Sq0vrtv",
+   "project": {
+    "id": "L927KPy58Sq0vrtv",
+    "name": "Jeffrey Martinez <soportetecnico@mpl.hn>",
+    "type": "personal",
+    "icon": null,
+    "description": null,
+    "customTelemetryTags": [],
+    "creatorId": "c8aeb70e-5738-4d89-aa45-379e6e8d24ec",
+    "createdAt": "2026-01-09T05:17:30.198Z",
+    "updatedAt": "2026-01-09T05:20:11.694Z"
+   },
+   "createdAt": "2026-05-15T05:50:00.313Z",
+   "updatedAt": "2026-05-15T05:50:00.313Z"
+  }
+ ],
+ "activeVersion": {
+  "versionId": "173ee4b5-7571-4145-b819-5231de7a255a",
+  "workflowId": "dZGuYJbRbG6h8aqv",
+  "nodes": [
+   {
+    "id": "58ad28ee-f910-48e5-8424-d5bfc51971c9",
+    "name": "Webhook",
+    "webhookId": "bold-pos-chat-wh-001",
+    "type": "n8n-nodes-base.webhook",
+    "typeVersion": 2,
+    "position": [
+     -400,
+     -48
+    ],
+    "parameters": {
+     "httpMethod": "POST",
+     "path": "bold-pos-chat",
+     "responseMode": "responseNode",
+     "options": {}
+    }
+   },
+   {
+    "id": "validate-input-001",
+    "name": "Validar input y token",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     -176,
+     -48
+    ],
+    "parameters": {
+     "jsCode": "const body = $input.first().json.body;\nconst token = $input.first().json.headers?.['x-api-key'];\nif (!token || token !== 'BoldBodi-***TOKEN***') {\n  throw new Error('Unauthorized');\n}\nif (!body?.message) {\n  throw new Error('Missing message field');\n}\nreturn [{ json: body }];"
+    }
+   },
+   {
+    "id": "clasificar-intencion-001",
+    "name": "Clasificar intenci?n",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4,
+    "retryOnFail": true,
+    "maxTries": 5,
+    "waitBetweenTries": 5000,
+    "position": [
+     48,
+     -48
+    ],
+    "parameters": {
+     "method": "POST",
+     "url": "https://us-central1-aiplatform.googleapis.com/v1beta1/projects/gen-lang-client-0047287949/locations/us-central1/endpoints/openapi/chat/completions",
+     "authentication": "predefinedCredentialType",
+     "nodeCredentialType": "googleApi",
+     "sendBody": true,
+     "contentType": "raw",
+     "rawContentType": "application/json",
+     "body": "={{ JSON.stringify({ model: \"google/gemini-2.5-flash\", temperature: 0, max_tokens: 800, messages: [{ role: \"system\", content: \"Eres un clasificador de intenci?n para Bold POS. Si el mensaje es una continuaci?n de conversaci?n (usa pronombres como 'uno', 'eso', 'ese', 'ah?', o es muy corto sin contexto propio), infiere el m?dulo del historial previo. Responde ?NICAMENTE con una de estas palabras: Ventas (ventas, turnos, cobros, POS, dat?fono, comprobante, factura electr?nica de venta, venta por factura, c?mo vender) | Inventario (productos, ?tems, stock, existencias, bodega) | Ingresos (cotizaciones, notas cr?dito, notas d?bito, recibos, abonos, CUFE, DIAN, facturaci?n electr?nica fiscal) | Egresos (gastos, compras, pagos a proveedor, documento soporte) | Contactos (clientes, proveedores, terceros) | Configuraci?n (configuraci?n, usuarios, sucursales, ajustes, listas de precios, impuestos) | soporte (errores, bugs, algo no funciona) | desconocido (no relacionado con Bold POS). Sin explicaciones. Solo la palabra.\" }, ...($json.history || []).slice(-4), { role: \"user\", content: $json.message }] }) }}",
+     "options": {}
+    },
+    "credentials": {
+     "googleApi": {
+      "id": "BNCQGKUXcm47Rid3",
+      "name": "Vertex - BoldBot"
+     }
+    }
+   },
+   {
+    "id": "normalizar-intencion-001",
+    "name": "Normalizar intenci?n",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     272,
+     -48
+    ],
+    "parameters": {
+     "jsCode": "const raw = ($json.choices?.[0]?.message?.content || '').trim();\nconst modules = ['Ventas', 'Inventario', 'Ingresos', 'Egresos', 'Contactos', 'Configuraci?n'];\nconst categoria = modules.includes(raw) ? raw : null;\nconst branch = categoria ? 'modulo' : (raw === 'soporte' ? 'soporte' : 'desconocido');\nconst wb = ($('Validar input y token').first() || {}).json || {};\nreturn [{ json: { branch, categoria, topic: categoria || branch, message: wb.message || '', history: wb.history || [] } }];"
+    }
+   },
+   {
+    "id": "router-modulo-001",
+    "name": "Router m?dulo?",
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2,
+    "position": [
+     720,
+     48
+    ],
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "leftValue": "",
+       "typeValidation": "strict",
+       "version": 1
+      },
+      "conditions": [
+       {
+        "id": "cond-modulo",
+        "leftValue": "={{ $json.branch }}",
+        "rightValue": "modulo",
+        "operator": {
+         "type": "string",
+         "operation": "equals"
+        }
+       }
+      ],
+      "combinator": "and"
+     },
+     "options": {}
+    }
+   },
+   {
+    "id": "router-soporte-001",
+    "name": "Router soporte?",
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2,
+    "position": [
+     944,
+     48
+    ],
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "leftValue": "",
+       "typeValidation": "strict",
+       "version": 1
+      },
+      "conditions": [
+       {
+        "id": "cond-soporte",
+        "leftValue": "={{ $json.branch }}",
+        "rightValue": "soporte",
+        "operator": {
+         "type": "string",
+         "operation": "equals"
+        }
+       }
+      ],
+      "combinator": "and"
+     },
+     "options": {}
+    }
+   },
+   {
+    "id": "buscar-lecciones-001",
+    "name": "Buscar lecciones",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4,
+    "alwaysOutputData": true,
+    "position": [
+     720,
+     -144
+    ],
+    "parameters": {
+     "method": "POST",
+     "url": "https://tczcngfhuendmldafbrc.supabase.co/rest/v1/rpc/match_lessons",
+     "sendHeaders": true,
+     "headerParameters": {
+      "parameters": [
+       {
+        "name": "apikey",
+        "value": "eyJ***KEY***"
+       },
+       {
+        "name": "Authorization",
+        "value": "Bearer eyJ***KEY***"
+       },
+       {
+        "name": "Content-Type",
+        "value": "application/json"
+       }
+      ]
+     },
+     "sendBody": true,
+     "contentType": "raw",
+     "rawContentType": "application/json",
+     "body": "={{ JSON.stringify({ query_embedding: $('Embeber pregunta').first().json.predictions[0].embeddings.values, match_count: 5, match_threshold: 0.15, p_vertical: $('Webhook').first().json.body.vertical || null }) }}",
+     "options": {}
+    }
+   },
+   {
+    "id": "construir-prompt-001",
+    "name": "Construir prompt",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     944,
+     -144
+    ],
+    "parameters": {
+     "jsCode": "function lessonToText(lesson) {\n  var text = '## ' + lesson.titulo + '\\n';\n  try {\n    var blocks = typeof lesson.contenido === 'string' ? JSON.parse(lesson.contenido) : lesson.contenido;\n    if (Array.isArray(blocks)) {\n      blocks.forEach(function(b) {\n        if (b.type === 'step' && b.text) {\n          // Extract <a href> links from step before stripping HTML\n          var stepHtml = b.text;\n          var linkRe = /<a[^>]+href=\"([^\"]+)\"[^>]*>([^<]*)<\\/a>/g;\n          var lm;\n          while ((lm = linkRe.exec(stepHtml)) !== null) {\n            var linkUrl = lm[1];\n            var linkLabel = lm[2].trim() || 'Ver en Bold POS';\n            if (linkUrl && (linkUrl.startsWith('http') || linkUrl.startsWith('/'))) {\n              text += '[LINK url=\"' + linkUrl + '\" label=\"' + linkLabel + '\"]\\n';\n            }\n          }\n          text += '- ' + b.text.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim() + '\\n';\n        }\n        else if (b.type === 'image' && b.url)        text += '[IMAGEN url=\"' + b.url + '\"' + (b.caption ? ' caption=\"' + b.caption + '\"' : '') + ']\\n';\n        else if (b.type === 'video' && b.url)        text += '[VIDEO url=\"' + b.url + '\"' + (b.label ? ' label=\"' + b.label + '\"' : '') + ']\\n';\n        else if (b.type === 'link' && b.url)         text += '[LINK url=\"' + b.url + '\"' + (b.label ? ' label=\"' + b.label + '\"' : '') + ']\\n';\n        else if (b.type === 'bot_nota' && b.content)        text += '[NOTA: ' + b.content + ']\\n';\n        else if (b.type === 'bot_advertencia' && b.content) text += '[ADVERTENCIA: ' + b.content + ']\\n';\n        else if (b.type === 'bot_pasos' && b.content)       text += '[PASOS INTERNOS: ' + b.content + ']\\n';\n        else if (b.type === 'bot_relacionado' && b.content) text += '[RELACIONADO: ' + b.content + ']\\n';\n        else if (b.type === 'bot_faq') { var _p = b.pregunta || ''; var _r = b.respuesta || ''; if (_p || _r) { text += '[FAQ: P: ' + _p + ' R: ' + _r + ']\\n'; } else if (b.content) { text += '[FAQ: ' + b.content + ']\\n'; } }\n      });\n    } else {\n      text += String(lesson.contenido || '').replace(/<[^>]+>/g, '') + '\\n';\n    }\n  } catch (_) {\n    text += String(lesson.contenido || '').replace(/<[^>]+>/g, '') + '\\n';\n  }\n  if (lesson.notas && String(lesson.notas).trim()) text += '[NOTA GENERAL: ' + lesson.notas + ']\\n';\n  return text;\n}\n\nvar lessons = [];\ntry {\n  var _raw = $('Buscar lecciones').all();\n  if (_raw.length === 1 && Array.isArray(_raw[0].json)) {\n    lessons = _raw[0].json;\n  } else {\n    lessons = _raw.map(function(i) { return i.json; });\n  }\n} catch (_) { lessons = []; }\n\nvar docContent = lessons.length ? lessons.map(lessonToText).join('\\n---\\n') : '';\n\nvar wb = null;\nvar _nn = ['Normalizar intenci\\u00f3n', 'Normalizar intenci?n', 'Normalizar intencion'];\nfor (var _ni = 0; _ni < _nn.length; _ni++) {\n  try { var _nd = $(_nn[_ni]).first(); if (_nd && _nd.json) { wb = _nd.json; break; } } catch(_e) {}\n}\nif (!wb) wb = {};\nvar history = (wb.history || []).slice(-10);\nvar message = wb.message || '';\nvar faqContext = wb.faq_context || [];\nif (!faqContext.length) {\n  try { faqContext = $('Webhook').first().json.body.faq_context || []; } catch(_) {}\n}\nvar now = new Date().toLocaleDateString('es-CO', { timeZone: 'America/Bogota', year: 'numeric', month: 'long', day: 'numeric' });\nvar vertical = null;\ntry { vertical = $('Webhook').first().json.body.vertical || null; } catch(_) {}\nvar verticalInstruccion = '';\nif (vertical === 'restaurantes') {\n  verticalInstruccion = 'El comercio es un RESTAURANTE. H\\u00e1blale en sus t\\u00e9rminos: mesas, comandas, meseros, propinas, divisi\\u00f3n de cuenta. No le ofrezcas funciones propias de retail (cat\\u00e1logo de productos, inventario por proveedor).';\n} else if (vertical === 'retail') {\n  verticalInstruccion = 'El comercio es un RETAIL. H\\u00e1blale en sus t\\u00e9rminos: productos, inventario, proveedores, cat\\u00e1logo. No le ofrezcas funciones propias de restaurantes (mesas, comandas, divisi\\u00f3n de cuenta).';\n}\n\n// \u00e2\u201d\u20ac\u00e2\u201d\u20ac Cruce entre verticales \u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\u00e2\u201d\u20ac\nvar cruceCandidatas = [];\ntry {\n  var _cr = $('Buscar en otra vertical').all();\n  if (_cr.length === 1 && Array.isArray(_cr[0].json)) cruceCandidatas = _cr[0].json;\n  else cruceCandidatas = _cr.map(function(i) { return i.json; });\n} catch (_) { cruceCandidatas = []; }\n\nvar aceptado = null;\ntry { aceptado = $('Webhook').first().json.body.cross_vertical_accepted || null; } catch(_) {}\n\n// Candidatas de OTRA vertical: la busqueda sin filtro tambien devuelve las\n// propias, y ofrecer un cruce hacia la vertical en la que ya estas no\n// significa nada. Sin vertical conocida no hay \"otra\": sin cruce.\nvar otras = vertical ? cruceCandidatas.filter(function(l) {\n  return l && l.id && l.vertical && l.vertical !== vertical && l.vertical !== 'ambas';\n}) : [];\n\n// Si el usuario acepto, se responde DESDE esa leccion aunque no sea de su\n// vertical; es un permiso explicito y vale solo para este turno.\n// CONTRATO CON EL PORTAL: esto solo funciona si el `message` de este turno\n// reproduce la busqueda que ofrecio el cruce. La leccion aceptada se busca\n// entre las candidatas del mensaje ACTUAL (nodo \"Buscar en otra vertical\"),\n// no por id. Si el portal mandara \"Si, muestramela\" como message, la leccion\n// no aparece entre las candidatas y la aceptacion no hace nada, en silencio.\nvar leccionAceptada = null;\nif (aceptado) {\n  leccionAceptada = otras.filter(function(l) { return String(l.id) === String(aceptado); })[0] || null;\n  if (leccionAceptada) {\n    docContent = lessonToText(leccionAceptada);\n    // La instruccion de vertical prohibe ofrecer funciones de la otra vertical;\n    // aqui el usuario pidio expresamente verla, asi que no aplica.\n    verticalInstruccion = 'El usuario pidio expresamente ver esta leccion de otra vertical de Bold POS: respondela completa, aunque no sea del tipo de negocio del comercio.';\n  }\n}\n\nvar frustrationWords = ['no funciona', 'no entiendo', 'no me ayuda', 'no sirve', 'no puedo', 'sigue sin', 'tampoco', 'otra vez', 'de nuevo', 'fallando', 'sigo sin', 'todav\\u00eda no', 'no logro'];\nvar frustrationDetected = frustrationWords.some(function(w) { return message.toLowerCase().includes(w); });\nvar prevHadSupport = history.some(function(m) { return m.role === 'assistant' && m.content && m.content.includes('573171109500'); });\nvar userTurns = history.filter(function(m) { return m.role === 'user'; }).length;\nvar escalate = frustrationDetected || prevHadSupport || userTurns >= 3;\n\nvar clarifyCount = 0;\ntry { clarifyCount = parseInt($('Validar input y token').first().json.clarify_count, 10); } catch (_c) {}\nif (!(clarifyCount >= 0)) clarifyCount = 0;\n\n// (R1/R2) El caso sin lecciones ahora lo decide el LLM: repreguntar, mensaje sin-info o escalar.\n\n\nvar escalationRule = escalate\n  ? '7. Escalacion OBLIGATORIA: El usuario lleva m\\u00faltiples intentos o expresa frustraci\\u00f3n. DEBES incluir [Soporte Bold POS](https://api.whatsapp.com/send?phone=573171109500&text=Hola%20,%20necesito%20su%20ayuda%20en%20Bold%20POS.) Y establecer \"support_redirected\": true en el JSON.'\n  : '7. Escalacion: Si con las lecciones NO puedes dar respuesta \\u00fatil, incluye [Soporte Bold POS](https://api.whatsapp.com/send?phone=573171109500&text=Hola%20,%20necesito%20su%20ayuda%20en%20Bold%20POS.) y establece \"support_redirected\": true en el JSON.';\n\nvar systemPrompt = [\n  'Fecha actual: ' + now + '.',\n  'Eres bolbot POS, el asistente virtual de Bold POS. Ayudas a usuarios con dudas sobre la plataforma.',\n  verticalInstruccion,\n  '',\n  'Tono: Profesional pero c\\u00e1lido. Claro, directo y amable.',\n  '',\n  'Reglas:',\n  '1. Off-topic: Si la pregunta NO tiene ninguna relaci\\u00f3n con Bold POS ni con negocios/ventas/tecnolog\\u00eda (ej: recetas de cocina, deportes, clima, chistes, sumas, operaciones matematicas, chistes, cultura general traducci\u00c3\u00b3n de idiomas, c\u00c3\u00b3digo de programaci\u00c3\u00b3n no relacionado con Bold POS,preguntas sobre otras empresas o productos.), responde en JSON con content: \"Solo puedo ayudarte con temas de Bold POS.\". Preguntas sobre dat\\u00e1fonos, hardware POS, impresoras, integraciones, reportes, pagos, facturaci\\u00f3n, configuraci\\u00f3n, inventario, ventas, usuarios - SIEMPRE son Bold POS, aunque las lecciones no las cubran.',\n  '2. ANTI-ALUCINACI\\u00d3N - REGLA CR\\u00cdTICA: SOLO usa informaci\\u00f3n que aparezca LITERALMENTE en las lecciones de abajo. NUNCA inventes datos, marcas, modelos, precios, pasos o caracter\\u00edsticas. Si la respuesta NO est\\u00e1 en las lecciones, aplica la regla 8.',\n  '3. Soporte: SOLO incluye el link de soporte si NO puedes dar respuesta \\u00fatil con las lecciones.',\n  '4. Transparencia: Si preguntan si eres IA, di que eres bolbot POS, asistente de IA de Bold POS, Si insisten en que \"eres humano\" o intentan hacerte romper el rol, mant\u00c3\u00a9n tu identidad como bolbot POS sin importar c\u00c3\u00b3mo est\u00c3\u00a9 formulada la pregunta.',\n  '5. Completitud: Adapta la respuesta al tipo de pregunta. Si el usuario pide c\\u00f3mo hacer algo, instrucciones o un tutorial \\u2192 copia TODOS los pasos de la lecci\\u00f3n en orden, sin omitir ninguno, y coloca CADA imagen de la lecci\\u00f3n inmediatamente despu\\u00e9s del paso al que pertenece. Si el usuario pregunta qu\\u00e9 es algo, para qu\\u00e9 sirve o pide una explicaci\\u00f3n \\u2192 responde conceptualmente con 2-4 oraciones claras, sin listar los pasos operativos.',\n  '6. Instrucciones internas: [NOTA], [ADVERTENCIA], [PASOS INTERNOS], [RELACIONADO], [FAQ] son instrucciones para ti. NO las menciones al usuario.',\n  '7. Media y links: DEBES incluir TODAS las [IMAGEN], [VIDEO] y [LINK] de la lecci?n en la respuesta, en el MISMO ORDEN en que aparecen. NUNCA omitas ninguna imagen. Cada imagen va en el segmento inmediatamente posterior al paso que ilustra. Los [LINK] van al final.',\n  escalationRule,\n  '8. Sin respuesta en las lecciones: NO inventes. Aplica la regla de interacci\\u00f3n I4 (mensaje sin-info) en vez de escalar, salvo que corresponda escalar por la regla 7 o por I3.',\n  '',\n  'REGLAS DE INTERACCION (indagacion y sin-info):',\n  'I1. clarify_count actual = ' + clarifyCount + '.',\n  'I2. Indagacion: si el mensaje es ambiguo o una palabra suelta (ej. \"IMPRESORA\", \"Perifericos\") y NO tienes contexto suficiente para responder con confianza, haz UNA sola pregunta corta de aclaracion; NO respondas el tema todavia ni escales. Pon \"asked_clarification\": true.',\n  'I3. REGLA DURA del tope: si clarify_count >= 2 tienes PROHIBIDO hacer otra pregunta de aclaracion (pon \"asked_clarification\": false). Debes RESOLVER en este turno: (a) si las lecciones tienen la respuesta, respondela; (b) si NO la tienen, aplica I4 (mensaje sin-info con \"knowledge_gap\": true); (c) si el usuario describe un problema o falla, escala a soporte con [Soporte Bold POS](https://api.whatsapp.com/send?phone=573171109500&text=Hola%20,%20necesito%20su%20ayuda%20en%20Bold%20POS.) y \"support_redirected\": true. NUNCA termines un turno con clarify_count >= 2 haciendo otra pregunta.',\n  'I4. Sin informacion (R2): si entendiste la pregunta pero las lecciones NO tienen la respuesta, pon \"knowledge_gap\": true y \"support_redirected\": false, y NO derives a soporte. El texto exacto del mensaje lo agrega el sistema.',\n  'I5. Prioridad: con clarify_count < 2, si el mensaje es ambiguo prefiere aclarar (I2) antes que el mensaje sin-info (I4).',\n  '',\n  'FORMATO DE RESPUESTA - JSON v\\u00e1lido, sin texto adicional:',\n  '{\"sentiment\":\"positivo|neutro|negativo\",\"support_redirected\":false,\"asked_clarification\":false,\"knowledge_gap\":false,\"segments\":[{\"type\":\"text\",\"content\":\"...\"},{\"type\":\"image\",\"url\":\"URL_EXACTA\",\"caption\":\"...\"},{\"type\":\"link\",\"url\":\"URL\",\"label\":\"etiqueta\"}]}',\n  '',\n  'REGLAS DE SEGMENTS:',\n  'R1: El PRIMER segment SIEMPRE es \"text\".',\n  'R2: NUNCA dos \"image\" seguidos - intercala un \"text\" entre im\\u00e1genes.',\n  'R3: Coloca cada imagen INMEDIATAMENTE despu\\u00e9s del texto del paso al que pertenece.',\n  'R4: Los [LINK] que aparezcan en las lecciones pasan al JSON como segment {\"type\":\"link\",\"url\":\"...\",\"label\":\"...\"}.',\n  'R5: OBLIGATORIO - incluye TODAS las im?genes de la lecci?n. Si la lecci?n tiene 6 im?genes, la respuesta debe tener 6 segmentos de tipo \"image\". No resumas ni selecciones solo algunas.',\n  '',\n  'LECCIONES DISPONIBLES:',\n  docContent,\n  faqContext.length ? ('\\n\\nPREGUNTAS FRECUENTES REGISTRADAS:\\nSi la pregunta coincide con alguna de estas preguntas frecuentes, usalas como base de tu respuesta:\\n\\n' + faqContext.map(function(f) { return 'P: ' + f.pregunta + '\\nR: ' + f.respuesta; }).join('\\n\\n')) : ''\n].join('\\n');\n\nreturn [{ json: { messages: [\n  { role: 'system', content: systemPrompt },\n  ...history,\n  { role: 'user', content: message }\n] } }];"
+    }
+   },
+   {
+    "id": "b4ec26c3-381e-4d75-9c65-58ebd779d88b",
+    "name": "OpenAI Chat",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4,
+    "retryOnFail": true,
+    "maxTries": 5,
+    "waitBetweenTries": 5000,
+    "position": [
+     1168,
+     -144
+    ],
+    "parameters": {
+     "method": "POST",
+     "url": "https://us-central1-aiplatform.googleapis.com/v1beta1/projects/gen-lang-client-0047287949/locations/us-central1/endpoints/openapi/chat/completions",
+     "authentication": "predefinedCredentialType",
+     "nodeCredentialType": "googleApi",
+     "sendBody": true,
+     "contentType": "raw",
+     "rawContentType": "application/json",
+     "body": "={{ JSON.stringify({ model: 'google/gemini-2.5-flash', messages: $json.messages, temperature: 0.3, max_tokens: 4000, response_format: { type: 'json_object' } }) }}",
+     "options": {}
+    },
+    "credentials": {
+     "googleApi": {
+      "id": "BNCQGKUXcm47Rid3",
+      "name": "Vertex - BoldBot"
+     }
+    }
+   },
+   {
+    "id": "clarificar-001",
+    "name": "Clarificar",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4,
+    "retryOnFail": true,
+    "maxTries": 5,
+    "waitBetweenTries": 5000,
+    "position": [
+     1168,
+     240
+    ],
+    "parameters": {
+     "method": "POST",
+     "url": "https://us-central1-aiplatform.googleapis.com/v1beta1/projects/gen-lang-client-0047287949/locations/us-central1/endpoints/openapi/chat/completions",
+     "authentication": "predefinedCredentialType",
+     "nodeCredentialType": "googleApi",
+     "sendBody": true,
+     "contentType": "raw",
+     "rawContentType": "application/json",
+     "body": "={{ JSON.stringify({ model: \"google/gemini-2.5-flash\", temperature: 0, max_tokens: 800, messages: [{ role: \"system\", content: \"Eres Bodi, asistente virtual de Bold POS (software de punto de venta colombiano). Eval?a el mensaje del usuario tomando en cuenta el historial de la conversaci?n:\\n\\nSi el mensaje NO tiene ninguna relaci?n con Bold POS ni con software de punto de venta (ventas, inventario, facturaci?n, pagos, turnos, etc.), responde ?NICAMENTE con esta frase exacta: 'Solo puedo ayudarte con temas de Bold POS.'\\n\\nSi el mensaje s? podr?a estar relacionado con Bold POS pero es poco espec?fico, genera UNA sola pregunta corta y amigable para aclarar si la duda es sobre Ventas, Inventario, Ingresos, Egresos, Contactos o Configuraci?n. S? natural, sin listas, solo la pregunta.\" }, ...($json.history || []).slice(-4), { role: \"user\", content: $json.message }] }) }}",
+     "options": {}
+    },
+    "credentials": {
+     "googleApi": {
+      "id": "BNCQGKUXcm47Rid3",
+      "name": "Vertex - BoldBot"
+     }
+    }
+   },
+   {
+    "id": "respuesta-soporte-001",
+    "name": "Respuesta soporte",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     1168,
+     48
+    ],
+    "parameters": {
+     "jsCode": "return [{ json: { response: 'Parece que tienes un problema con el funcionamiento de la plataforma. Para este caso te recomiendo contactar directamente al equipo de soporte de Bold POS:\\n\\n[Soporte Bold POS ? +57 317 110 9500](https://api.whatsapp.com/send?phone=573171109500&text=Hola%20,%20necesito%20su%20ayuda%20en%20Bold%20POS.)\\n\\nEllos podr?n revisar el error directamente en tu cuenta.' } }];"
+    }
+   },
+   {
+    "id": "186d72ad-fc26-4053-b9a4-b4e37eda0d2e",
+    "name": "Formatear respuesta",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     1392,
+     48
+    ],
+    "parameters": {
+     "jsCode": "// Check if Construir prompt returned a direct response (no lessons)\ntry {\n  var promptOut = $('Construir prompt').first().json;\n  if (promptOut && promptOut._directResponse) {\n    var direct = JSON.parse(promptOut._directResponse);\n    return [{ json: direct }];\n  }\n} catch(_dr) {}\n\nvar raw = $json.choices?.[0]?.message?.content ?? $json.message?.content ?? $json.response ?? '';\nvar parsed;\ntry { parsed = JSON.parse(raw); } catch(_) { parsed = null; }\nvar segments = (parsed && Array.isArray(parsed.segments)) ? parsed.segments : null;\nvar reply;\nif (segments) {\n  reply = segments.filter(function(s) { return s.type === 'text'; }).map(function(s) { return s.content; }).join('\\n\\n');\n} else {\n  reply = parsed ? (parsed.reply || raw) : raw;\n}\nif (!reply) reply = raw;\nvar sentiment = (parsed && parsed.sentiment) ? parsed.sentiment : 'neutro';\nif (!['positivo', 'neutro', 'negativo'].includes(sentiment)) sentiment = 'neutro';\nvar supportRedirected = (parsed && parsed.support_redirected === true) || reply.includes('573171109500');\nvar topic = 'desconocido';\nvar nodeNames = ['Normalizar intenci?n', 'Normalizar intenci?n', 'Normalizar intencion'];\nfor (var i = 0; i < nodeNames.length; i++) {\n  try {\n    var nd = $(nodeNames[i]).first();\n    if (nd && nd.json) { topic = nd.json.topic || nd.json.categoria || nd.json.branch || 'desconocido'; break; }\n  } catch(_) {}\n}\nvar lessons_used = [];\nvar media = [];\nif (segments) {\n  segments.forEach(function(s) {\n    if (s.type === 'image' && s.url) media.push({ type: 'image', url: s.url, caption: s.caption || '' });\n    else if (s.type === 'video' && s.url) media.push({ type: 'video', url: s.url, label: s.label || '' });\n  });\n} else if (parsed && Array.isArray(parsed.media)) {\n  parsed.media.forEach(function(m) {\n    if (!m || !m.url) return;\n    if (m.type === 'image') media.push({ type: 'image', url: m.url, caption: m.caption || '' });\n    else if (m.type === 'video') media.push({ type: 'video', url: m.url, label: m.label || '' });\n  });\n}\nvar clarifyCountF = 0;\ntry { clarifyCountF = parseInt($('Validar input y token').first().json.clarify_count, 10); } catch (_cf) {}\nif (!(clarifyCountF >= 0)) clarifyCountF = 0;\nvar vertical = null, soportaCruce = false, aceptado = null;\ntry {\n  var _b = $('Webhook').first().json.body;\n  vertical = _b.vertical || null;\n  soportaCruce = _b.supports_cross === true;\n  aceptado = _b.cross_vertical_accepted || null;\n} catch(_) {}\n\nvar otras = [];\ntry {\n  var _cr = $('Buscar en otra vertical').all();\n  var filas = (_cr.length === 1 && Array.isArray(_cr[0].json)) ? _cr[0].json : _cr.map(function(i) { return i.json; });\n  // Defensivo: con executeOnce el nodo no repite filas, pero si alguien restaura\n  // un respaldo donde executeOnce era false devolveria cada fila una vez por item\n  // de entrada. Deduplicar por id mantiene correcta la eleccion en ese caso.\n  var vistos = {};\n  filas.forEach(function(l) {\n    if (!l || !l.id || vistos[l.id]) return;\n    if (!vertical || l.vertical === vertical || l.vertical === 'ambas') return;\n    vistos[l.id] = true;\n    otras.push(l);\n  });\n  otras.sort(function(a, b) { return (b.similarity || 0) - (a.similarity || 0); });\n} catch(_) {}\n\n// Mejor candidata PROPIA, para comparar. Se lee del nodo filtrado.\nvar mejorPropia = 0;\ntry {\n  var _pr = $('Buscar lecciones').all();\n  var fp = (_pr.length === 1 && Array.isArray(_pr[0].json)) ? _pr[0].json : _pr.map(function(i) { return i.json; });\n  fp.forEach(function(l) { if (l && l.id && (l.similarity || 0) > mejorPropia) mejorPropia = l.similarity; });\n} catch(_) {}\n\n// Se ofrece el cruce cuando la mejor leccion de la OTRA vertical le gana en\n// similitud a la mejor de la propia. No se usa knowledge_gap: el modelo\n// improvisa con lecciones flojas en vez de admitir que no sabe. Tampoco \"la\n// busqueda propia vino vacia\": con umbral 0.15 casi nunca viene vacia.\n// El id sale del item, nunca del texto del modelo.\n//\n// El cruce NO debe pisar una derivacion a soporte: un usuario frustrado que\n// pregunta algo de la otra vertical necesita el link de soporte, no una\n// oferta. Y `parsed` solo existe cuando la respuesta vino del LLM de lecciones:\n// las ramas de soporte y clarificacion llegan a este nodo sin pasar por el\n// modelo, y ahi el cruce no tiene nada que hacer. derivaASoporte se lee ANTES\n// de que supportRedirected se apague mas abajo.\nvar vieneDelModelo = !!(parsed && typeof parsed === 'object');\nvar derivaASoporte = supportRedirected === true;\n\nvar crossVertical = null;\nif (soportaCruce && !aceptado && vieneDelModelo && !derivaASoporte\n    && otras.length && (otras[0].similarity || 0) > mejorPropia) {\n  crossVertical = { leccion_id: otras[0].id, titulo: otras[0].titulo, vertical: otras[0].vertical };\n}\nvar askedClarification = !!(parsed && parsed.asked_clarification === true) && clarifyCountF < 2 && !crossVertical;\nvar knowledgeGap = !!(parsed && parsed.knowledge_gap === true) && !crossVertical;\nif (askedClarification || crossVertical) supportRedirected = false;\nif (crossVertical) {\n  var etiq = crossVertical.vertical === 'restaurantes' ? 'Restaurantes' : 'Retail';\n  var CRUCE_COPY = 'Eso no est\\u00e1 en el contenido de tu tipo de negocio, pero s\\u00ed tenemos una lecci\\u00f3n de ' + etiq + ' sobre \\u00ab' + crossVertical.titulo + '\\u00bb. \\u00bfQuieres verla?';\n  reply = CRUCE_COPY;\n  segments = [{ type: 'text', content: CRUCE_COPY }];\n  media = [];\n} else if (knowledgeGap) {\n  var NO_INFO_COPY = 'Todav\\u00eda no tengo informaci\\u00f3n sobre eso \\ud83d\\ude4f Soy un asistente que se actualiza cada semana con las consultas de los usuarios, as\\u00ed que es muy probable que pronto pueda ayudarte. \\u00bfQuieres que te ayude con otra cosa mientras tanto?';\n  reply = NO_INFO_COPY;\n  segments = [{ type: 'text', content: NO_INFO_COPY }];\n  media = [];\n  supportRedirected = false;\n}\nvar out = { response: reply, segments: segments, topic: topic, sentiment: sentiment, support_redirected: supportRedirected, asked_clarification: askedClarification, knowledge_gap: knowledgeGap, media: media, lessons_used: lessons_used };\nif (crossVertical) out.cross_vertical = crossVertical;\nreturn [{ json: out }];"
+    }
+   },
+   {
+    "id": "5bf3bf34-26af-442e-8fa5-4bc9ac346a16",
+    "name": "Respond to Webhook",
+    "type": "n8n-nodes-base.respondToWebhook",
+    "typeVersion": 1,
+    "position": [
+     1616,
+     48
+    ],
+    "parameters": {
+     "respondWith": "json",
+     "responseBody": "={{ { response: $json.response, segments: $json.segments, topic: $json.topic, sentiment: $json.sentiment, support_redirected: $json.support_redirected, asked_clarification: $json.asked_clarification, knowledge_gap: $json.knowledge_gap, media: $json.media, lessons_used: $json.lessons_used, cross_vertical: $json.cross_vertical } }}",
+     "options": {}
+    }
+   },
+   {
+    "id": "error-response-001",
+    "name": "Respuesta de error",
+    "type": "n8n-nodes-base.respondToWebhook",
+    "typeVersion": 1,
+    "position": [
+     -176,
+     464
+    ],
+    "parameters": {
+     "respondWith": "json",
+     "responseBody": "={{ { response: 'En este momento tengo problemas t?cnicos. Intenta de nuevo en unos minutos o escr?benos al soporte: https://api.whatsapp.com/send?phone=573171109500' } }}",
+     "options": {
+      "responseCode": 500
+     }
+    }
+   },
+   {
+    "id": "error-trigger-001",
+    "name": "Error Trigger",
+    "type": "n8n-nodes-base.errorTrigger",
+    "typeVersion": 1,
+    "position": [
+     -400,
+     464
+    ],
+    "parameters": {}
+   },
+   {
+    "id": "embed-pregunta-001",
+    "name": "Embeber pregunta",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4,
+    "retryOnFail": true,
+    "maxTries": 5,
+    "waitBetweenTries": 5000,
+    "position": [
+     496,
+     -144
+    ],
+    "parameters": {
+     "method": "POST",
+     "url": "https://us-central1-aiplatform.googleapis.com/v1/projects/gen-lang-client-0047287949/locations/us-central1/publishers/google/models/text-multilingual-embedding-002:predict",
+     "authentication": "predefinedCredentialType",
+     "nodeCredentialType": "googleApi",
+     "sendBody": true,
+     "contentType": "raw",
+     "rawContentType": "application/json",
+     "body": "={{ (function(){ var msg = $json.message || ''; var hist = $json.history || []; var words = msg.split(' ').filter(function(x){ return x; }).length; var needsContext = words <= 3 || /(\\beso\\b|\\besa\\b|\\bese\\b|\\besto\\b|\\bah[i\u00c3\u00ad]\\b|\\ball[i\u00c3\u00ad]\\b|\\buno\\b|\\buna\\b|\\botro\\b|\\botra\\b|\\btambi[e\u00c3\u00a9]n\\b|^y\\s)/i.test(msg); var prevUser = ''; for (var i = hist.length - 2; i >= 0; i--) { var h = hist[i]; if (h && h.role === 'user' && h.content && h.content !== msg) { prevUser = h.content; break; } } var query = needsContext && prevUser ? prevUser.slice(0, 200) + ' ' + msg : msg; return JSON.stringify({ instances: [ { content: query.slice(0, 500) } ] }); })() }}",
+     "options": {}
+    },
+    "credentials": {
+     "googleApi": {
+      "id": "BNCQGKUXcm47Rid3",
+      "name": "Vertex - BoldBot"
+     }
+    }
+   },
+   {
+    "id": "25bdf593-3caf-417c-b24d-539f451a614a",
+    "name": "Buscar en otra vertical",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4,
+    "executeOnce": true,
+    "alwaysOutputData": true,
+    "onError": "continueRegularOutput",
+    "position": [
+     832,
+     -336
+    ],
+    "parameters": {
+     "method": "POST",
+     "url": "https://tczcngfhuendmldafbrc.supabase.co/rest/v1/rpc/match_lessons",
+     "sendHeaders": true,
+     "headerParameters": {
+      "parameters": [
+       {
+        "name": "apikey",
+        "value": "eyJ***KEY***"
+       },
+       {
+        "name": "Authorization",
+        "value": "Bearer eyJ***KEY***"
+       },
+       {
+        "name": "Content-Type",
+        "value": "application/json"
+       }
+      ]
+     },
+     "sendBody": true,
+     "contentType": "raw",
+     "rawContentType": "application/json",
+     "body": "={{ JSON.stringify({ query_embedding: $('Embeber pregunta').first().json.predictions[0].embeddings.values, match_count: 3, match_threshold: 0.35 }) }}",
+     "options": {}
+    }
+   },
+   {
+    "id": "gap1",
+    "name": "Detectar vacio",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     1600,
+     600
+    ],
+    "parameters": {
+     "jsCode": "// Registra la pregunta que el bot no supo responder. Corre DESPUES de\n// 'Respond to Webhook': el estudiante ya tiene su respuesta y no espera por esto.\nconst r = $('Formatear respuesta').first().json;\nconst b = $('Webhook').first().json.body || {};\n// El texto EXACTO del turno, no el primer mensaje ni el resumen: es el motivo\n// entero de la bandeja de vacios.\nconst texto = String(b.message || '').trim();\n// n8n NO acepta `return []` en un Code node, asi que no se puede cortar la rama\n// devolviendo vacio: se marca con `registrar` y el IF de abajo decide.\nconst registrar = r && r.knowledge_gap === true && texto.length >= 5;\nreturn [{ json: {\n  registrar: registrar,\n  texto: texto,\n  conversation_id: b.conversation_id || null,\n  vertical: b.vertical || null,\n  plataforma: b.plataforma || null,\n  categoria: r && r.topic ? r.topic : null\n} }];"
+    }
+   },
+   {
+    "id": "gap2",
+    "name": "Embeber vacio",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4,
+    "retryOnFail": true,
+    "maxTries": 3,
+    "waitBetweenTries": 5000,
+    "onError": "continueErrorOutput",
+    "position": [
+     1960,
+     560
+    ],
+    "parameters": {
+     "method": "POST",
+     "url": "https://us-central1-aiplatform.googleapis.com/v1/projects/gen-lang-client-0047287949/locations/us-central1/publishers/google/models/text-multilingual-embedding-002:predict",
+     "authentication": "predefinedCredentialType",
+     "nodeCredentialType": "googleApi",
+     "sendBody": true,
+     "contentType": "raw",
+     "rawContentType": "application/json",
+     "body": "={{ JSON.stringify({ instances: [ { content: $json.texto.slice(0, 500) } ] }) }}",
+     "options": {}
+    },
+    "credentials": {
+     "googleApi": {
+      "id": "BNCQGKUXcm47Rid3",
+      "name": "Vertex - BoldBot"
+     }
+    }
+   },
+   {
+    "id": "gap3",
+    "name": "Registrar vacio",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "retryOnFail": false,
+    "onError": "continueRegularOutput",
+    "position": [
+     2180,
+     560
+    ],
+    "parameters": {
+     "method": "POST",
+     "url": "https://tczcngfhuendmldafbrc.supabase.co/rest/v1/rpc/registrar_pregunta_sin_respuesta",
+     "authentication": "predefinedCredentialType",
+     "nodeCredentialType": "supabaseApi",
+     "sendBody": true,
+     "contentType": "raw",
+     "rawContentType": "application/json",
+     "body": "={{ JSON.stringify({ p_texto: $('Detectar vacio').first().json.texto, p_embedding: (function(){ try { var p = $('Embeber vacio').first().json.predictions; return p ? p[0].embeddings.values : null; } catch (e) { return null; } })(), p_conversation_id: $('Detectar vacio').first().json.conversation_id, p_vertical: $('Detectar vacio').first().json.vertical, p_plataforma: $('Detectar vacio').first().json.plataforma, p_categoria: $('Detectar vacio').first().json.categoria }) }}",
+     "options": {
+      "response": {
+       "response": {
+        "responseFormat": "text",
+        "outputPropertyName": "respuesta"
+       }
+      }
+     }
+    },
+    "credentials": {
+     "supabaseApi": {
+      "id": "Szz5zeGA5Wxy3Rtj",
+      "name": "Supabase Academia (service-role)"
+     }
+    }
+   },
+   {
+    "id": "gap1b",
+    "name": "Hay vacio?",
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2,
+    "position": [
+     1740,
+     600
+    ],
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "leftValue": "",
+       "typeValidation": "strict",
+       "version": 1
+      },
+      "conditions": [
+       {
+        "id": "cond-hay-vacio",
+        "leftValue": "={{ $json.registrar }}",
+        "rightValue": true,
+        "operator": {
+         "type": "boolean",
+         "operation": "true",
+         "singleValue": true
+        }
+       }
+      ],
+      "combinator": "and"
+     },
+     "options": {}
+    }
+   }
+  ],
+  "connections": {
+   "Webhook": {
+    "main": [
+     [
+      {
+       "node": "Validar input y token",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Validar input y token": {
+    "main": [
+     [
+      {
+       "node": "Clasificar intenci?n",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Clasificar intenci?n": {
+    "main": [
+     [
+      {
+       "node": "Normalizar intenci?n",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Normalizar intenci?n": {
+    "main": [
+     [
+      {
+       "node": "Router m?dulo?",
+       "type": "main",
+       "index": 0
+      },
+      {
+       "node": "Embeber pregunta",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Router m?dulo?": {
+    "main": [
+     [],
+     [
+      {
+       "node": "Router soporte?",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Router soporte?": {
+    "main": [
+     [
+      {
+       "node": "Respuesta soporte",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     []
+    ]
+   },
+   "Construir prompt": {
+    "main": [
+     [
+      {
+       "node": "OpenAI Chat",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "OpenAI Chat": {
+    "main": [
+     [
+      {
+       "node": "Formatear respuesta",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Clarificar": {
+    "main": [
+     [
+      {
+       "node": "Formatear respuesta",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Respuesta soporte": {
+    "main": [
+     [
+      {
+       "node": "Formatear respuesta",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Formatear respuesta": {
+    "main": [
+     [
+      {
+       "node": "Respond to Webhook",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Error Trigger": {
+    "main": [
+     [
+      {
+       "node": "Respuesta de error",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Buscar lecciones": {
+    "main": [
+     [
+      {
+       "node": "Buscar en otra vertical",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Embeber pregunta": {
+    "main": [
+     [
+      {
+       "node": "Buscar lecciones",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Buscar en otra vertical": {
+    "main": [
+     [
+      {
+       "node": "Construir prompt",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Respond to Webhook": {
+    "main": [
+     [
+      {
+       "node": "Detectar vacio",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Detectar vacio": {
+    "main": [
+     [
+      {
+       "node": "Hay vacio?",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Embeber vacio": {
+    "main": [
+     [
+      {
+       "node": "Registrar vacio",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Registrar vacio",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Hay vacio?": {
+    "main": [
+     [
+      {
+       "node": "Embeber vacio",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     []
+    ]
+   }
+  },
+  "nodeGroups": [],
+  "authors": "Jeffrey Martinez",
+  "name": null,
+  "description": null,
+  "autosaved": false,
+  "createdAt": "2026-10-25T21:54:39.592Z",
+  "updatedAt": "2026-10-25T21:54:39.592Z",
+  "workflowPublishHistory": [
+   {
+    "id": 1618,
+    "workflowId": "dZGuYJbRbG6h8aqv",
+    "versionId": "173ee4b5-7571-4145-b819-5231de7a255a",
+    "event": "activated",
+    "userId": "c8aeb70e-5738-4d89-aa45-379e6e8d24ec",
+    "createdAt": "2026-10-25T21:54:40.142Z"
+   }
+  ]
+ }
+}
