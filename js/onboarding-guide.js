@@ -21,17 +21,19 @@ const RELLENO = 4        // aire alrededor del ancla dentro del foco
  * encierra dentro de la ventana aunque tape parte del ancla.
  *
  * ancla: { top, left, width, height }, burbuja: { width, height },
- * vista: { width, height }. Devuelve { lado, left, top, flecha } donde
+ * vista: { width, height, top? } (`top`: dónde empieza el área útil, debajo de
+ * la barra del recorrido; 0 si no viene). Devuelve { lado, left, top, flecha } donde
  * `flecha` es el desplazamiento de la flecha sobre el borde de la burbuja.
  */
 export function posicionBurbuja(ancla, burbuja, vista) {
+  const arribaVista = vista.top ?? 0
   const derecha = ancla.left + ancla.width
   const abajo = ancla.top + ancla.height
   const espacio = {
     derecha: vista.width - derecha - SEPARACION - MARGEN,
     izquierda: ancla.left - SEPARACION - MARGEN,
     abajo: vista.height - abajo - SEPARACION - MARGEN,
-    arriba: ancla.top - SEPARACION - MARGEN,
+    arriba: ancla.top - arribaVista - SEPARACION - MARGEN,
   }
   const cabe = {
     derecha: espacio.derecha >= burbuja.width,
@@ -53,7 +55,7 @@ export function posicionBurbuja(ancla, burbuja, vista) {
     left = ancla.left + ancla.width / 2 - burbuja.width / 2
   }
   left = acotar(left, MARGEN, vista.width - burbuja.width - MARGEN)
-  top = acotar(top, MARGEN, vista.height - burbuja.height - MARGEN)
+  top = acotar(top, arribaVista + MARGEN, vista.height - burbuja.height - MARGEN)
 
   // La flecha apunta al centro del ancla, pero sin salirse de la burbuja.
   const flecha = lado === 'derecha' || lado === 'izquierda'
@@ -92,10 +94,16 @@ function reubicar() {
   // El ancho útil termina donde termina el escenario, no la ventana: con el
   // panel de BolBot abierto, una burbuja ubicada contra el borde derecho de
   // la ventana quedaba debajo del panel.
-  const finEscenario = actual.root.getBoundingClientRect().right
+  const escenario = actual.root.getBoundingClientRect()
+  const finEscenario = escenario.right
   const vista = {
+    // Sin tapar la barra del recorrido (en el celular pasaba con anclas más
+    // altas que la pantalla, como el detalle del gasto).
+    top: Math.max(0, escenario.top),
     width: finEscenario > 0 ? Math.min(window.innerWidth, finEscenario) : window.innerWidth,
-    height: window.innerHeight,
+    // En el celular, con el teclado abierto, la parte visible es más baja
+    // que la ventana: la burbuja no debe quedar debajo del teclado.
+    height: window.visualViewport?.height ?? window.innerHeight,
   }
   const tam = { width: burbuja.offsetWidth, height: burbuja.offsetHeight }
   if (!el) {
@@ -133,6 +141,7 @@ function escuchar(on) {
   escuchando = on
   const metodo = on ? 'addEventListener' : 'removeEventListener'
   window[metodo]('resize', alMover)
+  window.visualViewport?.[metodo]('resize', alMover)
   // capture: el scroll que importa es el de .onb-main, que no burbujea.
   document[metodo]('scroll', alMover, true)
 }
@@ -165,7 +174,14 @@ export function mostrarBurbuja(root, ancla, texto, { conSiguiente = false, onSig
   }
   burbuja.hidden = false
   const el = elementoAncla()
-  el?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  // En el celular el ancla va al centro: pegada al borde no deja lugar para
+  // la burbuja y el cliente no ve qué hay alrededor. Si es más alta que media
+  // pantalla, va arriba, para que se lea desde su inicio.
+  if (el) {
+    const alta = el.getBoundingClientRect().height > window.innerHeight / 2
+    const block = window.innerWidth > 640 ? 'nearest' : alta ? 'start' : 'center'
+    el.scrollIntoView({ block, inline: 'nearest' })
+  }
   reubicar()
   escuchar(true)
 }

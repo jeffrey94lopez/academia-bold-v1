@@ -7,7 +7,7 @@ import { crearEstadoInicial } from '../js/onboarding-state.js'
 
 test('PASOS trae el orden exacto del spec', () => {
   assert.deepEqual(PASOS, [
-    'bienvenida', 'crear_item', 'ver_items', 'venta', 'gasto', 'facturas', 'inventario', 'cierre',
+    'bienvenida', 'crear_item', 'ver_items', 'venta', 'facturas', 'inventario', 'gasto', 'cierre',
   ])
 })
 
@@ -15,9 +15,9 @@ test('numeroPaso', () => {
   assert.equal(numeroPaso('crear_item'), 1)
   assert.equal(numeroPaso('ver_items'), 2)
   assert.equal(numeroPaso('venta'), 3)
-  assert.equal(numeroPaso('gasto'), 4)
-  assert.equal(numeroPaso('facturas'), 5)
-  assert.equal(numeroPaso('inventario'), 6)
+  assert.equal(numeroPaso('facturas'), 4)
+  assert.equal(numeroPaso('inventario'), 5)
+  assert.equal(numeroPaso('gasto'), 6)
   assert.equal(numeroPaso('bienvenida'), null)
   assert.equal(numeroPaso('cierre'), null)
   assert.equal(TOTAL_PASOS, 6)
@@ -51,10 +51,10 @@ test('el último subpaso pasa al siguiente paso', () => {
   assert.equal(s.sub, 0)
 })
 
-test('el último subpaso de inventario pasa a cierre sin marcar completed', () => {
-  const ult = SUBPASOS.inventario.length - 1
-  const ultimaAncla = SUBPASOS.inventario[ult].ancla
-  const s = avanzar({ ...crearEstadoInicial('r'), step: 'inventario', sub: ult }, { tipo: 'siguiente', ancla: ultimaAncla })
+test('el último subpaso de gasto pasa a cierre sin marcar completed', () => {
+  const ult = SUBPASOS.gasto.length - 1
+  const ultimaAncla = SUBPASOS.gasto[ult].ancla
+  const s = avanzar({ ...crearEstadoInicial('r'), step: 'gasto', sub: ult }, { tipo: 'siguiente', ancla: ultimaAncla })
   assert.equal(s.step, 'cierre')
   assert.equal(s.sub, 0)
   assert.equal(s.completed, false)
@@ -105,18 +105,8 @@ test('SUBPASOS trae las anclas, pantallas y tipos exactos del spec', () => {
       ['btn-pagar', 'pago-efectivo', 'click'],
       ['venta-completada', 'venta-ok', 'info'],
     ],
-    gasto: [
-      ['menu-egresos', 'venta-ok', 'click'],
-      ['btn-nuevo-gasto', 'gastos-lista', 'click'],
-      ['g-metodo', 'gasto-crear', 'campo'],
-      ['g-categoria', 'gasto-crear', 'campo'],
-      ['g-valor', 'gasto-crear', 'campo'],
-      ['g-turno', 'gasto-crear', 'info'],
-      ['btn-crear-gasto', 'gasto-crear', 'click'],
-      ['gasto-detalle', 'gasto-detalle', 'info'],
-    ],
     facturas: [
-      ['menu-ingresos', 'gasto-detalle', 'click'],
+      ['menu-ingresos', 'venta-ok', 'click'],
       ['filtros-facturas', 'facturas-lista', 'info'],
       ['factura-cliente', 'facturas-lista', 'click'],
       ['factura-detalle', 'factura-detalle', 'info'],
@@ -125,6 +115,16 @@ test('SUBPASOS trae las anclas, pantallas y tipos exactos del spec', () => {
       ['menu-flujo', 'factura-detalle', 'click'],
       ['ledger-entrada', 'flujo', 'info'],
       ['ledger-salida', 'flujo', 'info'],
+    ],
+    gasto: [
+      ['menu-egresos', 'flujo', 'click'],
+      ['btn-nuevo-gasto', 'gastos-lista', 'click'],
+      ['g-metodo', 'gasto-crear', 'campo'],
+      ['g-categoria', 'gasto-crear', 'campo'],
+      ['g-valor', 'gasto-crear', 'campo'],
+      ['g-turno', 'gasto-crear', 'info'],
+      ['btn-crear-gasto', 'gasto-crear', 'click'],
+      ['gasto-detalle', 'gasto-detalle', 'info'],
     ],
   })
 })

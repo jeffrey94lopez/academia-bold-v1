@@ -7,7 +7,7 @@
 **Objetivo:** que, apenas un comercio termina de crear su cuenta por self
 service, Bold le muestre un recorrido guiado interactivo (una práctica, no su
 cuenta real) de las tareas básicas de Bold POS: crear un ítem, verlo en su
-lista, hacer una venta, registrar un gasto y revisar sus historiales.
+lista, hacer una venta, revisar sus historiales y registrar un gasto.
 
 **Relacionado:** reutiliza el mismo mecanismo que ya tienen implementado para
 Ayuda — el `bold:context` de `Requerimiento-Contexto-BoldBot-v2.docx` y el

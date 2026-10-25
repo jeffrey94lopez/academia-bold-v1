@@ -18,7 +18,7 @@ function etiquetaEstado(texto, tono = 'verde') {
 export function gastosLista(estado) {
   const g = estado.gasto
   const filas = g
-    ? `<tr><td><span class="onb-miniatura">${ICO.imagen}</span></td><td>${t(g.numero)}</td><td class="onb-muted">—</td><td>${t(fechaHora(g.fecha))}</td><td>${t(g.categoria)}</td><td>${t(formatCOP(g.valor))}</td><td>${etiquetaEstado('Ingresado')}</td></tr>`
+    ? `<tr><td class="onb-opc"><span class="onb-miniatura">${ICO.imagen}</span></td><td>${t(g.numero)}</td><td class="onb-muted onb-opc">—</td><td>${t(fechaHora(g.fecha))}</td><td>${t(g.categoria)}</td><td>${t(formatCOP(g.valor))}</td><td>${etiquetaEstado('Ingresado')}</td></tr>`
     : '<tr><td colspan="7" class="onb-vacio">Todavía no has registrado gastos.</td></tr>'
   return `<div class="onb-pagina">
   ${encabezado('Gastos', boton('Nuevo gasto', { accion: 'btn-nuevo-gasto', ancla: 'btn-nuevo-gasto', icono: ICO.mas }))}
@@ -33,7 +33,7 @@ export function gastosLista(estado) {
   </div>
   <p class="onb-mostrando">Mostrando ${g ? 1 : 0} de ${g ? 1 : 0}</p>
   <div class="onb-card onb-tabla-wrap"><table class="onb-tabla">
-    <thead><tr><th></th><th>No. Gasto</th><th>Proveedor</th><th>Fecha del gasto</th><th>Categoría</th><th>Valor total</th><th>Estado</th></tr></thead>
+    <thead><tr><th class="onb-opc"></th><th>No. Gasto</th><th class="onb-opc">Proveedor</th><th>Fecha del gasto</th><th>Categoría</th><th>Valor total</th><th>Estado</th></tr></thead>
     <tbody>${filas}</tbody>
   </table></div>
 </div>`
@@ -118,7 +118,7 @@ export function facturaDetalle(estado) {
   const imp = IMPUESTOS.find(i => i.id === it.impuesto)
   const unitario = precioTotal(it.precioBase, it.impuesto)
   const { totalItems, subtotal, impuesto } = totalesVenta(estado)
-  const lineas = estado.ventaLineas.map(l => `<tr><td>${t(l.cantidad)}</td><td><span class="onb-rojo">${t(it.codigo)}</span> - ${t(it.nombre)}</td><td>${t(formatCOP(it.precioBase))}</td><td>0 %</td><td>${t(imp?.label ?? '')}</td><td>${t(formatCOP(unitario * l.cantidad))}</td></tr>`).join('')
+  const lineas = estado.ventaLineas.map(l => `<tr><td>${t(l.cantidad)}</td><td><span class="onb-rojo">${t(it.codigo)}</span> - ${t(it.nombre)}</td><td class="onb-opc">${t(formatCOP(it.precioBase))}</td><td class="onb-opc">0 %</td><td class="onb-opc">${t(imp?.label ?? '')}</td><td>${t(formatCOP(unitario * l.cantidad))}</td></tr>`).join('')
   const acciones = ['IMPRIMIR', 'ENVIAR', 'NUEVO', 'VERIFICA EN LA DIAN'].map(a => boton(a, { clase: 'onb-btn-gris onb-btn-mini' })).join('')
   return `<div class="onb-pagina">
   <div class="onb-tags-cab" data-onb="factura-detalle">${etiquetaEstado('Aceptada')}${etiquetaEstado('Contado')}${etiquetaEstado('Pagada')}</div>
@@ -129,7 +129,7 @@ export function facturaDetalle(estado) {
     <div class="onb-muted onb-der"><strong>${t(NEGOCIO)}</strong><br>Registrada en Turno No. 1</div>
   </div>
   <div class="onb-card onb-tabla-wrap"><table class="onb-tabla">
-    <thead><tr><th>Cantidad</th><th>Item</th><th>Precio Unit.</th><th>Descuento</th><th>Impuesto</th><th>Total</th></tr></thead>
+    <thead><tr><th>Cantidad</th><th>Item</th><th class="onb-opc">Precio Unit.</th><th class="onb-opc">Descuento</th><th class="onb-opc">Impuesto</th><th>Total</th></tr></thead>
     <tbody>${lineas}</tbody>
   </table><p class="onb-muted onb-pad">Total items: ${t(totalItems)}</p>
   <div class="onb-totales onb-totales-der">
@@ -139,8 +139,8 @@ export function facturaDetalle(estado) {
     <p class="onb-total-fila"><span>Total</span><span>${t(formatCOP(v.total))}</span></p>
   </div></div>
   <div class="onb-card onb-tabla-wrap"><p class="onb-centro onb-muted">Recibos</p><table class="onb-tabla">
-    <thead><tr><th>Código</th><th>Estado</th><th>Total</th><th>Método de pago</th><th>Fecha</th></tr></thead>
-    <tbody><tr><td class="onb-rojo">1</td><td>${etiquetaEstado('Pagada')}</td><td>${t(formatCOP(v.total))}</td><td>${t(v.metodo)}</td><td>${t(fechaHora(v.fecha))}</td></tr></tbody>
+    <thead><tr><th class="onb-opc">Código</th><th>Estado</th><th>Total</th><th>Método de pago</th><th class="onb-opc">Fecha</th></tr></thead>
+    <tbody><tr><td class="onb-rojo onb-opc">1</td><td>${etiquetaEstado('Pagada')}</td><td>${t(formatCOP(v.total))}</td><td>${t(v.metodo)}</td><td class="onb-opc">${t(fechaHora(v.fecha))}</td></tr></tbody>
   </table></div>
 </div>`
 }

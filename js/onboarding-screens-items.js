@@ -35,12 +35,12 @@ function filaItem({ codigo, nombre, precio, existencia, cliente }) {
   const onb = a => (cliente ? ` data-onb="${a}"` : '')
   const editar = cliente ? 'data-action="btn-editar"' : FUERA
   return `<tr class="onb-fila-item${cliente ? ' onb-fila-cliente' : ''}"${onb('fila-item-cliente')}>
-  <td class="onb-muted">${t(codigo)}</td>
+  <td class="onb-muted onb-opc">${t(codigo)}</td>
   <td><strong>${t(nombre)}</strong></td>
-  <td class="onb-muted">—</td>
+  <td class="onb-muted onb-opc">—</td>
   <td>${t(formatCOP(precio))}</td>
   <td>${t(miles(existencia))} Unidades</td>
-  <td>Producto</td>
+  <td class="onb-opc">Producto</td>
   <td>${switchVisual(true, cliente ? 'data-onb="switch-activo" data-action="switch-activo"' : FUERA)}</td>
   <td><button type="button" class="onb-icon-btn" ${editar}${onb('btn-editar')} aria-label="Editar">${ICO.lapiz}</button></td>
 </tr>`
@@ -66,7 +66,7 @@ export function itemsLista(estado) {
   </div>
   <p class="onb-mostrando">Mostrando ${total} de ${total}</p>
   <div class="onb-card onb-tabla-wrap"><table class="onb-tabla">
-    <thead><tr><th>Código</th><th>Nombre/Descripción</th><th>Referencia</th><th>Precio</th><th data-onb="col-existencia">Existencia</th><th>Tipo</th><th>Activo</th><th></th></tr></thead>
+    <thead><tr><th class="onb-opc">Código</th><th>Nombre/Descripción</th><th class="onb-opc">Referencia</th><th>Precio</th><th data-onb="col-existencia">Existencia</th><th class="onb-opc">Tipo</th><th>Activo</th><th></th></tr></thead>
     <tbody>${filas.join('')}</tbody>
   </table></div>
 </div>`
@@ -146,15 +146,15 @@ export function flujo(estado) {
     const salida = m.tipo === 'Salida'
     const ancla = salida ? 'ledger-salida' : 'ledger-entrada'
     return `<tr class="${salida ? 'onb-fila-roja' : ''}" data-onb="${ancla}">
-  <td>${t(fechaHora(salida ? fechaBase : it.creado))}</td>
+  <td class="onb-opc">${t(fechaHora(salida ? fechaBase : it.creado))}</td>
   <td>${t(it.nombre)}</td>
-  <td>${t(it.categoria)}</td>
+  <td class="onb-opc">${t(it.categoria)}</td>
   <td>${t(m.tipo)}</td>
   <td>${t(miles(m.cantidad))} Unidades</td>
-  <td>${t(SUCURSAL)}</td>
-  <td>${t(formatCOP(it.costo ?? 0))}</td>
+  <td class="onb-opc">${t(SUCURSAL)}</td>
+  <td class="onb-opc">${t(formatCOP(it.costo ?? 0))}</td>
   <td>${t(miles(m.existencia))} Unidades</td>
-  <td>Tú</td>
+  <td class="onb-opc">Tú</td>
 </tr>`
   })
   const cuerpo = filas.length
@@ -170,7 +170,7 @@ export function flujo(estado) {
   <div class="onb-centro">${boton('IMPRIMIR', { clase: 'onb-btn-navy onb-btn-chico' })}${boton('EXPORTAR', { clase: 'onb-btn-chico' })}</div>
   <p class="onb-mostrando">Mostrando ${movs.length} de ${movs.length}</p>
   <div class="onb-card onb-tabla-wrap"><table class="onb-tabla">
-    <thead><tr><th>Fecha</th><th>Producto</th><th>Categoría</th><th>Transacción</th><th>Cantidad</th><th>Sucursal</th><th>Costo</th><th>Existencia</th><th>Usuario</th></tr></thead>
+    <thead><tr><th class="onb-opc">Fecha</th><th>Producto</th><th class="onb-opc">Categoría</th><th>Transacción</th><th>Cantidad</th><th class="onb-opc">Sucursal</th><th class="onb-opc">Costo</th><th>Existencia</th><th class="onb-opc">Usuario</th></tr></thead>
     <tbody>${cuerpo}</tbody>
   </table></div>
 </div>`

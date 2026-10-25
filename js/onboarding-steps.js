@@ -6,7 +6,7 @@
 // subpaso actual, devuelve la MISMA referencia de estado (identidad).
 
 export const PASOS = [
-  'bienvenida', 'crear_item', 'ver_items', 'venta', 'gasto', 'facturas', 'inventario', 'cierre',
+  'bienvenida', 'crear_item', 'ver_items', 'venta', 'facturas', 'inventario', 'gasto', 'cierre',
 ]
 
 export const TOTAL_PASOS = 6
@@ -49,18 +49,8 @@ export const SUBPASOS = {
     { ancla: 'btn-pagar', pantalla: 'pago-efectivo', avanza: 'click', texto: 'Toca Pagar para completar la venta.' },
     { ancla: 'venta-completada', pantalla: 'venta-ok', avanza: 'info', texto: 'Tu venta quedó registrada; desde aquí podrías enviarla o imprimirla.' },
   ],
-  gasto: [
-    { ancla: 'menu-egresos', pantalla: 'venta-ok', avanza: 'click', texto: 'Toca Egresos en el menú para registrar un gasto.' },
-    { ancla: 'btn-nuevo-gasto', pantalla: 'gastos-lista', avanza: 'click', texto: 'Toca + Nuevo gasto para crear uno.' },
-    { ancla: 'g-metodo', pantalla: 'gasto-crear', avanza: 'campo', texto: 'Elige el método de pago del gasto.' },
-    { ancla: 'g-categoria', pantalla: 'gasto-crear', avanza: 'campo', texto: 'Elige la categoría que mejor describe el gasto.' },
-    { ancla: 'g-valor', pantalla: 'gasto-crear', avanza: 'campo', texto: 'Ingresa el valor del gasto.' },
-    { ancla: 'g-turno', pantalla: 'gasto-crear', avanza: 'info', texto: 'Asociarlo al turno hace que afecte el cierre de caja.' },
-    { ancla: 'btn-crear-gasto', pantalla: 'gasto-crear', avanza: 'click', texto: 'Toca Crear gasto para guardarlo.' },
-    { ancla: 'gasto-detalle', pantalla: 'gasto-detalle', avanza: 'info', texto: 'Así queda tu gasto registrado, con un número único.' },
-  ],
   facturas: [
-    { ancla: 'menu-ingresos', pantalla: 'gasto-detalle', avanza: 'click', texto: 'Toca Ingresos en el menú para ver tus ventas.' },
+    { ancla: 'menu-ingresos', pantalla: 'venta-ok', avanza: 'click', texto: 'Toca Ingresos en el menú para ver tus ventas.' },
     { ancla: 'filtros-facturas', pantalla: 'facturas-lista', avanza: 'info', texto: 'Con estos filtros buscas por fecha, forma de pago o estado.' },
     { ancla: 'factura-cliente', pantalla: 'facturas-lista', avanza: 'click', texto: 'Toca tu venta para ver el detalle completo.' },
     { ancla: 'factura-detalle', pantalla: 'factura-detalle', avanza: 'info', texto: 'Aceptada es el estado ante la DIAN, Contado es la forma de pago y Pagada confirma que ya recibiste el dinero.' },
@@ -69,6 +59,16 @@ export const SUBPASOS = {
     { ancla: 'menu-flujo', pantalla: 'factura-detalle', avanza: 'click', texto: 'Toca Flujo de inventario para ver los movimientos de tu ítem.' },
     { ancla: 'ledger-entrada', pantalla: 'flujo', avanza: 'info', texto: 'La entrada muestra las existencias iniciales que registraste.' },
     { ancla: 'ledger-salida', pantalla: 'flujo', avanza: 'info', texto: 'La salida en rojo es por tu venta; así queda la existencia resultante.' },
+  ],
+  gasto: [
+    { ancla: 'menu-egresos', pantalla: 'flujo', avanza: 'click', texto: 'Toca Egresos en el menú para registrar un gasto.' },
+    { ancla: 'btn-nuevo-gasto', pantalla: 'gastos-lista', avanza: 'click', texto: 'Toca + Nuevo gasto para crear uno.' },
+    { ancla: 'g-metodo', pantalla: 'gasto-crear', avanza: 'campo', texto: 'Elige el método de pago del gasto.' },
+    { ancla: 'g-categoria', pantalla: 'gasto-crear', avanza: 'campo', texto: 'Elige la categoría que mejor describe el gasto.' },
+    { ancla: 'g-valor', pantalla: 'gasto-crear', avanza: 'campo', texto: 'Ingresa el valor del gasto.' },
+    { ancla: 'g-turno', pantalla: 'gasto-crear', avanza: 'info', texto: 'Asociarlo al turno hace que afecte el cierre de caja.' },
+    { ancla: 'btn-crear-gasto', pantalla: 'gasto-crear', avanza: 'click', texto: 'Toca Crear gasto para guardarlo.' },
+    { ancla: 'gasto-detalle', pantalla: 'gasto-detalle', avanza: 'info', texto: 'Así queda tu gasto registrado, con un número único.' },
   ],
 }
 

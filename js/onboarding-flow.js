@@ -321,10 +321,10 @@ export function resumenCierre(estado) {
     const { totalItems } = totalesVenta(estado)
     frases.push(`Vendiste ${totalItems} ${totalItems === 1 ? 'unidad' : 'unidades'} por ${formatCOP(estado.venta.total)} en efectivo.`)
   }
-  if (estado.gasto) frases.push(`Registraste un gasto de ${formatCOP(estado.gasto.valor)} en ${estado.gasto.categoria}.`)
   if (it && typeof it.existenciasFinal === 'number') {
     frases.push(`Viste en el flujo de inventario cómo tus existencias pasaron de ${it.existencias} a ${it.existenciasFinal}.`)
   }
+  if (estado.gasto) frases.push(`Registraste un gasto de ${formatCOP(estado.gasto.valor)} en ${estado.gasto.categoria}.`)
   return frases
 }
 

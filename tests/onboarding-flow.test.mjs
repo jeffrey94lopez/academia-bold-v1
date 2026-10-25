@@ -196,7 +196,8 @@ test('progreso y resumen de cierre', () => {
   const frases = resumenCierre(e)
   assert.equal(frases.length, 4)
   assert.match(frases[0], /Hamburguesa.*\$ 16,200/)
-  assert.match(frases[3], /de 5 a 4/)
+  assert.match(frases[2], /de 5 a 4/)
+  assert.match(frases[3], /gasto de \$ 50,000 en Aseo/)
   assert.deepEqual(resumenCierre(crearEstadoInicial('r')), [])
 })
 
@@ -214,6 +215,15 @@ test('posicionBurbuja: derecha si cabe; si no, el lado con más espacio y dentro
   assert.ok(grande.top >= 12 && grande.top + b.height <= vista.height - 12)
   // La flecha nunca se sale de la burbuja.
   assert.ok(der.flecha >= 14 && der.flecha <= b.height - 14)
+})
+
+test('posicionBurbuja: con vista.top no sube por encima de la barra del recorrido', () => {
+  // Celular: ancla más alta que la pantalla, debajo de una barra de 44 px.
+  const vista = { width: 320, height: 568, top: 44 }
+  const b = { width: 296, height: 90 }
+  const p = posicionBurbuja({ top: 50, left: 8, width: 304, height: 900 }, b, vista)
+  assert.ok(p.top >= 44 + 12, `top ${p.top}`)
+  assert.ok(p.top + b.height <= vista.height - 12)
 })
 
 test('botAbiertoAlInicio: abierto desde 1280 px, cerrado por debajo', () => {

@@ -146,7 +146,7 @@ const FUNNEL = {
 test('onboardingFunnelHtml arma las 8 etapas en orden con % sobre Empezó', () => {
   const html = onboardingFunnelHtml(FUNNEL)
   const etapas = ['Empezó', 'Creó el ítem', 'Vio sus productos', 'Hizo la venta',
-    'Registró el gasto', 'Vio facturas', 'Vio inventario', 'Terminó']
+    'Vio facturas', 'Vio inventario', 'Registró el gasto', 'Terminó']
   let pos = -1
   for (const e of etapas) {
     const i = html.indexOf(e)

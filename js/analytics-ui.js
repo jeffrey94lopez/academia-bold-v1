@@ -170,9 +170,9 @@ const PASOS_RECORRIDO = [
   ['crear_item', 'Creó el ítem'],
   ['ver_items', 'Vio sus productos'],
   ['venta', 'Hizo la venta'],
-  ['gasto', 'Registró el gasto'],
   ['facturas', 'Vio facturas'],
   ['inventario', 'Vio inventario'],
+  ['gasto', 'Registró el gasto'],
 ]
 // Saltar y escribirle al bot también se puede en la bienvenida y en el cierre, que
 // no son etapas del embudo pero sí aparecen en los desgloses por paso.

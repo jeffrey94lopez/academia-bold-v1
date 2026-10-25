@@ -6,7 +6,7 @@
 -- inflaría "Empezó" y bajaría el % de los que terminan.
 --
 -- Etapas: onboarding_start -> onboarding_step_complete por paso (crear_item,
--- ver_items, venta, gasto, facturas, inventario) -> onboarding_complete.
+-- ver_items, venta, facturas, inventario, gasto) -> onboarding_complete.
 -- Además, por paso: en cuál se saltaron (onboarding_skip), en cuál abrieron
 -- BolBot con el botón (onboarding_bot_open) y en cuál le escribieron
 -- (onboarding_bot_message). En pantallas anchas el bot arranca abierto, así

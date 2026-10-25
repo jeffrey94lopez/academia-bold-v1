@@ -354,7 +354,7 @@
   transition: left 0.18s ease, top 0.18s ease, width 0.18s ease, height 0.18s ease;
 }
 .onb-burbuja {
-  position: fixed; z-index: 1002; width: 280px; padding: 12px 14px;
+  position: fixed; z-index: 1002; width: min(280px, calc(100vw - 24px)); padding: 12px 14px;
   background: var(--bold-navy); color: var(--onb-blanco); border-radius: 10px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
   font-family: 'Montserrat', system-ui, sans-serif; font-size: 13px; line-height: 1.45;
@@ -378,7 +378,8 @@
 .onb-burbuja-siguiente:focus-visible { outline: 2px solid var(--bold-red); outline-offset: 2px; }
 
 /* Confirmaciones tipo Bold ("El ítem fue creado exitosamente"). */
-.onb-toasts { position: fixed; z-index: 1003; top: 56px; right: 16px; display: flex; flex-direction: column; gap: 8px; }
+/* No atrapan toques: un toast encima del "Siguiente" de la burbuja lo bloqueaba. */
+.onb-toasts { position: fixed; z-index: 1003; top: 56px; right: 16px; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
 /* Con BolBot abierto los toasts se corren a la izquierda del panel (que está
    por encima): si no, el "creado exitosamente" quedaba tapado. */
 .onb-con-bot .onb-toasts { right: calc(min(380px, 100%) + 16px); }
@@ -415,6 +416,7 @@
   background: var(--bold-navy); color: var(--onb-blanco); font: inherit; font-size: 12px; font-weight: 700;
 }
 .onb-bot-btn:hover, .onb-bot-btn[aria-expanded="true"] { background: var(--bold-red); }
+.onb-bot-btn-corto { display: none; }
 /* Con el botón visible, él empuja a la derecha; "Saltar" va pegado a él. */
 .onb-bot-btn:not([hidden]) + .onb-barra-saltar { margin-left: 0; }
 .onb-bot-btn:focus-visible, .onb-bot-cerrar:focus-visible { outline: 2px solid var(--bold-red); outline-offset: 2px; }
@@ -436,3 +438,134 @@
 .onb-bot-cuerpo { position: relative; flex: 1; min-height: 0; }
 .onb-bot-panel #section-assistant { position: absolute; inset: 0; }
 .onb-con-bot .onb-stage { margin-right: min(380px, 100%); }
+
+/* =====================================================================
+   Pantallas angostas. La réplica copia el Bold POS de escritorio; aquí se
+   reacomoda para que se pueda practicar igual (la tarjeta del inicio sigue
+   avisando que en computador se ve mejor).
+   ===================================================================== */
+
+/* Tablet y laptop chica: el menú lateral todavía cabe, pero el formulario
+   ya no tiene ancho para su columna de al lado ni para el precio en fila. */
+@media (max-width: 900px) {
+  .onb-form-layout { flex-direction: column; align-items: stretch; }
+  .onb-form-lado { width: auto; }
+  .onb-precio-fila { grid-template-columns: 1fr 1fr; }
+  .onb-precio-fila .onb-operador { display: none; }
+  .onb-precio-fila > .onb-campo:last-child { grid-column: 1 / -1; }
+  .onb-kpis { grid-template-columns: repeat(2, 1fr); }
+  .onb-carrito { width: 50%; }
+  .onb-drawer-ancho, .onb-drawer-angosto { width: min(600px, 92%); }
+  .onb-drawer-cuerpo { flex-direction: column; }
+  .onb-panel:first-child { flex: none; }
+  .onb-bot-btn-largo { display: none; }
+  .onb-bot-btn-corto { display: inline; }
+}
+
+/* Celular. */
+@media (max-width: 640px) {
+  /* Barra del recorrido */
+  .onb-barra { gap: 10px; padding: 0 12px; }
+  .onb-barra-paso { min-width: 0; flex-shrink: 0; font-size: 12px; }
+  .onb-barra-progreso { flex: 1 1 auto; min-width: 24px; }
+  /* En el cierre el texto es largo y la barra ya está llena: sobra. */
+  .onb-barra-progreso[aria-valuenow="100"] { display: none; }
+  .onb-bot-btn { padding: 8px 12px; min-height: 36px; }
+  .onb-barra-saltar { min-height: 36px; white-space: nowrap; }
+
+  /* BolBot tapa toda la pantalla en vez de angostar el escenario (que se
+     quedaría sin ancho); se cierra con la ×. */
+  .onb-con-bot .onb-stage { margin-right: 0; }
+  /* Abajo: arriba chocaban con la burbuja de las anclas altas. */
+  .onb-con-bot .onb-toasts, .onb-toasts { top: auto; bottom: 16px; right: 12px; left: 12px; }
+  .onb-bot-cerrar { width: 40px; height: 40px; }
+
+  /* Tamaños de dedo: la réplica de escritorio usa letra de 10–11 px. Los
+     campos van a 16 px para que el iPhone no haga zoom al tocarlos. */
+  .onb-app { font-size: 13px; min-height: 0; }
+  .onb-input, .onb-input-limpio { font-size: 16px; min-height: 40px; }
+  .onb-cantidad { width: 52px; }
+  .onb-btn { padding: 10px 16px; font-size: 13px; }
+  .onb-btn-mini { padding: 6px 10px; font-size: 10px; }
+  .onb-icon-btn { width: 36px; height: 36px; }
+  .onb-label { font-size: 12px; }
+  .onb-ayuda, .onb-error { font-size: 11px; }
+  .onb-chip { padding: 8px 12px; font-size: 13px; }
+  .onb-switch-btn { padding: 8px 0; }
+  .onb-tabla { font-size: 12px; }
+  .onb-tabla th, .onb-tabla td { padding: 9px 6px; }
+  .onb-opc { display: none; }
+
+  /* Barra de la réplica: el aviso de práctica no se quita; lo de la derecha sí. */
+  .onb-topbar { height: auto; min-height: 40px; padding: 6px 12px; gap: 10px; }
+  .onb-topbar-der { display: none; }
+  .onb-practica { font-size: 10.5px; line-height: 1.3; }
+
+  /* Menú lateral: escondido; la guía lo despliega encima del contenido
+     cuando la burbuja señala algo de él (onb-menu-guiado). */
+  .onb-cuerpo { position: relative; }
+  .onb-sidebar { display: none; }
+  .onb-menu-guiado .onb-sidebar {
+    display: flex; position: absolute; z-index: 5; top: 0; bottom: 0; left: 0;
+    width: min(240px, 75%); margin: 0; border-radius: 0 10px 10px 0;
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.18);
+  }
+  .onb-menu-item, .onb-menu-sub { font-size: 13px; padding: 10px 8px; }
+  .onb-menu-item .onb-ico { width: 16px; height: 16px; }
+  .onb-btn-nueva-venta { padding: 10px 8px; font-size: 13px; }
+
+  /* Páginas */
+  .onb-pagina { padding: 12px 12px 24px; }
+  .onb-encabezado { flex-wrap: wrap; }
+  .onb-titulo { font-size: 18px; }
+  .onb-acciones { width: 100%; }
+  .onb-acciones .onb-btn { flex: 1 1 auto; }
+  .onb-filtros { flex-wrap: wrap; }
+  .onb-buscador { flex: 1 1 100%; padding: 4px 12px; }
+  .onb-filtro { flex: 1 1 40%; padding: 9px 10px; font-size: 12px; }
+  .onb-filtros-grid { grid-template-columns: 1fr 1fr; }
+  .onb-filtros-grid > .onb-input { grid-column: 1 / -1; }
+  .onb-grid-2 { grid-template-columns: 1fr; }
+  .onb-precio-fila { grid-template-columns: 1fr; }
+  .onb-kpi strong { font-size: 16px; }
+  .onb-factura { grid-template-columns: 56px 1fr; gap: 10px; }
+  .onb-factura-der { grid-column: 2; align-items: flex-start; }
+  .onb-factura-cab { flex-direction: column; gap: 8px; }
+  .onb-factura-cab .onb-der { text-align: left; }
+  .onb-totales-der { width: auto; margin-left: 0; }
+
+  /* Punto de venta: productos arriba, carrito abajo. */
+  .onb-pos { flex-direction: column; min-height: 0; height: auto; padding: 8px 12px 16px; }
+  .onb-productos { grid-template-columns: repeat(2, 1fr); }
+  .onb-carrito { width: auto; max-width: none; }
+  .onb-linea-info { font-size: 12px; }
+  .onb-linea-info small { font-size: 10px; }
+  .onb-vaciar span { padding: 8px 10px; font-size: 11px; }
+  .onb-btn-vender { padding: 12px; }
+
+  /* Pago y venta completada: en vez de un panel encima del POS, una página. */
+  .onb-con-drawer { min-height: 0; height: auto; }
+  .onb-con-drawer > .onb-pos, .onb-velo { display: none; }
+  .onb-drawer { position: static; width: auto; box-shadow: none; padding: 12px; }
+  .onb-drawer-ancho, .onb-drawer-angosto { width: auto; }
+  .onb-drawer-cuerpo { overflow: visible; }
+  .onb-panel { padding: 12px; }
+  .onb-metodos { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .onb-metodo { font-size: 11px; padding: 6px 2px; }
+  .onb-fila-campo > .onb-input { flex: 1; min-width: 0; }
+
+  /* Pantallas propias (bienvenida, cierre, avisos) */
+  .onb-especial { align-items: flex-start; padding: 16px 12px; }
+  .onb-especial-card { padding: 22px 18px; }
+  .onb-especial-titulo { font-size: 20px; }
+  .onb-especial-botones .onb-btn { flex: 1 1 100%; }
+}
+
+/* Celular muy angosto (320 px): la barra de avance no cabe al lado del texto
+   del paso, que ya dice "Paso N de 6". */
+@media (max-width: 360px) {
+  .onb-barra-progreso { display: none; }
+  .onb-bot-btn + .onb-barra-saltar, .onb-barra-saltar { margin-left: auto; }
+  .onb-bot-btn:not([hidden]) { margin-left: auto; }
+  .onb-bot-btn:not([hidden]) + .onb-barra-saltar { margin-left: 0; }
+}

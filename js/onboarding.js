@@ -203,6 +203,11 @@ function render({ tope = false, aviso = '' } = {}) {
   const restaurado = restaurarFoco(foco)
 
   const s = subpasoActual(estado)
+  // En el celular el menú lateral vive escondido y se despliega solo cuando la
+  // burbuja señala algo de él (Ingresos, Egresos, Nueva venta...). Va antes
+  // de mostrarBurbuja: la guía mide el ancla ya visible.
+  const enMenu = s && stage.querySelector(`.onb-sidebar [data-onb="${CSS.escape(s.ancla)}"]`)
+  stage.querySelector('.onb-app')?.classList.toggle('onb-menu-guiado', Boolean(enMenu))
   if (!s) { ocultarBurbuja(); return }
   let avisoBurbuja = aviso
   if (tope && estado.item) {
@@ -240,7 +245,7 @@ function tarjeta(contenido) {
 function bienvenida() {
   const aprende = [
     'Crear tu primer ítem', 'Encontrarlo en tu lista de productos', 'Hacer una venta',
-    'Registrar un gasto', 'Ver tu historial de ventas', 'Ver el historial de tu inventario',
+    'Ver tu historial de ventas', 'Ver el historial de tu inventario', 'Registrar un gasto',
   ]
   return tarjeta(`
   <h1 class="onb-especial-titulo">Aprende a usar Bold POS en unos 5 minutos</h1>
@@ -275,7 +280,7 @@ function pantallaEspecial(e) {
   if (e.tipo === 'angosta') {
     return tarjeta(`
   <h1 class="onb-especial-titulo">Este recorrido se ve mejor en computador</h1>
-  <p class="onb-especial-texto">La práctica copia la pantalla de Bold POS para computador. En una pantalla angosta puede verse apretada.</p>
+  <p class="onb-especial-texto">La práctica copia la pantalla de Bold POS para computador. Puedes hacerla desde aquí, pero en un computador ves todo tal como lo vas a usar.</p>
   <div class="onb-especial-botones">
     <button type="button" class="onb-btn onb-btn-primario" data-action="continuar-igual">Continuar igual</button>
     <button type="button" class="onb-btn onb-btn-secundario" data-action="saltar">Saltar recorrido</button>
