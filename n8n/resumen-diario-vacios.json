@@ -1,0 +1,224 @@
+{
+ "id": "JZgEpXFBKN8u70wP",
+ "name": "BolBot - Resumen diario de vacios",
+ "description": null,
+ "active": false,
+ "activeVersionId": null,
+ "createdAt": "2026-10-25T22:03:59.813Z",
+ "updatedAt": "2026-10-25T22:07:52.514Z",
+ "isArchived": false,
+ "versionId": "ed773ea2-14fa-48ac-9ba0-c9674cb7f701",
+ "versionCounter": 4,
+ "sourceWorkflowId": null,
+ "triggerCount": 1,
+ "nodes": [
+  {
+   "id": "r1",
+   "name": "Cada manana",
+   "type": "n8n-nodes-base.scheduleTrigger",
+   "typeVersion": 1.1,
+   "position": [
+    0,
+    0
+   ],
+   "parameters": {
+    "rule": {
+     "interval": [
+      {
+       "field": "days",
+       "triggerAtHour": 8
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "r2",
+   "name": "Leer resumen",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 5000,
+   "position": [
+    220,
+    0
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "https://tczcngfhuendmldafbrc.supabase.co/rest/v1/rpc/analytics_vacios_resumen_diario",
+    "authentication": "predefinedCredentialType",
+    "nodeCredentialType": "supabaseApi",
+    "sendBody": true,
+    "contentType": "raw",
+    "rawContentType": "application/json",
+    "body": "={{ JSON.stringify({}) }}",
+    "options": {}
+   },
+   "credentials": {
+    "supabaseApi": {
+     "id": "Szz5zeGA5Wxy3Rtj",
+     "name": "Supabase Academia (service-role)"
+    }
+   }
+  },
+  {
+   "id": "r3",
+   "name": "Armar correo",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    440,
+    0
+   ],
+   "parameters": {
+    "jsCode": "// La RPC devuelve el jsonb directo. PostgREST a veces lo entrega envuelto en\n// un array de un elemento, asi que se normaliza antes de leerlo.\nlet r = $json;\nif (Array.isArray(r)) { r = r[0] || {}; }\nif (r && r.data && !r.nuevos_24h && !r.urgentes) { r = r.data; }\nconst nuevos = Array.isArray(r.nuevos_24h) ? r.nuevos_24h : [];\nconst urgentes = Array.isArray(r.urgentes) ? r.urgentes : [];\nconst reincidentes = Number(r.reincidentes) || 0;\n// coalesce del lado del SQL devuelve null cuando no hay conversaciones.\nconst enSilencio = r.en_silencio === true;\n// Si no hay NADA que contar, no se manda correo. Un aviso diario que llega\n// aunque no haya novedad se ignora en una semana.\nconst enviar = nuevos.length > 0 || urgentes.length > 0 || enSilencio;\nconst esc = function (s) { return String(s == null ? '' : s)\n  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };\nconst lista = function (arr) { return arr.map(function (v) {\n  return '<li><b>' + v.preguntas + '&times;</b> ' + esc(v.titulo) + '</li>'; }).join(''); };\nconst partes = [];\nif (enSilencio) { partes.push('<p style=\"color:#b00\"><b>El registro de vacios parece roto.</b> El bot reporto preguntas sin respuesta pero no se registro ninguna. Revisa la rama de registro del workflow de n8n.</p>'); }\nif (urgentes.length) { partes.push('<h3>Urgentes (cruzaron el umbral)</h3><ul>' + lista(urgentes) + '</ul>'); }\nif (nuevos.length) { partes.push('<h3>Nuevos en las ultimas 24 horas</h3><ul>' + lista(nuevos) + '</ul>'); }\nif (reincidentes > 0) { partes.push('<p>' + reincidentes + ' vacio(s) <b>resueltos que siguen preguntandose</b>: el contenido existe y el bot no lo esta recuperando. Revisa que esas lecciones esten activas y con el embedding al dia.</p>'); }\nconst subject = urgentes.length\n  ? ('BolBot: ' + urgentes.length + ' vacio(s) urgente(s) por atender')\n  : (enSilencio ? 'BolBot: el registro de vacios parece roto'\n                : ('BolBot: ' + nuevos.length + ' vacio(s) nuevo(s)'));\nconst html = '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:14px\">'\n  + '<h2>Bandeja de vacios de BolBot</h2>' + partes.join('')\n  + '<p style=\"color:#666;font-size:12px\">Abre el admin &rarr; Vacios del bot para atenderlos.</p></div>';\nreturn [{ json: { enviar: enviar, subject: subject, html: html } }];"
+   }
+  },
+  {
+   "id": "r4",
+   "name": "Hay novedades?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [
+    660,
+    0
+   ],
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict",
+      "version": 1
+     },
+     "conditions": [
+      {
+       "id": "cond-novedades",
+       "leftValue": "={{ $json.enviar }}",
+       "rightValue": true,
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "r5",
+   "name": "Enviar correo",
+   "webhookId": "efe53463-fc6b-4dfa-a2f9-d6c6686b3f34",
+   "type": "n8n-nodes-base.gmail",
+   "typeVersion": 2.2,
+   "position": [
+    880,
+    -60
+   ],
+   "parameters": {
+    "sendTo": "jeffrey.martinez.contractor@bold.co",
+    "subject": "={{ $json.subject }}",
+    "message": "={{ $json.html }}",
+    "options": {
+     "ccList": "soportetecnico@mpl.hn"
+    }
+   },
+   "credentials": {
+    "gmailOAuth2": {
+     "id": "eaIilGEkqdM5Mlkc",
+     "name": "Gmail Bold"
+    }
+   }
+  }
+ ],
+ "connections": {
+  "Cada manana": {
+   "main": [
+    [
+     {
+      "node": "Leer resumen",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Leer resumen": {
+   "main": [
+    [
+     {
+      "node": "Armar correo",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Armar correo": {
+   "main": [
+    [
+     {
+      "node": "Hay novedades?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Hay novedades?": {
+   "main": [
+    [
+     {
+      "node": "Enviar correo",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    []
+   ]
+  }
+ },
+ "nodeGroups": [],
+ "settings": {
+  "timezone": "America/Bogota",
+  "executionOrder": "v1"
+ },
+ "staticData": {
+  "node:Cada manana": {
+   "recurrenceRules": [
+    null
+   ],
+   "recurrenceRuleSignatures": [
+    null
+   ]
+  }
+ },
+ "pinData": null,
+ "meta": null,
+ "tags": [],
+ "shared": [
+  {
+   "role": "workflow:owner",
+   "workflowId": "JZgEpXFBKN8u70wP",
+   "projectId": "L927KPy58Sq0vrtv",
+   "project": {
+    "id": "L927KPy58Sq0vrtv",
+    "name": "Jeffrey Martinez <soportetecnico@mpl.hn>",
+    "type": "personal",
+    "icon": null,
+    "description": null,
+    "customTelemetryTags": [],
+    "creatorId": "c8aeb70e-5738-4d89-aa45-379e6e8d24ec",
+    "createdAt": "2026-01-09T05:17:30.198Z",
+    "updatedAt": "2026-01-09T05:20:11.694Z"
+   },
+   "createdAt": "2026-10-25T22:03:59.813Z",
+   "updatedAt": "2026-10-25T22:03:59.813Z"
+  }
+ ],
+ "activeVersion": null
+}

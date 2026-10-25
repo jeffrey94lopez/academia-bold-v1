@@ -15,30 +15,12 @@ import { evaluarBorradoCategoria } from './category-guard.js'
 import { loadSettings, loadSettingsResult, saveSetting, loadVisibilityOverrides, saveLessonVisibility } from './settings.js'
 import { aplicarVisibilidad, visibles } from './lesson-visibility.js'
 import { APP_ENV } from './env.js'
-import { lessonToEmbedText } from './lesson-embed-text.js'
+import { embedLesson, EMBED_WEBHOOK, EMBED_TOKEN } from './lesson-embed.js'
 import { dedupeQuestions, firstUserMessage } from './faq-suggest.js'
 import { draftKey, buildDraft, shouldOfferRestore, relTime } from './lesson-draft.js'
 import { construirCopia, otraVertical, puedeDuplicarse, prepararPayload } from './lesson-duplicate.js'
 import { aplicaA, etiqueta, labelVertical, VERTICALES_CONTENIDO } from './vertical.js'
-
-const EMBED_WEBHOOK = 'https://n8n.mplasesores.com/webhook/embed-lesson'
-const EMBED_TOKEN   = 'BoldBodi-2026-K9xMvP7q'
-
-// lessonToEmbedText se movió a ./lesson-embed-text.js (módulo puro, testeable).
-// Ahora embebe TODOS los bloques bot_* (antes solo nota y faq) para que el bot
-// pueda recuperar lecciones cuya respuesta vive en Advertencia/Pasos/Relacionado.
-
-async function embedLesson(lessonId, titulo, categoria, blocks, notas) {
-  try {
-    const text = lessonToEmbedText(titulo, categoria, blocks, notas)
-    const res = await fetch(EMBED_WEBHOOK, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': EMBED_TOKEN },
-      body: JSON.stringify({ lessonId, text })
-    })
-    return res.ok
-  } catch (_) { return false }
-}
+import { renderGapsPanel, refreshGapsBadge } from './admin-gaps.js'
 
 // Re-embebe las lecciones VISIBLES, mostrando en vivo cuáles se embebieron (✓)
 // y cuáles fallaron (✗). Secuencial a propósito para no saturar el webhook.
@@ -266,8 +248,25 @@ async function init() {
     btn.addEventListener('click', () => { switchPanel(btn.dataset.panel); closeNav() })
   })
 
+  // Vacíos del bot: opt-in, igual que Curso. Apagado hasta que alguien lo
+  // enciende en Mi perfil → módulos (clave `gaps_enabled`, por entorno). Sin esto
+  // el panel salía para todos desde el primer día, con la tabla de preguntas
+  // vacía, y `registroEnSilencio` daba true: un "el registro parece roto" para
+  // una función que nunca se encendió. Si la lectura falla, loadSettings da {} y
+  // el módulo queda apagado, que es el lado seguro de un opt-in.
+  const gapsOn = (await loadSettings(['gaps_enabled'])).gaps_enabled === 'true'
+  aplicarModuloGaps(gapsOn)
+
   const savedPanel = localStorage.getItem('admin_panel') || 'home'
-  switchPanel(savedPanel)
+  switchPanel(savedPanel === 'gaps' && !gapsOn ? 'home' : savedPanel)
+  if (gapsOn) refreshGapsBadge()
+}
+
+// Muestra u oculta el botón del sidebar. style.display y no la clase `hidden`:
+// el botón ya trae `flex` y no hay que depender de cuál de las dos gane.
+function aplicarModuloGaps(on) {
+  const btn = document.querySelector('.admin-nav[data-panel="gaps"]')
+  if (btn) btn.style.display = on ? '' : 'none'
 }
 
 async function renderHomePanel() {
@@ -399,7 +398,7 @@ function switchPanel(panel) {
   const labels = {
     home: 'Inicio', lessons: 'Lecciones', faq: 'P. Frecuentes',
     glossary: 'Glosario', material: 'Material', 'material-apoyo': 'Mat. de apoyo',
-    suggestions: 'Sugerencias', results: 'Resultados', analytics: 'Analytics',
+    suggestions: 'Sugerencias', gaps: 'Vacíos del bot', results: 'Resultados', analytics: 'Analytics',
     activity: 'Registro', profile: 'Mi perfil'
   }
   const bc = document.getElementById('adminBreadcrumb')
@@ -412,6 +411,7 @@ function switchPanel(panel) {
   if (panel === 'material') { currentFolderPath = ''; renderMaterialPanel() }
   if (panel === 'material-apoyo') renderMaterialApoyoPanel()
   if (panel === 'suggestions') renderSuggestionsPanel()
+  if (panel === 'gaps') renderGapsPanel()
   if (panel === 'results') renderResultsPanel()
   if (panel === 'analytics') renderAnalytics()
   if (panel === 'activity') renderActivityLogPanel()
@@ -3127,6 +3127,15 @@ async function renderProfilePanel() {
               <span id="toggleCursoKnob" class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"></span>
             </button>
           </div>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-bold text-[var(--black-100)]">Vacíos del bot</p>
+              <p class="text-xs text-[var(--black-60)] mt-0.5">Muestra u oculta la bandeja de vacíos en el menú del admin (apagado por defecto)</p>
+            </div>
+            <button id="toggleGaps" class="relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none" aria-pressed="false">
+              <span id="toggleGapsKnob" class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"></span>
+            </button>
+          </div>
         </div>
         <p id="toggleSettingsMsg" class="text-xs mt-3 hidden"></p>
       </div>
@@ -3152,7 +3161,7 @@ async function renderProfilePanel() {
     setTimeout(() => { settingsMsg.className = 'text-xs mt-3 hidden'; settingsMsg.textContent = '' }, 2500)
   }
 
-  function wireToggle(btnId, knobId, settingKey, labelOn, labelOff) {
+  function wireToggle(btnId, knobId, settingKey, labelOn, labelOff, onChange) {
     let enabled = true
     const btn = document.getElementById(btnId)
     btn.addEventListener('click', async () => {
@@ -3160,6 +3169,7 @@ async function renderProfilePanel() {
       applyToggle(btnId, knobId, enabled)
       const { error } = await saveSetting(settingKey, enabled)
       showSettingsMsg(error ? 'Error al guardar.' : (enabled ? labelOn : labelOff), !!error)
+      if (!error) onChange?.(enabled)
     })
     return (initialValue) => { enabled = initialValue; applyToggle(btnId, knobId, enabled) }
   }
@@ -3170,6 +3180,11 @@ async function renderProfilePanel() {
   const setGlossary  = wireToggle('toggleGlossary',  'toggleGlossaryKnob',  'glossary_enabled',  'Glosario activado.',               'Glosario desactivado.')
   const setResources = wireToggle('toggleResources',  'toggleResourcesKnob', 'resources_enabled', 'Material de apoyo activado.',      'Material de apoyo desactivado.')
   const setCurso     = wireToggle('toggleCurso',      'toggleCursoKnob',     'curso_enabled',     'Curso activado.',                  'Curso desactivado.')
+  // Vacíos del bot: el cambio se ve en el sidebar sin recargar. Si se apaga
+  // estando dentro del panel, el botón desaparece pero el panel sigue en pantalla
+  // hasta que se navegue a otro; no hay nada que romper.
+  const setGaps      = wireToggle('toggleGaps',       'toggleGapsKnob',      'gaps_enabled',      'Vacíos del bot activado.',         'Vacíos del bot desactivado.',
+    on => { aplicarModuloGaps(on); if (on) refreshGapsBadge() })
 
   const settingsMap = await loadSettings()
   setBot(settingsMap.bot_enabled !== 'false')
@@ -3179,6 +3194,8 @@ async function renderProfilePanel() {
   setResources(settingsMap.resources_enabled !== 'false')
   // Curso: a diferencia de las demás, arranca APAGADA hasta que se active
   setCurso(settingsMap.curso_enabled === 'true')
+  // Vacíos del bot: opt-in, como Curso
+  setGaps(settingsMap.gaps_enabled === 'true')
 
   document.getElementById('saveProfileInfo').addEventListener('click', async () => {
     const newName = document.getElementById('profileName').value.trim()

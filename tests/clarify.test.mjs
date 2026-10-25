@@ -129,3 +129,31 @@ test('shouldAskResolution: no pregunta en el turno del cruce', () => {
 test('shouldAskResolution: sigue preguntando en una respuesta normal', () => {
   assert.equal(shouldAskResolution({ response: 'ok' }), true)
 })
+
+test('chatRequestBody: manda conversation_id cuando la conversación ya existe', () => {
+  // Sin esto, n8n no puede ligar el vacío que registra con la conversación que
+  // lo produjo, y el detalle de la bandeja se queda sin "ver conversación".
+  const body = chatRequestBody({
+    message: 'hola', history: [], faqContext: [], clarifyCount: 0,
+    seleccion: { vertical: 'retail', plataforma: 'web' },
+    conversationId: 'c0ffee00-0000-4000-8000-000000000000',
+  })
+  assert.equal(body.conversation_id, 'c0ffee00-0000-4000-8000-000000000000')
+})
+
+test('chatRequestBody: omite conversation_id mientras la conversación no existe', () => {
+  // La fila de bodi_conversations se crea de forma asíncrona: en el primer
+  // turno el POST al bot puede salir antes. Mandar null haría que n8n intente
+  // una FK contra una fila inexistente; omitirlo deja que la RPC lo resuelva.
+  const base = { message: 'hola', history: [], faqContext: [], clarifyCount: 0,
+                 seleccion: { vertical: 'retail', plataforma: 'web' } }
+  for (const v of [null, undefined, '']) {
+    assert.equal('conversation_id' in chatRequestBody({ ...base, conversationId: v }), false)
+  }
+})
+
+test('chatRequestBody incluye onboarding_step solo si viene', () => {
+  const base = { message: 'hola', history: [], faqContext: [], clarifyCount: 0, seleccion: { vertical: 'retail' } }
+  assert.equal(chatRequestBody(base).onboarding_step, undefined)
+  assert.equal(chatRequestBody({ ...base, onboardingStep: 'crear_item' }).onboarding_step, 'crear_item')
+})

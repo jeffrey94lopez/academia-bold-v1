@@ -10,6 +10,7 @@ import { nextClarifyCount, chatRequestBody, shouldAskResolution } from './clarif
 import { inactivitySettings, isStaleConversation } from './inactivity.js'
 import { loadSettingsResult } from './settings.js'
 import { registrarCruce, marcarCruce } from './cruce-vertical.js'
+import { getBotOrigin, notificarMensajeBot } from './bot-origin.js'
 
 const N8N_URL     = '/api/chat'
 
@@ -147,6 +148,9 @@ async function createConversation() {
       fila.plataforma = plataforma
       fila.account_id = contextoBold.accountId || null
     }
+    // La marca `origin = 'onboarding'` se escribe cuando exista la columna
+    // (migración add_origin_bodi_conversations, que sube junto con el admin).
+    // Mientras tanto las conversaciones del recorrido se guardan como las demás.
     const { error } = await supabase
       .from('bodi_conversations')
       .insert(fila)
@@ -801,6 +805,9 @@ async function sendMessage(text, { textoVisible, cross } = {}) {
 
   appendBubble('user', textoVisible || text)
   history.push({ role: 'user', content: text })
+  // Una vez por mensaje del usuario, y solo con origen (el recorrido guiado
+  // cuenta en qué paso le escriben); en el portal no hay origen y no se llama.
+  if (getBotOrigin().origin) notificarMensajeBot()
 
   const typing = document.getElementById('typingIndicator')
   typing.classList.remove('hidden')
@@ -823,6 +830,7 @@ async function sendMessage(text, { textoVisible, cross } = {}) {
       body: JSON.stringify(chatRequestBody({
         message: text, history, faqContext: faqsDeLaVertical,
         clarifyCount, seleccion: sel, contexto: getContextoBold(), cruceAceptado,
+        conversationId, onboardingStep: getBotOrigin().step,
       }))
     })
     const data = await res.json()

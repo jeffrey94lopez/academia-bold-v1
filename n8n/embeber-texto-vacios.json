@@ -1,0 +1,357 @@
+{
+ "id": "vFczxAxH5QGggcDY",
+ "name": "Embeber Texto (bandeja de vacios)",
+ "description": null,
+ "active": true,
+ "activeVersionId": "9d84796e-7be8-41ba-91c5-f4f753cf342c",
+ "createdAt": "2026-10-08T13:08:41.872Z",
+ "updatedAt": "2026-10-08T13:09:56.679Z",
+ "isArchived": false,
+ "versionId": "9d84796e-7be8-41ba-91c5-f4f753cf342c",
+ "versionCounter": 2,
+ "sourceWorkflowId": null,
+ "triggerCount": 1,
+ "nodes": [
+  {
+   "id": "n1",
+   "name": "Webhook",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [
+    0,
+    0
+   ],
+   "parameters": {
+    "httpMethod": "POST",
+    "path": "embed-text",
+    "responseMode": "responseNode",
+    "options": {}
+   },
+   "webhookId": "9aa406dd-dbe2-4950-93a9-be506b7874d4"
+  },
+  {
+   "id": "n2",
+   "name": "Validar entrada",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    220,
+    0
+   ],
+   "onError": "continueErrorOutput",
+   "parameters": {
+    "jsCode": "const body = $input.first().json.body; const token = $input.first().json.headers?.['x-api-key']; if (!token || token !== 'BoldBodi-***TOKEN***') { throw new Error('unauthorized'); } const text = typeof body?.text === 'string' ? body.text.trim() : ''; if (!text) { throw new Error('validation_error'); } return [{ json: { text } }];"
+   }
+  },
+  {
+   "id": "n3",
+   "name": "Generar embedding",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4,
+   "position": [
+    440,
+    -80
+   ],
+   "onError": "continueErrorOutput",
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 5000,
+   "credentials": {
+    "googleApi": {
+     "id": "BNCQGKUXcm47Rid3",
+     "name": "Vertex - BoldBot"
+    }
+   },
+   "parameters": {
+    "method": "POST",
+    "url": "https://us-central1-aiplatform.googleapis.com/v1/projects/gen-lang-client-0047287949/locations/us-central1/publishers/google/models/text-multilingual-embedding-002:predict",
+    "authentication": "predefinedCredentialType",
+    "nodeCredentialType": "googleApi",
+    "sendBody": true,
+    "contentType": "raw",
+    "rawContentType": "application/json",
+    "body": "={{ JSON.stringify({ instances: [ { content: $json.text } ] }) }}",
+    "options": {}
+   }
+  },
+  {
+   "id": "n4",
+   "name": "Respuesta OK",
+   "type": "n8n-nodes-base.respondToWebhook",
+   "typeVersion": 1,
+   "position": [
+    680,
+    -80
+   ],
+   "parameters": {
+    "respondWith": "json",
+    "responseBody": "={{ JSON.stringify({ embedding: $json.predictions[0].embeddings.values }) }}",
+    "options": {
+     "responseCode": 200
+    }
+   }
+  },
+  {
+   "id": "n5",
+   "name": "Respuesta error",
+   "type": "n8n-nodes-base.respondToWebhook",
+   "typeVersion": 1,
+   "position": [
+    680,
+    120
+   ],
+   "parameters": {
+    "respondWith": "json",
+    "responseBody": "={{ (() => { const e = $json.error; const m = (typeof e === 'string' ? e : (e && e.message)) || $json.message || ''; if (m.includes('unauthorized')) return JSON.stringify({ error: 'unauthorized', message: 'x-api-key invalido o ausente' }); if (m.includes('validation_error')) return JSON.stringify({ error: 'validation_error', message: 'text requerido' }); return JSON.stringify({ error: 'upstream_error', message: 'el servicio de embeddings fallo' }); })() }}",
+    "options": {
+     "responseCode": "={{ (() => { const e = $json.error; const m = (typeof e === 'string' ? e : (e && e.message)) || $json.message || ''; if (m.includes('unauthorized')) return 401; if (m.includes('validation_error')) return 400; return 502; })() }}"
+    }
+   }
+  }
+ ],
+ "connections": {
+  "Webhook": {
+   "main": [
+    [
+     {
+      "node": "Validar entrada",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Validar entrada": {
+   "main": [
+    [
+     {
+      "node": "Generar embedding",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Respuesta error",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Generar embedding": {
+   "main": [
+    [
+     {
+      "node": "Respuesta OK",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Respuesta error",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "nodeGroups": [],
+ "settings": {
+  "executionOrder": "v1"
+ },
+ "staticData": null,
+ "pinData": null,
+ "meta": null,
+ "tags": [],
+ "shared": [
+  {
+   "role": "workflow:owner",
+   "workflowId": "vFczxAxH5QGggcDY",
+   "projectId": "L927KPy58Sq0vrtv",
+   "project": {
+    "id": "L927KPy58Sq0vrtv",
+    "name": "Jeffrey Martinez <soportetecnico@mpl.hn>",
+    "type": "personal",
+    "icon": null,
+    "description": null,
+    "customTelemetryTags": [],
+    "creatorId": "c8aeb70e-5738-4d89-aa45-379e6e8d24ec",
+    "createdAt": "2026-01-09T05:17:30.198Z",
+    "updatedAt": "2026-01-09T05:20:11.694Z"
+   },
+   "createdAt": "2026-10-08T13:08:41.872Z",
+   "updatedAt": "2026-10-08T13:08:41.872Z"
+  }
+ ],
+ "activeVersion": {
+  "versionId": "9d84796e-7be8-41ba-91c5-f4f753cf342c",
+  "workflowId": "vFczxAxH5QGggcDY",
+  "nodes": [
+   {
+    "id": "n1",
+    "name": "Webhook",
+    "type": "n8n-nodes-base.webhook",
+    "typeVersion": 2,
+    "position": [
+     0,
+     0
+    ],
+    "parameters": {
+     "httpMethod": "POST",
+     "path": "embed-text",
+     "responseMode": "responseNode",
+     "options": {}
+    },
+    "webhookId": "9aa406dd-dbe2-4950-93a9-be506b7874d4"
+   },
+   {
+    "id": "n2",
+    "name": "Validar entrada",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     220,
+     0
+    ],
+    "onError": "continueErrorOutput",
+    "parameters": {
+     "jsCode": "const body = $input.first().json.body; const token = $input.first().json.headers?.['x-api-key']; if (!token || token !== 'BoldBodi-***TOKEN***') { throw new Error('unauthorized'); } const text = typeof body?.text === 'string' ? body.text.trim() : ''; if (!text) { throw new Error('validation_error'); } return [{ json: { text } }];"
+    }
+   },
+   {
+    "id": "n3",
+    "name": "Generar embedding",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4,
+    "position": [
+     440,
+     -80
+    ],
+    "onError": "continueErrorOutput",
+    "retryOnFail": true,
+    "maxTries": 3,
+    "waitBetweenTries": 5000,
+    "credentials": {
+     "googleApi": {
+      "id": "BNCQGKUXcm47Rid3",
+      "name": "Vertex - BoldBot"
+     }
+    },
+    "parameters": {
+     "method": "POST",
+     "url": "https://us-central1-aiplatform.googleapis.com/v1/projects/gen-lang-client-0047287949/locations/us-central1/publishers/google/models/text-multilingual-embedding-002:predict",
+     "authentication": "predefinedCredentialType",
+     "nodeCredentialType": "googleApi",
+     "sendBody": true,
+     "contentType": "raw",
+     "rawContentType": "application/json",
+     "body": "={{ JSON.stringify({ instances: [ { content: $json.text } ] }) }}",
+     "options": {}
+    }
+   },
+   {
+    "id": "n4",
+    "name": "Respuesta OK",
+    "type": "n8n-nodes-base.respondToWebhook",
+    "typeVersion": 1,
+    "position": [
+     680,
+     -80
+    ],
+    "parameters": {
+     "respondWith": "json",
+     "responseBody": "={{ JSON.stringify({ embedding: $json.predictions[0].embeddings.values }) }}",
+     "options": {
+      "responseCode": 200
+     }
+    }
+   },
+   {
+    "id": "n5",
+    "name": "Respuesta error",
+    "type": "n8n-nodes-base.respondToWebhook",
+    "typeVersion": 1,
+    "position": [
+     680,
+     120
+    ],
+    "parameters": {
+     "respondWith": "json",
+     "responseBody": "={{ (() => { const e = $json.error; const m = (typeof e === 'string' ? e : (e && e.message)) || $json.message || ''; if (m.includes('unauthorized')) return JSON.stringify({ error: 'unauthorized', message: 'x-api-key invalido o ausente' }); if (m.includes('validation_error')) return JSON.stringify({ error: 'validation_error', message: 'text requerido' }); return JSON.stringify({ error: 'upstream_error', message: 'el servicio de embeddings fallo' }); })() }}",
+     "options": {
+      "responseCode": "={{ (() => { const e = $json.error; const m = (typeof e === 'string' ? e : (e && e.message)) || $json.message || ''; if (m.includes('unauthorized')) return 401; if (m.includes('validation_error')) return 400; return 502; })() }}"
+     }
+    }
+   }
+  ],
+  "connections": {
+   "Webhook": {
+    "main": [
+     [
+      {
+       "node": "Validar entrada",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Validar entrada": {
+    "main": [
+     [
+      {
+       "node": "Generar embedding",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Respuesta error",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Generar embedding": {
+    "main": [
+     [
+      {
+       "node": "Respuesta OK",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Respuesta error",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   }
+  },
+  "nodeGroups": [],
+  "authors": "Jeffrey Martinez",
+  "name": null,
+  "description": null,
+  "autosaved": false,
+  "createdAt": "2026-10-08T13:09:56.764Z",
+  "updatedAt": "2026-10-08T13:09:56.764Z",
+  "workflowPublishHistory": [
+   {
+    "id": 1606,
+    "workflowId": "vFczxAxH5QGggcDY",
+    "versionId": "9d84796e-7be8-41ba-91c5-f4f753cf342c",
+    "event": "activated",
+    "userId": "c8aeb70e-5738-4d89-aa45-379e6e8d24ec",
+    "createdAt": "2026-10-08T13:09:57.161Z"
+   }
+  ]
+ }
+}

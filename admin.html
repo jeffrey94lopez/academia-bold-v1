@@ -86,6 +86,10 @@
         <p class="px-3 pt-1 pb-1 text-[9px] font-black uppercase tracking-widest text-[var(--black-40)]">bolbot POS</p>
         <button data-panel="material-apoyo" class="admin-nav w-full px-3 py-2 rounded-xl text-sm font-bold text-left">Mat. de apoyo</button>
         <button data-panel="suggestions" class="admin-nav w-full px-3 py-2 rounded-xl text-sm font-bold text-left">Sugerencias</button>
+        <button data-panel="gaps" style="display:none" class="admin-nav w-full px-3 py-2 rounded-xl text-sm font-bold text-left flex items-center justify-between">
+          <span>Vacíos del bot</span>
+          <span id="gapsBadge" class="hidden text-[10px] font-black px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700"></span>
+        </button>
 
         <hr class="border-[var(--blue-10)] my-1">
 
@@ -104,6 +108,7 @@
         <div id="panel-material" class="hidden"></div>
         <div id="panel-material-apoyo" class="hidden"></div>
         <div id="panel-suggestions" class="hidden"></div>
+        <section id="panel-gaps" class="hidden"></section>
         <div id="panel-results" class="hidden"></div>
         <div id="panel-analytics" class="hidden"></div>
         <div id="panel-activity" class="hidden"></div>

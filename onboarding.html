@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recorrido guiado — Bold POS</title>
+  <meta name="description" content="Practica en una copia de Bold POS: crea un ítem, haz una venta y registra un gasto con una guía paso a paso.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/tw.css">
+  <!-- style.css: tokens y estilos del chat de BolBot que se abre en el panel lateral. -->
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/onboarding.css">
+  <script src="vendor/lucide.min.js"></script>
+</head>
+<body class="onb-body">
+
+  <!-- Barra del recorrido: siempre visible (y por encima del oscurecido de la guía). -->
+  <header id="onb-barra" class="onb-barra">
+    <span id="onb-paso" class="onb-barra-paso">Bienvenida</span>
+    <div id="onb-progreso" class="onb-barra-progreso" role="progressbar" aria-label="Avance del recorrido" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <span id="onb-progreso-relleno" class="onb-barra-relleno"></span>
+    </div>
+    <!-- En la barra y no flotando sobre la réplica: abajo a la derecha tapaba
+         el botón "Vender" de la pantalla de venta. Aparece si el bot está activo. -->
+    <button id="onb-bot-btn" type="button" class="onb-bot-btn" aria-controls="onb-bot-panel" aria-expanded="false" hidden>Pregúntale a BolBot si tienes dudas</button>
+    <button id="onb-saltar" type="button" class="onb-barra-saltar">Saltar recorrido</button>
+  </header>
+
+  <!-- La pantalla: réplica de Bold POS o una pantalla propia del recorrido. -->
+  <div id="onb-stage" class="onb-stage"></div>
+
+  <!-- BolBot: el panel se abre a la derecha y el escenario se angosta para que
+       la guía siga a la vista. Su botón vive en la barra de arriba. -->
+  <aside id="onb-bot-panel" class="onb-bot-panel" aria-label="BolBot" hidden>
+    <div class="onb-bot-cabecera">
+      <span>Pregúntale a BolBot</span>
+      <button id="onb-bot-cerrar" type="button" class="onb-bot-cerrar" aria-label="Cerrar BolBot">&times;</button>
+    </div>
+    <div class="onb-bot-cuerpo"><div id="section-assistant"></div></div>
+  </aside>
+
+  <div id="onb-toasts" class="onb-toasts" aria-live="polite"></div>
+
+  <script type="module" src="js/onboarding.js"></script>
+</body>
+</html>
