@@ -57,3 +57,55 @@ El token va literal dentro del Code node, igual que en `embed-lesson`. Es la
 convención viva de estos workflows, no una decisión nueva; lo correcto sería una
 credencial de n8n. Se deja anotado, no se cambió acá para no desviarse del patrón
 existente.
+
+---
+
+# Rama de registro de vacios en "Bold POS Chat"
+
+Agregada el 2026-10-25 (Tanda 8). Workflow `dZGuYJbRbG6h8aqv`, 21 nodos.
+
+```
+Respond to Webhook
+  └─ Detectar vacio (Code)        ← lee knowledge_gap de "Formatear respuesta"
+       └─ Hay vacio? (IF)
+            ├─ true  → Embeber vacio (Vertex, onError: continueErrorOutput)
+            │            ├─ main[0] ─┐
+            │            └─ main[1] ─┴→ Registrar vacio (RPC, service-role)
+            └─ false → (nada: la rama termina)
+```
+
+**Va despues de `Respond to Webhook` a proposito.** El estudiante ya recibio su
+respuesta; el registro no puede hacerlo esperar. Verificado: con la rama
+fallando, el bot respondio igual.
+
+**Las dos salidas de `Embeber vacio` van al mismo registro.** Si Vertex falla,
+la pregunta se guarda con `embedding = null` (sin clasificar) en vez de
+perderse. El dato original es irrecuperable; no agruparlo no lo es.
+
+**Credencial:** `supabaseApi` -> "Supabase Academia (service-role)"
+(`Szz5zeGA5Wxy3Rtj`), referenciada por id. La RPC esta concedida solo a
+`service_role`; el resto del workflow usa la key anon y con esa daria 42501.
+
+## Tres trampas que costaron iteraciones
+
+1. **Un Code node de n8n NO acepta `return []`** para cortar una rama: tira
+   "Code doesn't return items properly". Por eso hay un nodo IF de verdad. Su
+   esquema se copio del "Router modulo?" de este mismo workflow, que ya
+   funciona, en vez de escribirlo de memoria.
+2. **El `jsCode` se arma con saltos de linea REALES.** Concatenar fragmentos en
+   una sola linea con comentarios `//` comenta el codigo entero y el nodo deja
+   de devolver items, sin error claro.
+3. **`Registrar vacio` va SIN `retryOnFail`.** n8n no logra serializar la
+   respuesta de la RPC (`Converting circular structure to JSON`, intenta volcar
+   el `IncomingMessage` crudo) y da el nodo por fallido **aunque la fila ya se
+   escribio**. Con reintentos, la misma pregunta se insertaba 3 veces separadas
+   por `waitBetweenTries` — verificado en los datos. Perder un registro ante un
+   fallo transitorio es menos daniño que triplicar cada vacio, y el detector de
+   silencio de la bandeja cubre el fallo sostenido. `responseFormat: text` y
+   `typeVersion: 4.2` no bastaron para quitar el error.
+
+## Nota sobre el respaldo
+
+`n8n/bold-pos-chat-con-registro-vacios.json` se escribe con `ensure_ascii`:
+algunos nombres de nodo traen surrogates sueltos que rompen la escritura en
+utf-8.
