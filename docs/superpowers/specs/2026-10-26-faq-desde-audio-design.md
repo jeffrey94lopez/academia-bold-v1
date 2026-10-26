@@ -1,6 +1,18 @@
 # Generar una FAQ desde un audio de Soporte — diseño
 
-Fecha: 2026-10-26 · Estado: aprobado para planificar
+Fecha: 2026-10-26 · Estado: **CANCELADO el 2026-10-26, no se construyó**
+
+> **Por qué se canceló, el mismo día que se escribió.** El volumen lo mató: una
+> vez al día con los pendientes, son **1 a 5 vacíos por semana**, y a ese ritmo
+> escribir la FAQ a mano —con Gemini u otra IA por fuera para redactar— sale
+> más barato que mantener grabación en el navegador, un webhook nuevo que
+> transcribe, y el micrófono habilitado en el panel.
+>
+> El documento queda porque el razonamiento sirve: si algún día el volumen
+> sube, acá está el diseño y están las tres preguntas que habría que contestar
+> antes (dispositivo de Soporte, retención del audio del lado del proveedor, y
+> si se controla la configuración del servidor de n8n). Lo que sigue se escribió
+> antes de la cancelación y describe lo que se iba a construir.
 
 ## Qué es y por qué
 
