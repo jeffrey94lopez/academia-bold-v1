@@ -16,6 +16,15 @@ test('etiquetaComercio: sin nombre cae al id ACORTADO, nunca al id crudo', () =>
   assert.equal(e.completo, 'a3f91c2b-7d4e-4f10-9c33-12ab34cd56ef')
 })
 
+test('etiquetaComercio: un id CORTO se muestra entero, sin puntos suspensivos', () => {
+  // Los account_id de Bold son numéricos y cortos ("9548"), no uuids. Un "…"
+  // pegado siempre afirma que hay más id del que hay, y manda a buscar el resto
+  // en un tooltip que repite lo mismo.
+  const e = etiquetaComercio({ account_id: '9548' })
+  assert.equal(e.texto, 'ID 9548')
+  assert.equal(e.completo, '9548')
+})
+
 test('etiquetaComercio: sin identidad lo DICE, no finge', () => {
   // Las conversaciones de antes del embed de Bold no traen cuenta. Pintar una
   // etiqueta vacía las haría indistinguibles de un comercio identificado.

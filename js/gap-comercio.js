@@ -9,6 +9,7 @@
 // ninguno de los dos.
 
 const MAX_NOMBRE = 40
+const MAX_ID = 8
 
 const texto = s => String(s ?? '').trim()
 
@@ -23,9 +24,14 @@ export function etiquetaComercio(pregunta) {
       identificado: true,
     }
   }
-  // El id crudo es un uuid: dentro de una lista rompe el renglón y no se lee
-  // mejor. Se acorta para ver, y el entero viaja en `completo` para copiar.
-  if (id) return { texto: `ID ${id.slice(0, 8)}…`, completo: id, identificado: true }
+  // Los account_id de Bold son numéricos y cortos ("9548"), pero no está
+  // garantizado: se acorta solo cuando de verdad sobra. Un "…" pegado siempre
+  // afirma que hay más id del que hay y manda a buscar el resto a un tooltip
+  // que repite lo mismo.
+  if (id) {
+    const corto = id.length > MAX_ID ? `${id.slice(0, MAX_ID)}…` : id
+    return { texto: `ID ${corto}`, completo: id, identificado: true }
+  }
 
   return { texto: 'Sin identificar', completo: '', identificado: false }
 }
