@@ -27,6 +27,25 @@ const hace = iso => {
 // caería de la lista en silencio; uno holgado evita esa clase de mentira.
 const LIMITE = 500
 
+// Sobrevive al repintado de la lista, igual que el filtro de estado de la
+// bandeja de vacíos. No sobrevive a cambiar de pestaña, que es lo correcto:
+// volver a Comercios y encontrarlo filtrado sin acordarse por qué es peor.
+let verticalFiltro = ''
+
+const VERTICALES_FILTRO = [['', 'Todas'], ['retail', 'Retail'], ['restaurantes', 'Restaurantes']]
+
+const filtrar = comercios =>
+  verticalFiltro ? comercios.filter(c => c.vertical === verticalFiltro) : comercios
+
+function chipsHtml() {
+  return VERTICALES_FILTRO.map(([val, txt]) => {
+    const on = val === verticalFiltro
+    return `<button class="com-chip px-3 py-1 rounded-full text-xs font-bold border ${on
+      ? 'bg-[var(--blue-100)] text-white border-[var(--blue-100)]'
+      : 'text-[var(--black-60)] border-[var(--blue-20)] hover:bg-[var(--blue-10)]'}" data-vertical="${val}">${txt}</button>`
+  }).join('')
+}
+
 export async function renderComerciosAnalytics(from = null, to = null) {
   const el = document.getElementById('analytics-content')
   if (!el) return
@@ -41,27 +60,59 @@ export async function renderComerciosAnalytics(from = null, to = null) {
     return
   }
 
-  const totalChats = comercios.reduce((n, c) => n + Number(c.total || 0), 0)
-
   el.innerHTML = `
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
       ${rangeControlsHtml('com', from, to)}
+      <div class="flex items-center gap-1.5" id="com-chips">${chipsHtml()}</div>
     </div>
+    <div id="com-body"></div>`
+
+  wireRangeControls(el, 'com', (f, t) => renderComerciosAnalytics(f, t))
+  pintarCuerpo(el, comercios, from, to)
+  wireComerciosChips(el, comercios, from, to)
+}
+
+// Los chips se repintan al cambiar el filtro (para mover el resaltado), así
+// que hay que volver a engancharlos: por eso la función se llama a sí misma en
+// vez de vivir suelta dentro del render.
+function wireComerciosChips(el, comercios, from, to) {
+  el.querySelectorAll('.com-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      verticalFiltro = chip.dataset.vertical
+      el.querySelector('#com-chips').innerHTML = chipsHtml()
+      wireComerciosChips(el, comercios, from, to)
+      pintarCuerpo(el, comercios, from, to)
+    })
+  })
+}
+
+// El conteo de arriba habla SIEMPRE de lo que se ve abajo: un "56 comercios"
+// con una lista filtrada de 12 es un número que miente.
+function pintarCuerpo(el, comercios, from, to) {
+  const lista = filtrar(comercios)
+  const totalChats = lista.reduce((n, c) => n + Number(c.total || 0), 0)
+  const body = el.querySelector('#com-body')
+
+  body.innerHTML = `
     <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4 mb-4">
       <p class="flex items-center gap-2">
-        <span class="text-4xl font-black text-[var(--blue-100)]">${comercios.length}</span>
-        <span class="text-sm text-[var(--black-60)]">comercios identificados · ${totalChats} conversaciones</span>
+        <span class="text-4xl font-black text-[var(--blue-100)]">${lista.length}</span>
+        <span class="text-sm text-[var(--black-60)]">
+          ${lista.length === 1 ? 'comercio' : 'comercios'}${verticalFiltro ? ` de ${escapeHtml(verticalFiltro)}` : ' identificados'} · ${totalChats} ${totalChats === 1 ? 'conversación' : 'conversaciones'}
+        </span>
       </p>
       <p class="text-[11px] text-[var(--black-40)] mt-1">
         Solo cuentas con identidad. Las conversaciones que llegaron sin contexto de
         Bold no aparecen acá: no se puede saber de qué comercio son.
       </p>
     </div>
-    ${comercios.length ? `<div class="flex flex-col gap-2">${comercios.map(filaComercio).join('')}</div>`
-      : '<p class="text-sm text-[var(--black-40)] p-4">Sin comercios identificados en el rango.</p>'}`
+    ${lista.length ? `<div class="flex flex-col gap-2">${lista.map(filaComercio).join('')}</div>`
+      : `<p class="text-sm text-[var(--black-40)] p-4">Sin comercios${verticalFiltro ? ` de ${escapeHtml(verticalFiltro)}` : ' identificados'} en el rango.</p>`}`
 
-  wireRangeControls(el, 'com', (f, t) => renderComerciosAnalytics(f, t))
-  wireComercios(el, comercios, from, to)
+  // `lista` y no `comercios`: los data-idx de las filas indexan lo que se
+  // acaba de pintar. Pasar el array sin filtrar desplegaría los chats del
+  // comercio equivocado.
+  wireComercios(body, lista, from, to)
 }
 
 function filaComercio(c, i) {
@@ -76,10 +127,11 @@ function filaComercio(c, i) {
     <div class="com-row flex items-center gap-3 p-3 cursor-pointer hover:bg-[var(--background-page)]" data-idx="${i}" data-cuenta="${escapeHtml(c.account_id)}">
       <span class="com-caret text-[var(--black-40)] text-xs shrink-0">▸</span>
       <span class="flex-1 min-w-0">
-        <span class="block text-sm font-bold text-[var(--black-100)] truncate">${escapeHtml(com.texto)}</span>
+        <span class="block text-sm font-bold text-[var(--black-100)] truncate">
+          ${escapeHtml(com.texto)}${c.vertical ? ` <span class="text-[var(--black-40)]" style="font-weight:400">· ${escapeHtml(c.vertical)}</span>` : ''}
+        </span>
         <span class="block text-[11px] text-[var(--black-40)]">
-          ${c.business_name ? `ID ${escapeHtml(c.account_id)} · ` : ''}${c.vertical ? `${escapeHtml(c.vertical)} · ` : ''}
-          ${usuarios ? `${usuarios} ${usuarios === 1 ? 'usuario' : 'usuarios'} · ` : ''}última ${escapeHtml(hace(c.ultima))}
+          ${c.business_name ? `ID ${escapeHtml(c.account_id)} · ` : ''}${usuarios ? `${usuarios} ${usuarios === 1 ? 'usuario' : 'usuarios'} · ` : ''}última ${escapeHtml(hace(c.ultima))}
         </span>
       </span>
       <span class="shrink-0 text-right">
