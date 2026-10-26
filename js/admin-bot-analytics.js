@@ -383,7 +383,7 @@ function lifecycleBadge(lifecycle) {
   return `<span class="text-[10px] px-2 rounded-full border" style="border-color:${b[1]};color:${b[1]}">${b[0]}</span>`
 }
 
-function convRows(convs) {
+export function convRows(convs) {
   if (!convs.length) return '<p class="p-3 text-xs text-[var(--black-40)]">Sin conversaciones en el rango/filtros.</p>'
   return convs.map((c, i) => {
     // El id completo va en el `title`: es lo que se pega en el buscador de
@@ -507,7 +507,7 @@ function wireExplorer(el, convs, from, to) {
   return { getFilters: activeFilters }
 }
 
-function bindRows(el, rows) {
+export function bindRows(el, rows) {
   el.querySelectorAll('.bot-conv-row').forEach(row => {
     row.addEventListener('click', () => {
       const i = row.dataset.idx

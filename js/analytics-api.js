@@ -83,6 +83,18 @@ export async function fetchBotConversations(from, to, filters = {}, client) {
     // corra add_vertical_analytics_bot.sql dejaría al explorador sin función
     // que llamar. Omitirlo mantiene el dashboard funcionando con la RPC vieja.
     ...(filters.vertical ? { p_vertical: filters.vertical } : {}),
+    ...(filters.account_id ? { p_account_id: filters.account_id } : {}),
+  })
+}
+
+// Comercios del rango, de más a menos conversaciones. Solo cuentas
+// identificadas: ver el comentario de analytics_bot_comercios.
+export async function fetchComercios(from, to, limit = 200, client) {
+  if (!client) client = await getSupabaseClient()
+  return callRpc(client, 'analytics_bot_comercios', {
+    p_from: from.toISOString(),
+    p_to: to.toISOString(),
+    p_limit: limit,
   })
 }
 

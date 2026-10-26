@@ -151,6 +151,10 @@ async function createConversation() {
       // puede atender. Viene ya saneado y acotado por bold-context.js, y el
       // panel lo escapa al pintarlo.
       fila.business_name = contextoBold.businessName || null
+      // Solo el NOMBRE del usuario, nunca el email: el nombre alcanza para
+      // saber quién escribió, y el email convertiría cada conversación en un
+      // dato de contacto personal que nadie pidió.
+      fila.user_name = contextoBold.user?.name || null
     }
     // La marca `origin = 'onboarding'` se escribe cuando exista la columna
     // (migración add_origin_bodi_conversations, que sube junto con el admin).

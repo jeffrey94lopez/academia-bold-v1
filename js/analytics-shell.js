@@ -1,13 +1,14 @@
-// Shell de las 3 pestañas de analytics (Resumen | Lecciones | BolBot).
+// Shell de las 4 pestañas de analytics (Resumen | Lecciones | BolBot | Comercios).
 // Pinta la barra de tabs en #panel-analytics + un sub-contenedor #analytics-content
 // donde cada vista se monta. Reemplaza el patrón anterior de renders que se
 // llamaban mutuamente.
 import { renderAnalyticsPanel } from './admin-analytics.js'
 import { renderBotAnalytics } from './admin-bot-analytics.js'
 import { renderExecAnalytics } from './admin-exec-analytics.js'
+import { renderComerciosAnalytics } from './admin-comercios-analytics.js'
 
-export const ANALYTICS_TABS = ['resumen', 'lecciones', 'bolbot']
-const LABELS = { resumen: 'Resumen', lecciones: 'Lecciones', bolbot: 'BoldBot POS' }
+export const ANALYTICS_TABS = ['resumen', 'lecciones', 'bolbot', 'comercios']
+const LABELS = { resumen: 'Resumen', lecciones: 'Lecciones', bolbot: 'BoldBot POS', comercios: 'Chats Comercios' }
 
 export function renderAnalytics(tab = null) {
   const active = tab || localStorage.getItem('analytics_tab') || 'resumen'
@@ -32,5 +33,6 @@ export function renderAnalytics(tab = null) {
 
   if (active === 'resumen') renderExecAnalytics()
   else if (active === 'lecciones') renderAnalyticsPanel()
+  else if (active === 'comercios') renderComerciosAnalytics()
   else renderBotAnalytics()
 }
