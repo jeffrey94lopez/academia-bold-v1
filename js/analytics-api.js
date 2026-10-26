@@ -78,6 +78,11 @@ export async function fetchBotConversations(from, to, filters = {}, client) {
     p_limit: filters.limit ?? null,
     p_lifecycle: filters.lifecycle ?? null,
     p_no_info: filters.no_info ?? null,
+    // Solo se manda cuando hay filtro: PostgREST empareja la función por el
+    // CONJUNTO de nombres de parámetros, así que mandar p_vertical antes de que
+    // corra add_vertical_analytics_bot.sql dejaría al explorador sin función
+    // que llamar. Omitirlo mantiene el dashboard funcionando con la RPC vieja.
+    ...(filters.vertical ? { p_vertical: filters.vertical } : {}),
   })
 }
 

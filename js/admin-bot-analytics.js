@@ -6,6 +6,7 @@ import {
 } from './analytics-ui.js'
 import { escapeHtml, exportCSV } from './utils.js'
 import { rankAttention } from './bot-attention.js'
+import { modeloVerticales } from './bot-verticales.js'
 import { offHoursStats, isOffHour, bandStats, BUSINESS_HOURS } from './off-hours.js'
 import { BIZ_TZ } from './biz-time.js'
 
@@ -152,6 +153,32 @@ export async function renderBotAnalytics(from = null, to = null) {
     ? ` · de esas, <span class="font-bold text-[var(--black-100)]">${offHours.off_resolved_pct ?? 0}%</span> resueltas`
     : ''
 
+  // Dos recuadros por vertical. La barra usa los mismos colores y el mismo
+  // criterio que "Resolución real" de arriba, así que se leen como la misma
+  // medida partida en dos, no como otra métrica.
+  const verticales = modeloVerticales(k.by_vertical)
+  const verticalesHtml = `
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+      ${verticales.map(v => `
+        <div class="bot-drill bg-white rounded-2xl border border-[var(--blue-10)] p-4 cursor-pointer hover:bg-[var(--background-page)]" ${drill({ vertical: v.clave })}>
+          <p class="flex items-center gap-2">
+            <span class="text-3xl font-black text-[var(--blue-100)]">${v.total}</span>
+            <span class="text-sm font-bold text-[var(--black-100)]">${escapeHtml(v.nombre)}</span>
+          </p>
+          ${v.conResultado ? `
+            <div class="flex h-5 rounded-md overflow-hidden gap-0.5 mt-2">
+              <div ${drill({ vertical: v.clave, estado: 'resuelta' })} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${v.pctBarra.resueltas}%;background:var(--success-10);color:var(--success-150)">${v.resueltas}</div>
+              <div ${drill({ vertical: v.clave, estado: 'no_resuelta' })} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${v.pctBarra.noResueltas}%;background:var(--error-10);color:var(--error-100)">${v.noResueltas}</div>
+            </div>
+            <p class="mt-1 text-[11px] text-[var(--black-60)]">
+              <span class="font-black text-[var(--black-100)]">${v.pctResueltas}%</span> resueltas
+              <span class="text-[var(--black-40)]">· sobre ${v.conResultado} con resultado</span>
+              ${v.ambiguas ? `· <button ${drill({ vertical: v.clave, estado: 'ambigua' })} class="bot-drill underline text-[var(--black-40)]">${v.ambiguas} ambiguas</button>` : ''}
+            </p>`
+            : `<p class="mt-2 text-[11px] text-[var(--black-40)]">Sin conversaciones con resultado en el rango.</p>`}
+        </div>`).join('')}
+    </div>`
+
   const explorerHtml = renderExplorer(convs)
 
   el.innerHTML = `
@@ -160,6 +187,7 @@ export async function renderBotAnalytics(from = null, to = null) {
       <button id="bot-export-csv" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-[var(--black-10)] text-[var(--black-60)] hover:bg-[var(--blue-10)]">⬇ CSV</button>
     </div>
     ${header}
+    ${verticalesHtml}
     <p class="text-[10px] font-bold text-[var(--black-40)] uppercase tracking-wide mt-6 mb-2">Qué atender ahora</p>
     ${attention}
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-6">
@@ -311,6 +339,7 @@ function renderExplorer(convs) {
         <input id="bot-search" placeholder="🔎 buscar en mensajes…" class="px-2 py-1 rounded border border-[var(--blue-20)] text-xs flex-1 min-w-[160px]">
         ${filterChips('estado', 'Estado', [['', 'Todas'], ['no_resuelta', 'No resuelta'], ['resuelta', 'Resuelta'], ['ambigua', 'Ambigua']])}
         ${filterChips('life', 'Cierre', [['', 'Todas'], ['cerrada_cliente', 'Cerró'], ['abandonada', 'Abandonó'], ['escalada', 'Escaló']])}
+        ${filterChips('vertical', 'Vertical', [['', 'Todas'], ['retail', 'Retail'], ['restaurantes', 'Restaurantes'], ['sin_vertical', 'Sin vertical']])}
       </div>
     </div>
     <div id="bot-conv-list" class="border-t border-[var(--blue-10)]">${convRows(convs)}</div>
@@ -320,6 +349,20 @@ function renderExplorer(convs) {
 function filterChips(group, label, opts) {
   const chips = opts.map((o, i) => `<button class="bot-fchip px-2 py-1 rounded-full text-[11px] border ${i === 0 ? 'bg-[var(--blue-100)] text-white border-[var(--blue-100)]' : 'text-[var(--black-60)] border-[var(--blue-20)]'}" data-group="${group}" data-val="${o[0]}">${o[1]}</button>`).join('')
   return `<div class="flex items-center gap-1"><span class="text-[10px] font-bold text-[var(--black-40)] uppercase">${label}</span>${chips}</div>`
+}
+
+// Badge de vertical. Solo retail/restaurantes: una conversación sin vertical
+// llegó sin contexto de Bold, y un badge "sin vertical" en la mitad de las
+// filas sería ruido, no información.
+const VERTICAL_BADGE = {
+  retail:       ['Retail',       'var(--blue-100)'],
+  restaurantes: ['Restaurantes', 'var(--warning-150)'],
+}
+
+function verticalBadge(vertical) {
+  const b = VERTICAL_BADGE[vertical]
+  if (!b) return ''
+  return `<span class="text-[10px] px-2 rounded-full border" style="border-color:${b[1]};color:${b[1]}">${b[0]}</span>`
 }
 
 const LIFECYCLE_BADGE = {
@@ -347,6 +390,7 @@ function convRows(convs) {
       </div>
       <div class="flex items-center gap-1.5 mt-1">
         ${c.sentiment === 'negativo' ? '<span class="text-[10px] px-2 rounded-full border border-[var(--error-100)] text-[var(--error-100)]">Neg</span>' : ''}
+        ${verticalBadge(c.vertical)}
         ${lifecycleBadge(c.lifecycle)}
         ${c.bot_no_info ? '<span class="text-[10px] px-2 rounded-full border border-[var(--warning-150)] text-[var(--warning-150)]">Sin info</span>' : ''}
         <span class="ml-auto text-[var(--black-40)]">${escapeHtml(c.cat || '')}</span>
@@ -364,7 +408,7 @@ function wireExplorer(el, convs, from, to) {
     toggle.textContent = hidden ? 'Filtros ▾' : 'Filtros ▴'
   })
 
-  const state = { estado: '', life: '', category: '', search: '', no_info: '' }
+  const state = { estado: '', life: '', category: '', search: '', no_info: '', vertical: '' }
   const summaryEl = el.querySelector('#bot-filter-summary')
 
   // Mapea el state del explorador al shape que espera fetchBotConversations.
@@ -375,12 +419,13 @@ function wireExplorer(el, convs, from, to) {
     if (state.life) f.lifecycle = state.life
     if (state.category) f.category = state.category
     if (state.no_info) f.no_info = true
+    if (state.vertical) f.vertical = state.vertical
     if (state.search) f.search = state.search
     return f
   }
 
   const syncChips = () => {
-    ['estado', 'life'].forEach(g => {
+    ['estado', 'life', 'vertical'].forEach(g => {
       el.querySelectorAll(`.bot-fchip[data-group="${g}"]`).forEach(c => {
         const on = c.dataset.val === state[g]
         c.className = `bot-fchip px-2 py-1 rounded-full text-[11px] border ${on ? 'bg-[var(--blue-100)] text-white border-[var(--blue-100)]' : 'text-[var(--black-60)] border-[var(--blue-20)]'}`
@@ -392,6 +437,7 @@ function wireExplorer(el, convs, from, to) {
     estado: { resuelta: 'Resuelta', no_resuelta: 'No resuelta', ambigua: 'Ambigua' },
     life: { cerrada_cliente: 'Cerró', abandonada: 'Abandonó', escalada: 'Escaló' },
     no_info: { 1: 'Sin contenido para responder' },
+    vertical: { retail: 'Retail', restaurantes: 'Restaurantes', sin_vertical: 'Sin vertical' },
   }
   const friendlyFilterLabel = (k, v) => (FILTER_LABELS[k] && FILTER_LABELS[k][v]) || v
 
@@ -410,7 +456,8 @@ function wireExplorer(el, convs, from, to) {
 
   const applyFilters = (partial, { replace } = {}) => {
     if (replace) {
-      state.estado = ''; state.life = ''; state.category = ''; state.search = ''; state.no_info = ''
+      state.estado = ''; state.life = ''; state.category = ''; state.search = ''
+      state.no_info = ''; state.vertical = ''
       const searchInput = el.querySelector('#bot-search')
       if (searchInput) searchInput.value = ''
     }
