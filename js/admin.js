@@ -3136,6 +3136,15 @@ async function renderProfilePanel() {
               <span id="toggleGapsKnob" class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"></span>
             </button>
           </div>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-bold text-[var(--black-100)]">Recorrido guiado</p>
+              <p class="text-xs text-[var(--black-60)] mt-0.5">Muestra u oculta la tarjeta del recorrido en el portal (apagado por defecto)</p>
+            </div>
+            <button id="toggleOnboarding" class="relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none" aria-pressed="false">
+              <span id="toggleOnboardingKnob" class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"></span>
+            </button>
+          </div>
         </div>
         <p id="toggleSettingsMsg" class="text-xs mt-3 hidden"></p>
       </div>
@@ -3186,6 +3195,12 @@ async function renderProfilePanel() {
   const setGaps      = wireToggle('toggleGaps',       'toggleGapsKnob',      'gaps_enabled',      'Vacíos del bot activado.',         'Vacíos del bot desactivado.',
     on => { aplicarModuloGaps(on); if (on) refreshGapsBadge() })
 
+  // Recorrido guiado: el toggle apaga la tarjeta del PORTAL, no el admin. Llegó
+  // a producción sin interruptor con el merge de sandbox del 2026-10-25 y ahí
+  // se vio el agujero: era el único módulo sin uno.
+  const setOnboarding = wireToggle('toggleOnboarding', 'toggleOnboardingKnob', 'onboarding_enabled',
+    'Recorrido guiado activado.', 'Recorrido guiado desactivado.')
+
   const settingsMap = await loadSettings()
   setBot(settingsMap.bot_enabled !== 'false')
   setLessons(settingsMap.lessons_enabled !== 'false')
@@ -3196,6 +3211,8 @@ async function renderProfilePanel() {
   setCurso(settingsMap.curso_enabled === 'true')
   // Vacíos del bot: opt-in, como Curso
   setGaps(settingsMap.gaps_enabled === 'true')
+  // Recorrido guiado: opt-in también. Sin la fila, producción no lo ve.
+  setOnboarding(settingsMap.onboarding_enabled === 'true')
 
   document.getElementById('saveProfileInfo').addEventListener('click', async () => {
     const newName = document.getElementById('profileName').value.trim()

@@ -40,6 +40,18 @@ window.switchTab = switchTab
     lucide.createIcons()
     initCourseTab()
   }
+  // Recorrido guiado: opt-in, igual que Curso. Clave ausente ⇒ no se pinta.
+  // Esto es lo que mantiene el recorrido fuera de producción mientras se
+  // termina (el admin y las migraciones siguen sin subir); se enciende en
+  // Mi perfil → módulos, por entorno.
+  if (s.onboarding_enabled === 'true') {
+    renderOnboardingResume()
+    // La clave de localStorage depende de la cuenta: si bold:context llega
+    // después del primer render (caso normal embebido en Bold POS), hay que
+    // recalcular con el accountId real para no mostrar ni perder el avance de
+    // otra cuenta.
+    onContextoBold(() => renderOnboardingResume())
+  }
 })()
 
 function switchTab(tab) {
@@ -117,11 +129,5 @@ function renderOnboardingResume() {
   }
   onbResumeEl.classList.remove('hidden')
 }
-
-renderOnboardingResume()
-// La clave de localStorage depende de la cuenta: si bold:context llega
-// después de este primer render (caso normal embebido en Bold POS), hay que
-// recalcular con el accountId real para no mostrar/perder el avance de otra.
-onContextoBold(() => renderOnboardingResume())
 
 lucide.createIcons()
