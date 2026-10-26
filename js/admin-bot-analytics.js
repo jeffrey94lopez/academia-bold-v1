@@ -534,6 +534,11 @@ function exportBotCsv(convs, from, to) {
   exportCSV(convs, `bolbot-conversaciones${range}.csv`, [
     { label: 'ID', getValue: r => r.id },
     { label: 'Fecha', getValue: r => r.started_at },
+    // Valores CRUDOS, no la etiqueta que pinta etiquetaComercio: el nombre
+    // entero y el id completo. Acortar un dato en un archivo que alguien va a
+    // analizar sería el error que el tooltip evita en pantalla.
+    { label: 'Negocio', getValue: r => r.business_name || '' },
+    { label: 'ID negocio', getValue: r => r.account_id || '' },
     { label: 'Categoría', getValue: r => r.cat },
     { label: 'Estado', getValue: r => r.eff_status || '' },
     { label: 'Sentimiento', getValue: r => r.sentiment || '' },
