@@ -383,7 +383,10 @@ function lifecycleBadge(lifecycle) {
   return `<span class="text-[10px] px-2 rounded-full border" style="border-color:${b[1]};color:${b[1]}">${b[0]}</span>`
 }
 
-export function convRows(convs) {
+// `mostrarComercio` se apaga cuando las filas ya viven DENTRO de un comercio
+// (pestaña Chats Comercios): repetir el mismo negocio en cada fila de su propia
+// lista es ruido, no información.
+export function convRows(convs, { mostrarComercio = true } = {}) {
   if (!convs.length) return '<p class="p-3 text-xs text-[var(--black-40)]">Sin conversaciones en el rango/filtros.</p>'
   return convs.map((c, i) => {
     // El id completo va en el `title`: es lo que se pega en el buscador de
@@ -400,7 +403,7 @@ export function convRows(convs) {
         ${verticalBadge(c.vertical)}
         ${lifecycleBadge(c.lifecycle)}
         ${c.bot_no_info ? '<span class="text-[10px] px-2 rounded-full border border-[var(--warning-150)] text-[var(--warning-150)]">Sin info</span>' : ''}
-        <span class="text-[var(--black-40)] truncate" title="${escapeHtml(com.completo)}">🏪 ${escapeHtml(com.texto)}</span>
+        ${mostrarComercio ? `<span class="text-[var(--black-40)] truncate" title="${escapeHtml(com.completo)}">🏪 ${escapeHtml(com.texto)}</span>` : ''}
         <span class="ml-auto shrink-0 text-[var(--black-40)]">${escapeHtml(c.cat || '')}</span>
       </div>
     </div>

@@ -78,9 +78,8 @@ function filaComercio(c, i) {
       <span class="flex-1 min-w-0">
         <span class="block text-sm font-bold text-[var(--black-100)] truncate">${escapeHtml(com.texto)}</span>
         <span class="block text-[11px] text-[var(--black-40)]">
-          ID ${escapeHtml(c.account_id)}${c.vertical ? ` · ${escapeHtml(c.vertical)}` : ''}
-          ${usuarios ? ` · ${usuarios} ${usuarios === 1 ? 'usuario' : 'usuarios'}` : ''}
-          · última ${escapeHtml(hace(c.ultima))}
+          ${c.business_name ? `ID ${escapeHtml(c.account_id)} · ` : ''}${c.vertical ? `${escapeHtml(c.vertical)} · ` : ''}
+          ${usuarios ? `${usuarios} ${usuarios === 1 ? 'usuario' : 'usuarios'} · ` : ''}última ${escapeHtml(hace(c.ultima))}
         </span>
       </span>
       <span class="shrink-0 text-right">
@@ -131,7 +130,7 @@ function wireComercios(el, comercios, from, to) {
         return
       }
 
-      caja.innerHTML = convRows(chats)
+      caja.innerHTML = convRows(chats, { mostrarComercio: false })
       // bindRows busca dentro del contenedor que se le pasa, así que cada
       // comercio desplegado maneja sus propias filas sin pisar a los demás.
       bindRows(caja, chats)
