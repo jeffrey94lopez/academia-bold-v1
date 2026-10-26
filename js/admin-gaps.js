@@ -3,8 +3,10 @@
 // Vive fuera de js/admin.js (que ya pasa de 3.000 líneas), siguiendo el
 // precedente de admin-analytics.js y admin-bot-analytics.js.
 import { fetchVacios, fetchVaciosSalud, fetchVacioDetalle, resolverVacio,
-         descartarVacio, dividirVacio, marcarSolicitud } from './gaps-api.js'
+         descartarVacio, dividirVacio, marcarSolicitud,
+         fusionarVacios } from './gaps-api.js'
 import { validarDivision } from './gap-split.js'
+import { validarFusion, avisosFusion } from './gap-merge.js'
 import { agruparPorCategoria } from './gap-grouping.js'
 import { estadoMostrado, registroEnSilencio } from './gap-lifecycle.js'
 import { contenidoConFaqInfo, buildFaqBlock } from './gap-faq-block.js'
@@ -357,10 +359,15 @@ async function abrirDetalle(vacioId) {
         <p class="text-xs text-[var(--black-40)] mt-1">
           ${escapeHtml(v.preguntas_total)} preguntas · primera ${escapeHtml(hace(v.primera_vez))} · última ${escapeHtml(hace(v.ultima_vez))}
         </p>
+        ${estado === 'resuelto' ? '' : `<button id="gapFusionBtn"
+          class="mt-1.5 text-xs font-bold text-[var(--blue-100)] hover:underline">Fusionar con otro vacío…</button>`}
       </div>
+
+      <div id="gapFusionBox" class="hidden"></div>
 
       ${estado === 'resuelto' ? resueltoHtml(v, leccionDestino, desdeCierre) : ''}
       ${estado === 'descartado' ? descartadoHtml(v, desdeCierre) : ''}
+      ${estado === 'solicitud' ? solicitudHtml(v, desdeCierre) : ''}
 
       <div>
         <h3 class="text-xs font-black text-[var(--blue-100)] mb-1.5">Preguntas reales</h3>
@@ -406,6 +413,7 @@ async function abrirDetalle(vacioId) {
   document.getElementById('gapGuardar').addEventListener('click', onGuardar)
   wireVerConversacion()
   wireDividir(v)
+  wireFusionar(v)
   wireAccionesPorEstado(v)
   if (cierrePendiente) repintarCierrePendiente()
 }
@@ -456,6 +464,29 @@ function resueltoHtml(v, leccion, desdeCierre) {
       <button id="gapIrLecciones" class="px-3 py-2 rounded-xl text-xs font-bold bg-[var(--blue-100)] text-white">Ir a Lecciones a revisarla</button>
       <button id="gapResolverDeNuevo" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)]">Resolver de nuevo…</button>
       <button id="gapDescartarBtn" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)]">Descartar…</button>
+    </div>
+  </div>`
+}
+
+// Sin esta caja, un vacío marcado como solicitud abría sin explicar su estado
+// y sin un solo botón — y wireAccionesPorEstado lanzaba TypeError buscando
+// #gapResolverDeNuevo, que solo pintaban las otras dos cajas.
+function solicitudHtml(v, desdeCierre) {
+  const quien = v.resuelto_por ? ` por ${escapeHtml(v.resuelto_por)}` : ''
+  return `<div class="bg-white border border-[var(--blue-10)] rounded-xl p-3 flex flex-col gap-1.5">
+    <h3 class="text-xs font-black text-[var(--blue-100)]">Este vacío está marcado como solicitud</h3>
+    <p class="text-xs text-[var(--black-100)]">
+      El bot ya responde bien esto. Quedó registrado como algo que los clientes
+      piden y la plataforma no hace${quien}, ${escapeHtml(hace(v.resuelto_at))}.
+    </p>
+    ${v.nota_descarte ? `<p class="text-xs text-[var(--black-60)]">Cómo funciona hoy: ${escapeHtml(v.nota_descarte)}</p>` : ''}
+    ${desdeCierre > 0 ? `<p class="text-xs font-bold text-[var(--warning-150)]">
+      ${desdeCierre} ${desdeCierre === 1 ? 'pregunta llegó' : 'preguntas llegaron'} después de marcarla.</p>` : ''}
+    <p class="text-xs text-[var(--black-60)]">
+      Si la plataforma cambia y ahora sí se puede hacer, resuélvelo con una FAQ.
+    </p>
+    <div class="flex gap-2 flex-wrap mt-1">
+      <button id="gapResolverDeNuevo" class="px-3 py-2 rounded-xl text-xs font-bold bg-[var(--blue-100)] text-white">Resolver con una FAQ…</button>
     </div>
   </div>`
 }
@@ -515,6 +546,13 @@ function wireAccionesPorEstado(v) {
         titulo: '¿Resolver de nuevo?',
         texto: 'Resolver otra vez reinicia el contador de reincidencia: este vacío saldrá de "Resueltos que siguen preguntándose" aunque el bot siga sin recuperar la lección. Si el problema es que el bot no la encuentra, escribir otra FAQ no lo arregla.',
         okTexto: 'Sí, resolver de nuevo',
+        onOk: mostrarFormulario,
+      })
+    } else if (v.estado === 'solicitud') {
+      pedirConfirmacion({
+        titulo: '¿Resolver esta solicitud?',
+        texto: 'Dejará de contar como pedido de producto y pasará a resueltos, ligada a la lección que elijas. Hazlo solo si la plataforma ya hace lo que pedían.',
+        okTexto: 'Sí, resolver',
         onOk: mostrarFormulario,
       })
     } else {
@@ -658,12 +696,13 @@ const MOTIVOS_DIVISION = {
   pregunta_ajena: 'Alguna pregunta ya no pertenece a este vacío. Vuelve a la bandeja y recárgala.',
 }
 
-// La RPC lanza el código tal cual ('seleccion_total'); gaps-api lo envuelve como
-// "dividir_vacio: seleccion_total". Si trae un código conocido, se traduce.
-function explicarErrorDivision(e) {
+// Las RPCs lanzan el código tal cual ('seleccion_total'); gaps-api lo envuelve
+// como "dividir_vacio: seleccion_total". Si trae un código conocido, se
+// traduce; si no, se muestra el mensaje crudo en vez de esconderlo.
+function explicarError(motivos, e) {
   const msg = String(e?.message ?? e)
-  const codigo = Object.keys(MOTIVOS_DIVISION).find(k => msg.includes(k))
-  return codigo ? MOTIVOS_DIVISION[codigo] : msg
+  const codigo = Object.keys(motivos).find(k => msg.includes(k))
+  return codigo ? motivos[codigo] : msg
 }
 
 function wireDividir(vacio) {
@@ -708,7 +747,7 @@ function wireDividir(vacio) {
       } catch (e) {
         btn.disabled = false
         const m = document.getElementById('gapSplitMsg')
-        m.textContent = `No se pudo dividir: ${explicarErrorDivision(e)}`
+        m.textContent = `No se pudo dividir: ${explicarError(MOTIVOS_DIVISION, e)}`
         m.className = 'text-xs text-[var(--error-100)]'
         return
       }
@@ -723,6 +762,137 @@ function wireDividir(vacio) {
 
   document.querySelectorAll('.gap-pregunta').forEach(c =>
     c.addEventListener('change', pintarBarra))
+}
+
+// ── Fusionar ─────────────────────────────────────────────────────────────────
+
+// El espejo de dividir, con una asimetría que importa: el vacío abierto es el
+// ORIGEN y DESAPARECE. El destino conserva título, categoría y ancla.
+
+const ETIQUETA_ESTADO = {
+  pendiente: 'Pendiente', solicitud: 'Solicitud',
+  resuelto: 'Resuelto', descartado: 'Descartado',
+}
+
+const MOTIVOS_FUSION = {
+  sin_destino: 'Elige primero el vacío destino.',
+  mismo_vacio: 'Ese es este mismo vacío.',
+  origen_resuelto: 'Este vacío está resuelto. Fusiónalos al revés — abre el otro y muévelo hacia este — o se perdería la lección con la que se resolvió.',
+  destino_inexistente: 'El vacío destino ya no existe. Vuelve a la bandeja y recárgala.',
+  vacio_inexistente: 'Uno de los dos vacíos ya no existe. Vuelve a la bandeja y recárgala.',
+}
+
+function wireFusionar(vacio) {
+  // No se pinta para un vacío resuelto: sería el origen, y la RPC lo rechaza
+  // para no perder su enlace a la lección.
+  const btn = document.getElementById('gapFusionBtn')
+  if (!btn) return
+  const box = document.getElementById('gapFusionBox')
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true
+    box.classList.remove('hidden')
+    box.innerHTML = `<p class="text-xs text-[var(--black-40)]">Cargando los demás vacíos…</p>`
+
+    let candidatos
+    try {
+      // estado null = TODOS los estados. Fusionar hacia un vacío ya resuelto es
+      // válido y es justo lo que alimenta "resuelto pero siguen preguntando".
+      candidatos = (await fetchVacios({ estado: null, limit: LIMITE_LISTA }))
+        .filter(c => c.id !== vacio.id)
+    } catch (e) {
+      btn.disabled = false
+      box.innerHTML = `<p class="text-xs text-[var(--error-100)]">No se pudo cargar la lista: ${escapeHtml(e.message)}</p>`
+      return
+    }
+
+    if (!candidatos.length) {
+      box.innerHTML = `<p class="text-xs text-[var(--black-40)]">No hay ningún otro vacío con el que fusionar.</p>`
+      return
+    }
+    pintarCajaFusion(vacio, candidatos, box)
+  })
+}
+
+function pintarCajaFusion(vacio, candidatos, box) {
+  box.innerHTML = `
+    <div class="bg-white border border-amber-200 rounded-xl p-3 flex flex-col gap-1.5">
+      <h3 class="text-xs font-black text-amber-700">Fusionar con otro vacío</h3>
+      <p class="text-[11px] text-[var(--black-40)]">
+        Las ${escapeHtml(vacio.preguntas_total)} preguntas de este vacío se mueven al que elijas
+        y este desaparece. El destino conserva su título, su categoría y su ancla.
+      </p>
+      <select id="gapFusionDestino" class="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-xs outline-none focus:border-amber-400">
+        <option value="">Elige el vacío destino…</option>
+        ${candidatos.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.titulo)} — ${escapeHtml(c.preguntas_total)} preguntas · ${escapeHtml(ETIQUETA_ESTADO[c.estado] || c.estado)}</option>`).join('')}
+      </select>
+      <div id="gapFusionAvisos" class="flex flex-col gap-1"></div>
+      <p id="gapFusionMsg" class="text-xs hidden"></p>
+      <button id="gapFusionOk" disabled
+        class="px-3 py-2 rounded-xl text-xs font-bold bg-amber-100 text-amber-700 self-start">Mover las preguntas</button>
+    </div>`
+
+  const sel = document.getElementById('gapFusionDestino')
+  const ok = document.getElementById('gapFusionOk')
+  const elegido = () => candidatos.find(c => c.id === sel.value) || null
+
+  sel.addEventListener('change', () => {
+    const destino = elegido()
+    const v = validarFusion(vacio, destino)
+    const msg = document.getElementById('gapFusionMsg')
+    ok.disabled = !v.ok
+    ok.textContent = v.ok
+      ? `Mover ${vacio.preguntas_total} preguntas a «${destino.titulo}»`
+      : 'Mover las preguntas'
+
+    // Nada seleccionado no es un error, es el estado inicial.
+    if (v.ok || !sel.value) {
+      msg.className = 'text-xs hidden'
+    } else {
+      msg.textContent = MOTIVOS_FUSION[v.motivo] || 'No se puede fusionar así.'
+      msg.className = 'text-xs text-[var(--error-100)]'
+    }
+
+    // Los avisos no impiden fusionar: dicen qué se pierde, antes del clic.
+    document.getElementById('gapFusionAvisos').innerHTML = (v.ok ? avisosFusion(vacio, destino) : [])
+      .map(a => `<p class="text-[11px] text-[var(--warning-150)]">⚠ ${escapeHtml(a)}</p>`).join('')
+  })
+
+  // Confirmación aparte, al contrario que dividir: dividir se deshace
+  // fusionando, pero fusionar borra el vacío origen con su título y su marca, y
+  // eso no vuelve con un botón.
+  ok.addEventListener('click', () => {
+    const destino = elegido()
+    if (!validarFusion(vacio, destino).ok) return
+    pedirConfirmacion({
+      titulo: '¿Fusionar estos dos vacíos?',
+      texto: `«${vacio.titulo}» desaparece y sus ${vacio.preguntas_total} preguntas pasan a «${destino.titulo}». Para deshacerlo habría que volver a dividirlo a mano.`,
+      okTexto: 'Sí, fusionar',
+      onOk: () => ejecutarFusion(vacio, destino, ok),
+    })
+  })
+}
+
+async function ejecutarFusion(vacio, destino, btn) {
+  btn.disabled = true
+  try {
+    await fusionarVacios(vacio.id, destino.id)
+  } catch (e) {
+    btn.disabled = false
+    const msg = document.getElementById('gapFusionMsg')
+    msg.textContent = `No se pudo fusionar: ${explicarError(MOTIVOS_FUSION, e)}`
+    msg.className = 'text-xs text-[var(--error-100)]'
+    return
+  }
+  // 'move' ("Movió") ya existe en actionBadge (js/admin.js). Se guarda el
+  // título del origen porque su fila ya no existe para consultarlo.
+  logActivity('move', 'bot_vacio', vacio.titulo,
+    { accion: 'fusionado', hacia: destino.id, hacia_titulo: destino.titulo,
+      preguntas: vacio.preguntas_total })
+  refreshGapsBadge()
+  // Se abre el DESTINO: el origen ya no existe, y el resultado de la fusión es
+  // lo único que tiene sentido mirar ahora.
+  abrirDetalle(destino.id)
 }
 
 function preguntaHtml(p, i) {

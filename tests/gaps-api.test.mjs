@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   fetchVacios, fetchVacioDetalle, fetchVaciosSalud,
-  resolverVacio, descartarVacio, dividirVacio,
+  resolverVacio, descartarVacio, dividirVacio, marcarSolicitud, fusionarVacios,
 } from '../js/gaps-api.js'
 
 // Cliente falso: registra la llamada y devuelve lo que se le pida.
@@ -61,4 +61,41 @@ test('dividirVacio manda el array de ids y devuelve el id nuevo', async () => {
   assert.deepEqual(c.llamadas[0].params, {
     p_vacio_id: 'v1', p_pregunta_ids: ['a', 'b'], p_titulo: 'Título nuevo',
   })
+})
+
+test('fetchVacios: un estado null EXPLÍCITO pide todos los estados', async () => {
+  // `?? 'pendiente'` trataría null como "no lo pasaste". El selector de destino
+  // de una fusión necesita TODOS los vacíos, resueltos incluidos.
+  const c = fakeClient({ data: [], error: null })
+  await fetchVacios({ estado: null, limit: 500 }, c)
+  assert.deepEqual(c.llamadas[0].params, {
+    p_estado: null, p_vertical: null, p_categoria: null, p_limit: 500,
+  })
+})
+
+test('marcarSolicitud manda nota y email, y null cuando faltan', async () => {
+  const c = fakeClient({ data: null, error: null })
+  await marcarSolicitud('v1', 'se gestiona por Soporte', 'yo@x.com', c)
+  await marcarSolicitud('v2', '', undefined, c)
+  assert.deepEqual(c.llamadas[0].params,
+    { p_vacio_id: 'v1', p_nota: 'se gestiona por Soporte', p_email: 'yo@x.com' })
+  assert.deepEqual(c.llamadas[1].params, { p_vacio_id: 'v2', p_nota: '', p_email: null })
+  await assert.rejects(() => marcarSolicitud('v', null, null, fakeClient({ data: null, error: { message: 'x' } })),
+    /marcar_solicitud: x/)
+})
+
+test('fusionarVacios manda origen y destino, y devuelve el total del destino', async () => {
+  const c = fakeClient({ data: 14, error: null })
+  const total = await fusionarVacios('origen-1', 'destino-1', c)
+  assert.equal(total, 14)
+  assert.deepEqual(c.llamadas[0], {
+    name: 'fusionar_vacios', params: { p_origen: 'origen-1', p_destino: 'destino-1' },
+  })
+})
+
+test('fusionarVacios: un rechazo de la RPC llega como throw con su código', async () => {
+  // El panel traduce el código a algo legible; si esto se tragara el error, la
+  // persona vería "fusionado" sin que se haya movido nada.
+  const c = fakeClient({ data: null, error: { message: 'origen_resuelto' } })
+  await assert.rejects(() => fusionarVacios('a', 'b', c), /fusionar_vacios: origen_resuelto/)
 })

@@ -32,7 +32,10 @@ async function callRpc(client, name, params) {
 export async function fetchVacios(filtros = {}, client) {
   if (!client) client = await getSupabaseClient()
   return callRpc(client, 'analytics_bot_vacios', {
-    p_estado: filtros.estado ?? 'pendiente',
+    // `'estado' in filtros` y no `?? 'pendiente'`: un null EXPLÍCITO significa
+    // "todos los estados" (lo que necesita el selector de destino de una
+    // fusión), y `??` lo confundiría con "no pasaste nada".
+    p_estado: 'estado' in filtros ? filtros.estado : 'pendiente',
     p_vertical: filtros.vertical ?? null,
     p_categoria: filtros.categoria ?? null,
     p_limit: filtros.limit ?? 100,
@@ -76,5 +79,14 @@ export async function dividirVacio(vacioId, preguntaIds, titulo, client) {
   if (!client) client = await getSupabaseClient()
   return callRpc(client, 'dividir_vacio', {
     p_vacio_id: vacioId, p_pregunta_ids: preguntaIds, p_titulo: titulo,
+  })
+}
+
+// Mueve TODAS las preguntas del origen al destino y borra el origen. Devuelve
+// el total de preguntas que queda en el destino.
+export async function fusionarVacios(origenId, destinoId, client) {
+  if (!client) client = await getSupabaseClient()
+  return callRpc(client, 'fusionar_vacios', {
+    p_origen: origenId, p_destino: destinoId,
   })
 }
