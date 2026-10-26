@@ -63,6 +63,15 @@ export async function descartarVacio(vacioId, motivo, nota, client) {
   })
 }
 
+// Marca el vacío como pedido de producto. NO es un descarte: sigue contado y
+// visible en su propia pestaña. La nota (cómo funciona hoy) es opcional.
+export async function marcarSolicitud(vacioId, nota, email, client) {
+  if (!client) client = await getSupabaseClient()
+  return callRpc(client, 'marcar_solicitud', {
+    p_vacio_id: vacioId, p_nota: nota ?? null, p_email: email ?? null,
+  })
+}
+
 export async function dividirVacio(vacioId, preguntaIds, titulo, client) {
   if (!client) client = await getSupabaseClient()
   return callRpc(client, 'dividir_vacio', {

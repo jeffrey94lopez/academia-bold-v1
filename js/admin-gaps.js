@@ -3,8 +3,9 @@
 // Vive fuera de js/admin.js (que ya pasa de 3.000 líneas), siguiendo el
 // precedente de admin-analytics.js y admin-bot-analytics.js.
 import { fetchVacios, fetchVaciosSalud, fetchVacioDetalle, resolverVacio,
-         descartarVacio, dividirVacio } from './gaps-api.js'
+         descartarVacio, dividirVacio, marcarSolicitud } from './gaps-api.js'
 import { validarDivision } from './gap-split.js'
+import { agruparPorCategoria } from './gap-grouping.js'
 import { estadoMostrado, registroEnSilencio } from './gap-lifecycle.js'
 import { contenidoConFaqInfo, buildFaqBlock } from './gap-faq-block.js'
 import { dedupeQuestions } from './faq-suggest.js'
@@ -23,9 +24,21 @@ const hace = iso => {
   return `hace ${dias} días`
 }
 
-// Filtro de estado de la lista. Vive a nivel de módulo para que sobreviva a los
-// repintados (resolver, descartar, volver del detalle).
-const ESTADOS = { pendiente: 'Pendientes', resuelto: 'Resueltos', descartado: 'Descartados' }
+// Pestañas de la bandeja. El orden es el del trabajo: primero lo que falta
+// escribir, después los pedidos de producto, al final lo ya cerrado.
+//
+// `solicitud` NO es un descarte: son preguntas donde el bot YA responde bien
+// (la respuesta correcta es "eso lo gestiona Soporte") pero que son señal de
+// que los clientes piden algo que la plataforma no hace. Descartarlas las
+// enterraría; acá quedan contadas y a la vista.
+const ESTADOS = {
+  pendiente:  'Pendientes',
+  solicitud:  'Solicitudes',
+  resuelto:   'Resueltos',
+  descartado: 'Descartados',
+}
+// Vive a nivel de módulo para sobrevivir a los repintados (resolver, descartar,
+// volver del detalle).
 let estadoFiltro = 'pendiente'
 
 // Tope de cada consulta. Con el límite por defecto de la RPC (100), un vacío con
@@ -47,10 +60,11 @@ export async function renderGapsPanel() {
   const pedir = estado => fetchVacios({ estado, limit: LIMITE_LISTA })
   let porEstado, salud
   try {
-    const [pendientes, resueltos, descartados, s] = await Promise.all([
-      pedir('pendiente'), pedir('resuelto'), pedir('descartado'), fetchVaciosSalud(),
+    const estados = Object.keys(ESTADOS)
+    const [listas, s] = await Promise.all([
+      Promise.all(estados.map(pedir)), fetchVaciosSalud(),
     ])
-    porEstado = { pendiente: pendientes, resuelto: resueltos, descartado: descartados }
+    porEstado = Object.fromEntries(estados.map((e, i) => [e, listas[i]]))
     salud = s
   } catch (e) {
     el.innerHTML = `<div class="p-6 flex flex-col gap-4">
@@ -76,12 +90,16 @@ export async function renderGapsPanel() {
     ultimaPreguntaRegistrada: salud?.ultima_pregunta_registrada,
   })
 
-  // Si la consulta topó el límite, el número real es mayor: decirlo en vez de
-  // presentar el tope como si fuera el total.
-  const conteo = lista.length >= LIMITE_LISTA ? `${lista.length}+` : String(lista.length)
-  const vacioMsg = estadoFiltro === 'pendiente'
-    ? 'Nada pendiente. Si el bot está fallando igual, mira el aviso de arriba.'
-    : `No hay vacíos ${estadoFiltro === 'resuelto' ? 'resueltos' : 'descartados'}.`
+  const VACIO_MSG = {
+    pendiente:  'Nada pendiente. Si el bot está fallando igual, mira el aviso de arriba.',
+    solicitud:  'Ninguna solicitud todavía. Se marcan desde el detalle de un vacío pendiente.',
+    resuelto:   'No hay vacíos resueltos.',
+    descartado: 'No hay vacíos descartados.',
+  }
+  const vacioMsg = VACIO_MSG[estadoFiltro] || 'No hay vacíos.'
+  const INTRO = {
+    solicitud: 'Lo que los clientes piden y la plataforma hoy no hace. El bot ya responde bien estos casos; quedan acá como señal de producto, no como contenido por escribir.',
+  }
 
   el.innerHTML = `
     <div class="p-4 md:p-6 flex flex-col gap-4">
@@ -91,29 +109,58 @@ export async function renderGapsPanel() {
       ${vuelven.length ? franjaReincidentesHtml(vuelven) : ''}
       ${descartadosVuelven.length ? franjaDescartadosHtml(descartadosVuelven) : ''}
       <div>
-        <div class="flex items-center justify-between gap-2 mb-2">
-          <h2 class="text-sm font-black text-[var(--blue-100)]">
-            ${ESTADOS[estadoFiltro]} (${conteo})
-          </h2>
-          <select id="gapEstadoFiltro" aria-label="Estado de los vacíos"
-            class="px-2 py-1.5 rounded-lg border border-[var(--blue-20)] text-xs outline-none">
-            ${Object.entries(ESTADOS).map(([k, t]) =>
-              `<option value="${escapeHtml(k)}"${k === estadoFiltro ? ' selected' : ''}>${escapeHtml(t)}</option>`).join('')}
-          </select>
+        <div class="flex items-center gap-1.5 flex-wrap mb-3">
+          ${pestanasHtml(porEstado)}
         </div>
-        <div class="flex flex-col gap-1.5">
-          ${lista.length ? lista.map(filaHtml).join('') : `<p class="text-xs text-[var(--black-40)]">${vacioMsg}</p>`}
+        ${INTRO[estadoFiltro] ? `<p class="text-xs text-[var(--black-60)] mb-2">${INTRO[estadoFiltro]}</p>` : ''}
+        <div class="flex flex-col gap-2">
+          ${lista.length
+            ? agruparPorCategoria(lista).map(grupoHtml).join('')
+            : `<p class="text-xs text-[var(--black-40)]">${vacioMsg}</p>`}
         </div>
       </div>
     </div>`
 
   pintarAvisoEmbed(document.getElementById('gapEmbedAviso'))
-  document.getElementById('gapEstadoFiltro').addEventListener('change', e => {
-    estadoFiltro = e.target.value
+  el.querySelectorAll('.gap-tab').forEach(b => b.addEventListener('click', () => {
+    estadoFiltro = b.dataset.estado
     renderGapsPanel()
-  })
+  }))
   el.querySelectorAll('.gap-row').forEach(b =>
     b.addEventListener('click', () => abrirDetalle(b.dataset.vacio)))
+}
+
+// Pestañas en estilo píldora y no subrayadas: `border-b-2` no existe en el
+// css/tw.css precompilado, y una clase que no está ahí no aplica nada.
+function pestanasHtml(porEstado) {
+  return Object.entries(ESTADOS).map(([k, t]) => {
+    const n = (porEstado[k] || []).length
+    const activa = k === estadoFiltro
+    const base = 'gap-tab px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5'
+    const estilo = activa
+      ? 'bg-[var(--blue-100)] text-white'
+      : 'text-[var(--black-60)] border border-[var(--blue-20)] hover:bg-[var(--blue-10)]'
+    const badge = activa
+      ? 'bg-white text-[var(--blue-100)]'
+      : 'bg-[var(--blue-10)] text-[var(--blue-100)]'
+    return `<button type="button" data-estado="${escapeHtml(k)}" class="${base} ${estilo}"
+      ${activa ? 'aria-current="page"' : ''}>${escapeHtml(t)}
+      <span class="${badge} text-[10px] font-black px-1.5 rounded-full">${n >= LIMITE_LISTA ? n + '+' : n}</span>
+    </button>`
+  }).join('')
+}
+
+// Una sección por categoría, colapsable. Se usa <details> nativo: `list-none`
+// tampoco existe en el precompilado, así que el triángulo del navegador se deja
+// como está — además es el que la gente ya sabe leer.
+function grupoHtml(g) {
+  return `<details class="bg-white border border-[var(--blue-10)] rounded-xl"${g.abierto ? ' open' : ''}>
+    <summary class="px-3 py-2 text-xs font-black text-[var(--blue-100)] cursor-pointer select-none">
+      ${escapeHtml(g.categoria)}
+      <span class="text-[var(--black-40)] font-bold ml-1">· ${g.total}</span>
+    </summary>
+    <div class="flex flex-col gap-1.5 px-2 pb-2">${g.vacios.map(filaHtml).join('')}</div>
+  </details>`
 }
 
 function avisoSilencioHtml(s) {
@@ -345,7 +392,8 @@ async function abrirDetalle(vacioId) {
           <div class="flex gap-2 mt-1">
             <button id="gapGuardar" class="px-3 py-2 rounded-xl text-xs font-bold bg-[var(--blue-100)] text-white">Guardar y cerrar el vacío</button>
             ${estado === 'pendiente'
-              ? `<button id="gapDescartarBtn" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)]">Descartar…</button>`
+              ? `<button id="gapSolicitudBtn" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)]">Es una solicitud…</button>
+                 <button id="gapDescartarBtn" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)]">Descartar…</button>`
               : ''}
           </div>
         </div>
@@ -448,6 +496,7 @@ function pedirConfirmacion({ titulo, texto, okTexto, onOk }) {
 function wireAccionesPorEstado(v) {
   if (v.estado === 'pendiente') {
     wireDescartar(v)
+    wireSolicitud(v)
     return
   }
 
@@ -551,6 +600,52 @@ function wireDescartar(vacio, confirmar) {
   }
   document.getElementById('gapDescartarBtn').addEventListener('click', () =>
     confirmar ? pedirConfirmacion({ ...confirmar, onOk: mostrar }) : mostrar())
+}
+
+// ── Solicitud ────────────────────────────────────────────────────────────────
+
+// Marcar como pedido de producto. Reusa la misma caja que descartar, pero el
+// texto y el destino son otros: esto NO esconde el vacío.
+function wireSolicitud(vacio) {
+  const btn = document.getElementById('gapSolicitudBtn')
+  if (!btn) return
+  const box = document.getElementById('gapDescartarBox')
+  btn.addEventListener('click', () => {
+    box.classList.remove('hidden')
+    box.innerHTML = `
+      <div class="bg-white border border-[var(--blue-10)] rounded-xl p-3 flex flex-col gap-1.5">
+        <h3 class="text-xs font-black text-[var(--black-60)]">Marcar como solicitud de producto</h3>
+        <p class="text-[11px] text-[var(--black-40)]">
+          El bot ya responde bien esto; queda registrado como algo que los clientes
+          piden y la plataforma no hace. No desaparece: va a la pestaña Solicitudes.
+        </p>
+        <input id="gapSolicitudNota" placeholder="Cómo funciona hoy (opcional) — ej. se gestiona por Soporte"
+          class="w-full px-2 py-1.5 rounded-lg border border-[var(--blue-20)] text-xs outline-none">
+        <p id="gapSolicitudMsg" class="text-xs hidden"></p>
+        <button id="gapSolicitudOk" class="px-3 py-2 rounded-xl text-xs font-bold bg-[var(--blue-100)] text-white">
+          Registrar como solicitud
+        </button>
+      </div>`
+
+    document.getElementById('gapSolicitudOk').addEventListener('click', async () => {
+      const nota = document.getElementById('gapSolicitudNota').value.trim() || null
+      const ok = document.getElementById('gapSolicitudOk')
+      ok.disabled = true
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        await marcarSolicitud(vacio.id, nota, user?.email || null)
+      } catch (e) {
+        ok.disabled = false
+        const m = document.getElementById('gapSolicitudMsg')
+        m.textContent = `No se pudo marcar: ${e.message}`
+        m.className = 'text-xs text-[var(--error-100)]'
+        return
+      }
+      logActivity('update', 'bot_vacio', vacio.titulo, { accion: 'solicitud' })
+      renderGapsPanel()
+      refreshGapsBadge()
+    })
+  })
 }
 
 // ── Dividir ──────────────────────────────────────────────────────────────────
