@@ -24,7 +24,9 @@ export function renderAnalytics(tab = null) {
   }).join('')
 
   panel.innerHTML = `
-    <div class="flex items-center gap-2 mb-4 border-b border-[var(--blue-10)] pb-3">${tabsHtml}</div>
+    <!-- flex-wrap: con 3 pestañas la fila entraba en 375px, con la cuarta
+         no, y el desborde movía de lado la página entera en el celular. -->
+    <div class="flex items-center gap-2 flex-wrap mb-4 border-b border-[var(--blue-10)] pb-3">${tabsHtml}</div>
     <div id="analytics-content"></div>`
 
   panel.querySelectorAll('.analytics-shell-tab').forEach(btn => {
