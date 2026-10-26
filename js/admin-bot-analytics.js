@@ -66,6 +66,13 @@ export async function renderBotAnalytics(from = null, to = null) {
   const pctR = n => totalRes ? Math.round(100 * n / totalRes) : 0
   const drill = obj => `data-drill='${escapeHtml(JSON.stringify(obj))}'`
 
+  // Un segmento de ancho 0 igual escribe su texto y queda cortado contra el
+  // borde de la barra (visible en celular con 0 ambiguas). No se pinta: el
+  // número que valdría cero ya no aporta nada.
+  const segmento = (filtro, texto, n, pct, bg, fg) => n > 0
+    ? `<div ${drill(filtro)} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${pct}%;background:${bg};color:${fg}">${texto}</div>`
+    : ''
+
   const header = `
     <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-5">
       <p class="mb-3"><span class="text-4xl font-black text-[var(--blue-100)]">${total}</span> <span class="text-sm text-[var(--black-60)]">conversaciones en el rango</span></p>
@@ -74,9 +81,9 @@ export async function renderBotAnalytics(from = null, to = null) {
       <div class="mt-3">
         <p class="text-[11px] text-center text-[var(--black-60)]"><span class="font-bold text-[var(--black-100)]">Resolución real</span> <span class="text-[var(--black-40)]">· sin ambiguas</span></p>
         <div class="flex h-5 rounded-md overflow-hidden gap-0.5 mt-1 cursor-pointer">
-          <div ${drill({ estado: 'resuelta' })} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${pctR(k.resolved || 0)}%;background:var(--success-10);color:var(--success-150)">resueltas ${k.resolved || 0}</div>
-          <div ${drill({ estado: 'no_resuelta' })} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${pctR(k.unresolved || 0)}%;background:var(--error-10);color:var(--error-100)">no resueltas ${k.unresolved || 0}</div>
-          <div ${drill({ estado: 'ambigua' })} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${pctR(k.ambiguous || 0)}%;background:var(--black-10);color:var(--black-60)">ambiguas ${k.ambiguous || 0}</div>
+          ${segmento({ estado: 'resuelta' }, `resueltas ${k.resolved || 0}`, k.resolved || 0, pctR(k.resolved || 0), 'var(--success-10)', 'var(--success-150)')}
+          ${segmento({ estado: 'no_resuelta' }, `no resueltas ${k.unresolved || 0}`, k.unresolved || 0, pctR(k.unresolved || 0), 'var(--error-10)', 'var(--error-100)')}
+          ${segmento({ estado: 'ambigua' }, `ambiguas ${k.ambiguous || 0}`, k.ambiguous || 0, pctR(k.ambiguous || 0), 'var(--black-10)', 'var(--black-60)')}
         </div>
         <p class="mt-1 text-center text-[var(--black-40)]"><span class="text-base font-black text-[var(--black-100)]">${k.resolved_pct ?? 0}%</span> <span class="text-[10px]">resueltas (sin contar ambiguas)</span></p>
       </div>
@@ -170,8 +177,8 @@ export async function renderBotAnalytics(from = null, to = null) {
           </p>
           ${v.conResultado ? `
             <div class="flex h-5 rounded-md overflow-hidden gap-0.5 mt-2">
-              <div ${drill({ vertical: v.clave, estado: 'resuelta' })} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${v.pctBarra.resueltas}%;background:var(--success-10);color:var(--success-150)">${v.resueltas}</div>
-              <div ${drill({ vertical: v.clave, estado: 'no_resuelta' })} class="bot-drill flex items-center justify-center text-[10px] font-bold" style="width:${v.pctBarra.noResueltas}%;background:var(--error-10);color:var(--error-100)">${v.noResueltas}</div>
+              ${segmento({ vertical: v.clave, estado: 'resuelta' }, v.resueltas, v.resueltas, v.pctBarra.resueltas, 'var(--success-10)', 'var(--success-150)')}
+              ${segmento({ vertical: v.clave, estado: 'no_resuelta' }, v.noResueltas, v.noResueltas, v.pctBarra.noResueltas, 'var(--error-10)', 'var(--error-100)')}
             </div>
             <p class="mt-1 text-[11px] text-[var(--black-60)]">
               <span class="font-black text-[var(--black-100)]">${v.pctResueltas}%</span> resueltas
