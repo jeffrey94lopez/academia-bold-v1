@@ -42,15 +42,15 @@
           <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
         </button>
         <img src="assets/Bold%20POS.png" alt="Bold POS" class="h-7 w-auto" />
-        <div class="w-px h-5 bg-[var(--blue-10)]"></div>
-        <span class="text-[10px] font-black uppercase tracking-widest text-[var(--black-40)]">Admin</span>
+        <div class="w-px h-5 bg-[var(--blue-10)] hidden sm:inline"></div>
+        <span class="hidden sm:inline text-[10px] font-black uppercase tracking-widest text-[var(--black-40)]">Admin</span>
         <!-- Badge de entorno: js/admin.js lo prende cuando el deploy NO es produccion,
              para que nadie dude de donde esta moviendo los switches. Estilo inline a
              proposito: css/tw.css se compila en el build de Vercel, asi que una clase
              de Tailwind nueva no existe en el archivo que hay en el repo y localmente
              el badge saldria sin estilo. -->
         <span id="envBadge" class="hidden" style="background:#F59E0B;color:#fff;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:999px"></span>
-        <span class="text-[var(--blue-20)] text-sm">/</span>
+        <span class="hidden sm:inline text-[var(--blue-20)] text-sm">/</span>
         <span id="adminBreadcrumb" class="text-sm font-bold text-[var(--blue-100)] truncate">Inicio</span>
       </div>
       <div class="flex items-center gap-4 shrink-0">
