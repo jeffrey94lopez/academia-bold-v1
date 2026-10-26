@@ -7,6 +7,9 @@ import {
 import { escapeHtml, exportCSV } from './utils.js'
 import { rankAttention } from './bot-attention.js'
 import { modeloVerticales } from './bot-verticales.js'
+// Mismo criterio que la bandeja de vacíos: nombre si lo hay, si no el id
+// acortado, y si no hay ninguno lo dice en vez de pintar una etiqueta vacía.
+import { etiquetaComercio } from './gap-comercio.js'
 import { offHoursStats, isOffHour, bandStats, BUSINESS_HOURS } from './off-hours.js'
 import { BIZ_TZ } from './biz-time.js'
 
@@ -382,7 +385,11 @@ function lifecycleBadge(lifecycle) {
 
 function convRows(convs) {
   if (!convs.length) return '<p class="p-3 text-xs text-[var(--black-40)]">Sin conversaciones en el rango/filtros.</p>'
-  return convs.map((c, i) => `
+  return convs.map((c, i) => {
+    // El id completo va en el `title`: es lo que se pega en el buscador de
+    // Soporte, y entero en la fila cortaría el renglón.
+    const com = etiquetaComercio(c)
+    return `
     <div class="bot-conv-row px-3 py-2 border-b border-[var(--blue-10)] cursor-pointer text-xs" data-idx="${i}">
       <div class="flex items-center gap-2">
         <span class="shrink-0 text-[10px] font-bold text-[var(--black-40)] tabular-nums">🕒 ${fmtDayTime(c.started_at)}</span>
@@ -393,10 +400,12 @@ function convRows(convs) {
         ${verticalBadge(c.vertical)}
         ${lifecycleBadge(c.lifecycle)}
         ${c.bot_no_info ? '<span class="text-[10px] px-2 rounded-full border border-[var(--warning-150)] text-[var(--warning-150)]">Sin info</span>' : ''}
-        <span class="ml-auto text-[var(--black-40)]">${escapeHtml(c.cat || '')}</span>
+        <span class="text-[var(--black-40)] truncate" title="${escapeHtml(com.completo)}">🏪 ${escapeHtml(com.texto)}</span>
+        <span class="ml-auto shrink-0 text-[var(--black-40)]">${escapeHtml(c.cat || '')}</span>
       </div>
     </div>
-    <div class="bot-conv-detail hidden px-3 py-2 bg-[var(--background-page)] text-xs" data-detail="${i}"></div>`).join('')
+    <div class="bot-conv-detail hidden px-3 py-2 bg-[var(--background-page)] text-xs" data-detail="${i}"></div>`
+  }).join('')
 }
 
 function wireExplorer(el, convs, from, to) {
