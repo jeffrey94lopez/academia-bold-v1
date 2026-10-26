@@ -3,10 +3,11 @@
 // Vive fuera de js/admin.js (que ya pasa de 3.000 líneas), siguiendo el
 // precedente de admin-analytics.js y admin-bot-analytics.js.
 import { fetchVacios, fetchVaciosSalud, fetchVacioDetalle, resolverVacio,
-         descartarVacio, dividirVacio, marcarSolicitud,
+         descartarVacio, dividirVacio, marcarSolicitud, marcarIncidente,
          fusionarVacios } from './gaps-api.js'
 import { validarDivision } from './gap-split.js'
 import { validarFusion, avisosFusion } from './gap-merge.js'
+import { etiquetaComercio, contarComercios } from './gap-comercio.js'
 import { agruparPorCategoria } from './gap-grouping.js'
 import { estadoMostrado, registroEnSilencio } from './gap-lifecycle.js'
 import { contenidoConFaqInfo, buildFaqBlock } from './gap-faq-block.js'
@@ -29,13 +30,15 @@ const hace = iso => {
 // Pestañas de la bandeja. El orden es el del trabajo: primero lo que falta
 // escribir, después los pedidos de producto, al final lo ya cerrado.
 //
-// `solicitud` NO es un descarte: son preguntas donde el bot YA responde bien
-// (la respuesta correcta es "eso lo gestiona Soporte") pero que son señal de
-// que los clientes piden algo que la plataforma no hace. Descartarlas las
-// enterraría; acá quedan contadas y a la vista.
+// `solicitud` e `incidente` NO son descartes: en los dos el bot YA responde
+// bien, pero son señal, y la leen equipos distintos. Solicitud = los clientes
+// piden algo que la plataforma no hace (lo lee Producto). Incidente = algo no
+// está funcionando (lo lee Soporte). Juntos, cada uno es ruido para el otro;
+// descartados, los entierra a los dos.
 const ESTADOS = {
   pendiente:  'Pendientes',
   solicitud:  'Solicitudes',
+  incidente:  'Incidentes',
   resuelto:   'Resueltos',
   descartado: 'Descartados',
 }
@@ -101,6 +104,7 @@ export async function renderGapsPanel() {
   const vacioMsg = VACIO_MSG[estadoFiltro] || 'No hay vacíos.'
   const INTRO = {
     solicitud: 'Lo que los clientes piden y la plataforma hoy no hace. El bot ya responde bien estos casos; quedan acá como señal de producto, no como contenido por escribir.',
+    incidente: 'Cosas que no están funcionando. No se arreglan escribiendo contenido: se arreglan en la plataforma. Mirá el número de comercios — lo que le pasa a varios es un problema, lo que le pasa a uno es un caso.',
   }
 
   el.innerHTML = `
@@ -224,6 +228,14 @@ function filaHtml(v) {
   const extra = Number(v.preguntas_desde_cierre) > 0
     ? `<span class="text-[10px] font-bold text-[var(--warning-150)]">+${v.preguntas_desde_cierre} desde que lo cerraste</span>`
     : ''
+  // Cuántos comercios DISTINTOS lo reportaron. Es la diferencia entre un
+  // problema de plataforma y un caso puntual, y en Incidentes es el dato
+  // principal. Si la RPC todavía no trae la columna, el chip no se pinta en vez
+  // de mostrar "undefined comercios".
+  const n = Number(v.comercios)
+  const comercios = Number.isFinite(n) && n > 0
+    ? `<span class="text-[10px] font-bold text-[var(--black-60)]">${n} ${n === 1 ? 'comercio' : 'comercios'}</span>`
+    : ''
   // El motivo del descarte es lo que dice, a los dos meses, de qué tipo de
   // basura genera el detector: tiene que verse en algún lado.
   const motivo = v.estado === 'descartado'
@@ -237,6 +249,7 @@ function filaHtml(v) {
     </div>
     <div class="flex items-center gap-2 mt-1.5 flex-wrap">
       ${chips}
+      ${comercios}
       <span class="text-[10px] text-[var(--black-40)]">última ${escapeHtml(hace(v.ultima_vez))}</span>
       ${motivo}
       ${extra}
@@ -346,6 +359,9 @@ async function abrirDetalle(vacioId) {
   // una confirmación (ver resueltoHtml / descartadoHtml).
   const reabrible = estado !== 'pendiente'
   const desdeCierre = preguntasDesdeCierre(v, detalle.preguntas)
+  // Cuántos comercios DISTINTOS: un incidente de 5 comercios es un problema de
+  // plataforma; 5 preguntas del mismo comercio es un caso.
+  const comercios = contarComercios(detalle.preguntas)
   // La RPC del detalle devuelve la fila cruda de bot_vacios (leccion_id, sin el
   // título): el título sale de la lista de lecciones que ya se leyó arriba.
   const leccionDestino = v.leccion_id ? lecciones.find(l => l.id === v.leccion_id) : null
@@ -357,7 +373,7 @@ async function abrirDetalle(vacioId) {
       <div>
         <h2 class="text-base font-black text-[var(--black-100)]">${escapeHtml(v.titulo)}</h2>
         <p class="text-xs text-[var(--black-40)] mt-1">
-          ${escapeHtml(v.preguntas_total)} preguntas · primera ${escapeHtml(hace(v.primera_vez))} · última ${escapeHtml(hace(v.ultima_vez))}
+          ${escapeHtml(v.preguntas_total)} preguntas · primera ${escapeHtml(hace(v.primera_vez))} · última ${escapeHtml(hace(v.ultima_vez))}${comercios > 0 ? ` · ${comercios} ${comercios === 1 ? 'comercio' : 'comercios'}` : ''}
         </p>
         ${estado === 'resuelto' ? '' : `<button id="gapFusionBtn"
           class="mt-1.5 text-xs font-bold text-[var(--blue-100)] hover:underline">Fusionar con otro vacío…</button>`}
@@ -368,6 +384,7 @@ async function abrirDetalle(vacioId) {
       ${estado === 'resuelto' ? resueltoHtml(v, leccionDestino, desdeCierre) : ''}
       ${estado === 'descartado' ? descartadoHtml(v, desdeCierre) : ''}
       ${estado === 'solicitud' ? solicitudHtml(v, desdeCierre) : ''}
+      ${estado === 'incidente' ? incidenteHtml(v, desdeCierre) : ''}
 
       <div>
         <h3 class="text-xs font-black text-[var(--blue-100)] mb-1.5">Preguntas reales</h3>
@@ -400,6 +417,7 @@ async function abrirDetalle(vacioId) {
             <button id="gapGuardar" class="px-3 py-2 rounded-xl text-xs font-bold bg-[var(--blue-100)] text-white">Guardar y cerrar el vacío</button>
             ${estado === 'pendiente'
               ? `<button id="gapSolicitudBtn" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)]">Es una solicitud…</button>
+                 <button id="gapIncidenteBtn" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)]">Es un incidente…</button>
                  <button id="gapDescartarBtn" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)]">Descartar…</button>`
               : ''}
           </div>
@@ -487,6 +505,26 @@ function solicitudHtml(v, desdeCierre) {
     </p>
     <div class="flex gap-2 flex-wrap mt-1">
       <button id="gapResolverDeNuevo" class="px-3 py-2 rounded-xl text-xs font-bold bg-[var(--blue-100)] text-white">Resolver con una FAQ…</button>
+      <button id="gapIncidenteBtn" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)]">Es un incidente…</button>
+    </div>
+  </div>`
+}
+
+// Incidente: algo no funciona. Lo lee Soporte, y lo que importa es de qué
+// comercios vino — por eso el detalle lo dice pregunta por pregunta.
+function incidenteHtml(v, desdeCierre) {
+  const quien = v.resuelto_por ? ` por ${escapeHtml(v.resuelto_por)}` : ''
+  return `<div class="bg-white border border-[var(--warning-150)] rounded-xl p-3 flex flex-col gap-1.5">
+    <h3 class="text-xs font-black text-[var(--warning-150)]">Este vacío está marcado como incidente de soporte</h3>
+    <p class="text-xs text-[var(--black-100)]">
+      No falta contenido: algo no está funcionando. Marcado${quien}, ${escapeHtml(hace(v.resuelto_at))}.
+    </p>
+    ${v.nota_descarte ? `<p class="text-xs text-[var(--black-60)]">Qué falla: ${escapeHtml(v.nota_descarte)}</p>` : ''}
+    ${desdeCierre > 0 ? `<p class="text-xs font-bold text-[var(--warning-150)]">
+      ${desdeCierre} ${desdeCierre === 1 ? 'pregunta llegó' : 'preguntas llegaron'} después de marcarlo: sigue pasando.</p>` : ''}
+    <div class="flex gap-2 flex-wrap mt-1">
+      <button id="gapResolverDeNuevo" class="px-3 py-2 rounded-xl text-xs font-bold bg-[var(--blue-100)] text-white">Resolver con una FAQ…</button>
+      <button id="gapSolicitudBtn" class="px-3 py-2 rounded-xl text-xs font-bold text-[var(--black-60)] border border-[var(--blue-20)]">Es una solicitud…</button>
     </div>
   </div>`
 }
@@ -527,9 +565,15 @@ function pedirConfirmacion({ titulo, texto, okTexto, onOk }) {
 function wireAccionesPorEstado(v) {
   if (v.estado === 'pendiente') {
     wireDescartar(v)
-    wireSolicitud(v)
+    wireMarca(v, 'solicitud')
+    wireMarca(v, 'incidente')
     return
   }
+
+  // Una marca se corrige con la otra: lo que entró como solicitud y resulta ser
+  // un incidente (o al revés) se mueve sin pasar por pendiente.
+  wireMarca(v, 'solicitud')
+  wireMarca(v, 'incidente')
 
   const wrap = document.getElementById('gapResolverWrap')
   const mostrarFormulario = () => {
@@ -553,6 +597,13 @@ function wireAccionesPorEstado(v) {
         titulo: '¿Resolver esta solicitud?',
         texto: 'Dejará de contar como pedido de producto y pasará a resueltos, ligada a la lección que elijas. Hazlo solo si la plataforma ya hace lo que pedían.',
         okTexto: 'Sí, resolver',
+        onOk: mostrarFormulario,
+      })
+    } else if (v.estado === 'incidente') {
+      pedirConfirmacion({
+        titulo: '¿Resolver este incidente con una FAQ?',
+        texto: 'Un incidente se arregla en la plataforma, no escribiendo contenido. Resolverlo acá solo tiene sentido si lo que faltaba era explicar cómo evitarlo.',
+        okTexto: 'Sí, resolver con una FAQ',
         onOk: mostrarFormulario,
       })
     } else {
@@ -640,46 +691,67 @@ function wireDescartar(vacio, confirmar) {
     confirmar ? pedirConfirmacion({ ...confirmar, onOk: mostrar }) : mostrar())
 }
 
-// ── Solicitud ────────────────────────────────────────────────────────────────
+// ── Solicitud / Incidente ───────────────────────────────────────────────────
 
-// Marcar como pedido de producto. Reusa la misma caja que descartar, pero el
-// texto y el destino son otros: esto NO esconde el vacío.
-function wireSolicitud(vacio) {
-  const btn = document.getElementById('gapSolicitudBtn')
+// Las dos marcas que NO son descartes: el bot respondió bien, pero el vacío es
+// señal. Comparten caja y mecánica porque la diferencia no es técnica sino de
+// quién lo lee: Producto una, Soporte la otra.
+const MARCAS = {
+  solicitud: {
+    btnId: 'gapSolicitudBtn',
+    titulo: 'Marcar como solicitud de producto',
+    explicacion: 'El bot ya responde bien esto; queda registrado como algo que los clientes piden y la plataforma no hace. No desaparece: va a la pestaña Solicitudes.',
+    placeholder: 'Cómo funciona hoy (opcional) — ej. se gestiona por Soporte',
+    okTexto: 'Registrar como solicitud',
+    rpc: marcarSolicitud,
+  },
+  incidente: {
+    btnId: 'gapIncidenteBtn',
+    titulo: 'Marcar como incidente de soporte',
+    explicacion: 'No falta contenido ni es un pedido de producto: algo no está funcionando. Va a la pestaña Incidentes, donde se ve qué se repite y en cuántos comercios.',
+    placeholder: 'Qué falla (opcional) — ej. el datáfono no reconoce la clave',
+    okTexto: 'Registrar como incidente',
+    rpc: marcarIncidente,
+  },
+}
+
+// `estado` es la clave de MARCAS. Reusa la caja de descartar, igual que antes:
+// solo una de las tres puede estar abierta a la vez, que es lo correcto.
+function wireMarca(vacio, estado) {
+  const cfg = MARCAS[estado]
+  const btn = document.getElementById(cfg.btnId)
   if (!btn) return
   const box = document.getElementById('gapDescartarBox')
+
   btn.addEventListener('click', () => {
     box.classList.remove('hidden')
     box.innerHTML = `
       <div class="bg-white border border-[var(--blue-10)] rounded-xl p-3 flex flex-col gap-1.5">
-        <h3 class="text-xs font-black text-[var(--black-60)]">Marcar como solicitud de producto</h3>
-        <p class="text-[11px] text-[var(--black-40)]">
-          El bot ya responde bien esto; queda registrado como algo que los clientes
-          piden y la plataforma no hace. No desaparece: va a la pestaña Solicitudes.
-        </p>
-        <input id="gapSolicitudNota" placeholder="Cómo funciona hoy (opcional) — ej. se gestiona por Soporte"
+        <h3 class="text-xs font-black text-[var(--black-60)]">${escapeHtml(cfg.titulo)}</h3>
+        <p class="text-[11px] text-[var(--black-40)]">${escapeHtml(cfg.explicacion)}</p>
+        <input id="gapMarcaNota" placeholder="${escapeHtml(cfg.placeholder)}"
           class="w-full px-2 py-1.5 rounded-lg border border-[var(--blue-20)] text-xs outline-none">
-        <p id="gapSolicitudMsg" class="text-xs hidden"></p>
-        <button id="gapSolicitudOk" class="px-3 py-2 rounded-xl text-xs font-bold bg-[var(--blue-100)] text-white">
-          Registrar como solicitud
+        <p id="gapMarcaMsg" class="text-xs hidden"></p>
+        <button id="gapMarcaOk" class="px-3 py-2 rounded-xl text-xs font-bold bg-[var(--blue-100)] text-white">
+          ${escapeHtml(cfg.okTexto)}
         </button>
       </div>`
 
-    document.getElementById('gapSolicitudOk').addEventListener('click', async () => {
-      const nota = document.getElementById('gapSolicitudNota').value.trim() || null
-      const ok = document.getElementById('gapSolicitudOk')
+    document.getElementById('gapMarcaOk').addEventListener('click', async () => {
+      const nota = document.getElementById('gapMarcaNota').value.trim() || null
+      const ok = document.getElementById('gapMarcaOk')
       ok.disabled = true
       try {
         const { data: { user } } = await supabase.auth.getUser()
-        await marcarSolicitud(vacio.id, nota, user?.email || null)
+        await cfg.rpc(vacio.id, nota, user?.email || null)
       } catch (e) {
         ok.disabled = false
-        const m = document.getElementById('gapSolicitudMsg')
+        const m = document.getElementById('gapMarcaMsg')
         m.textContent = `No se pudo marcar: ${e.message}`
         m.className = 'text-xs text-[var(--error-100)]'
         return
       }
-      logActivity('update', 'bot_vacio', vacio.titulo, { accion: 'solicitud' })
+      logActivity('update', 'bot_vacio', vacio.titulo, { accion: estado })
       renderGapsPanel()
       refreshGapsBadge()
     })
@@ -770,7 +842,7 @@ function wireDividir(vacio) {
 // ORIGEN y DESAPARECE. El destino conserva título, categoría y ancla.
 
 const ETIQUETA_ESTADO = {
-  pendiente: 'Pendiente', solicitud: 'Solicitud',
+  pendiente: 'Pendiente', solicitud: 'Solicitud', incidente: 'Incidente',
   resuelto: 'Resuelto', descartado: 'Descartado',
 }
 
@@ -895,6 +967,15 @@ async function ejecutarFusion(vacio, destino, btn) {
   abrirDetalle(destino.id)
 }
 
+// De qué comercio vino esta pregunta. El id completo va en el `title` porque
+// es lo que Soporte pega en su buscador; en pantalla iría cortando el renglón.
+function comercioHtml(p) {
+  const c = etiquetaComercio(p)
+  const color = c.identificado ? 'text-[var(--black-60)]' : 'text-[var(--black-40)]'
+  const title = c.completo ? ` title="${escapeHtml(c.completo)}"` : ''
+  return `<p class="text-[10px] ${color} mt-1 ml-6"${title}>🏪 ${escapeHtml(c.texto)}</p>`
+}
+
 function preguntaHtml(p, i) {
   const verConv = (p.mensajes || []).length
     ? `<button type="button" data-conv="${i}" class="gap-conv text-[10px] font-bold text-[var(--blue-100)] hover:underline shrink-0">ver conversación</button>`
@@ -906,6 +987,7 @@ function preguntaHtml(p, i) {
       <span class="text-[10px] text-[var(--black-40)] shrink-0">${escapeHtml(hace(p.created_at))}</span>
       ${verConv}
     </label>
+    ${comercioHtml(p)}
     <div class="gap-conv-detail hidden mt-2 pt-2 border-t border-[var(--blue-10)] text-xs" data-detail="${i}"></div>
   </div>`
 }

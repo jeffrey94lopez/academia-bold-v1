@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   fetchVacios, fetchVacioDetalle, fetchVaciosSalud,
   resolverVacio, descartarVacio, dividirVacio, marcarSolicitud, fusionarVacios,
+  marcarIncidente,
 } from '../js/gaps-api.js'
 
 // Cliente falso: registra la llamada y devuelve lo que se le pida.
@@ -98,4 +99,16 @@ test('fusionarVacios: un rechazo de la RPC llega como throw con su código', asy
   // persona vería "fusionado" sin que se haya movido nada.
   const c = fakeClient({ data: null, error: { message: 'origen_resuelto' } })
   await assert.rejects(() => fusionarVacios('a', 'b', c), /fusionar_vacios: origen_resuelto/)
+})
+
+test('marcarIncidente manda sus parámetros y propaga el error', async () => {
+  const c = fakeClient({ data: null, error: null })
+  await marcarIncidente('v9', 'el datáfono no abre', 'yo@x.com', c)
+  assert.deepEqual(c.llamadas[0], {
+    name: 'marcar_incidente',
+    params: { p_vacio_id: 'v9', p_nota: 'el datáfono no abre', p_email: 'yo@x.com' },
+  })
+  await assert.rejects(
+    () => marcarIncidente('v', null, null, fakeClient({ data: null, error: { message: 'x' } })),
+    /marcar_incidente: x/)
 })

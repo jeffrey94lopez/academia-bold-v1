@@ -75,6 +75,15 @@ export async function marcarSolicitud(vacioId, nota, email, client) {
   })
 }
 
+// Marca el vacío como incidente de soporte: no falta contenido ni es un pedido
+// de producto, algo no está funcionando. Tampoco lo esconde.
+export async function marcarIncidente(vacioId, nota, email, client) {
+  if (!client) client = await getSupabaseClient()
+  return callRpc(client, 'marcar_incidente', {
+    p_vacio_id: vacioId, p_nota: nota ?? null, p_email: email ?? null,
+  })
+}
+
 export async function dividirVacio(vacioId, preguntaIds, titulo, client) {
   if (!client) client = await getSupabaseClient()
   return callRpc(client, 'dividir_vacio', {

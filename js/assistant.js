@@ -147,6 +147,10 @@ async function createConversation() {
       fila.vertical = vertical
       fila.plataforma = plataforma
       fila.account_id = contextoBold.accountId || null
+      // El nombre va al lado del id porque un incidente con "a3f9-..." no se
+      // puede atender. Viene ya saneado y acotado por bold-context.js, y el
+      // panel lo escapa al pintarlo.
+      fila.business_name = contextoBold.businessName || null
     }
     // La marca `origin = 'onboarding'` se escribe cuando exista la columna
     // (migración add_origin_bodi_conversations, que sube junto con el admin).
