@@ -28,6 +28,10 @@ export function mapearUnidad(origen, lista) {
   if (!n) return null
   const exacta = lista.find(u => normalizar(u) === n)
   if (exacta) return exacta
+  // Singular/plural ("Caja" ↔ "Cajas", "Galón" ↔ "Galones").
+  const raiz = s => normalizar(s).replace(/(es|s)$/, '')
+  const plural = lista.find(u => raiz(u) === raiz(origen))
+  if (plural) return plural
   const g = grupoDeUnidad(origen)
   return g ? lista.find(u => grupoDeUnidad(u) === g) ?? null : null
 }

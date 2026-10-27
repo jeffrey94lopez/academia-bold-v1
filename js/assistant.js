@@ -953,31 +953,20 @@ async function sendMessage(text, { textoVisible, cross } = {}) {
   }
 }
 
-const RESPUESTA_INVENTARIO = '¡Claro! Te ayudo a pasar tu inventario a Bold POS. Sube la plantilla de tu cuenta y el archivo de tu sistema anterior: yo los reviso aquí mismo y te devuelvo la plantilla lista para importar. Tus archivos no salen de tu computador.'
-
-// Respuesta local al pedido de cargar inventario: una burbuja con el conversor
-// montado adentro. El texto de cada paso lo arma el conversor (sin IA ni tokens).
+// Respuesta local al pedido de cargar inventario: la conversación del conversor
+// ocurre en las mismas burbujas del chat (sin n8n ni tokens). Se registra la
+// pregunta y el arranque; los pasos siguientes son interacción de la herramienta.
 async function responderInventario() {
-  await appendBotAnimated(RESPUESTA_INVENTARIO)
-  const box = document.getElementById('chatMessages')
-  const div = document.createElement('div')
-  div.className = 'flex justify-start'
-  div.innerHTML = '<div class="msg-bot-wide text-sm"><p class="inv-chat-resumen" aria-live="polite" hidden></p><div class="inv-chat"></div></div>'
-  box.appendChild(div)
-  const resumenEl = div.querySelector('.inv-chat-resumen')
-  const { montarConversor } = await import('./inv-ui.js')
-  montarConversor(div.querySelector('.inv-chat'), {
-    onResultado: texto => { resumenEl.hidden = false; resumenEl.innerHTML = renderMarkdown(texto) },
-  })
-  scrollToMessageTop(div)
-
-  history.push({ role: 'assistant', content: RESPUESTA_INVENTARIO })
+  const { iniciarConversacion, TEXTO_INTRO } = await import('./inv-chat.js')
+  history.push({ role: 'assistant', content: TEXTO_INTRO })
   storageSet('bold_chat_history', JSON.stringify(history.slice(-20)))
   sessionMessages.push({ role: 'user', content: history[history.length - 2]?.content ?? '' })
-  sessionMessages.push({ role: 'assistant', content: RESPUESTA_INVENTARIO })
+  sessionMessages.push({ role: 'assistant', content: TEXTO_INTRO })
   const nowIso = new Date().toISOString()
   await upsertConversation({ messages: sessionMessages, topic: 'Importar inventario', last_activity_at: nowIso })
   markActivity(Date.parse(nowIso))
+  // Sin await: la conversación dura minutos y no debe bloquear nuevos mensajes.
+  iniciarConversacion({ host: () => document.getElementById('chatMessages'), alDesplazar: scrollToBottom })
 }
 
 function appendBubble(role, content) {

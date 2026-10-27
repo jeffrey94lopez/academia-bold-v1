@@ -56,6 +56,8 @@ test('mapearUnidad y mapearImpuesto', () => {
   assert.equal(mapearUnidad('UND', u), 'Unidades')
   assert.equal(mapearUnidad('kg', u), 'Kilogramos')
   assert.equal(mapearUnidad('Caja', u), null)
+  assert.equal(mapearUnidad('Caja', [...u, 'Cajas']), 'Cajas')
+  assert.equal(mapearUnidad('Metro', u), 'Metros')
   const t = ['EXENTO', 'IVA-5', 'IVA-19', 'EXCLUIDO', 'INC-8']
   assert.equal(mapearImpuesto(19, t), 'IVA-19')
   assert.equal(mapearImpuesto(0, t), 'EXENTO')
