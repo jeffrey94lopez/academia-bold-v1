@@ -55,3 +55,10 @@
   .inv-tabla td { display: block; border: 0; padding: 2px 0; }
   .inv-muestra { font-size: 12px; }
 }
+
+/* Dentro de la burbuja ancha del chat de BolBot */
+.inv-chat { margin-top: 8px; }
+.inv-chat .inv-paso { margin-bottom: 10px; padding: 12px; border-radius: 12px; }
+.inv-chat .inv-paso h2 { font-size: 14px; }
+.inv-chat-resumen { margin: 0; padding: 8px 10px; border-radius: 10px; background: var(--blue-10, #f1f2f6); font-size: 13px; line-height: 1.5; }
+.inv-chat-resumen[hidden] { display: none; }

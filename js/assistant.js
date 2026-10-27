@@ -11,6 +11,8 @@ import { inactivitySettings, isStaleConversation } from './inactivity.js'
 import { loadSettingsResult } from './settings.js'
 import { registrarCruce, marcarCruce } from './cruce-vertical.js'
 import { getBotOrigin, notificarMensajeBot } from './bot-origin.js'
+import { APP_ENV } from './env.js'
+import { esIntencionInventario } from './inv-intencion.js'
 import { textoSeguroDelBot } from './bot-respuesta-segura.js'
 
 const N8N_URL     = '/api/chat'
@@ -818,6 +820,13 @@ async function sendMessage(text, { textoVisible, cross } = {}) {
   // cuenta en qué paso le escriben); en el portal no hay origen y no se llama.
   if (getBotOrigin().origin) notificarMensajeBot()
 
+  // Pasar el inventario a la plantilla de Bold: lo resuelve el conversor local
+  // dentro del chat, sin llamar a n8n. Solo fuera de producción mientras se prueba.
+  if (APP_ENV !== 'prod' && esIntencionInventario(text)) {
+    await responderInventario()
+    return
+  }
+
   const typing = document.getElementById('typingIndicator')
   typing.classList.remove('hidden')
   scrollToBottom()
@@ -942,6 +951,33 @@ async function sendMessage(text, { textoVisible, cross } = {}) {
   } finally {
     sending = false
   }
+}
+
+const RESPUESTA_INVENTARIO = '¡Claro! Te ayudo a pasar tu inventario a Bold POS. Sube la plantilla de tu cuenta y el archivo de tu sistema anterior: yo los reviso aquí mismo y te devuelvo la plantilla lista para importar. Tus archivos no salen de tu computador.'
+
+// Respuesta local al pedido de cargar inventario: una burbuja con el conversor
+// montado adentro. El texto de cada paso lo arma el conversor (sin IA ni tokens).
+async function responderInventario() {
+  await appendBotAnimated(RESPUESTA_INVENTARIO)
+  const box = document.getElementById('chatMessages')
+  const div = document.createElement('div')
+  div.className = 'flex justify-start'
+  div.innerHTML = '<div class="msg-bot-wide text-sm"><p class="inv-chat-resumen" aria-live="polite" hidden></p><div class="inv-chat"></div></div>'
+  box.appendChild(div)
+  const resumenEl = div.querySelector('.inv-chat-resumen')
+  const { montarConversor } = await import('./inv-ui.js')
+  montarConversor(div.querySelector('.inv-chat'), {
+    onResultado: texto => { resumenEl.hidden = false; resumenEl.innerHTML = renderMarkdown(texto) },
+  })
+  scrollToMessageTop(div)
+
+  history.push({ role: 'assistant', content: RESPUESTA_INVENTARIO })
+  storageSet('bold_chat_history', JSON.stringify(history.slice(-20)))
+  sessionMessages.push({ role: 'user', content: history[history.length - 2]?.content ?? '' })
+  sessionMessages.push({ role: 'assistant', content: RESPUESTA_INVENTARIO })
+  const nowIso = new Date().toISOString()
+  await upsertConversation({ messages: sessionMessages, topic: 'Importar inventario', last_activity_at: nowIso })
+  markActivity(Date.parse(nowIso))
 }
 
 function appendBubble(role, content) {

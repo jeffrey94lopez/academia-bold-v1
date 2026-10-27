@@ -10,7 +10,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/inventario.css">
-  <script src="vendor/xlsx.full.min.js"></script>
 </head>
 <body class="inv-body">
   <main class="inv-wrap">
@@ -18,38 +17,8 @@
     <h1 class="inv-titulo">Pasa tu inventario a Bold POS</h1>
     <p class="inv-intro">Sube la plantilla de tu cuenta y el archivo de productos de tu sistema anterior. Nosotros la llenamos por ti.
       Todo ocurre en tu computador: el archivo no se envía a ningún servidor.</p>
-
-    <section class="inv-paso" aria-labelledby="inv-h1">
-      <h2 id="inv-h1"><span class="inv-num">1</span> Tu plantilla de Bold POS</h2>
-      <p class="inv-ayuda">Descárgala desde tu cuenta de Bold POS (cada cuenta tiene la suya). Sube la de <b>ítems inventariables</b>, la de
-        <b>no inventariables</b> o las dos, según lo que vayas a cargar.</p>
-      <label class="inv-drop" for="inv-plantillas">
-        <span>Elegir plantilla(s) de Bold (.xlsx)</span>
-        <input id="inv-plantillas" type="file" accept=".xlsx" multiple>
-      </label>
-      <div id="inv-plantillas-estado" class="inv-chips" aria-live="polite"></div>
-    </section>
-
-    <section class="inv-paso" aria-labelledby="inv-h2">
-      <h2 id="inv-h2"><span class="inv-num">2</span> El archivo de tus productos</h2>
-      <p class="inv-ayuda">Excel o CSV de tu sistema anterior (Alegra, Siigo, un Excel propio…). Si viene de Alegra, exporta el listado de ítems a Excel.</p>
-      <label class="inv-drop" for="inv-origen">
-        <span>Elegir archivo de productos (.xlsx, .xls o .csv)</span>
-        <input id="inv-origen" type="file" accept=".xlsx,.xls,.csv">
-      </label>
-      <div id="inv-origen-estado" class="inv-chips" aria-live="polite"></div>
-    </section>
-
-    <section id="inv-revision" class="inv-paso" hidden aria-labelledby="inv-h3">
-      <h2 id="inv-h3"><span class="inv-num">3</span> Revisa cómo entendimos tu archivo</h2>
-      <div id="inv-revision-cuerpo"></div>
-    </section>
-
-    <section id="inv-resultado" class="inv-paso" hidden aria-labelledby="inv-h4">
-      <h2 id="inv-h4"><span class="inv-num">4</span> Descarga tu plantilla lista</h2>
-      <div id="inv-resultado-cuerpo" aria-live="polite"></div>
-    </section>
+    <div id="inv-raiz"></div>
   </main>
-  <script type="module" src="js/inv-ui.js"></script>
+  <script type="module" src="js/inv-pagina.js"></script>
 </body>
 </html>
