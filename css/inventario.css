@@ -1,0 +1,57 @@
+/* css/inventario.css — página de importación de inventario. Usa los tokens de style.css. */
+.inv-body { margin: 0; background: var(--background-page, #f7f8fb); color: var(--black-100, #1e1e1e); font-family: 'Montserrat', system-ui, sans-serif; }
+.inv-wrap { max-width: 880px; margin: 0 auto; padding: 16px 16px 64px; }
+.inv-volver { display: inline-block; margin-bottom: 12px; font-size: 13px; font-weight: 600; color: var(--blue-100, #121e6c); text-decoration: none; }
+.inv-titulo { margin: 0 0 8px; font-size: 24px; font-weight: 700; color: var(--blue-100, #121e6c); }
+.inv-intro { margin: 0 0 20px; font-size: 14px; line-height: 1.5; color: var(--black-60, #606060); }
+
+.inv-paso { background: #fff; border: 1px solid var(--blue-10, #f1f2f6); border-radius: 16px; padding: 16px; margin-bottom: 16px; }
+.inv-paso[hidden] { display: none; }
+.inv-paso h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; font-size: 16px; font-weight: 700; color: var(--blue-100, #121e6c); }
+.inv-num { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: var(--blue-100, #121e6c); color: #fff; font-size: 13px; flex: none; }
+.inv-ayuda { margin: 0 0 10px; font-size: 13px; line-height: 1.5; color: var(--black-60, #606060); }
+
+.inv-drop { display: block; padding: 14px; border: 2px dashed var(--blue-30, #babdd3); border-radius: 12px; background: var(--blue-10, #f1f2f6); font-size: 14px; font-weight: 600; color: var(--blue-100, #121e6c); cursor: pointer; }
+.inv-drop:focus-within { outline: 2px solid var(--blue-100, #121e6c); outline-offset: 2px; }
+.inv-drop input { display: block; margin-top: 8px; max-width: 100%; font-size: 13px; }
+
+.inv-chips { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.inv-chip { padding: 8px 12px; border-radius: 10px; font-size: 13px; line-height: 1.4; }
+.inv-ok { background: #eaf7ee; color: #14532d; }
+.inv-mal { background: var(--coral-10, #fef1f3); color: var(--error-200, #610017); }
+
+.inv-tabla { width: 100%; border-collapse: collapse; font-size: 13px; }
+.inv-tabla th, .inv-tabla td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--blue-10, #f1f2f6); vertical-align: middle; }
+.inv-tabla th { font-size: 12px; color: var(--black-60, #606060); }
+.inv-tabla select { width: 100%; max-width: 100%; }
+.inv-muestra { color: var(--black-60, #606060); overflow-wrap: anywhere; }
+
+.inv-formato { display: block; margin: 14px 0; font-size: 13px; font-weight: 600; }
+.inv-formato select { display: block; margin-top: 4px; }
+.inv-pregunta { margin: 14px 0 0; padding: 12px; border: 1px solid var(--blue-20, #d2d4e1); border-radius: 12px; font-size: 13px; }
+.inv-pregunta legend { padding: 0 6px; font-weight: 700; }
+.inv-pregunta label { display: block; margin: 6px 0; }
+.inv-aviso { background: #fffbeb; border-color: #f5d680; }
+.inv-alerta { margin: 8px 0 0; font-size: 12px; color: var(--error-200, #610017); }
+.inv-unidad { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.inv-aviso textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; padding: 8px; border: 1px solid var(--blue-20, #d2d4e1); border-radius: 8px; resize: vertical; }
+
+.inv-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 10px 0; }
+.inv-btn { padding: 10px 18px; border: 0; border-radius: 999px; background: var(--blue-100, #121e6c); color: #fff; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.inv-btn:hover { background: var(--blue-hover, #091144); }
+.inv-btn:focus-visible { outline: 2px solid var(--blue-100, #121e6c); outline-offset: 2px; }
+.inv-btn-sec { background: #fff; color: var(--blue-100, #121e6c); border: 1px solid var(--blue-100, #121e6c); }
+.inv-btn-sec:hover { background: var(--blue-10, #f1f2f6); }
+
+.inv-resumen { margin: 0 0 6px; font-size: 14px; }
+.inv-detalle { margin-top: 10px; font-size: 13px; }
+.inv-detalle summary { cursor: pointer; font-weight: 600; }
+.inv-detalle ul { margin: 8px 0 0; padding-left: 20px; max-height: 240px; overflow: auto; }
+.inv-det-mal summary { color: var(--error-200, #610017); }
+
+@media (max-width: 600px) {
+  .inv-tabla thead { display: none; }
+  .inv-tabla tr { display: block; padding: 6px 0; border-bottom: 1px solid var(--blue-10, #f1f2f6); }
+  .inv-tabla td { display: block; border: 0; padding: 2px 0; }
+  .inv-muestra { font-size: 12px; }
+}
