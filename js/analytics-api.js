@@ -89,6 +89,17 @@ export async function fetchBotConversations(from, to, filters = {}, client) {
 
 // Comercios del rango, de más a menos conversaciones. Solo cuentas
 // identificadas: ver el comentario de analytics_bot_comercios.
+// Uso de las herramientas de BolBot (conversor de inventario y generador de códigos).
+// `env`: 'prod' o 'sandbox'; comparten base y no se mezclan.
+export async function fetchHerramientas(from, to, env = 'prod', client) {
+  if (!client) client = await getSupabaseClient()
+  return callRpc(client, 'analytics_herramientas', {
+    p_from: from.toISOString(),
+    p_to: to.toISOString(),
+    p_env: env,
+  })
+}
+
 export async function fetchComercios(from, to, limit = 200, client) {
   if (!client) client = await getSupabaseClient()
   return callRpc(client, 'analytics_bot_comercios', {

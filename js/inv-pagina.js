@@ -6,5 +6,5 @@ import { iniciarConversacion } from './inv-chat.js'
 if (APP_ENV === 'prod') location.replace('index.html')
 else {
   const caja = document.getElementById('inv-raiz')
-  iniciarConversacion({ host: () => caja, alDesplazar: () => caja.lastElementChild?.scrollIntoView({ block: 'end', behavior: 'smooth' }) })
+  iniciarConversacion({ via: 'pagina', host: () => caja, alDesplazar: () => caja.lastElementChild?.scrollIntoView({ block: 'end', behavior: 'smooth' }) })
 }

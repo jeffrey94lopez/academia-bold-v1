@@ -3,6 +3,7 @@ import { CAMPOS } from './inv-origen.js'
 import { crearBase, esc, CANCELADO } from './chat-base.js'
 import { FORMATOS_CODIGO, crearGeneradorCodigos } from './inv-codigos.js'
 import { iniciarCodigos } from './barras-chat.js'
+import { telemetriaReal } from './herramientas-telemetria.js'
 
 const letraColumna = i => { let s = '', n = i; do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1 } while (n >= 0); return s }
 const FIN = Symbol('fin')
@@ -12,8 +13,9 @@ const INTRO_HTML = '¡Claro! Te ayudo a pasar tu inventario a Bold POS paso a pa
 export const TEXTO_INTRO = INTRO_HTML.replace(/<[^>]+>/g, '')
 
 // `host`: función que devuelve el contenedor de mensajes del chat. `alDesplazar`:
-// pide al chat que baje al último mensaje. Resuelve cuando termina la conversación.
-export async function iniciarConversacion({ host, alDesplazar = () => {} }) {
+// pide al chat que baje al último mensaje. `via`: desde dónde arrancó (para la métrica).
+// Resuelve cuando termina la conversación.
+export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 'chat', telemetria = telemetriaReal('inventario') }) {
   const sesion = crearSesion()
   const { bot, usuario, chips, pedirArchivos, pedirCampos, vivo } = crearBase({ host, alDesplazar })
 
@@ -52,6 +54,7 @@ export async function iniciarConversacion({ host, alDesplazar = () => {} }) {
       const a = await chips(b, [{ texto: 'Ya la descargué ✅', valor: 'lista' }, { texto: 'No encuentro el botón Importar', valor: 'ayuda' }])
       vivo()
       if (a === 'lista') return
+      telemetria.error('plantillas', 'sin_boton_importar')
       await bot('Puede ser que tu usuario no tenga permiso para importar: prueba entrando con el usuario del dueño o administrador de la cuenta. Si aun así no te aparece, escríbele a soporte de Bold POS. Cuando la tengas, aquí te espero.', { demora: 500 })
     }
   }
@@ -70,7 +73,7 @@ export async function iniciarConversacion({ host, alDesplazar = () => {} }) {
       const errores = []
       for (const f of files) {
         const r = await sesion.agregarPlantilla(f)
-        if (r.error) { errores.push(r.error); continue }
+        if (r.error) { errores.push(r.error); telemetria.error('plantillas', r.codigo); continue }
         const { info } = r
         await bot(`✅ Plantilla de <b>${ETIQUETA_TIPO[info.tipo]}</b>${info.sucursal ? ` de <b>${esc(info.sucursal)}</b>` : ''}. Tiene <b>${info.listas.categorias.length}</b> categorías${info.tieneIsv ? ' y trae la columna de impuesto (ISV)' : ''}.`, { demora: 300 })
       }
@@ -80,6 +83,7 @@ export async function iniciarConversacion({ host, alDesplazar = () => {} }) {
       if (necesarias) {
         const falta = necesarias.filter(t => !tipos.includes(t))
         if (!falta.length) return
+        telemetria.error('plantillas', 'plantilla_faltante')
         b = await bot(`Me falta la plantilla de ítems <b>${falta.map(t => ETIQUETA_TIPO[t]).join(' y ')}</b>. Descárgala igual que la anterior y súbela.`)
         continue
       }
@@ -105,6 +109,7 @@ export async function iniciarConversacion({ host, alDesplazar = () => {} }) {
     ])
     vivo()
     if (de === 'nada') {
+      telemetria.error('origen', 'sin_lista')
       await bot('Entonces lo más rápido es llenar la plantilla de Bold que acabas de descargar, escribiendo tus productos en las filas (nombre, categoría, unidad, costo y precio). Cuando tengas la lista, escríbeme «subir mi inventario» y la revisamos juntos. 👍', { demora: 600 })
       throw FIN
     }
@@ -118,7 +123,7 @@ export async function iniciarConversacion({ host, alDesplazar = () => {} }) {
       const [file] = await pedirArchivos(b, { boton: 'Subir archivo de productos', accept: '.xlsx,.xls,.csv' })
       vivo()
       const r = await sesion.cargarOrigen(file)
-      if (r.error) { b = await bot(`⚠️ ${esc(r.error)} Prueba con otro archivo.`); continue }
+      if (r.error) { telemetria.error('origen', r.codigo); b = await bot(`⚠️ ${esc(r.error)} Prueba con otro archivo.`); continue }
       await bot(`Encontré <b>${r.total}</b> producto(s) en la hoja «${esc(r.hoja)}».`)
       return
     }
@@ -163,6 +168,7 @@ export async function iniciarConversacion({ host, alDesplazar = () => {} }) {
   async function pasoColumnas() {
     for (;;) {
       const completo = sesion.mapeoCompleto()
+      if (!completo) telemetria.error('columnas', 'columnas_incompletas')
       const b = await bot(`Así entendí tus columnas:${listaMapeo()}${completo ? '' : '<b>Me falta el nombre o el precio de venta.</b> Indícame cuáles son.'}`)
       if (completo) {
         const r = await chips(b, [{ texto: 'Se ve bien ✅', valor: 'ok' }, { texto: 'Corregir columnas', valor: 'corregir' }])
@@ -259,6 +265,11 @@ export async function iniciarConversacion({ host, alDesplazar = () => {} }) {
   async function pasoResultado() {
     const r = sesion.estado.resultado
     const tipos = Object.keys(r.salidas).filter(t => r.salidas[t].length)
+    if (r.total) telemetria.paso('resultado'); else telemetria.error('resultado', 'sin_resultado')
+    // Cuántas filas fallaron y por qué (solo el motivo, no el producto).
+    const porMotivo = {}
+    for (const e of r.errores) porMotivo[e.codigo] = (porMotivo[e.codigo] ?? 0) + 1
+    for (const [codigo, filas] of Object.entries(porMotivo)) telemetria.error('resultado', codigo, { filas })
     const lista = (titulo, items) => items.length ? `<details class="inv-detalle"><summary>${items.length} ${titulo}</summary><ul>${
       items.slice(0, 100).map(i => `<li>${i.fila ? `Fila ${i.fila}: ` : ''}${esc(i.mensaje)}</li>`).join('')}${items.length > 100 ? '<li>…</li>' : ''}</ul></details>` : ''
     const texto = r.total
@@ -272,7 +283,16 @@ export async function iniciarConversacion({ host, alDesplazar = () => {} }) {
       const btn = document.createElement('button')
       btn.type = 'button'; btn.className = 'inv-chipbtn inv-chipbtn-fuerte'
       btn.textContent = `⬇️ Plantilla de ${ETIQUETA_TIPO[t]} (${r.salidas[t].length})`
-      btn.addEventListener('click', async () => { btn.disabled = true; await sesion.descargar(t); btn.disabled = false })
+      btn.addEventListener('click', async () => {
+        btn.disabled = true
+        await sesion.descargar(t)
+        btn.disabled = false
+        telemetria.fin('descarga', {
+          tipo: t, productos: r.salidas[t].length, filas_con_error: r.errores.length, avisos: r.avisos.length,
+          codigos_creados: r.codigosCreados, con_isv: sesion.estado.opciones.isv === true,
+          categorias_faltantes: r.categoriasFaltantes.length, a_general: sesion.estado.opciones.categoriasAGeneral,
+        })
+      })
       fila.appendChild(btn)
     }
     b.appendChild(fila)
@@ -285,27 +305,29 @@ export async function iniciarConversacion({ host, alDesplazar = () => {} }) {
     vivo()
     if (sig === 'otra') {
       await bot('Claro, empecemos de nuevo.')
-      return iniciarConversacion({ host, alDesplazar })
+      return iniciarConversacion({ host, alDesplazar, via: 'reinicio' })
     }
     if (sig === 'etiquetas') {
       await bot(items.length
         ? `Con gusto: uso los <b>${items.length}</b> código(s) de tus productos.`
         : 'Tus productos no tienen código todavía; en el siguiente paso te los creo.', { demora: 300 })
       const nombres = items.length ? null : tipos.flatMap(t => r.salidas[t]).map(i => i.nombre)
-      return iniciarCodigos({ host, alDesplazar, items: items.length ? items : null, nombres })
+      return iniciarCodigos({ host, alDesplazar, items: items.length ? items : null, nombres, via: 'inventario' })
     }
   }
 
   try {
+    telemetria.inicio(via)
     await bot(INTRO_HTML)
-    await pasoPlantillas()
-    await pasoOrigen()
-    await pasoColumnas()
-    await pasoPreguntas()
+    await pasoPlantillas(); telemetria.paso('plantillas')
+    await pasoOrigen(); telemetria.paso('origen')
+    await pasoColumnas(); telemetria.paso('columnas')
+    await pasoPreguntas(); telemetria.paso('preguntas')
     await pasoResultado()
   } catch (e) {
     if (e === CANCELADO || e === FIN) return
     console.error('[inventario] conversación interrumpida:', e)
+    telemetria.error('desconocido', 'excepcion')
     await bot('Algo salió mal y no pude seguir. Recarga la página e inténtalo de nuevo.')
   }
 }

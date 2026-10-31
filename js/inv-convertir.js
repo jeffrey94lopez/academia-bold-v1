@@ -89,20 +89,20 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
     : null
   const referencia = plantillas.inventariable ?? plantillas.noinventariable
   const aviso = (n, msg) => avisos.push({ fila: n, mensaje: msg })
-  const error = (n, msg) => errores.push({ fila: n, mensaje: msg })
+  const error = (n, msg, codigo) => errores.push({ fila: n, mensaje: msg, codigo })
 
   filas.forEach((fila, i) => {
     if (vacia(fila)) return
     const n = fila.__fila ?? i + 1
 
     const nombre = aTexto(get(fila, 'nombre'))
-    if (!nombre) return error(n, 'No tiene nombre.')
+    if (!nombre) return error(n, 'No tiene nombre.', 'filas_nombre')
 
     let inventariable = esInventariable(fila, mapeo, opciones)
     if (inventariable === null) { pendienteInventariable = true; inventariable = false }
     const tipo = inventariable ? 'inventariable' : 'noinventariable'
     const plantilla = plantillas[tipo]
-    if (!plantilla) return error(n, `"${nombre}" es ${inventariable ? 'inventariable' : 'no inventariable'}, pero no subiste esa plantilla de Bold.`)
+    if (!plantilla) return error(n, `"${nombre}" es ${inventariable ? 'inventariable' : 'no inventariable'}, pero no subiste esa plantilla de Bold.`, 'filas_plantilla_tipo')
 
     // Impuesto y precio total.
     let pct = mapeo.impuesto === undefined ? null : parseImpuesto(get(fila, 'impuesto'))
@@ -111,7 +111,7 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
       const base = parseNumero(get(fila, 'precioBase'), fmt)
       if (base != null) precioTotal = Math.round(base * (1 + (pct ?? 0) / 100) * 100) / 100
     }
-    if (precioTotal == null || precioTotal < 0) return error(n, `"${nombre}": el precio de venta no es un número válido.`)
+    if (precioTotal == null || precioTotal < 0) return error(n, `"${nombre}": el precio de venta no es un número válido.`, 'filas_precio')
 
     let costo = mapeo.costo === undefined ? null : parseNumero(get(fila, 'costo'), fmt)
     if (costo == null || costo < 0) { costo = 0; sinCosto++ }

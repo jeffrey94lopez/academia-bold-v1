@@ -45,10 +45,10 @@ export function crearSesion() {
       try {
         const { wb, hojas } = await leer(file)
         const info = leerPlantilla(hojas)
-        if (!info) return { error: `"${file.name}" no parece una plantilla de ítems de Bold POS.` }
+        if (!info) return { error: `"${file.name}" no parece una plantilla de ítems de Bold POS.`, codigo: 'plantilla_invalida' }
         estado.plantillas[info.tipo] = { info, wb, nombre: file.name }
         return { info }
-      } catch { return { error: `No pude leer "${file.name}".` } }
+      } catch { return { error: `No pude leer "${file.name}".`, codigo: 'archivo_ilegible' } }
     },
 
     // → { filas, hoja } o { error }
@@ -56,7 +56,7 @@ export function crearSesion() {
       try {
         const { hojas } = await leer(file)
         const mejor = elegirHoja(hojas)
-        if (!mejor) return { error: `No encontré una tabla de productos en "${file.name}". Necesita una fila de encabezados con al menos Nombre y Precio.` }
+        if (!mejor) return { error: `No encontré una tabla de productos en "${file.name}". Necesita una fila de encabezados con al menos Nombre y Precio.`, codigo: 'sin_tabla' }
         const filas = hojas[mejor.nombre].slice(mejor.fila + 1).map((f, i) => Object.assign([...f], { __fila: mejor.fila + 2 + i }))
         estado.origen = { nombre: file.name, hoja: mejor.nombre, encabezados: mejor.encabezados, mapeo: mejor.mapeo, filas }
         estado.opciones.unidades = {}
@@ -64,7 +64,7 @@ export function crearSesion() {
         estado.opciones.codigos = null
         estado.resultado = null
         return { hoja: mejor.nombre, total: filas.filter(f => f.some(c => String(c).trim() !== '')).length }
-      } catch { return { error: `No pude leer "${file.name}".` } }
+      } catch { return { error: `No pude leer "${file.name}".`, codigo: 'archivo_ilegible' } }
     },
 
     tieneIsv() { return Object.values(estado.plantillas).some(p => p.info.tieneIsv) },

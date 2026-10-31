@@ -8,6 +8,7 @@ import { FORMATOS_BARRAS, PAPELES, TAMAÑOS, validarBarras, parsearEntrada, inte
 import { FORMATOS_CODIGO, crearGeneradorCodigos } from './inv-codigos.js'
 import { cargarXlsx } from './inv-sesion.js'
 import { leerLibro } from './inv-excel.js'
+import { telemetriaReal } from './herramientas-telemetria.js'
 import { cargarLib, etiquetaSvg, imprimir, descargarZip, guardar, papelPorId } from './barras-render.js'
 
 export const TEXTO_INTRO_CODIGOS = 'Te ayudo a crear códigos de barras o QR listos para imprimir. Tus datos no salen de tu computador.'
@@ -37,10 +38,12 @@ async function nombresDeArchivo(file) {
 }
 
 // `items`: [{ codigo, texto }] si ya los tienes (p. ej. del conversor de inventario).
-// `nombres`: productos sin código, para crearles uno aquí.
-export async function iniciarCodigos({ host, alDesplazar = () => {}, items = null, nombres = null }) {
+// `nombres`: productos sin código, para crearles uno aquí. `via`: desde dónde arrancó
+// (chat o inventario), para la métrica.
+export async function iniciarCodigos({ host, alDesplazar = () => {}, items = null, nombres = null, via = 'chat', telemetria = telemetriaReal('codigos') }) {
   const base = crearBase({ host, alDesplazar })
   const { bot, chips, pedirArchivos, pedirCampos, vivo } = base
+  let origenDatos = items ? 'inventario' : null
   const estado = { tipo: 'barras', items, formato: 'CODE128', papel: PAPELES[0], tamaño: TAMAÑOS[1], mostrarNumero: true, mostrarNombre: true, copias: 1 }
 
   // ---------- Qué crear ----------
@@ -79,6 +82,7 @@ export async function iniciarCodigos({ host, alDesplazar = () => {}, items = nul
         try { lista = await nombresDeArchivo(f) } catch { /* se avisa abajo */ }
         if (lista.length) return lista
       }
+      telemetria.error('datos', 'datos_vacios')
       await bot('No encontré nombres ahí. Prueba de nuevo: un nombre por línea, o una columna llamada «Nombre».', { demora: 250 })
     }
   }
@@ -105,6 +109,7 @@ export async function iniciarCodigos({ host, alDesplazar = () => {}, items = nul
     }
     const g = crearGeneradorCodigos(opciones)
     const items = lista.map(n => ({ codigo: g(n), texto: n }))
+    telemetria.paso('codigos_creados')
     const b = await bot(`✅ Listo, creé <b>${items.length}</b> código(s). Por ejemplo, <code>${esc(items[0].codigo)}</code> para «${esc(items[0].texto)}».
       <p class="inv-nota">Guarda esta lista: son los códigos de tus productos. Puedes pegarlos en la columna <b>Código</b> de la plantilla de Bold POS.</p>`)
     const fila = document.createElement('div')
@@ -116,6 +121,7 @@ export async function iniciarCodigos({ host, alDesplazar = () => {}, items = nul
       const libro = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(libro, XLSX.utils.aoa_to_sheet([['Código', 'Nombre'], ...items.map(i => [i.codigo, i.texto])]), 'Códigos')
       guardar(new Blob([XLSX.write(libro, { type: 'array', bookType: 'xlsx' })], { type: 'application/octet-stream' }), 'Códigos de productos.xlsx')
+      telemetria.fin('lista_codigos', { cantidad: items.length })
     })
     fila.appendChild(btn); b.appendChild(fila)
     alDesplazar()
@@ -124,7 +130,7 @@ export async function iniciarCodigos({ host, alDesplazar = () => {}, items = nul
 
   async function pasoDatos() {
     if (estado.items?.length) return
-    if (nombres?.length) { estado.items = await crearCodigos(nombres); return }
+    if (nombres?.length) { origenDatos = 'inventario_crear'; estado.items = await crearCodigos(nombres); return }
     const barras = estado.tipo === 'barras'
     const opciones = [
       { texto: 'Escribirlos o pegarlos', detalle: barras ? 'Un código por línea.' : 'Un enlace o texto por línea.', valor: 'pegar' },
@@ -134,7 +140,8 @@ export async function iniciarCodigos({ host, alDesplazar = () => {}, items = nul
     const q = await bot(barras ? '¿De dónde tomo los códigos?' : '¿Qué debe contener cada QR? Puede ser el enlace de tu menú, tu WhatsApp, un texto…')
     const como = await chips(q, opciones)
     vivo()
-    if (como === 'crear') { estado.items = await crearCodigos(await nombresPegadosOSubidos()); return }
+    if (como === 'crear') { origenDatos = 'crear'; estado.items = await crearCodigos(await nombresPegadosOSubidos()); return }
+    origenDatos = como
     for (;;) {
       let items = []
       if (como === 'pegar') {
@@ -154,6 +161,7 @@ export async function iniciarCodigos({ host, alDesplazar = () => {}, items = nul
         await bot(`Encontré <b>${items.length}</b> ${barras ? 'código(s)' : 'QR por crear'}${conNombre ? ` (${conNombre} con nombre)` : ''}. Por ejemplo: <code>${esc(items[0].codigo.slice(0, 40))}</code>.`, { demora: 300 })
         return
       }
+      telemetria.error('datos', 'datos_vacios')
       await bot('No encontré ningún dato ahí. Prueba otra vez: un código por línea, o un Excel con una columna «Código».', { demora: 250 })
     }
   }
@@ -168,6 +176,7 @@ export async function iniciarCodigos({ host, alDesplazar = () => {}, items = nul
       const malos = estado.items.filter(i => !validarBarras(estado.formato, i.codigo).valido)
       if (!malos.length) return
       const f = FORMATOS_BARRAS.find(x => x.id === estado.formato)
+      telemetria.error('formato', 'formato_invalido', { cantidad: malos.length, formato: estado.formato })
       const cuantos = malos.length === estado.items.length ? (malos.length === 1 ? 'Tu código no sirve' : `Los <b>${malos.length}</b> códigos no sirven`) : `<b>${malos.length}</b> de tus ${estado.items.length} códigos no sirven`
       const q = await bot(`${cuantos} para ${f.etiqueta}. Por ejemplo «${esc(malos[0].codigo)}»: ${esc(validarBarras(estado.formato, malos[0].codigo).mensaje)}`)
       const acc = await chips(q, [
@@ -178,8 +187,9 @@ export async function iniciarCodigos({ host, alDesplazar = () => {}, items = nul
       vivo()
       if (acc === '128') { estado.formato = 'CODE128'; return }
       if (acc === 'omitir') {
-        estado.items = estado.items.filter(i => validarBarras(estado.formato, i.codigo).valido)
-        if (estado.items.length) return
+        // Solo se descartan si queda alguno: con la lista vacía no habría nada que imprimir.
+        const validos = estado.items.filter(i => validarBarras(estado.formato, i.codigo).valido)
+        if (validos.length) { estado.items = validos; return }
         await bot('Ninguno sirve con ese formato. Elijamos otro.', { demora: 250 })
       }
     }
@@ -220,14 +230,20 @@ export async function iniciarCodigos({ host, alDesplazar = () => {}, items = nul
 
   // ---------- Resultado ----------
   async function pasoResultado() {
-    try { await cargarLib(estado.tipo === 'qr' ? 'qr' : 'barras') } catch (e) { await bot(`⚠️ ${esc(e.message)}`); return 'terminar' }
+    try { await cargarLib(estado.tipo === 'qr' ? 'qr' : 'barras') } catch (e) { telemetria.error('resultado', 'libreria_no_carga'); await bot(`⚠️ ${esc(e.message)}`); return 'terminar' }
     const piezas = [], fallos = []
     const o = { formato: estado.formato, tamaño: estado.tamaño, mostrarNumero: estado.mostrarNumero, mostrarNombre: estado.mostrarNombre }
     for (const it of estado.items) {
       try { piezas.push({ codigo: it.codigo, svg: etiquetaSvg(estado.tipo, it, o) }) } catch (e) { fallos.push({ it, e }) }
     }
-    if (!piezas.length) { await bot('No pude dibujar ninguno con esos datos. Revisa los códigos e intentemos de nuevo.'); return 'cambiar' }
+    if (fallos.length) telemetria.error('resultado', 'dibujo_fallo', { cantidad: fallos.length })
+    if (!piezas.length) { telemetria.error('resultado', 'sin_resultado'); await bot('No pude dibujar ninguno con esos datos. Revisa los códigos e intentemos de nuevo.'); return 'cambiar' }
     const total = piezas.length * estado.copias
+    telemetria.paso('resultado')
+    const datosFin = () => ({
+      tipo: estado.tipo, formato: estado.tipo === 'barras' ? estado.formato : null, papel: estado.papel.id,
+      tamano: estado.tamaño.id, cantidad: piezas.length, copias: estado.copias, origen_datos: origenDatos,
+    })
     const b = await bot(`¡Listo! 🎉 Armé <b>${piezas.length}</b> ${estado.tipo === 'qr' ? 'QR' : 'código(s) de barras'}${estado.copias > 1 ? `, <b>${estado.copias}</b> copias de cada uno: <b>${total}</b> en total` : ''}.${fallos.length ? ` <b>${fallos.length}</b> no se pudieron dibujar (${esc(fallos[0].it.codigo.slice(0, 30))}…).` : ''}
       <div class="inv-muestra">${piezas.slice(0, 6).map(p => `<div class="inv-et-vista">${p.svg}</div>`).join('')}</div>
       ${piezas.length > 6 ? `<p class="inv-nota">Mostrando 6 de ${piezas.length}.</p>` : ''}
@@ -236,12 +252,12 @@ export async function iniciarCodigos({ host, alDesplazar = () => {}, items = nul
     fila.className = 'inv-acciones'
     const imp = document.createElement('button')
     imp.type = 'button'; imp.className = 'inv-chipbtn inv-chipbtn-fuerte'; imp.textContent = `🖨️ Imprimir (${total})`
-    imp.addEventListener('click', () => imprimir(piezas.flatMap(p => Array(estado.copias).fill(p.svg)), estado.papel))
+    imp.addEventListener('click', () => { imprimir(piezas.flatMap(p => Array(estado.copias).fill(p.svg)), estado.papel); telemetria.fin('impresion', datosFin()) })
     const zip = document.createElement('button')
     zip.type = 'button'; zip.className = 'inv-chipbtn'; zip.textContent = '⬇️ Descargar imágenes'
     zip.addEventListener('click', async () => {
       zip.disabled = true
-      try { await descargarZip(piezas) } catch (e) { await bot(`⚠️ ${esc(e.message)}`, { demora: 250 }) }
+      try { await descargarZip(piezas); telemetria.fin('zip', datosFin()) } catch (e) { telemetria.error('resultado', 'descarga_fallo'); await bot(`⚠️ ${esc(e.message)}`, { demora: 250 }) }
       zip.disabled = false
     })
     fila.append(imp, zip)
@@ -251,21 +267,23 @@ export async function iniciarCodigos({ host, alDesplazar = () => {}, items = nul
   }
 
   try {
+    telemetria.inicio(via)
     await bot(TEXTO_INTRO_CODIGOS)
     await pasoTipo()
-    await pasoDatos()
+    await pasoDatos(); telemetria.paso('datos')
     for (;;) {
-      if (estado.tipo === 'barras') await pasoFormato()
-      await pasoDiseño()
+      if (estado.tipo === 'barras') { await pasoFormato(); telemetria.paso('formato') }
+      await pasoDiseño(); telemetria.paso('diseno')
       const sig = await pasoResultado()
       vivo()
-      if (sig === 'otros') { await bot('Claro, empecemos con otros.', { demora: 250 }); return iniciarCodigos({ host, alDesplazar }) }
+      if (sig === 'otros') { await bot('Claro, empecemos con otros.', { demora: 250 }); return iniciarCodigos({ host, alDesplazar, via: 'reinicio' }) }
       if (sig === 'terminar') { await bot('Perfecto. Si necesitas más códigos, escríbeme «crear códigos de barras» o «crear un QR».', { demora: 250 }); return }
       await bot('Cambiemos las opciones.', { demora: 250 })
     }
   } catch (e) {
     if (e === CANCELADO) return
     console.error('[códigos] conversación interrumpida:', e)
+    telemetria.error('desconocido', 'excepcion')
     await bot('Algo salió mal y no pude seguir. Recarga la página e inténtalo de nuevo.')
   }
 }
