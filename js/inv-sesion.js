@@ -28,7 +28,7 @@ export function crearSesion() {
   const estado = {
     plantillas: {},   // { inventariable?: {info, wb, nombre}, noinventariable?: {...} }
     origen: null,     // { nombre, hoja, encabezados, mapeo, filas }
-    opciones: { formatoNumero: 'auto', inventariable: null, isv: null, unidades: {}, categoriasAGeneral: false },
+    opciones: { formatoNumero: 'auto', inventariable: null, isv: null, unidades: {}, categoriasAGeneral: false, codigos: null },
     resultado: null,
   }
 
@@ -61,6 +61,7 @@ export function crearSesion() {
         estado.origen = { nombre: file.name, hoja: mejor.nombre, encabezados: mejor.encabezados, mapeo: mejor.mapeo, filas }
         estado.opciones.unidades = {}
         estado.opciones.inventariable = null
+        estado.opciones.codigos = null
         estado.resultado = null
         return { hoja: mejor.nombre, total: filas.filter(f => f.some(c => String(c).trim() !== '')).length }
       } catch { return { error: `No pude leer "${file.name}".` } }

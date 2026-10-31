@@ -13,6 +13,7 @@ import { registrarCruce, marcarCruce } from './cruce-vertical.js'
 import { getBotOrigin, notificarMensajeBot } from './bot-origin.js'
 import { APP_ENV } from './env.js'
 import { esIntencionInventario } from './inv-intencion.js'
+import { esIntencionCodigos } from './barras-intencion.js'
 import { textoSeguroDelBot } from './bot-respuesta-segura.js'
 
 const N8N_URL     = '/api/chat'
@@ -822,8 +823,12 @@ async function sendMessage(text, { textoVisible, cross } = {}) {
 
   // Pasar el inventario a la plantilla de Bold: lo resuelve el conversor local
   // dentro del chat, sin llamar a n8n. Solo fuera de producción mientras se prueba.
+  if (APP_ENV !== 'prod' && esIntencionCodigos(text)) {
+    await responderHerramienta('codigos')
+    return
+  }
   if (APP_ENV !== 'prod' && esIntencionInventario(text)) {
-    await responderInventario()
+    await responderHerramienta('inventario')
     return
   }
 
@@ -953,20 +958,22 @@ async function sendMessage(text, { textoVisible, cross } = {}) {
   }
 }
 
-// Respuesta local al pedido de cargar inventario: la conversación del conversor
-// ocurre en las mismas burbujas del chat (sin n8n ni tokens). Se registra la
-// pregunta y el arranque; los pasos siguientes son interacción de la herramienta.
-async function responderInventario() {
-  const { iniciarConversacion, TEXTO_INTRO } = await import('./inv-chat.js')
-  history.push({ role: 'assistant', content: TEXTO_INTRO })
+// Respuesta local a un pedido de herramienta (pasar inventario, crear códigos): la
+// conversación ocurre en las mismas burbujas del chat (sin n8n ni tokens). Se
+// registra la pregunta y el arranque; los pasos siguientes son de la herramienta.
+async function responderHerramienta(cual) {
+  const { iniciar, intro, tema } = cual === 'codigos'
+    ? await import('./barras-chat.js').then(m => ({ iniciar: m.iniciarCodigos, intro: m.TEXTO_INTRO_CODIGOS, tema: 'Códigos de barras y QR' }))
+    : await import('./inv-chat.js').then(m => ({ iniciar: m.iniciarConversacion, intro: m.TEXTO_INTRO, tema: 'Importar inventario' }))
+  history.push({ role: 'assistant', content: intro })
   storageSet('bold_chat_history', JSON.stringify(history.slice(-20)))
   sessionMessages.push({ role: 'user', content: history[history.length - 2]?.content ?? '' })
-  sessionMessages.push({ role: 'assistant', content: TEXTO_INTRO })
+  sessionMessages.push({ role: 'assistant', content: intro })
   const nowIso = new Date().toISOString()
-  await upsertConversation({ messages: sessionMessages, topic: 'Importar inventario', last_activity_at: nowIso })
+  await upsertConversation({ messages: sessionMessages, topic: tema, last_activity_at: nowIso })
   markActivity(Date.parse(nowIso))
   // Sin await: la conversación dura minutos y no debe bloquear nuevos mensajes.
-  iniciarConversacion({ host: () => document.getElementById('chatMessages'), alDesplazar: scrollToBottom })
+  iniciar({ host: () => document.getElementById('chatMessages'), alDesplazar: scrollToBottom })
 }
 
 function appendBubble(role, content) {

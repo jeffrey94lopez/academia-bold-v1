@@ -5,6 +5,7 @@
 // Salida: filas listas por plantilla, errores (la fila no se exporta), avisos
 // (se exporta, pero conviene mirar) y lo que el cliente debe resolver.
 import { normalizar, parseNumero, parseSiNo, parseImpuesto, aCodigo, aTexto } from './inv-numeros.js'
+import { crearGeneradorCodigos } from './inv-codigos.js'
 
 // Grupos de sinónimos de unidades: la clave es la unidad "canónica".
 const UNIDADES = {
@@ -68,7 +69,8 @@ function esInventariable(fila, mapeo, opciones) {
 const vacia = fila => fila.every(c => String(c ?? '').trim() === '')
 
 // opciones: { formatoNumero, inventariable: 'si'|'no'|null, isv: bool,
-//             unidades: {origen: unidadBold}, categoriasAGeneral: bool }
+//             unidades: {origen: unidadBold}, categoriasAGeneral: bool,
+//             codigos: {formato, prefijo, inicio, relleno} | null (crear códigos faltantes) }
 export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
   const fmt = opciones.formatoNumero ?? 'auto'
   const salidas = { inventariable: [], noinventariable: [] }
@@ -78,8 +80,13 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
   const codigosVistos = new Map()
   let pendienteInventariable = false
   let sinExistencia = 0, sinImpuesto = 0, sinCosto = 0, sinCategoria = 0, codigosDanados = 0
+  let sinCodigo = 0, codigosCreados = 0
 
   const get = (fila, campo) => (mapeo[campo] === undefined ? '' : fila[mapeo[campo]])
+  // Los códigos nuevos no pueden repetir ninguno que el cliente ya tenga en el archivo.
+  const generarCodigo = opciones.codigos
+    ? crearGeneradorCodigos(opciones.codigos, filas.map(f => aCodigo(get(f, 'codigo')).texto).filter(Boolean))
+    : null
   const referencia = plantillas.inventariable ?? plantillas.noinventariable
   const aviso = (n, msg) => avisos.push({ fila: n, mensaje: msg })
   const error = (n, msg) => errores.push({ fila: n, mensaje: msg })
@@ -134,8 +141,13 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
       else if (!faltanCategorias.has(normalizar(categoria))) faltanCategorias.set(normalizar(categoria), categoria)
     }
 
-    // Código (texto) y duplicados.
-    const { texto: codigo, danado } = aCodigo(get(fila, 'codigo'))
+    // Código (texto) y duplicados; si falta y el cliente pidió crearlos, se crea.
+    const { texto: original, danado } = aCodigo(get(fila, 'codigo'))
+    let codigo = original
+    if (!codigo) {
+      if (generarCodigo) { codigo = generarCodigo(nombre); codigosCreados++ }
+      else sinCodigo++
+    }
     if (danado) codigosDanados++
     if (codigo) {
       if (codigosVistos.has(codigo)) aviso(n, `El código "${codigo}" ya está en la fila ${codigosVistos.get(codigo)}.`)
@@ -167,6 +179,7 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
   if (sinExistencia) avisos.unshift({ fila: null, mensaje: `${sinExistencia} ítem(s) inventariable(s) sin existencia en el archivo: quedaron en 0.` })
   if (sinCosto) avisos.unshift({ fila: null, mensaje: `${sinCosto} ítem(s) sin costo válido: quedaron en 0.` })
   if (sinImpuesto) avisos.unshift({ fila: null, mensaje: `${sinImpuesto} ítem(s) sin impuesto en el archivo: se marcaron como exentos.` })
+  if (codigosCreados) avisos.unshift({ fila: null, mensaje: `${codigosCreados} ítem(s) no traían código: se les creó uno nuevo.` })
   if (sinCategoria) avisos.unshift({ fila: null, mensaje: `${sinCategoria} ítem(s) sin categoría: se asignaron a "General".` })
   if (codigosDanados) avisos.unshift({ fila: null, mensaje: `${codigosDanados} código(s) llegaron en notación científica (7.5E+12): Excel ya les cambió los dígitos y hay que corregirlos en el archivo original.` })
 
@@ -174,7 +187,7 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
     salidas, errores, avisos,
     categoriasFaltantes: [...faltanCategorias.values()],
     unidadesSinMapa: [...unidadesSinMapa],
-    pendienteInventariable,
+    pendienteInventariable, sinCodigo, codigosCreados,
     total: salidas.inventariable.length + salidas.noinventariable.length,
     plantillaReferencia: referencia ? referencia.tipo : null,
   }

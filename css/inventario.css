@@ -37,3 +37,31 @@
 .inv-campo { display: grid; gap: 2px; font-size: 12px; font-weight: 600; }
 .inv-campo select { width: 100%; max-width: 100%; padding: 6px; font: inherit; font-size: 13px; border: 1px solid var(--blue-20, #d2d4e1); border-radius: 8px; background: #fff; }
 .inv-campo small { font-weight: 400; color: var(--black-60, #606060); min-height: 1em; overflow-wrap: anywhere; }
+
+/* ── Botones con una línea de explicación debajo ── */
+.inv-chipdetalle { display: block; margin-top: 2px; font-size: 11px; font-weight: 400; color: var(--black-60, #606060); }
+.inv-chipbtn:has(.inv-chipdetalle) { border-radius: 12px; }
+
+/* ── Guía numerada y campos de texto ── */
+.inv-pasos { margin: 8px 0 0; padding-left: 20px; font-size: 13px; line-height: 1.55; display: grid; gap: 4px; }
+.inv-entrada { width: 100%; box-sizing: border-box; padding: 8px; font: inherit; font-size: 13px; border: 1px solid var(--blue-20, #d2d4e1); border-radius: 8px; background: #fff; }
+textarea.inv-entrada { resize: vertical; }
+
+/* ── Vista previa de los códigos ── */
+.inv-muestra { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-top: 10px; }
+.inv-et-vista { display: flex; align-items: center; justify-content: center; padding: 6px; background: #fff; border: 1px solid var(--blue-20, #d2d4e1); border-radius: 8px; }
+.inv-et-vista svg { max-width: 100%; height: auto; }
+
+/* ── Impresión: solo se ve la hoja de códigos (js/barras-render.js la inserta en el body) ── */
+#inv-impresion { display: none; }
+@media print {
+  body.inv-imprimiendo, html:has(body.inv-imprimiendo) { height: auto !important; overflow: visible !important; background: #fff !important; }
+  body.inv-imprimiendo > *:not(#inv-impresion):not(style) { display: none !important; }
+  body.inv-imprimiendo #inv-impresion { display: block; }
+  #inv-impresion .inv-et { display: flex; align-items: center; justify-content: center; box-sizing: border-box; break-inside: avoid; }
+  #inv-impresion svg { height: auto; width: auto; }
+  #inv-impresion.inv-imp-hoja { display: grid; grid-template-columns: repeat(auto-fill, minmax(60mm, 1fr)); gap: 0; }
+  #inv-impresion.inv-imp-hoja .inv-et { padding: 4mm; border: 1px dashed #999; }
+  #inv-impresion.inv-imp-hoja svg { max-width: 100%; }
+  #inv-impresion.inv-imp-etiquetas .inv-et { break-after: page; overflow: hidden; }
+}

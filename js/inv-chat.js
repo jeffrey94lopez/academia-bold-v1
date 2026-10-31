@@ -1,17 +1,13 @@
-// js/inv-chat.js — el conversor de inventario como una conversación con BolBot.
-//
-// Cada paso es una pregunta del bot con botones o un archivo adjunto; lo que el
-// cliente responde aparece como su propia burbuja. Los textos los arma el código
-// (sin IA, sin tokens) y los archivos nunca salen del navegador.
 import { crearSesion, ETIQUETA_TIPO } from './inv-sesion.js'
 import { CAMPOS } from './inv-origen.js'
+import { crearBase, esc, CANCELADO } from './chat-base.js'
+import { FORMATOS_CODIGO, crearGeneradorCodigos } from './inv-codigos.js'
+import { iniciarCodigos } from './barras-chat.js'
 
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 const letraColumna = i => { let s = '', n = i; do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1 } while (n >= 0); return s }
-const CANCELADO = Symbol('cancelado')
-const pausa = ms => new Promise(r => setTimeout(r, ms))
+const FIN = Symbol('fin')
 
-const INTRO_HTML = '¡Claro! Te ayudo a pasar tu inventario a Bold POS en 4 pasos: tu plantilla de Bold, tu archivo de productos, una revisión rápida y la descarga. <b>Tus archivos no salen de tu computador.</b>'
+const INTRO_HTML = '¡Claro! Te ayudo a pasar tu inventario a Bold POS paso a paso: conseguir tu plantilla, subir tu archivo de productos, una revisión rápida y la descarga. <b>No necesitas saber nada de Excel, y tus archivos no salen de tu computador.</b>'
 // Lo que queda en el historial de la conversación (texto plano).
 export const TEXTO_INTRO = INTRO_HTML.replace(/<[^>]+>/g, '')
 
@@ -19,85 +15,55 @@ export const TEXTO_INTRO = INTRO_HTML.replace(/<[^>]+>/g, '')
 // pide al chat que baje al último mensaje. Resuelve cuando termina la conversación.
 export async function iniciarConversacion({ host, alDesplazar = () => {} }) {
   const sesion = crearSesion()
-  const caja = () => host()
-  let ancla = null
+  const { bot, usuario, chips, pedirArchivos, pedirCampos, vivo } = crearBase({ host, alDesplazar })
 
-  // La conversación muere sola si el cliente limpia el chat a la mitad.
-  const vivo = () => { if (!ancla?.isConnected) throw CANCELADO }
+// ---------- Paso 1: plantilla(s) de Bold ----------
+  // Qué plantillas necesita este cliente (null = lo que suba).
+  let necesarias = null
 
-  function añadir(el) { caja().appendChild(el); alDesplazar(); return el }
+  const TIPOS_PRODUCTO = [
+    { texto: 'Productos que cuento (ropa, abarrotes, repuestos…)', detalle: 'Llevan control de existencias: «inventariables».', valor: ['inventariable'] },
+    { texto: 'Servicios o cosas que no cuento', detalle: 'No llevan control de existencias: «no inventariables».', valor: ['noinventariable'] },
+    { texto: 'De los dos tipos', valor: ['inventariable', 'noinventariable'] },
+  ]
 
-  function burbuja(clase, html) {
-    const fila = document.createElement('div')
-    fila.className = clase === 'user' ? 'flex justify-end' : 'flex justify-start'
-    fila.innerHTML = `<div class="${clase === 'user' ? 'msg-user' : 'msg-bot-wide'} text-sm inv-aparece">${html}</div>`
-    return añadir(fila)
+  // Guía para quien nunca ha descargado la plantilla: qué tipo es el suyo y dónde se baja.
+  async function guiaPlantilla() {
+    let q = await bot('Primero dime qué vas a cargar, así sé cuál plantilla te toca descargar:')
+    let r = await chips(q, [...TIPOS_PRODUCTO, { texto: 'No estoy seguro', valor: 'duda' }])
+    vivo()
+    if (r === 'duda') {
+      q = await bot('Es fácil: si el producto <b>se acaba y lo cuentas</b> (una camisa, un arroz, un repuesto), es <b>inventariable</b>. Si es un <b>servicio</b> (un corte de pelo, una instalación) o algo que no descuentas del stock, es <b>no inventariable</b>. Si tienes de ambos, descarga las dos.')
+      r = await chips(q, TIPOS_PRODUCTO)
+      vivo()
+    }
+    necesarias = r
+    const cuales = r.map(t => `<b>${ETIQUETA_TIPO[t]}</b>`).join(' y ')
+    const b = await bot(`Perfecto. Entra a tu cuenta de Bold POS y sigue estos pasos:
+      <ol class="inv-pasos">
+        <li>En el <b>menú de la izquierda</b>, entra a <b>Ítems</b> y elige <b>Lista de ítems</b>.</li>
+        <li>Arriba a la derecha, haz clic en el botón <b>Importar</b>.</li>
+        <li>Elige <b>Iniciar creación masiva</b>.</li>
+        <li>Descarga la plantilla de ítems ${cuales}.</li>
+        <li><b>No la llenes ni la cambies</b>: yo la lleno por ti. Vuelve aquí y súbela.</li>
+      </ol>
+      <p class="inv-nota">Tiene que ser la de <b>tu</b> cuenta: trae tu sucursal, tus categorías y tus impuestos, y una de otra cuenta no te la aceptará.</p>`, { demora: 700 })
+    for (;;) {
+      const a = await chips(b, [{ texto: 'Ya la descargué ✅', valor: 'lista' }, { texto: 'No encuentro el botón Importar', valor: 'ayuda' }])
+      vivo()
+      if (a === 'lista') return
+      await bot('Puede ser que tu usuario no tenga permiso para importar: prueba entrando con el usuario del dueño o administrador de la cuenta. Si aun así no te aparece, escríbele a soporte de Bold POS. Cuando la tengas, aquí te espero.', { demora: 500 })
+    }
   }
 
-  // Burbuja del bot, con los tres puntitos un instante antes (se siente conversación).
-  async function bot(html, { demora = 450 } = {}) {
-    if (ancla) vivo()
-    const escribiendo = document.createElement('div')
-    escribiendo.className = 'flex justify-start'
-    escribiendo.innerHTML = '<div class="flex items-center gap-1.5 bg-[var(--background-page)] rounded-2xl px-4 py-3 w-fit"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>'
-    añadir(escribiendo)
-    await pausa(demora)
-    const fila = burbuja('bot', html)
-    escribiendo.remove()
-    ancla ??= fila
-    return fila.firstElementChild
-  }
-
-  const usuario = texto => burbuja('user', esc(texto))
-
-  // Botones de respuesta rápida dentro de la burbuja `b`. Resuelve con el valor
-  // elegido, deja la elección como burbuja del cliente y quita los botones.
-  function chips(b, opciones) {
-    return new Promise(resolver => {
-      const fila = document.createElement('div')
-      fila.className = 'inv-acciones'
-      for (const o of opciones) {
-        const btn = document.createElement('button')
-        btn.type = 'button'
-        btn.className = 'inv-chipbtn'
-        btn.textContent = o.texto
-        btn.addEventListener('click', () => { fila.remove(); usuario(o.texto); resolver(o.valor) })
-        fila.appendChild(btn)
-      }
-      b.appendChild(fila)
-      alDesplazar()
-    })
-  }
-
-  // Botón para adjuntar archivo (también acepta arrastrar y soltar sobre la burbuja).
-  function pedirArchivos(b, { boton, accept, multiple = false }) {
-    return new Promise(resolver => {
-      const fila = document.createElement('div')
-      fila.className = 'inv-acciones'
-      const input = document.createElement('input')
-      input.type = 'file'; input.accept = accept; input.multiple = multiple; input.hidden = true
-      const btn = document.createElement('button')
-      btn.type = 'button'; btn.className = 'inv-chipbtn inv-chipbtn-fuerte'; btn.textContent = `📎 ${boton}`
-      const listo = files => {
-        if (!files.length) return
-        fila.remove(); b.classList.remove('inv-soltar')
-        usuario(`📎 ${[...files].map(f => f.name).join(', ')}`)
-        resolver([...files])
-      }
-      btn.addEventListener('click', () => input.click())
-      input.addEventListener('change', () => listo(input.files))
-      b.addEventListener('dragover', e => { e.preventDefault(); b.classList.add('inv-soltar') })
-      b.addEventListener('dragleave', () => b.classList.remove('inv-soltar'))
-      b.addEventListener('drop', e => { e.preventDefault(); listo(e.dataTransfer.files) })
-      fila.append(btn, input)
-      b.appendChild(fila)
-      alDesplazar()
-    })
-  }
-
-  // ---------- Paso 1: plantilla(s) de Bold ----------
   async function pasoPlantillas() {
-    let b = await bot(`Primero necesito <b>la plantilla de tu cuenta de Bold POS</b>. Cada cuenta tiene la suya: ahí vienen tu sucursal, tus categorías y tus impuestos. Puedes subir la de <b>inventariables</b>, la de <b>no inventariables</b> o las dos juntas.`)
+    const q0 = await bot('Antes de empezar necesito <b>la plantilla de tu cuenta de Bold POS</b>: ahí vienen tu sucursal, tus categorías y tus impuestos. No te preocupes, te llevo de la mano.')
+    const r0 = await chips(q0, [{ texto: 'Guíame para conseguirla', valor: 'guia' }, { texto: 'Ya la tengo descargada', valor: 'tengo' }])
+    vivo()
+    if (r0 === 'guia') await guiaPlantilla()
+    let b = await bot(necesarias
+      ? `Cuando quieras, sube ${necesarias.length > 1 ? 'tus <b>dos plantillas</b> (puedes elegirlas juntas)' : 'tu plantilla'}.`
+      : 'Súbela cuando quieras. Puede ser la de <b>inventariables</b>, la de <b>no inventariables</b> o las dos juntas.')
     for (;;) {
       const files = await pedirArchivos(b, { boton: 'Subir plantilla de Bold', accept: '.xlsx', multiple: true })
       vivo()
@@ -110,7 +76,13 @@ export async function iniciarConversacion({ host, alDesplazar = () => {} }) {
       }
       for (const e of errores) await bot(`⚠️ ${esc(e)}`, { demora: 300 })
       const tipos = Object.keys(sesion.estado.plantillas)
-      if (!tipos.length) { b = await bot('Súbeme una plantilla que hayas descargado desde Bold POS para continuar.'); continue }
+      if (!tipos.length) { b = await bot('Súbeme una plantilla que hayas descargado desde Bold POS (Ítems › Lista de ítems › Importar › Iniciar creación masiva) para continuar.'); continue }
+      if (necesarias) {
+        const falta = necesarias.filter(t => !tipos.includes(t))
+        if (!falta.length) return
+        b = await bot(`Me falta la plantilla de ítems <b>${falta.map(t => ETIQUETA_TIPO[t]).join(' y ')}</b>. Descárgala igual que la anterior y súbela.`)
+        continue
+      }
       if (tipos.length === 1) {
         const otra = tipos[0] === 'inventariable' ? 'no inventariables' : 'inventariables'
         const q = await bot(`¿Vas a cargar también ítems <b>${otra}</b> (por ejemplo servicios)?`)
@@ -124,7 +96,24 @@ export async function iniciarConversacion({ host, alDesplazar = () => {} }) {
 
   // ---------- Paso 2: archivo de productos ----------
   async function pasoOrigen() {
-    let b = await bot('Ahora el <b>archivo con tus productos</b>: el Excel o CSV de tu sistema anterior (Alegra, Siigo, un Excel propio…). Si viene de Alegra, exporta el listado de ítems a Excel.')
+    const q = await bot('Ahora necesito <b>la lista de tus productos</b>. ¿De dónde la sacas?')
+    const de = await chips(q, [
+      { texto: 'De Alegra', valor: 'alegra' },
+      { texto: 'De otro programa (Siigo, World Office…)', valor: 'otro' },
+      { texto: 'La tengo en un Excel propio', valor: 'excel' },
+      { texto: 'No tengo una lista', valor: 'nada' },
+    ])
+    vivo()
+    if (de === 'nada') {
+      await bot('Entonces lo más rápido es llenar la plantilla de Bold que acabas de descargar, escribiendo tus productos en las filas (nombre, categoría, unidad, costo y precio). Cuando tengas la lista, escríbeme «subir mi inventario» y la revisamos juntos. 👍', { demora: 600 })
+      throw FIN
+    }
+    const AYUDA = {
+      alegra: 'En Alegra, exporta tu <b>listado de ítems a Excel</b> y súbelo aquí tal como te lo da el sistema.',
+      otro: 'En tu programa, busca la opción de <b>exportar o descargar los productos a Excel o CSV</b> y súbela aquí tal cual: yo reconozco las columnas.',
+      excel: 'Sirve cualquier Excel o CSV con una fila de títulos. Lo mínimo: una columna con el <b>nombre</b> y otra con el <b>precio de venta</b>. Si tienes código, categoría, unidad, costo, impuesto o existencias, mejor.',
+    }
+    let b = await bot(AYUDA[de])
     for (;;) {
       const [file] = await pedirArchivos(b, { boton: 'Subir archivo de productos', accept: '.xlsx,.xls,.csv' })
       vivo()
@@ -228,6 +217,42 @@ export async function iniciarConversacion({ host, alDesplazar = () => {} }) {
       }
       r = sesion.recalcular()
     }
+
+    // Códigos: el que lee la pistola al vender. Opcional en Bold, pero sin él no hay etiquetas.
+    if (r.sinCodigo) {
+      const todos = r.sinCodigo === r.total
+      const varios = r.sinCodigo > 1
+      const q = await bot(`${todos ? (varios ? 'Tus productos no traen' : 'Tu producto no trae') : `<b>${r.sinCodigo}</b> de tus ${r.total} productos no traen`} <b>código</b>. El código es lo que lee el lector de barras al vender. ¿Quieres que lo${varios ? 's' : ''} cree por ti?`)
+      const crear = await chips(q, [{ texto: 'Sí, créalos', valor: true }, { texto: 'No, déjalos vacíos', valor: false }])
+      vivo()
+      if (crear) {
+        const muestra = Object.values(r.salidas).flat()[0]?.nombre ?? 'Producto'
+        const f = await bot('¿Con qué estilo?')
+        const formato = await chips(f, FORMATOS_CODIGO.map(x => ({
+          texto: x.etiqueta, valor: x.id,
+          detalle: x.id === 'personalizado' ? x.detalle : `Ej.: ${crearGeneradorCodigos({ formato: x.id })(muestra)}`,
+        })))
+        vivo()
+        const opciones = { formato, prefijo: '', inicio: 1, relleno: 3 }
+        if (formato === 'personalizado') {
+          const b = await bot('Cuéntame cómo quieres que empiecen. Con prefijo <b>TIENDA</b> y número inicial <b>001</b> salen TIENDA-001, TIENDA-002…')
+          const v = await pedirCampos(b, {
+            campos: [
+              { id: 'prefijo', etiqueta: 'Prefijo (opcional)', placeholder: 'TIENDA' },
+              { id: 'inicio', etiqueta: 'Número inicial', placeholder: '001', valor: '001', requerido: true },
+            ],
+            resumen: v => `${v.prefijo ? `${v.prefijo}-` : ''}${v.inicio}`,
+          })
+          vivo()
+          opciones.prefijo = v.prefijo
+          opciones.inicio = parseInt(v.inicio, 10) || 1
+          opciones.relleno = /^\d+$/.test(v.inicio) ? v.inicio.length : 3
+        }
+        sesion.estado.opciones.codigos = opciones
+        r = sesion.recalcular()
+        await bot(`✅ Creé <b>${r.codigosCreados}</b> código(s) nuevo(s), sin repetir ninguno de los que ya tenías.`, { demora: 300 })
+      }
+    }
   }
 
   // ---------- Resultado ----------
@@ -252,11 +277,22 @@ export async function iniciarConversacion({ host, alDesplazar = () => {} }) {
     }
     b.appendChild(fila)
     alDesplazar()
-    const sig = await chips(b, [{ texto: 'Empezar de nuevo', valor: 'otra' }])
+    const items = tipos.flatMap(t => r.salidas[t]).filter(i => i.codigo).map(i => ({ codigo: i.codigo, texto: i.nombre }))
+    const sig = await chips(b, [
+      ...(r.total ? [{ texto: '🏷️ Crear etiquetas con código de barras', valor: 'etiquetas' }] : []),
+      { texto: 'Empezar de nuevo', valor: 'otra' },
+    ])
     vivo()
     if (sig === 'otra') {
       await bot('Claro, empecemos de nuevo.')
       return iniciarConversacion({ host, alDesplazar })
+    }
+    if (sig === 'etiquetas') {
+      await bot(items.length
+        ? `Con gusto: uso los <b>${items.length}</b> código(s) de tus productos.`
+        : 'Tus productos no tienen código todavía; en el siguiente paso te los creo.', { demora: 300 })
+      const nombres = items.length ? null : tipos.flatMap(t => r.salidas[t]).map(i => i.nombre)
+      return iniciarCodigos({ host, alDesplazar, items: items.length ? items : null, nombres })
     }
   }
 
@@ -268,7 +304,7 @@ export async function iniciarConversacion({ host, alDesplazar = () => {} }) {
     await pasoPreguntas()
     await pasoResultado()
   } catch (e) {
-    if (e === CANCELADO) return
+    if (e === CANCELADO || e === FIN) return
     console.error('[inventario] conversación interrumpida:', e)
     await bot('Algo salió mal y no pude seguir. Recarga la página e inténtalo de nuevo.')
   }
