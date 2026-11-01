@@ -468,14 +468,21 @@ function repintarCierrePendiente() {
 // ── Vacíos que ya tuvieron una decisión ──────────────────────────────────────
 
 function resueltoHtml(v, leccion, desdeCierre) {
-  const donde = leccion
-    ? `la lección «${escapeHtml(leccion.titulo)}»`
-    : 'una lección que ya no existe'
+  // Sin leccion_id hay dos casos distintos, y decir siempre "ya no existe"
+  // miente en uno: un vacío cerrado porque el bot YA lo responde nunca tuvo
+  // lección ligada (los cierra el barrido de scripts/sql/). Se distinguen por
+  // quién lo cerró, y cada caso lleva su propia frase: encajar los dos en una
+  // sola plantilla producía "se resolvió con una FAQ en contenido que ya
+  // existía".
+  const porBarrido = !leccion && String(v.resuelto_por || '').startsWith('barrido')
   const quien = v.resuelto_por ? ` por ${escapeHtml(v.resuelto_por)}` : ''
+  const comoSeCerro = porBarrido
+    ? `Se cerró porque el bot ya lo responde, verificado preguntándoselo${quien}`
+    : `Se resolvió con una FAQ en ${leccion ? `la lección «${escapeHtml(leccion.titulo)}»` : 'una lección que ya no existe'}${quien}`
   return `<div class="bg-white border border-[var(--blue-10)] rounded-xl p-3 flex flex-col gap-1.5">
     <h3 class="text-xs font-black text-[var(--success-150)]">Este vacío ya está resuelto</h3>
     <p class="text-xs text-[var(--black-100)]">
-      Se resolvió con una FAQ en ${donde}${quien}, ${escapeHtml(hace(v.resuelto_at))}.
+      ${comoSeCerro}, ${escapeHtml(hace(v.resuelto_at))}.
     </p>
     ${desdeCierre > 0 ? `<p class="text-xs font-bold text-[var(--warning-150)]">
       ${desdeCierre} ${desdeCierre === 1 ? 'pregunta llegó' : 'preguntas llegaron'} después de resolverlo.</p>` : ''}
