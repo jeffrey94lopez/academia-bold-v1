@@ -343,7 +343,7 @@ async function renderHomePanel() {
         Por dónde entra la gente · últimos 30 días
       </p>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-1">
-        ${tarjetaUso('abrieron Bold POS AI Soporte', uso.aperturas)}
+        ${tarjetaUso('clics en el botón de ayuda en Bold POS', uso.aperturas)}
         ${tarjetaUso('hablaron con el bot', uso.conversaciones)}
         ${tarjetaUso('lecciones abiertas', uso.lecciones)}
         ${tarjetaUso('usaron el conversor', null, 'cuando salga de sandbox')}

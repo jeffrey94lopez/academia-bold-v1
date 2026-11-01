@@ -29,6 +29,10 @@ export function modeloAtencion(salud) {
 export function modeloUso(lecciones, bot) {
   const l = lecciones && typeof lecciones === 'object' ? lecciones : {}
   const b = bot && typeof bot === 'object' ? bot : {}
+  // `visits` es el page_view del portal, o sea TODA entrada. La tarjeta lo
+  // llama "clics en el botón de ayuda" porque en la práctica casi todo el
+  // tráfico llega por el embed del POS, pero un link directo también suma.
+  // Para que fuera exacto habría que registrar si llegó el contexto de Bold.
   const aperturas = n(l.kpis?.visits)
 
   // Lecciones abiertas, sin restarle nada. Antes esto restaba las visitas,
