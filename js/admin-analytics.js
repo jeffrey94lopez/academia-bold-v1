@@ -1,6 +1,12 @@
 ﻿import { supabase } from './supabase.js'
 import { escapeHtml, exportCSV } from './utils.js'
 import { rangeControlsHtml, wireRangeControls } from './analytics-ui.js'
+import { fetchLessonsSummary } from './analytics-api.js'
+
+// jsonb devuelve `numeric` como string y las claves nuevas pueden faltar
+// hasta que corra la migración. Acá 0 es el default correcto: son conteos
+// de eventos, y 'no hubo' y 'cero' son lo mismo.
+const num = v => { const x = Number(v); return Number.isFinite(x) ? x : 0 }
 import { BIZ_TZ, bizParts, bizDate, bizDow, bizStartOfDay, bizEndOfDay } from './biz-time.js'
 import { leccionesDelCurso } from './course-lessons.js'
 import { ordenarCurso } from './course-order.js'
@@ -95,19 +101,20 @@ export async function renderAnalyticsPanel(from = null, to = null) {
   const prevFrom = new Date(from - duration)
   const prevTo   = new Date(from - 1)
 
-  const [{ data: events, error }, { data: prevEvents }] = await Promise.all([
-    supabase.from('analytics_events').select('*')
-      .gte('created_at', from.toISOString()).lte('created_at', to.toISOString()).limit(5000),
-    supabase.from('analytics_events').select('event_type,created_at')
-      .gte('created_at', prevFrom.toISOString()).lte('created_at', prevTo.toISOString()).limit(5000),
-  ])
-
-  if (error) { el.innerHTML = '<p class="text-red-400 text-sm">Error al cargar analytics.</p>'; return }
-
-  const ev = events || []
-  const prev = prevEvents || []
-
-  function count(arr, type) { return arr.filter(e => e.event_type === type).length }
+  // Se cuenta en el SERVIDOR, con analytics_lessons_summary. Antes esto se
+  // traía analytics_events con .limit(5000) y contaba acá: pasado ese tope —y
+  // ya se pasaba— el panel mostraba una MUESTRA. Y sin `order`, ni siquiera
+  // era "los primeros 5000" sino 5000 cualesquiera, así que todos los números
+  // de esta pantalla salían de un subconjunto arbitrario. El 2026-11-01 decía
+  // 346 visitas donde el servidor contaba 999.
+  let resumen
+  try {
+    resumen = await fetchLessonsSummary(from, to, prevFrom, prevTo)
+  } catch (e) {
+    el.innerHTML = `<p class="text-red-400 text-sm">Error al cargar analytics: ${escapeHtml(e.message)}</p>`
+    return
+  }
+  const k = resumen?.kpis || {}
   function delta(cur, prv) {
     if (!prv) return ''
     const d = cur - prv
@@ -117,16 +124,13 @@ export async function renderAnalyticsPanel(from = null, to = null) {
     return `<span class="${color} font-bold">${sign} ${Math.abs(d)}</span>`
   }
 
-  const visits       = count(ev, 'page_view')
-  const prevVisits   = count(prev, 'page_view')
-  const newStudents  = ev.filter(e => e.event_type === 'mode_selected' && e.payload?.mode === 'course').length
-  const prevStudents = prev.filter(e => e.event_type === 'mode_selected' && e.payload?.mode === 'course').length
-  const passes       = ev.filter(e => e.event_type === 'exam_pass')
-  const avgScore     = passes.length
-    ? Math.round(passes.reduce((s, e) => s + (e.payload?.score || 0), 0) / passes.length)
-    : 0
-  const certViews  = count(ev, 'certificate_view')
-  const certPrints = count(ev, 'certificate_print')
+  const visits       = num(k.visits)
+  const prevVisits   = num(k.prev_visits)
+  const newStudents  = num(k.new_students)
+  const prevStudents = num(k.prev_new_students)
+  const avgScore     = num(k.avg_score)
+  const certViews    = num(k.cert_views)
+  const certPrints   = num(k.cert_prints)
 
   const fmtDate = d => d.toISOString().split('T')[0]
 
@@ -155,7 +159,7 @@ export async function renderAnalyticsPanel(from = null, to = null) {
       </div>
       <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4">
         <p class="text-[10px] font-bold text-[var(--black-40)] uppercase tracking-wide mb-1">Puntaje promedio</p>
-        <p class="text-2xl font-black text-[var(--black-100)]">${passes.length ? avgScore + '%' : '—'}</p>
+        <p class="text-2xl font-black text-[var(--black-100)]">${num(k.passes) ? avgScore + '%' : '—'}</p>
         <p class="text-xs text-[var(--black-40)] mt-1">En exámenes</p>
       </div>
       <div class="bg-white rounded-2xl border border-[var(--blue-10)] p-4">
@@ -170,8 +174,26 @@ export async function renderAnalyticsPanel(from = null, to = null) {
 
   wireRangeControls(el, 'analytics', (f, t) => renderAnalyticsPanel(f, t))
 
-  el.querySelector('#analytics-export-csv')?.addEventListener('click', () => {
-    exportCSV(ev, `lecciones-analytics-${fmtDate(from)}-${fmtDate(to)}.csv`, [
+  // El CSV es lo único que necesita los eventos CRUDOS, y ahora se piden solo
+  // al hacer clic: antes viajaban en cada carga del panel para después
+  // contarlos a mano. `order` + un tope alto para que, si alguna vez se corta,
+  // se corte por fecha y se pueda avisar — no en silencio como antes.
+  const TOPE_CSV = 50000
+  el.querySelector('#analytics-export-csv')?.addEventListener('click', async () => {
+    const btn = el.querySelector('#analytics-export-csv')
+    const original = btn.textContent
+    btn.disabled = true
+    btn.textContent = 'Preparando…'
+    const { data: ev, error: errCsv } = await supabase.from('analytics_events').select('*')
+      .gte('created_at', from.toISOString()).lte('created_at', to.toISOString())
+      .order('created_at').limit(TOPE_CSV)
+    btn.disabled = false
+    btn.textContent = original
+    if (errCsv) { alert('No se pudo exportar: ' + errCsv.message); return }
+    if ((ev || []).length >= TOPE_CSV) {
+      alert(`El rango tiene más de ${TOPE_CSV} eventos: el archivo sale cortado en los más antiguos. Exporta por tramos más cortos.`)
+    }
+    exportCSV(ev || [], `lecciones-analytics-${fmtDate(from)}-${fmtDate(to)}.csv`, [
       { label: 'Fecha',             getValue: r => new Date(r.created_at).toLocaleString('es-CO') },
       { label: 'Tipo de evento',    getValue: r => r.event_type },
       { label: 'ID lección',        getValue: r => r.payload?.lesson_id || '' },
@@ -185,10 +207,10 @@ export async function renderAnalyticsPanel(from = null, to = null) {
     ])
   })
 
-  renderAnalyticsBody(el.querySelector('#analytics-body'), ev, from, to)
+  renderAnalyticsBody(el.querySelector('#analytics-body'), resumen, from, to)
 }
 
-function renderAnalyticsBody(container, ev, from, to) {
+function renderAnalyticsBody(container, resumen, from, to) {
   // Las barras cortan por día de negocio (Bogotá), igual que las RPC.
   const days = []
   const first = bizParts(from)
@@ -199,10 +221,11 @@ function renderAnalyticsBody(container, ev, from, to) {
     days.push(d)
   }
 
-  const pageViews = ev.filter(e => e.event_type === 'page_view')
-  const dayCounts = days.map((d, i) => {
-    const next = days[i + 1] || new Date(end.getTime() + 1)
-    return pageViews.filter(e => { const t = new Date(e.created_at); return t >= d && t < next }).length
+  // El RPC ya agrupa por día de negocio; acá solo se alinea con el eje.
+  const porDia = Object.fromEntries((resumen?.visits_by_day || []).map(x => [String(x.day).slice(0, 10), num(x.count)]))
+  const dayCounts = days.map(d => {
+    const { year, month, day } = bizParts(d)
+    return porDia[`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`] || 0
   })
   const maxCount = Math.max(...dayCounts, 1)
   const barWidth = Math.max(8, Math.min(32, Math.floor(480 / days.length) - 4))
@@ -224,20 +247,16 @@ function renderAnalyticsBody(container, ev, from, to) {
     </div>`
   }).join('')
 
-  const modeEvents = ev.filter(e => e.event_type === 'mode_selected')
-  const courseCount = modeEvents.filter(e => e.payload?.mode === 'course').length
-  const exploreCount = modeEvents.filter(e => e.payload?.mode === 'explore').length
+  const courseCount  = num(resumen?.entry_mode?.course)
+  const exploreCount = num(resumen?.entry_mode?.explore)
   const modeTotal = courseCount + exploreCount || 1
   const coursePct = Math.round(courseCount / modeTotal * 100)
   const explorePct = 100 - coursePct
 
-  const lessonOpens = ev.filter(e => e.event_type === 'lesson_open')
-  const lessonCounts = {}
-  lessonOpens.forEach(e => {
-    const key = e.payload?.lesson_title || e.payload?.lesson_id || 'Sin título'
-    lessonCounts[key] = (lessonCounts[key] || 0) + 1
-  })
-  const topLessons = Object.entries(lessonCounts).sort((a, b) => b[1] - a[1]).slice(0, 10)
+  // El RPC ya devuelve el top 10 ordenado; se conserva la forma [clave, n]
+  // que espera el render de abajo.
+  const topLessons = (resumen?.top_lessons || [])
+    .map(t => [t.lesson || 'Sin título', num(t.count)])
 
   container.innerHTML = `
     <div class="grid gap-4 mb-5" style="grid-template-columns:2fr 1fr">
@@ -291,26 +310,20 @@ function renderAnalyticsBody(container, ev, from, to) {
     <div id="analytics-exams" class="mt-5"></div>
   `
 
-  renderSearchesSection(container.querySelector('#analytics-searches'), ev)
-  renderExamsSection(container.querySelector('#analytics-exams'), ev)
+  renderSearchesSection(container.querySelector('#analytics-searches'), resumen)
+  renderExamsSection(container.querySelector('#analytics-exams'), resumen)
 }
 
-function renderSearchesSection(container, ev) {
-  const searches = ev.filter(e => e.event_type === 'lesson_search')
-  const byTerm = {}
-  searches.forEach(e => {
-    const term = (e.payload?.term || '').toLowerCase().trim()
-    if (!term) return
-    if (!byTerm[term]) byTerm[term] = { count: 0, zeroCount: 0, lastAt: e.created_at, totalResults: 0 }
-    byTerm[term].count++
-    byTerm[term].totalResults += (e.payload?.results_count || 0)
-    if ((e.payload?.results_count || 0) === 0) byTerm[term].zeroCount++
-    if (e.created_at > byTerm[term].lastAt) byTerm[term].lastAt = e.created_at
-  })
-
-  let allTerms = Object.entries(byTerm)
-    .map(([term, d]) => ({ term, ...d, avgResults: Math.round(d.totalResults / d.count), noResults: d.zeroCount === d.count }))
-    .sort((a, b) => b.count - a.count)
+function renderSearchesSection(container, resumen) {
+  // El RPC ya agrupa por término y viene ordenado por frecuencia.
+  let allTerms = (resumen?.searches || []).map(t => ({
+    term: t.term,
+    count: num(t.count),
+    zeroCount: num(t.zero_count),
+    lastAt: t.last_at,
+    avgResults: Math.round(num(t.avg_results)),
+    noResults: num(t.zero_count) === num(t.count),
+  }))
 
   const PAGE = 20
   let page = 0
@@ -404,22 +417,15 @@ function renderSearchesSection(container, ev) {
   renderTable()
 }
 
-function renderExamsSection(container, ev) {
-  const examEvents = ev.filter(e => e.event_type === 'exam_pass' || e.event_type === 'exam_fail')
-  if (examEvents.length === 0) { container.innerHTML = ''; return }
+function renderExamsSection(container, resumen) {
+  const examenes = resumen?.exams || []
+  if (!examenes.length) { container.innerHTML = ''; return }
 
-  const byLesson = {}
-  examEvents.forEach(e => {
-    const key = e.payload?.lesson_title || e.payload?.lesson_id || 'Sin título'
-    if (!byLesson[key]) byLesson[key] = { passes: 0, fails: 0, totalScore: 0, scoreCount: 0 }
-    if (e.event_type === 'exam_pass') {
-      byLesson[key].passes++
-      byLesson[key].totalScore += (e.payload?.score || 0)
-      byLesson[key].scoreCount++
-    } else {
-      byLesson[key].fails++
-    }
-  })
+  // El RPC ya agrupa por lección, con pass_pct y promedio calculados.
+  const byLesson = Object.fromEntries(examenes.map(e => [
+    e.lesson || 'Sin título',
+    { passes: num(e.passes), fails: num(e.fails), totalScore: num(e.avg_score) * num(e.passes), scoreCount: num(e.passes) },
+  ]))
 
   const rows = Object.entries(byLesson)
     .map(([title, d]) => {

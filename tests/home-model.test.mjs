@@ -22,12 +22,13 @@ test('modeloUso: aperturas y conversaciones salen tal cual', () => {
   assert.equal(m.conversaciones, 91)
 })
 
-test('modeloUso: las lecciones abiertas se suman SIN restar las visitas', () => {
-  // La resta existía porque el portal abría una lección sola en cada visita.
-  // Desde que eso se quitó, cada apertura ya es voluntaria: restar daría de
-  // menos y la tarjeta tendería a cero.
-  const m = modeloUso({ kpis: { visits: 346 }, top_lessons: [{ count: 347 }, { count: 8 }, { count: 6 }] }, {})
-  assert.equal(m.lecciones, 361)
+test('modeloUso: las lecciones salen del total, NO de sumar top_lessons', () => {
+  // top_lessons lleva `limit 10` adentro: sumarla deja afuera la cola y
+  // sub-cuenta sin avisar. Acá el total dice 1058 y la suma de la lista daría
+  // 361, que es justo el error que se quiere evitar.
+  const m = modeloUso({ kpis: { visits: 346, lesson_opens: 1058 },
+                        top_lessons: [{ count: 347 }, { count: 8 }, { count: 6 }] }, {})
+  assert.equal(m.lecciones, 1058)
 })
 
 test('modeloUso: sin datos todo es null', () => {
@@ -35,7 +36,9 @@ test('modeloUso: sin datos todo es null', () => {
   assert.deepEqual(m, { aperturas: null, conversaciones: null, lecciones: null })
 })
 
-test('modeloUso: sin top_lessons no inventa lecciones', () => {
+test('modeloUso: sin lesson_opens no inventa lecciones', () => {
+  // La migración que agrega la clave la corre el usuario: hasta entonces la
+  // tarjeta tiene que decir "—", no 0.
   const m = modeloUso({ kpis: { visits: 346 } }, {})
   assert.equal(m.aperturas, 346)
   assert.equal(m.lecciones, null)

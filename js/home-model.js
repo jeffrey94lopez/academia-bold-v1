@@ -39,14 +39,12 @@ export function modeloUso(lecciones, bot) {
   // Durante los primeros 30 días después del cambio el número viene inflado
   // por las aperturas automáticas que quedaron en el histórico; se corrige
   // solo cuando la ventana las deja atrás.
-  const opens = Array.isArray(l.top_lessons)
-    ? l.top_lessons.reduce((a, t) => a + (n(t?.count) ?? 0), 0)
-    : null
-
+  // kpis.lesson_opens y NO la suma de top_lessons: esa lista lleva `limit 10`
+  // adentro, así que sumarla deja afuera la cola y sub-cuenta en silencio.
   return {
     aperturas,
     conversaciones: n(b.kpis?.total),
-    lecciones: opens,
+    lecciones: n(l.kpis?.lesson_opens),
   }
 }
 
