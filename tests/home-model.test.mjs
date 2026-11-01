@@ -22,30 +22,23 @@ test('modeloUso: aperturas y conversaciones salen tal cual', () => {
   assert.equal(m.conversaciones, 91)
 })
 
-test('modeloUso: las segundas lecciones son las aperturas de lección que SOBRAN', () => {
-  // Cada visita abre una lección sola (la que el portal abre por defecto), así
-  // que todo lo que exceda las visitas es alguien que abrió otra a propósito.
+test('modeloUso: las lecciones abiertas se suman SIN restar las visitas', () => {
+  // La resta existía porque el portal abría una lección sola en cada visita.
+  // Desde que eso se quitó, cada apertura ya es voluntaria: restar daría de
+  // menos y la tarjeta tendería a cero.
   const m = modeloUso({ kpis: { visits: 346 }, top_lessons: [{ count: 347 }, { count: 8 }, { count: 6 }] }, {})
-  assert.equal(m.segundas, 15)
-})
-
-test('modeloUso: nunca devuelve segundas negativas', () => {
-  // Si alguien entra y se va sin que cargue ninguna lección, los opens quedan
-  // por debajo de las visitas. Un -3 en pantalla no significa nada.
-  const m = modeloUso({ kpis: { visits: 10 }, top_lessons: [{ count: 4 }] }, {})
-  assert.equal(m.segundas, 0)
+  assert.equal(m.lecciones, 361)
 })
 
 test('modeloUso: sin datos todo es null', () => {
   const m = modeloUso(null, null)
-  assert.deepEqual(m, { aperturas: null, conversaciones: null, segundas: null })
+  assert.deepEqual(m, { aperturas: null, conversaciones: null, lecciones: null })
 })
 
-test('modeloUso: sin top_lessons no inventa segundas', () => {
-  // Saber las visitas no alcanza para saber cuántas segundas lecciones hubo.
+test('modeloUso: sin top_lessons no inventa lecciones', () => {
   const m = modeloUso({ kpis: { visits: 346 } }, {})
   assert.equal(m.aperturas, 346)
-  assert.equal(m.segundas, null)
+  assert.equal(m.lecciones, null)
 })
 
 const BOT = { kpis: { by_vertical: {

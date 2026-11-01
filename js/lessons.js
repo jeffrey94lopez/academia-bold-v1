@@ -120,7 +120,11 @@ async function renderLessons() {
 
   const firstCat = CATEGORIES.find(c => grouped[c.key]?.length > 0)?.key || CATEGORIES[0]?.key
   let activeCategory = firstCat
-  let activeLesson = grouped[firstCat]?.[0] || null
+  // NADIE abre una lección por vos. Antes esto arrancaba en la primera del
+  // primer grupo, y eso disparaba un `lesson_open` por cada visita: el 97% de
+  // las aperturas registradas eran de una sola lección, la que caía acá por
+  // orden alfabético de categoría. Medía el aterrizaje, no la lectura.
+  let activeLesson = null
   let searchQuery = ''
   // Acordeón desktop: categorías abiertas (toggle manual, varias a la vez)
   const openCats = new Set(firstCat ? [firstCat] : [])
@@ -324,7 +328,10 @@ async function renderLessons() {
     const panel = document.getElementById('ls-desk-content')
     if (!panel) return
     if (!activeLesson) {
-      panel.innerHTML = '<p class="text-[var(--black-60)] text-sm">Selecciona una lección.</p>'
+      panel.innerHTML = `<div class="h-full flex flex-col items-center justify-center text-center px-6">
+        <p class="text-base font-bold text-[var(--black-100)]">¿Con qué te ayudamos?</p>
+        <p class="text-sm text-[var(--black-60)] mt-1">Elige un tema de la izquierda, o pregúntale a bolbot.</p>
+      </div>`
       return
     }
     renderLessonContent(panel, activeLesson)

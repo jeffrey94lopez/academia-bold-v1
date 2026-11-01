@@ -345,11 +345,11 @@ async function renderHomePanel() {
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-1">
         ${tarjetaUso('abrieron Bold POS AI Soporte', uso.aperturas)}
         ${tarjetaUso('hablaron con el bot', uso.conversaciones)}
-        ${tarjetaUso('abrieron una 2ª lección', uso.segundas)}
+        ${tarjetaUso('lecciones abiertas', uso.lecciones)}
         ${tarjetaUso('usaron el conversor', null, 'cuando salga de sandbox')}
       </div>
-      ${(uso.aperturas && uso.segundas !== null)
-        ? `<p class="text-[11px] text-[var(--black-40)] mb-6">${Math.round(100 * uso.segundas / uso.aperturas)} de cada 100 pasan de la lección que se abre sola.</p>`
+      ${(uso.aperturas && uso.lecciones !== null)
+        ? `<p class="text-[11px] text-[var(--black-40)] mb-6">${Math.round(100 * uso.lecciones / uso.aperturas)} lecciones abiertas por cada 100 personas que entran.</p>`
         : '<div class="mb-6"></div>'}
 
       <p class="text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-2">Retail contra Restaurantes</p>

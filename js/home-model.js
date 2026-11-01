@@ -31,12 +31,14 @@ export function modeloUso(lecciones, bot) {
   const b = bot && typeof bot === 'object' ? bot : {}
   const aperturas = n(l.kpis?.visits)
 
-  // Cada visita abre UNA lección sola: la que el portal abre por defecto. Todo
-  // lo que exceda las visitas es alguien que abrió otra a propósito, que es la
-  // única señal de lectura voluntaria que hay hoy.
+  // Lecciones abiertas, sin restarle nada. Antes esto restaba las visitas,
+  // porque el portal abría una lección sola en cada visita y había que
+  // descontarla para ver la lectura voluntaria. Desde que eso se quitó
+  // (js/lessons.js), CADA apertura ya es voluntaria y la resta daría de menos.
   //
-  // Sin top_lessons no se puede calcular: saber las visitas no alcanza, y
-  // devolver las visitas como si fueran lecturas sería el error de siempre.
+  // Durante los primeros 30 días después del cambio el número viene inflado
+  // por las aperturas automáticas que quedaron en el histórico; se corrige
+  // solo cuando la ventana las deja atrás.
   const opens = Array.isArray(l.top_lessons)
     ? l.top_lessons.reduce((a, t) => a + (n(t?.count) ?? 0), 0)
     : null
@@ -44,7 +46,7 @@ export function modeloUso(lecciones, bot) {
   return {
     aperturas,
     conversaciones: n(b.kpis?.total),
-    segundas: (opens === null || aperturas === null) ? null : Math.max(0, opens - aperturas),
+    lecciones: opens,
   }
 }
 
