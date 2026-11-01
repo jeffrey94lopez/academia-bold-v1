@@ -1,57 +1,69 @@
--- Borra el rastro que dejó el barrido del 2026-11-01 en la bandeja.
+-- Borra el rastro que deja en la bandeja un barrido de vacíos contra el bot.
 --
--- Qué pasó: para saber qué vacíos pendientes ya responde el bot, hay que
+-- ⚠ ANTES DE CORRERLO: pon abajo la hora de inicio de TU barrido.
+--
+-- Qué pasa: para saber qué vacíos pendientes ya responde el bot hay que
 -- preguntárselo — es la única prueba que discrimina (ver
 -- scripts/sql/calibrar-vacios-cubiertos.sql). Pero cada pregunta que el bot
--- falla la registra n8n, y el agrupamiento por similitud NO las mete en el
--- vacío original: el umbral de 0.80 las deja afuera y nacen vacíos nuevos.
--- Comprobado en chico el 2026-10-31: probar "como agrando la letra para
--- imprimir" creó un vacío aparte del que ya existía con ese tema.
+-- falla la registra n8n, y el agrupamiento por similitud NO la mete en el
+-- vacío original: el umbral de 0.80 la deja afuera y nacen vacíos NUEVOS. Un
+-- barrido de 81 preguntas duplica la bandeja si no se limpia después.
 --
--- Cómo se identifica lo que hay que borrar, sin tocar nada de clientes reales:
--- las preguntas del barrido son COPIA EXACTA del título de un vacío, y esos
--- títulos son resúmenes del LLM ("El usuario preguntó cómo…") que nadie
--- escribe espontáneamente. Se acota además a la ventana del barrido.
+-- Cómo se identifica lo del barrido sin tocar nada de clientes reales: sus
+-- preguntas son COPIA EXACTA del título de un vacío, y esos títulos son
+-- resúmenes del LLM ("El usuario preguntó cómo…") que nadie escribe
+-- espontáneamente. Se acota además a la ventana del barrido.
 --
--- Ejecutar UNA sola vez en el SQL Editor del proyecto Supabase.
+-- Corrido el 2026-11-01 sobre el barrido de 81 preguntas: dejó la bandeja en
+-- 82 pendientes, los mismos que había antes menos los 2 que habían ensuciado
+-- las pruebas manuales del día anterior (esos se borraron a mano en esa
+-- corrida; el bloque ya no está acá porque era de una sola vez).
+--
+-- Ejecutar UNA vez por barrido, en el SQL Editor del proyecto Supabase.
 
 begin;
 
--- La ventana del barrido. Si vuelves a correr un barrido, cambia esta fecha.
+-- ══ PONE ACÁ LA HORA DE INICIO DE TU BARRIDO ═══════════════════════════════
 create temp table ventana on commit drop as
   select '2026-11-01T05:20:42Z'::timestamptz as inicio;
+-- ═══════════════════════════════════════════════════════════════════════════
 
--- 1. Las preguntas que metió el barrido: creadas dentro de la ventana y con un
---    texto que es, letra por letra, el título de algún vacío.
+do $$
+declare v timestamptz;
+begin
+  select inicio into v from ventana;
+  -- Una ventana vieja es EL error de este script, no un detalle: "creado
+  -- después de" incluiría todo el tráfico real desde entonces, y borraría
+  -- preguntas de clientes cuyo texto coincida con el título de algún vacío.
+  -- Mejor que se niegue a correr y moleste, a que se lleve datos en silencio.
+  if now() - v > interval '6 hours' then
+    raise exception 'La ventana (%) tiene más de 6 horas. Si es un barrido nuevo, pon su hora de inicio arriba; si es el de antes, ya se corrió. No se borró nada.', v;
+  end if;
+  if v > now() then
+    raise exception 'La ventana (%) está en el futuro. No se borró nada.', v;
+  end if;
+end $$;
+
+-- Las preguntas que metió el barrido: creadas dentro de la ventana y con un
+-- texto que es, letra por letra, el título de algún vacío.
 create temp table basura on commit drop as
 select p.id, p.vacio_id
   from bot_vacios_preguntas p, ventana w
  where p.created_at >= w.inicio
    and exists (select 1 from bot_vacios v where v.titulo = p.texto);
 
--- 2. Los dos vacíos que las pruebas manuales del 2026-10-31 ya habían
---    ensuciado, antes de la ventana. Se nombran uno por uno a propósito: son
---    textos que escribí yo, no resúmenes del LLM, así que no los agarra la
---    regla de arriba.
-insert into basura (id, vacio_id)
-select p.id, p.vacio_id
-  from bot_vacios_preguntas p
-  join bot_vacios v on v.id = p.vacio_id
- where v.estado = 'pendiente'
-   and v.titulo in ('como agrando la letra para imprimir', 'uso un iPad');
-
 select count(*) as preguntas_a_borrar from basura;
 
 delete from bot_vacios_preguntas where id in (select id from basura);
 
--- 3. Los vacíos que quedaron sin ninguna pregunta son los que CREÓ el barrido:
---    un vacío de cliente real conserva las suyas.
+-- Los vacíos que quedaron sin ninguna pregunta son los que CREÓ el barrido:
+-- uno de cliente real conserva las suyas.
 delete from bot_vacios v
  where v.estado = 'pendiente'
    and not exists (select 1 from bot_vacios_preguntas p where p.vacio_id = v.id);
 
--- 4. Contadores recalculados desde las filas, nunca restados. Solo los que
---    perdieron preguntas y siguen existiendo.
+-- Contadores recalculados desde las filas, nunca restados. Solo los que
+-- perdieron preguntas y siguen existiendo.
 update bot_vacios v set
        preguntas_total = s.total,
        primera_vez     = s.primera,
