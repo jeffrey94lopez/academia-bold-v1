@@ -31,6 +31,25 @@ test('modeloUso: las lecciones salen del total, NO de sumar top_lessons', () => 
   assert.equal(m.lecciones, 1058)
 })
 
+test('modeloUso: descuenta las aperturas AUTOMÁTICAS del histórico', () => {
+  // Hasta el 2026-11-01 el portal abría una lección sola por visita. Sin
+  // restarlas, la tarjeta mide el aterrizaje y no la lectura.
+  const m = modeloUso({ kpis: { visits: 1004, lesson_opens: 1091, lesson_opens_auto: 1000 } }, {})
+  assert.equal(m.lecciones, 91)
+})
+
+test('modeloUso: la resta nunca deja un negativo en pantalla', () => {
+  const m = modeloUso({ kpis: { lesson_opens: 10, lesson_opens_auto: 40 } }, {})
+  assert.equal(m.lecciones, 0)
+})
+
+test('modeloUso: sin la clave de automáticas no resta nada', () => {
+  // La migración la corre el usuario: hasta entonces la tarjeta muestra el
+  // total, que es de más pero no es inventado.
+  const m = modeloUso({ kpis: { lesson_opens: 1091 } }, {})
+  assert.equal(m.lecciones, 1091)
+})
+
 test('modeloUso: sin datos todo es null', () => {
   const m = modeloUso(null, null)
   assert.deepEqual(m, { aperturas: null, conversaciones: null, lecciones: null })

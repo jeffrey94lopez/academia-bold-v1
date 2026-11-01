@@ -349,7 +349,7 @@ async function renderHomePanel() {
         ${tarjetaUso('usaron el conversor', null, 'cuando salga de sandbox')}
       </div>
       ${(uso.aperturas && uso.lecciones !== null)
-        ? `<p class="text-[11px] text-[var(--black-40)] mb-6">${Math.round(100 * uso.lecciones / uso.aperturas)} lecciones abiertas por cada 100 personas que entran.</p>`
+        ? `<p class="text-[11px] text-[var(--black-40)] mb-6">${Math.round(100 * uso.lecciones / uso.aperturas)} de cada 100 que entran abren una lección.</p>`
         : '<div class="mb-6"></div>'}
 
       <p class="text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-2">Retail contra Restaurantes</p>

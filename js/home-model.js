@@ -41,10 +41,20 @@ export function modeloUso(lecciones, bot) {
   // solo cuando la ventana las deja atrás.
   // kpis.lesson_opens y NO la suma de top_lessons: esa lista lleva `limit 10`
   // adentro, así que sumarla deja afuera la cola y sub-cuenta en silencio.
+  //
+  // Y se le restan las AUTOMÁTICAS: hasta el 2026-11-01 el portal abría una
+  // lección sola al entrar, una por visita. Sin la resta, el número mide el
+  // aterrizaje y no la lectura. La resta se expira sola cuando la ventana
+  // deje atrás el cambio (ver add_lesson_opens_auto.sql).
+  const abiertas = n(l.kpis?.lesson_opens)
+  const automaticas = n(l.kpis?.lesson_opens_auto) ?? 0
+
   return {
     aperturas,
     conversaciones: n(b.kpis?.total),
-    lecciones: n(l.kpis?.lesson_opens),
+    // Math.max por si el histórico no cuadra: un negativo en pantalla no
+    // significa nada y asustaría más que el número real.
+    lecciones: abiertas === null ? null : Math.max(0, abiertas - automaticas),
   }
 }
 
