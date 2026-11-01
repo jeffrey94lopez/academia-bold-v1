@@ -84,6 +84,16 @@ export async function marcarIncidente(vacioId, nota, email, client) {
   })
 }
 
+// Vacíos pendientes cuya ancla ya se parece a una lección. Es el chequeo
+// BARATO: dice que hay contenido parecido, no que el bot responda — para eso
+// está js/gap-probar-bot.js.
+export async function fetchVaciosCubiertos(umbral = 0.55, limit = 100, client) {
+  if (!client) client = await getSupabaseClient()
+  return callRpc(client, 'analytics_vacios_cubiertos', {
+    p_umbral: umbral, p_limit: limit,
+  })
+}
+
 export async function dividirVacio(vacioId, preguntaIds, titulo, client) {
   if (!client) client = await getSupabaseClient()
   return callRpc(client, 'dividir_vacio', {
