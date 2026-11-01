@@ -649,7 +649,7 @@ function wireAccionesPorEstado(v) {
 
 const MOTIVOS = {
   no_aplica: 'No aplica',
-  es_soporte: 'Es soporte, no academia',
+  es_soporte: 'Lo atiende Soporte, no falta contenido',
   duplicado: 'Duplicado de otro vacío',
   ruido: 'Ruido',
 }

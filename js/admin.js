@@ -324,7 +324,7 @@ async function renderHomePanel() {
     <div class="max-w-4xl">
       <div class="mb-6">
         <p class="text-lg font-black text-[var(--black-100)]">${greeting}${name ? ', ' + escapeHtml(name) : ''} 👋</p>
-        <p class="text-sm text-[var(--black-40)] mt-0.5">Esto es lo que está pasando en tu academia.</p>
+        <p class="text-sm text-[var(--black-40)] mt-0.5">Esto es lo que está pasando en Bold POS AI Soporte.</p>
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 md:mb-6">
@@ -3750,7 +3750,7 @@ function renderRevisionEnlaces({ rotas, noVerificables, huerfanos, usos }) {
   // no lo puede saber, así que no hay "borrar todos".
   const bloqueHuerfanos = huerfanos.length ? `
     <p class="font-bold text-[var(--black-60)] mb-1 mt-2">${huerfanos.length} ${huerfanos.length === 1 ? 'archivo sin usar' : 'archivos sin usar'}</p>
-    <p class="text-xs text-[var(--black-60)] mb-2">Ninguna lección, material, pregunta frecuente, término ni sugerencia los menciona <span class="font-bold">dentro de la Academia</span>. Si compartiste el link por fuera (WhatsApp, otro sitio), borrarlos lo rompe.</p>
+    <p class="text-xs text-[var(--black-60)] mb-2">Ninguna lección, material, pregunta frecuente, término ni sugerencia los menciona <span class="font-bold">dentro de Bold POS AI Soporte</span>. Si compartiste el link por fuera (WhatsApp, otro sitio), borrarlos lo rompe.</p>
     <div class="space-y-2">
       ${huerfanos.map(f => `
         <div class="border border-[var(--blue-10)] rounded-xl p-3 flex items-center gap-2">
@@ -3768,7 +3768,7 @@ function renderRevisionEnlaces({ rotas, noVerificables, huerfanos, usos }) {
 
   body.querySelectorAll('.drop-orphan').forEach(btn => {
     btn.addEventListener('click', async () => {
-      if (!confirm(`¿Eliminar "${btn.dataset.display}"?\nNadie lo usa dentro de la Academia.\nEsta acción no se puede deshacer.`)) return
+      if (!confirm(`¿Eliminar "${btn.dataset.display}"?\nNadie lo usa dentro de Bold POS AI Soporte.\nEsta acción no se puede deshacer.`)) return
       btn.disabled = true
       btn.textContent = 'Eliminando...'
       try {

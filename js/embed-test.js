@@ -207,7 +207,7 @@ function renderLog() {
 const SNIPPET = [
   '// Pegar en la consola de https://pos.bold.co con el menu Ayuda ABIERTO.',
   '// Si Chrome no deja pegar: escribir "allow pasting" en la consola y Enter.',
-  '// Manda a la Academia SOLO datos reales de la sesion. Nada sale del navegador.',
+  '// Manda a Bold POS AI Soporte SOLO datos reales de la sesion. Nada sale del navegador.',
   '(() => {',
   "  const f = document.querySelector('iframe.pos-help-window__iframe')",
   '         || document.querySelector(\'iframe[src*="academia.localizadoc.com"]\');',

@@ -84,8 +84,8 @@ export function renderCertificate(student) {
     <p class="text-xs tracking-widest text-slate-500 uppercase font-semibold">
       Certificado de Finalización
     </p>
-    <p class="text-xl font-bold text-slate-800">Bold POS Academy</p>
-    <p class="text-sm text-slate-500">Academia Oficial de Bold POS</p>
+    <p class="text-xl font-bold text-slate-800">Bold POS AI Soporte</p>
+    <p class="text-sm text-slate-500">Soporte oficial de Bold POS</p>
 
     <hr class="w-16 border-[#121e6c] border-t-2 my-1">
 
@@ -160,7 +160,7 @@ export function printCertificate(student) {
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Certificado — Bold POS Academy</title>
+  <title>Certificado — Bold POS AI Soporte</title>
   <style>
     @page {
       size: landscape;
@@ -278,8 +278,8 @@ export function printCertificate(student) {
     <div class="diploma-inner">
       <div class="logo">B</div>
       <p class="label-sm">Certificado de Finalización</p>
-      <p class="academy-name">Bold POS Academy</p>
-      <p class="academy-sub">Academia Oficial de Bold POS</p>
+      <p class="academy-name">Bold POS AI Soporte</p>
+      <p class="academy-sub">Soporte oficial de Bold POS</p>
       <hr class="divider">
       <p class="acredita">Este certificado acredita que</p>
       <p class="student-name">${fullName}</p>

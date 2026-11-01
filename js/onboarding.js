@@ -267,7 +267,7 @@ function cierre() {
   <div class="onb-especial-botones">
     <button type="button" class="onb-btn onb-btn-primario" data-action="crear-de-verdad">Crear mi primer producto de verdad</button>
   </div>
-  <h2 class="onb-especial-sub">Sigue aprendiendo en Academia Bold</h2>
+  <h2 class="onb-especial-sub">Sigue aprendiendo en Bold POS AI Soporte</h2>
   <ul class="onb-especial-lecciones">${lecciones}</ul>`)
 }
 
@@ -283,11 +283,11 @@ function pantallaEspecial(e) {
   }
   if (e.tipo === 'no-aplica') {
     const pie = desdeAyuda
-      ? '<div class="onb-especial-botones"><button type="button" class="onb-btn onb-btn-primario" data-action="volver-academia">Volver a Academia</button></div>'
+      ? '<div class="onb-especial-botones"><button type="button" class="onb-btn onb-btn-primario" data-action="volver-academia">Volver a Bold POS AI Soporte</button></div>'
       : e.suelto ? '<p class="onb-especial-texto">Ya puedes cerrar esta ventana.</p>' : ''
     return tarjeta(`
   <h1 class="onb-especial-titulo">Pronto tendremos tu recorrido</h1>
-  <p class="onb-especial-texto">Esta práctica guiada es para tiendas (retail). Estamos preparando la de restaurantes; mientras tanto, en Academia Bold encuentras lecciones para tu negocio.</p>
+  <p class="onb-especial-texto">Esta práctica guiada es para tiendas (retail). Estamos preparando la de restaurantes; mientras tanto, en Bold POS AI Soporte encuentras lecciones para tu negocio.</p>
   ${pie}`)
   }
   // cerrado
