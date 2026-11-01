@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   fetchVacios, fetchVacioDetalle, fetchVaciosSalud,
   resolverVacio, descartarVacio, dividirVacio, marcarSolicitud, fusionarVacios,
-  marcarIncidente, fetchVaciosCubiertos,
+  marcarIncidente,
 } from '../js/gaps-api.js'
 
 // Cliente falso: registra la llamada y devuelve lo que se le pida.
@@ -111,17 +111,4 @@ test('marcarIncidente manda sus parámetros y propaga el error', async () => {
   await assert.rejects(
     () => marcarIncidente('v', null, null, fakeClient({ data: null, error: { message: 'x' } })),
     /marcar_incidente: x/)
-})
-
-test('fetchVaciosCubiertos: manda umbral y tope, y propaga el error', async () => {
-  const c = fakeClient({ data: { umbral: 0.55, cubiertos: [] }, error: null })
-  await fetchVaciosCubiertos(0.6, 50, c)
-  assert.deepEqual(c.llamadas[0], {
-    name: 'analytics_vacios_cubiertos', params: { p_umbral: 0.6, p_limit: 50 },
-  })
-  // La migración la corre el usuario: hasta entonces la RPC no existe y el
-  // error tiene que llegar al panel, no tragarse como "no hay cubiertos".
-  await assert.rejects(
-    () => fetchVaciosCubiertos(0.55, 100, fakeClient({ data: null, error: { message: 'not found' } })),
-    /analytics_vacios_cubiertos: not found/)
 })

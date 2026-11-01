@@ -4,12 +4,11 @@
 // precedente de admin-analytics.js y admin-bot-analytics.js.
 import { fetchVacios, fetchVaciosSalud, fetchVacioDetalle, resolverVacio,
          descartarVacio, dividirVacio, marcarSolicitud, marcarIncidente,
-         fusionarVacios, fetchVaciosCubiertos } from './gaps-api.js'
+         fusionarVacios } from './gaps-api.js'
 import { validarDivision } from './gap-split.js'
 import { validarFusion, avisosFusion } from './gap-merge.js'
 import { etiquetaComercio, contarComercios } from './gap-comercio.js'
 import { agruparPorCategoria } from './gap-grouping.js'
-import { modeloCobertura } from './gap-cobertura.js'
 import { probarEnBot } from './gap-probar-bot.js'
 import { estadoMostrado, registroEnSilencio } from './gap-lifecycle.js'
 import { contenidoConFaqInfo, buildFaqBlock } from './gap-faq-block.js'
@@ -53,14 +52,6 @@ let estadoFiltro = 'pendiente'
 // un parámetro en la RPC que filtre en el servidor; hasta entonces, uno holgado.
 const LIMITE_LISTA = 500
 
-// Qué tan parecida tiene que ser una lección al ancla de un vacío para
-// sugerirla como "esto ya está cubierto". PROVISIONAL: sale de calibrar contra
-// los 6 vacíos de Hardware que se cerraron a mano el 2026-10-31. Sube si la
-// franja sugiere cosas que no tienen que ver; baja si se queda corta.
-const UMBRAL_COBERTURA = 0.55
-
-// Sobrevive a los repintados, igual que estadoFiltro.
-let cobertura = { hay: false, cubiertos: [] }
 
 export async function renderGapsPanel() {
   const el = document.getElementById('panel-gaps')
@@ -77,13 +68,9 @@ export async function renderGapsPanel() {
   let porEstado, salud
   try {
     const estados = Object.keys(ESTADOS)
-    const [listas, s, cub] = await Promise.all([
+    const [listas, s] = await Promise.all([
       Promise.all(estados.map(pedir)), fetchVaciosSalud(),
-      // Tolerante a propósito: la migración la corre el usuario, y hasta
-      // entonces la bandeja tiene que funcionar igual, sin la franja.
-      fetchVaciosCubiertos(UMBRAL_COBERTURA).catch(() => null),
     ])
-    cobertura = modeloCobertura(cub)
     porEstado = Object.fromEntries(estados.map((e, i) => [e, listas[i]]))
     salud = s
   } catch (e) {
@@ -127,7 +114,6 @@ export async function renderGapsPanel() {
       <div id="gapEmbedAviso"></div>
       ${silencio.enSilencio ? avisoSilencioHtml(silencio) : ''}
       ${Number(salud?.sin_clasificar) > 0 ? sinClasificarHtml(salud.sin_clasificar) : ''}
-      ${cobertura.hay ? franjaCubiertosHtml(cobertura) : ''}
       ${vuelven.length ? franjaReincidentesHtml(vuelven) : ''}
       ${descartadosVuelven.length ? franjaDescartadosHtml(descartadosVuelven) : ''}
       <div>
@@ -150,54 +136,8 @@ export async function renderGapsPanel() {
   }))
   el.querySelectorAll('.gap-row').forEach(b =>
     b.addEventListener('click', () => abrirDetalle(b.dataset.vacio)))
-  wireCubiertos(el)
 }
 
-function wireCubiertos(el) {
-  const caja = i => el.querySelector(`[data-resultado="${i}"]`)
-
-  el.querySelectorAll('[data-probar]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const i = btn.dataset.probar
-      const c = cobertura.cubiertos[i]
-      const out = caja(i)
-      btn.disabled = true
-      out.classList.remove('hidden')
-      out.className = 'mt-2 text-[11px] text-[var(--black-40)]'
-      out.textContent = 'Preguntándole al bot…'
-
-      let r
-      try {
-        r = await probarEnBot(c.titulo, c.vertical)
-      } catch (e) {
-        btn.disabled = false
-        out.className = 'mt-2 text-[11px] text-[var(--error-100)]'
-        out.textContent = `No se pudo probar: ${e.message}`
-        return
-      }
-      btn.disabled = false
-
-      // Tres desenlaces, y el del medio es el que más confunde si no se nombra:
-      // una repregunta NO es un fallo, el bot necesita un dato más y responde
-      // en el segundo turno.
-      const cabecera = r.sinInfo
-        ? ['El bot sigue sin saber. No lo cierres.', 'var(--error-100)']
-        : r.repregunta
-          ? ['El bot repregunta antes de responder. Eso cuenta como cubierto.', 'var(--warning-150)']
-          : ['El bot responde.', 'var(--success-150)']
-      out.className = 'mt-2 text-[11px] text-[var(--black-60)]'
-      out.innerHTML = `<b style="color:${cabecera[1]}">${escapeHtml(cabecera[0])}</b>
-        <span class="block mt-1">${escapeHtml(r.respuesta.slice(0, 400))}${r.respuesta.length > 400 ? '…' : ''}</span>`
-    })
-  })
-
-  // Abre el detalle en vez de cerrar desde acá. Un clic más, pero ahí está el
-  // selector completo de lecciones y la persona elige la correcta — que es
-  // justo lo que el parecido no sabe hacer.
-  el.querySelectorAll('[data-abrir]').forEach(btn => {
-    btn.addEventListener('click', () => abrirDetalle(cobertura.cubiertos[btn.dataset.abrir].id))
-  })
-}
 
 // Pestañas en estilo píldora y no subrayadas: `border-b-2` no existe en el
 // css/tw.css precompilado, y una clase que no está ahí no aplica nada.
@@ -251,47 +191,6 @@ function sinClasificarHtml(n) {
     <p class="text-xs text-[var(--black-60)] mt-1">
       Llegaron sin embedding (cuota de Vertex). No se perdieron, pero tampoco se agruparon.
     </p>
-  </div>`
-}
-
-// La franja que saca trabajo de la bandeja: vacíos pendientes cuya ancla ya se
-// parece a contenido publicado.
-//
-// Lo que el chequeo SÍ dice: que hay material parecido, así que vale la pena
-// volver a probar el vacío. Lo que NO dice, medido el 2026-10-31 contra los 10
-// vacíos ya cerrados: cuál es la lección. El mejor match eligió la lección
-// equivocada en 3 de 6 — "conectar una impresora" dio 0.732 contra "Creación
-// de pedido". Por eso la fila NO nombra una lección: acertar a medias y
-// presentarlo como dato es peor que no decir nada.
-function franjaCubiertosHtml(c) {
-  const n = c.cubiertos.length
-  return `<div class="bg-white border border-[var(--warning-150)] rounded-2xl p-3 flex flex-col gap-2">
-    <h2 class="text-sm font-black text-[var(--success-150)]">
-      ${n} ${n === 1 ? 'pendiente parece cubierto' : 'pendientes parecen cubiertos'} por contenido que ya existe
-    </h2>
-    <p class="text-xs text-[var(--black-40)]">
-      Se registraron cuando el bot fallaba y nadie los volvió a mirar. Hay
-      contenido parecido al de cada uno (umbral ${c.umbral}, misma búsqueda que
-      usa el bot), pero <b>parecerse no es responder</b> y el parecido tampoco
-      dice qué lección es. Pruébalos, y los que el bot ya resuelva ciérralos
-      desde el detalle eligiendo la lección.
-      ${c.sinEmbedding ? `<span class="block mt-1">${c.sinEmbedding} pendientes quedaron fuera de esta revisión porque no tienen embedding: no hay con qué compararlos.</span>` : ''}
-    </p>
-    <div class="flex flex-col gap-1.5">${c.cubiertos.map(filaCubiertoHtml).join('')}</div>
-  </div>`
-}
-
-function filaCubiertoHtml(c, i) {
-  return `<div class="bg-[var(--background-page)] rounded-xl p-2.5" data-cubierto="${i}">
-    <div class="flex items-start justify-between gap-3">
-      <span class="flex-1 min-w-0 text-xs font-bold text-[var(--black-100)]">${escapeHtml(c.titulo)}</span>
-      <span class="shrink-0 text-xs font-black text-[var(--blue-100)]">${c.preguntas_total}×</span>
-    </div>
-    <div class="flex gap-2 flex-wrap mt-2">
-      <button data-probar="${i}" class="px-2.5 py-1 rounded-lg text-[11px] font-bold border border-[var(--blue-20)] text-[var(--black-60)]">Probar en el bot</button>
-      <button data-abrir="${i}" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[var(--blue-100)] text-white">Abrir</button>
-    </div>
-    <div data-resultado="${i}" class="hidden mt-2 text-[11px]"></div>
   </div>`
 }
 
@@ -479,11 +378,15 @@ async function abrirDetalle(vacioId) {
         <p class="text-xs text-[var(--black-40)] mt-1">
           ${escapeHtml(v.preguntas_total)} preguntas · primera ${escapeHtml(hace(v.primera_vez))} · última ${escapeHtml(hace(v.ultima_vez))}${comercios > 0 ? ` · ${comercios} ${comercios === 1 ? 'comercio' : 'comercios'}` : ''}
         </p>
-        ${estado === 'resuelto' ? '' : `<button id="gapFusionBtn"
-          class="mt-1.5 text-xs font-bold text-[var(--blue-100)] hover:underline">Fusionar con otro vacío…</button>`}
+        <span class="flex gap-3 mt-1.5">
+          ${estado === 'resuelto' ? '' : `<button id="gapFusionBtn"
+            class="text-xs font-bold text-[var(--blue-100)] hover:underline">Fusionar con otro vacío…</button>`}
+          <button id="gapProbarBtn" class="text-xs font-bold text-[var(--blue-100)] hover:underline">Probar en el bot</button>
+        </span>
       </div>
 
       <div id="gapFusionBox" class="hidden"></div>
+      <div id="gapProbarBox" class="hidden"></div>
 
       ${estado === 'resuelto' ? resueltoHtml(v, leccionDestino, desdeCierre) : ''}
       ${estado === 'descartado' ? descartadoHtml(v, desdeCierre) : ''}
@@ -536,6 +439,7 @@ async function abrirDetalle(vacioId) {
   wireVerConversacion()
   wireDividir(v)
   wireFusionar(v)
+  wireProbar(v)
   wireAccionesPorEstado(v)
   if (cierrePendiente) repintarCierrePendiente()
 }
@@ -938,6 +842,58 @@ function wireDividir(vacio) {
 
   document.querySelectorAll('.gap-pregunta').forEach(c =>
     c.addEventListener('change', pintarBarra))
+}
+
+// ── Probar en el bot ─────────────────────────────────────────────────────────
+
+// ¿El bot responde esto HOY? Es la única prueba que discrimina.
+//
+// Hubo una franja que intentaba adivinarlo comparando el ancla del vacío
+// contra las lecciones, para ahorrarse la pregunta. Se midió el 2026-10-31 y
+// no servía: los vacíos ya cubiertos daban 0.764 de similitud promedio y los
+// pendientes 0.731, con los rangos superpuestos casi enteros. Con umbral 0.70
+// la "lista corta" eran 57 de 83 pendientes. Se quitó. Ver
+// scripts/sql/calibrar-vacios-cubiertos.sql.
+//
+// Ojo: si el bot vuelve a fallar, n8n registra la pregunta y el contador del
+// vacío sube en uno. No es un daño —el vacío sigue vivo y eso es verdad— pero
+// conviene saberlo antes de probar veinte veces por curiosidad.
+function wireProbar(vacio) {
+  const btn = document.getElementById('gapProbarBtn')
+  const box = document.getElementById('gapProbarBox')
+  if (!btn) return
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true
+    box.classList.remove('hidden')
+    box.innerHTML = `<p class="text-xs text-[var(--black-40)]">Preguntándole al bot…</p>`
+
+    let r
+    try {
+      r = await probarEnBot(vacio.titulo, vacio.vertical)
+    } catch (e) {
+      btn.disabled = false
+      box.innerHTML = `<p class="text-xs text-[var(--error-100)]">No se pudo probar: ${escapeHtml(e.message)}</p>`
+      return
+    }
+    btn.disabled = false
+
+    // Tres desenlaces, y el del medio es el que más confunde si no se nombra:
+    // una repregunta NO es un fallo. El bot necesita un dato más (el
+    // dispositivo, por ejemplo) y responde en el segundo turno.
+    const [titulo, color] = r.sinInfo
+      ? ['El bot sigue sin saber esto.', 'var(--error-100)']
+      : r.repregunta
+        ? ['El bot repregunta antes de responder. Cuenta como cubierto.', 'var(--warning-150)']
+        : ['El bot ya responde esto.', 'var(--success-150)']
+
+    box.innerHTML = `<div class="bg-white border border-[var(--blue-10)] rounded-xl p-3">
+      <p class="text-xs font-black" style="color:${color}">${escapeHtml(titulo)}</p>
+      <p class="text-xs text-[var(--black-60)] mt-1">${escapeHtml(r.respuesta)}</p>
+      ${r.sinInfo ? '' : `<p class="text-[11px] text-[var(--black-40)] mt-2">
+        Si ya está cubierto, ciérralo con la lección que corresponda: elígela abajo y guarda.</p>`}
+    </div>`
+  })
 }
 
 // ── Fusionar ─────────────────────────────────────────────────────────────────
