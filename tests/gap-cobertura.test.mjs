@@ -62,12 +62,13 @@ test('modeloCobertura: la similitud se normaliza a número', () => {
   assert.deepEqual(m.cubiertos.map(c => c.id), ['x', 'y'])
 })
 
-test('modeloCobertura: un cubierto sin lección no se ofrece', () => {
-  // Sugerir "ciérralo ligándolo a nada" no tiene sentido y el botón escribiría
-  // un leccion_id nulo.
+test('modeloCobertura: un cubierto sin lección SÍ se ofrece', () => {
+  // La franja ya no nombra la lección ni la liga: el mejor match eligió la
+  // equivocada en 3 de 6 casos medidos. La sugerencia vale por el vacío, no
+  // por la lección, así que descartarla por eso sería perder trabajo útil.
   const m = modeloCobertura({ ...payload, cubiertos: [
     { id: 'x', similitud: 0.8, titulo: 't' },
     { id: 'y', similitud: 0.7, titulo: 't', leccion_id: 'L1', leccion_titulo: 'Una lección' },
   ] })
-  assert.deepEqual(m.cubiertos.map(c => c.id), ['y'])
+  assert.deepEqual(m.cubiertos.map(c => c.id), ['x', 'y'])
 })

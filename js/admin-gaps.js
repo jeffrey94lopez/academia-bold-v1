@@ -191,31 +191,11 @@ function wireCubiertos(el) {
     })
   })
 
-  el.querySelectorAll('[data-cerrar]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const c = cobertura.cubiertos[btn.dataset.cerrar]
-      pedirConfirmacion({
-        titulo: '¿Cerrar este vacío?',
-        texto: `Queda como resuelto, ligado a «${c.leccion_titulo}», sin escribir una FAQ nueva: el contenido ya existe. Si todavía no lo probaste en el bot, pruébalo antes — parecerse no es responder.`,
-        okTexto: 'Sí, cerrarlo',
-        onOk: async () => {
-          try {
-            const { data: { user } } = await supabase.auth.getUser()
-            await resolverVacio(c.id, c.leccion_id, user?.email || null)
-          } catch (e) {
-            const out = caja(btn.dataset.cerrar)
-            out.classList.remove('hidden')
-            out.className = 'mt-2 text-[11px] text-[var(--error-100)]'
-            out.textContent = `No se pudo cerrar: ${e.message}`
-            return
-          }
-          logActivity('update', 'bot_vacio', c.titulo,
-            { accion: 'cerrado_por_cobertura', leccion: c.leccion_titulo, similitud: c.similitud })
-          renderGapsPanel()
-          refreshGapsBadge()
-        },
-      })
-    })
+  // Abre el detalle en vez de cerrar desde acá. Un clic más, pero ahí está el
+  // selector completo de lecciones y la persona elige la correcta — que es
+  // justo lo que el parecido no sabe hacer.
+  el.querySelectorAll('[data-abrir]').forEach(btn => {
+    btn.addEventListener('click', () => abrirDetalle(cobertura.cubiertos[btn.dataset.abrir].id))
   })
 }
 
@@ -275,11 +255,14 @@ function sinClasificarHtml(n) {
 }
 
 // La franja que saca trabajo de la bandeja: vacíos pendientes cuya ancla ya se
-// parece a una lección publicada.
+// parece a contenido publicado.
 //
-// Dice "parece", no "está": el chequeo compara embeddings, y eso no garantiza
-// que el bot responda. Por eso cada fila trae "Probar en el bot" antes que
-// "Cerrar", y nada se cierra solo.
+// Lo que el chequeo SÍ dice: que hay material parecido, así que vale la pena
+// volver a probar el vacío. Lo que NO dice, medido el 2026-10-31 contra los 10
+// vacíos ya cerrados: cuál es la lección. El mejor match eligió la lección
+// equivocada en 3 de 6 — "conectar una impresora" dio 0.732 contra "Creación
+// de pedido". Por eso la fila NO nombra una lección: acertar a medias y
+// presentarlo como dato es peor que no decir nada.
 function franjaCubiertosHtml(c) {
   const n = c.cubiertos.length
   return `<div class="bg-white border border-[var(--warning-150)] rounded-2xl p-3 flex flex-col gap-2">
@@ -287,15 +270,13 @@ function franjaCubiertosHtml(c) {
       ${n} ${n === 1 ? 'pendiente parece cubierto' : 'pendientes parecen cubiertos'} por contenido que ya existe
     </h2>
     <p class="text-xs text-[var(--black-40)]">
-      Se registraron cuando el bot fallaba y nadie los volvió a mirar. Comparado
-      contra las lecciones con la misma búsqueda que usa el bot, con umbral
-      ${c.umbral}. <b>Parecerse no es responder</b>: prueba antes de cerrar.
+      Se registraron cuando el bot fallaba y nadie los volvió a mirar. Hay
+      contenido parecido al de cada uno (umbral ${c.umbral}, misma búsqueda que
+      usa el bot), pero <b>parecerse no es responder</b> y el parecido tampoco
+      dice qué lección es. Pruébalos, y los que el bot ya resuelva ciérralos
+      desde el detalle eligiendo la lección.
       ${c.sinEmbedding ? `<span class="block mt-1">${c.sinEmbedding} pendientes quedaron fuera de esta revisión porque no tienen embedding: no hay con qué compararlos.</span>` : ''}
     </p>
-    <!-- pedirConfirmacion escribe SIEMPRE en #gapConfirmBox, y esa caja solo
-         existía en el detalle. Sin esto, confirmar desde la franja reventaba
-         contra un null. -->
-    <div id="gapConfirmBox" class="hidden"></div>
     <div class="flex flex-col gap-1.5">${c.cubiertos.map(filaCubiertoHtml).join('')}</div>
   </div>`
 }
@@ -303,18 +284,12 @@ function franjaCubiertosHtml(c) {
 function filaCubiertoHtml(c, i) {
   return `<div class="bg-[var(--background-page)] rounded-xl p-2.5" data-cubierto="${i}">
     <div class="flex items-start justify-between gap-3">
-      <span class="flex-1 min-w-0">
-        <span class="block text-xs font-bold text-[var(--black-100)]">${escapeHtml(c.titulo)}</span>
-        <span class="block text-[11px] text-[var(--black-60)] mt-0.5">
-          se parece a <b>${escapeHtml(c.leccion_titulo)}</b>
-          <span class="text-[var(--black-40)]">· ${c.similitud}</span>
-        </span>
-      </span>
+      <span class="flex-1 min-w-0 text-xs font-bold text-[var(--black-100)]">${escapeHtml(c.titulo)}</span>
       <span class="shrink-0 text-xs font-black text-[var(--blue-100)]">${c.preguntas_total}×</span>
     </div>
     <div class="flex gap-2 flex-wrap mt-2">
       <button data-probar="${i}" class="px-2.5 py-1 rounded-lg text-[11px] font-bold border border-[var(--blue-20)] text-[var(--black-60)]">Probar en el bot</button>
-      <button data-cerrar="${i}" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[var(--blue-100)] text-white">Cerrar ligando a esta lección</button>
+      <button data-abrir="${i}" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[var(--blue-100)] text-white">Abrir</button>
     </div>
     <div data-resultado="${i}" class="hidden mt-2 text-[11px]"></div>
   </div>`
