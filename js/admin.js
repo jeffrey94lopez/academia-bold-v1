@@ -21,6 +21,10 @@ import { draftKey, buildDraft, shouldOfferRestore, relTime } from './lesson-draf
 import { construirCopia, otraVertical, puedeDuplicarse, prepararPayload } from './lesson-duplicate.js'
 import { aplicaA, etiqueta, labelVertical, VERTICALES_CONTENIDO } from './vertical.js'
 import { renderGapsPanel, refreshGapsBadge } from './admin-gaps.js'
+import { modeloAtencion, modeloUso, filasVerticales } from './home-model.js'
+import { fetchVaciosSalud } from './gaps-api.js'
+import { fetchLessonsSummary, fetchBotSummary } from './analytics-api.js'
+import { computeRange } from './analytics-ui.js'
 
 // Re-embebe las lecciones VISIBLES, mostrando en vivo cuáles se embebieron (✓)
 // y cuáles fallaron (✗). Secuencial a propósito para no saturar el webhook.
@@ -278,47 +282,46 @@ async function renderHomePanel() {
   const { data: { user } } = await supabase.auth.getUser()
   const name = user?.user_metadata?.name || user?.email?.split('@')[0] || ''
 
-  // Desde la medianoche de HOY en hora de negocio. Con toISOString() el corte
-  // era el día UTC: después de las 7pm de Bogotá ya contaba el día siguiente.
-  const desdeHoy = bizStartOfDay(new Date()).toISOString()
-  const [
-    { data: leccionesRows, error: lessonesErr },
-    { count: convsCount, error: convsErr },
-    { count: faqCount, error: faqErr },
-    { count: glosarioCount, error: glosarioErr },
-    { data: activity },
-    visOverrides
-  ] = await Promise.all([
-    // Filas en vez de un count: el número tiene que reflejar lo que ve ESTE
-    // entorno. Si en sandbox ocultaste una lección, acá también baja.
-    supabase.from('lecciones').select('id,active'),
-    // started_at, NO created_at: esa columna no existe en bodi_conversations y
-    // la consulta fallaba con 42703. supabase-js no lanza, devuelve { error },
-    // así que el contador mostraba 0 en silencio.
-    supabase.from('bodi_conversations').select('*', { count: 'exact', head: true }).gte('started_at', desdeHoy),
-    supabase.from('preguntas_frecuentes').select('*', { count: 'exact', head: true }),
-    supabase.from('glosario').select('*', { count: 'exact', head: true }),
-    supabase.from('activity_log').select('action,entity_type,entity_name,created_at').order('created_at', { ascending: false }).limit(5),
-    loadVisibilityOverrides()
+  const { from, to } = computeRange('30d', new Date())
+  const prev = computeRange('30d', from)
+  const gapsOn = (await loadSettings(['gaps_enabled'])).gaps_enabled === 'true'
+
+  // Cada fuente se pide por separado y se tolera que falle SOLA: si se cae la
+  // del bot, las lecciones propias igual se ven. Nada de `?? 0` — lo que no
+  // llega vale null y la pantalla pinta "—".
+  const [salud, lecciones, bot, { data: leccionesRows }] = await Promise.all([
+    gapsOn ? fetchVaciosSalud().catch(() => null) : Promise.resolve(null),
+    fetchLessonsSummary(from, to, prev.from, prev.to).catch(() => null),
+    fetchBotSummary(from, to).catch(() => null),
+    supabase.from('lecciones').select('vertical'),
   ])
 
-  const lessonesCount = visibles(aplicarVisibilidad(leccionesRows, visOverrides, APP_ENV)).length
+  const atencion = modeloAtencion(salud)
+  const uso = modeloUso(lecciones, bot)
+  const filas = filasVerticales(bot, leccionesRows)
 
-  function timeAgo(iso) {
-    const diff = Math.floor((Date.now() - new Date(iso)) / 1000)
-    if (diff < 60) return 'hace un momento'
-    if (diff < 3600) return `hace ${Math.floor(diff / 60)}m`
-    if (diff < 86400) return `hace ${Math.floor(diff / 3600)}h`
-    return `hace ${Math.floor(diff / 86400)}d`
-  }
+  const v = x => (x === null || x === undefined) ? '—' : x
+  const pct = x => (x === null || x === undefined) ? '—' : `${x}%`
 
-  const actionLabel = { create: 'Creado', update: 'Editado', delete: 'Eliminado' }
-  const entityLabel = {
-    lecciones: 'Lección', preguntas_frecuentes: 'FAQ',
-    glosario: 'Término', material_apoyo: 'Material',
-    bot_suggestion: 'Sugerencia bot', bot_setting: 'Config. bot',
-    portal_setting: 'Config. portal'
-  }
+  const tarjetaAtencion = (label, valor, alarma) => `
+    <button data-ir="gaps" class="text-left ${alarma ? 'bg-[var(--coral-10)]' : 'bg-white'} border border-[var(--blue-10)] rounded-2xl p-4 hover:border-[var(--blue-100)] transition-colors">
+      <p class="text-2xl font-black ${alarma ? 'text-[var(--error-100)]' : 'text-[var(--blue-100)]'}">${v(valor)}</p>
+      <p class="text-[10px] font-bold text-[var(--black-60)] mt-0.5">${label}</p>
+    </button>`
+
+  const tarjetaUso = (label, valor, nota) => `
+    <div class="bg-white border border-[var(--blue-10)] rounded-2xl p-4">
+      <p class="text-2xl font-black text-[var(--blue-100)]">${v(valor)}</p>
+      <p class="text-[10px] font-bold text-[var(--black-60)] mt-0.5">${label}</p>
+      ${nota ? `<p class="text-[10px] text-[var(--black-40)] mt-1">${nota}</p>` : ''}
+    </div>`
+
+  const filasTabla = [
+    ['Conversaciones',    f => v(f.conversaciones)],
+    ['Resueltas',         f => pct(f.pctResueltas)],
+    ['Sin contenido',     f => v(f.sinContenido)],
+    ['Lecciones propias', f => v(f.propias)],
+  ]
 
   el.innerHTML = `
     <div class="max-w-4xl">
@@ -327,51 +330,54 @@ async function renderHomePanel() {
         <p class="text-sm text-[var(--black-40)] mt-0.5">Esto es lo que está pasando en Bold POS AI Soporte.</p>
       </div>
 
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 md:mb-6">
-        ${[
-          // Si la consulta falló, '—' en vez de 0: un cero inventado por un
-          // error de esquema es indistinguible de un cero real, y así fue como
-          // "Conversaciones hoy" pasó semanas en cero sin que nadie lo notara.
-          ['Lecciones activas',    lessonesErr  ? '—' : (lessonesCount  ?? 0)],
-          ['Conversaciones hoy',   convsErr     ? '—' : (convsCount     ?? 0)],
-          ['Preguntas frecuentes', faqErr       ? '—' : (faqCount       ?? 0)],
-          ['Términos en glosario', glosarioErr  ? '—' : (glosarioCount  ?? 0)],
-        ].map(([label, val]) => `
-          <div class="bg-white border border-[var(--blue-10)] rounded-2xl p-4">
-            <p class="text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-1.5">${label}</p>
-            <p class="text-2xl font-black text-[var(--blue-100)]">${val}</p>
-          </div>
-        `).join('')}
+      ${gapsOn ? `
+      <p class="text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-2">Atender ahora</p>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        ${tarjetaAtencion('vacíos pendientes', atencion.pendientes, true)}
+        ${tarjetaAtencion('incidentes · Soporte', atencion.incidentes)}
+        ${tarjetaAtencion('solicitudes · Producto', atencion.solicitudes)}
+        ${tarjetaAtencion('resueltos que vuelven', atencion.vuelven)}
+      </div>` : ''}
+
+      <p class="text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-2">
+        Por dónde entra la gente · últimos 30 días
+      </p>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-1">
+        ${tarjetaUso('abrieron Bold POS AI Soporte', uso.aperturas)}
+        ${tarjetaUso('hablaron con el bot', uso.conversaciones)}
+        ${tarjetaUso('abrieron una 2ª lección', uso.segundas)}
+        ${tarjetaUso('usaron el conversor', null, 'cuando salga de sandbox')}
+      </div>
+      ${(uso.aperturas && uso.segundas !== null)
+        ? `<p class="text-[11px] text-[var(--black-40)] mb-6">${Math.round(100 * uso.segundas / uso.aperturas)} de cada 100 pasan de la lección que se abre sola.</p>`
+        : '<div class="mb-6"></div>'}
+
+      <p class="text-[9px] font-black uppercase tracking-widest text-[var(--black-40)] mb-2">Retail contra Restaurantes</p>
+      <div class="bg-white border border-[var(--blue-10)] rounded-2xl overflow-hidden mb-6">
+        <table class="w-full text-xs">
+          <tbody>
+            <tr class="text-[var(--black-40)]">
+              <td class="p-2.5"></td>
+              ${filas.map(f => `<td class="p-2.5 text-right font-bold">${escapeHtml(f.nombre)}</td>`).join('')}
+            </tr>
+            ${filasTabla.map(([label, get]) => `
+              <tr class="border-t border-[var(--blue-10)]">
+                <td class="p-2.5 text-[var(--black-60)]">${label}</td>
+                ${filas.map(f => `<td class="p-2.5 text-right font-bold text-[var(--black-100)]">${get(f)}</td>`).join('')}
+              </tr>`).join('')}
+          </tbody>
+        </table>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-        <div class="bg-white border border-[var(--blue-10)] rounded-2xl p-4">
-          <p class="text-[9px] font-black uppercase tracking-widest text-[var(--black-100)] mb-3">Actividad reciente</p>
-          <div class="space-y-3">
-            ${(activity || []).length ? (activity).map(a => `
-              <div class="flex gap-3 items-start">
-                <div class="w-1.5 h-1.5 rounded-full bg-[var(--blue-100)] mt-1.5 shrink-0"></div>
-                <div>
-                  <p class="text-xs font-bold text-[var(--black-100)]">${actionLabel[a.action] || escapeHtml(a.action)} — ${entityLabel[a.entity_type] || escapeHtml(a.entity_type)}</p>
-                  <p class="text-[10px] text-[var(--black-40)]">${escapeHtml(a.entity_name || '')} · ${a.created_at ? timeAgo(a.created_at) : ''}</p>
-                </div>
-              </div>
-            `).join('') : '<p class="text-xs text-[var(--black-40)]">Sin actividad reciente.</p>'}
-          </div>
-        </div>
-
-        <div class="bg-white border border-[var(--blue-10)] rounded-2xl p-4">
-          <p class="text-[9px] font-black uppercase tracking-widest text-[var(--black-100)] mb-3">Acciones rápidas</p>
-          <div class="space-y-2">
-            <button id="quickNewLesson" class="w-full text-left px-4 py-2.5 bg-[var(--background-page)] border border-[var(--blue-10)] rounded-xl text-sm font-bold text-[var(--blue-100)] hover:border-[var(--blue-100)] transition-colors">+ Nueva lección</button>
-            <button id="quickNewFaq" class="w-full text-left px-4 py-2.5 bg-[var(--background-page)] border border-[var(--blue-10)] rounded-xl text-sm font-bold text-[var(--blue-100)] hover:border-[var(--blue-100)] transition-colors">+ Nueva pregunta frecuente</button>
-            <button id="quickAnalytics" class="w-full text-left px-4 py-2.5 bg-[var(--background-page)] border border-[var(--blue-10)] rounded-xl text-sm font-bold text-[var(--blue-100)] hover:border-[var(--blue-100)] transition-colors">Ver Analytics</button>
-          </div>
-        </div>
+      <div class="flex gap-2 flex-wrap">
+        <button id="quickNewLesson" class="px-4 py-2.5 bg-white border border-[var(--blue-10)] rounded-xl text-sm font-bold text-[var(--blue-100)] hover:border-[var(--blue-100)] transition-colors">+ Nueva lección</button>
+        <button id="quickNewFaq" class="px-4 py-2.5 bg-white border border-[var(--blue-10)] rounded-xl text-sm font-bold text-[var(--blue-100)] hover:border-[var(--blue-100)] transition-colors">+ Nueva pregunta frecuente</button>
+        <button id="quickAnalytics" class="px-4 py-2.5 bg-white border border-[var(--blue-10)] rounded-xl text-sm font-bold text-[var(--blue-100)] hover:border-[var(--blue-100)] transition-colors">Ver Analytics</button>
       </div>
-    </div>
-  `
+    </div>`
 
+  el.querySelectorAll('[data-ir]').forEach(b =>
+    b.addEventListener('click', () => switchPanel(b.dataset.ir)))
   document.getElementById('quickNewLesson').addEventListener('click', () => {
     switchPanel('lessons')
     setTimeout(() => document.getElementById('lessonFormModal') && openLessonForm(), 500)
