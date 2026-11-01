@@ -8,14 +8,16 @@
 --
 -- NO se inventa nada: cada uno de estos seis se probó contra el bot en vivo el
 -- 2026-10-31 y hoy responde. Los que siguen fallando NO están acá y quedan
--- pendientes a propósito:
---   · "agrandar la letra para imprimir"  -> el bot sigue sin saber. Es un vacío
---     REAL: las lecciones cubren tamaño de papel, márgenes, corte y cajón, pero
---     no el tamaño de la letra.
---   · "pedir un datafono"                -> pedido comercial, no falta de
---     contenido. Decidir si va a Soporte o a Solicitudes.
---   · "conectar el dispositivo a la red Wi-Fi" -> el bot contesta "solo puedo
---     ayudarte con temas de Bold POS". Fuera de alcance.
+-- pendientes a propósito.
+--
+-- "Agrandar la letra para imprimir" es el ÚNICO que queda pendiente, y con
+-- razón: el bot sigue sin saber, porque las lecciones cubren tamaño de papel,
+-- márgenes, corte y cajón, pero no el tamaño de la letra. Ahí sí falta
+-- contenido de verdad.
+--
+-- Los otros dos se DESCARTAN abajo con su motivo, no se cierran como resueltos:
+-- "pedir un datáfono" lo atiende Bold Payments (es_soporte) y conectar el
+-- Wi-Fi está fuera de alcance (no_aplica).
 --
 -- `resolver_vacio` liga el vacío a la lección que lo cubre SIN escribir una FAQ
 -- nueva. Eso es a propósito: el contenido ya existe, y duplicarlo en un bloque
@@ -76,6 +78,26 @@ begin
     perform resolver_vacio(r.id, r.leccion, 'cierre de vacíos obsoletos');
   end loop;
 end $$;
+
+-- ── Los que no son falta de contenido ───────────────────────────────────────
+-- `es_soporte` significa literalmente "es soporte, no academia", que es
+-- exactamente lo que son: desde el 2026-10-31 hay una FAQ que enruta compra de
+-- datáfono, QR, sonido y transacciones al equipo de Bold Payments, así que el
+-- bot ya tiene qué contestar. No falta contenido nuestro.
+update bot_vacios
+   set estado = 'descartado', motivo_descarte = 'es_soporte',
+       nota_descarte = 'Lo atiende Bold Payments; el bot ya enruta por la FAQ de datáfonos/QR/transacciones.',
+       leccion_id = null, resuelto_at = now(), resuelto_por = 'cierre de vacíos obsoletos'
+ where estado = 'pendiente' and titulo ilike '%pedir un datafono%';
+
+-- Fuera de alcance: el bot mismo contesta "solo puedo ayudarte con temas de
+-- Bold POS", que es la respuesta correcta. Configurar el Wi-Fi de un equipo no
+-- es algo que la academia deba enseñar.
+update bot_vacios
+   set estado = 'descartado', motivo_descarte = 'no_aplica',
+       nota_descarte = 'Fuera de alcance: el bot ya responde que solo cubre temas de Bold POS.',
+       leccion_id = null, resuelto_at = now(), resuelto_por = 'cierre de vacíos obsoletos'
+ where estado = 'pendiente' and titulo ilike '%a la red Wi-Fi%';
 
 select titulo, leccion from a_cerrar order by titulo;
 
