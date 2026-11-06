@@ -11,6 +11,7 @@ import { inactivitySettings, isStaleConversation } from './inactivity.js'
 import { loadSettingsResult } from './settings.js'
 import { registrarCruce, marcarCruce } from './cruce-vertical.js'
 import { getBotOrigin, notificarMensajeBot } from './bot-origin.js'
+import { textoSeguroDelBot } from './bot-respuesta-segura.js'
 
 const N8N_URL     = '/api/chat'
 
@@ -844,7 +845,13 @@ async function sendMessage(text, { textoVisible, cross } = {}) {
     const data = await res.json()
     typing.classList.add('hidden')
 
-    const reply = data.response || 'No pude procesar tu pregunta. Intenta de nuevo.'
+    // textoSeguroDelBot es la ultima barrera antes del cliente. El 2026-11-02
+    // n8n mando 11.410 caracteres de JSON crudo como `response` (su JSON se
+    // corto por limite de tokens y su respaldo lo pasa tal cual), y esta misma
+    // linea los pinto en el chat. Va ACA y no mas abajo porque `reply` se usa
+    // en tres lugares: la burbuja, el transcripto que se guarda y el historial
+    // que viaja al turno siguiente; saneando el origen quedan cubiertos los tres.
+    const reply = textoSeguroDelBot(data.response) || 'No pude procesar tu pregunta. Intenta de nuevo.'
     let segments = data.segments?.length ? data.segments : null
     // If no segments but reply contains [IMAGEN]/[VIDEO] markers, synthesize segments
     if (!segments && /\[(IMAGEN|VIDEO|LINK)\s+url=/.test(reply)) {
