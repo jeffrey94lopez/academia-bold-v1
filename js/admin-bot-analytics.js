@@ -10,6 +10,7 @@ import { modeloVerticales } from './bot-verticales.js'
 // Mismo criterio que la bandeja de vacíos: nombre si lo hay, si no el id
 // acortado, y si no hay ninguno lo dice en vez de pintar una etiqueta vacía.
 import { etiquetaComercio } from './gap-comercio.js'
+import { nombreUsuario } from './usuario-nombre.js'
 import { offHoursStats, isOffHour, bandStats, BUSINESS_HOURS } from './off-hours.js'
 import { BIZ_TZ } from './biz-time.js'
 
@@ -399,6 +400,10 @@ export function convRows(convs, { mostrarComercio = true } = {}) {
     // El id completo va en el `title`: es lo que se pega en el buscador de
     // Soporte, y entero en la fila cortaría el renglón.
     const com = etiquetaComercio(c)
+    // El usuario se pinta aunque `mostrarComercio` sea false: en Chats
+    // Comercios el comercio ya es el encabezado del grupo, pero saber CUÁL
+    // de sus usuarios escribió sigue siendo informacion nueva.
+    const usr = nombreUsuario(c)
     return `
     <div class="bot-conv-row px-3 py-2 border-b border-[var(--blue-10)] cursor-pointer text-xs" data-idx="${i}">
       <div class="flex items-center gap-2">
@@ -411,6 +416,7 @@ export function convRows(convs, { mostrarComercio = true } = {}) {
         ${lifecycleBadge(c.lifecycle)}
         ${c.bot_no_info ? '<span class="text-[10px] px-2 rounded-full border border-[var(--warning-150)] text-[var(--warning-150)]">Sin info</span>' : ''}
         ${mostrarComercio ? `<span class="text-[var(--black-40)] truncate" title="${escapeHtml(com.completo)}">🏪 ${escapeHtml(com.texto)}</span>` : ''}
+        ${usr.identificado ? `<span class="text-[var(--black-40)] truncate" title="${escapeHtml(usr.completo)}">👤 ${escapeHtml(usr.texto)}</span>` : ''}
         <span class="ml-auto shrink-0 text-[var(--black-40)]">${escapeHtml(c.cat || '')}</span>
       </div>
     </div>
@@ -549,6 +555,7 @@ function exportBotCsv(convs, from, to) {
     // analizar sería el error que el tooltip evita en pantalla.
     { label: 'Negocio', getValue: r => r.business_name || '' },
     { label: 'ID negocio', getValue: r => r.account_id || '' },
+    { label: 'Usuario', getValue: r => r.user_name || '' },
     { label: 'Categoría', getValue: r => r.cat },
     { label: 'Estado', getValue: r => r.eff_status || '' },
     { label: 'Sentimiento', getValue: r => r.sentiment || '' },
