@@ -410,13 +410,16 @@ export function convRows(convs, { mostrarComercio = true } = {}) {
         <span class="shrink-0 text-[10px] font-bold text-[var(--black-40)] tabular-nums">🕒 ${fmtDayTime(c.started_at)}</span>
         <span class="flex-1 min-w-0 truncate text-[var(--black-100)]">${escapeHtml(c.first_user_msg || '(sin mensaje)')}</span>
       </div>
-      <div class="flex items-center gap-1.5 mt-1">
+      <!-- flex-wrap: en celular la identidad (comercio + usuario) no entra al
+           lado de las insignias y las dos quedaban en "…", peor que antes de
+           que existiera el usuario. Partida en dos renglones, las dos se leen. -->
+      <div class="flex flex-wrap items-center gap-1.5 mt-1">
         ${c.sentiment === 'negativo' ? '<span class="text-[10px] px-2 rounded-full border border-[var(--error-100)] text-[var(--error-100)]">Neg</span>' : ''}
         ${verticalBadge(c.vertical)}
         ${lifecycleBadge(c.lifecycle)}
         ${c.bot_no_info ? '<span class="text-[10px] px-2 rounded-full border border-[var(--warning-150)] text-[var(--warning-150)]">Sin info</span>' : ''}
-        ${mostrarComercio ? `<span class="text-[var(--black-40)] truncate" title="${escapeHtml(com.completo)}">🏪 ${escapeHtml(com.texto)}</span>` : ''}
-        ${usr.identificado ? `<span class="text-[var(--black-40)] truncate" title="${escapeHtml(usr.completo)}">👤 ${escapeHtml(usr.texto)}</span>` : ''}
+        ${mostrarComercio ? `<span class="max-w-full text-[var(--black-40)] truncate" title="${escapeHtml(com.completo)}">🏪 ${escapeHtml(com.texto)}</span>` : ''}
+        ${usr.identificado ? `<span class="max-w-full text-[var(--black-40)] truncate" title="${escapeHtml(usr.completo)}">👤 ${escapeHtml(usr.texto)}</span>` : ''}
         <span class="ml-auto shrink-0 text-[var(--black-40)]">${escapeHtml(c.cat || '')}</span>
       </div>
     </div>
