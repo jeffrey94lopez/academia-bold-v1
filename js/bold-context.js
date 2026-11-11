@@ -84,6 +84,14 @@ function clave(mapa, v) {
  * Convierte el mensaje crudo de Bold en nuestro contexto. Devuelve `null` si el
  * mensaje no es un `bold:context`. Copia solo los campos que pedimos: si Bold
  * manda de más (un token, por ejemplo) no entra al portal.
+ *
+ * `warehouseId` viene dentro de `user` en el payload de Bold (es la sucursal que
+ * el usuario tiene seleccionada en el POS en este momento), pero conceptualmente
+ * es un atributo de la sesión, no del usuario — lo subimos al top level para que
+ * las herramientas que lo consumen (p.ej. el flujo de inventario) no tengan que
+ * mirar adentro de `user`. OJO: Bold manda solo la bodega activa, no la lista
+ * completa de bodegas de la cuenta; para distinguir monosucursal de multi hay
+ * que preguntarle al usuario.
  */
 export function normalizarContexto(data) {
   if (!data || typeof data !== 'object' || data.type !== 'bold:context') return null
@@ -93,6 +101,7 @@ export function normalizarContexto(data) {
     vertical:     clave(VERTICAL_POR_BUSINESS_TYPE, data.businessType ?? data.business_type),
     plataforma:   clave(PLATAFORMA_POR_PLATFORM, data.platform ?? data.plataforma),
     businessName: texto(data.businessName ?? data.business_name),
+    warehouseId:  id(u.warehouseId ?? u.warehouse_id),
     user: { id: id(u.id), name: texto(u.name), email: correo(u.email) },
   }
 }
