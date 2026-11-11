@@ -210,3 +210,63 @@ test('convertir: aplica el purgador a las unidades del archivo', () => {
   // La unidad final es la que matchea con la lista de la plantilla.
   assert.equal(unidades[0], 'Gramos')
 })
+
+test('convertir: IVA por_fila sin ivaGeneral → cada fila usa su propio valor', () => {
+  const p = leerPlantilla(hojasInv([['Impuesto*']]))
+  const encabezados = ['Nombre', 'Precio', 'Impuesto']
+  const mapeo = mapearColumnas(encabezados)
+  const filas = [
+    ['A', '10000', '19'],
+    ['B', '10000', '5'],
+  ]
+  const r = convertir({
+    filas, mapeo, plantillas: { inventariable: p },
+    opciones: { isv: true, ivaStrategy: 'por_fila', inventariable: 'si' },
+  })
+  assert.equal(r.salidas.inventariable[0].isv, 'IVA-19')
+  assert.equal(r.salidas.inventariable[1].isv, 'IVA-5')
+})
+
+test('convertir: IVA por_fila con ivaGeneral de fallback — Caso C respetar', () => {
+  const p = leerPlantilla(hojasInv([['Impuesto*']]))
+  const encabezados = ['Nombre', 'Precio', 'Impuesto']
+  const mapeo = mapearColumnas(encabezados)
+  const filas = [
+    ['A', '10000', '5'],    // trae IVA → respeta
+    ['B', '10000', ''],     // vacío → cae al general IVA-19
+  ]
+  const r = convertir({
+    filas, mapeo, plantillas: { inventariable: p },
+    opciones: { isv: true, ivaStrategy: 'por_fila', ivaGeneral: 'IVA-19', inventariable: 'si' },
+  })
+  assert.equal(r.salidas.inventariable[0].isv, 'IVA-5')
+  assert.equal(r.salidas.inventariable[1].isv, 'IVA-19')
+})
+
+test('convertir: IVA todos_igual → aplica ivaGeneral a todas, ignora el archivo', () => {
+  const p = leerPlantilla(hojasInv([['Impuesto*']]))
+  const encabezados = ['Nombre', 'Precio', 'Impuesto']
+  const mapeo = mapearColumnas(encabezados)
+  const filas = [
+    ['A', '10000', '5'],
+    ['B', '10000', '19'],
+  ]
+  const r = convertir({
+    filas, mapeo, plantillas: { inventariable: p },
+    opciones: { isv: true, ivaStrategy: 'todos_igual', ivaGeneral: 'IVA-19', inventariable: 'si' },
+  })
+  assert.equal(r.salidas.inventariable[0].isv, 'IVA-19')
+  assert.equal(r.salidas.inventariable[1].isv, 'IVA-19')
+})
+
+test('convertir: IVA — por_fila sin general y fila vacía → EXENTO (backward compat)', () => {
+  const p = leerPlantilla(hojasInv([['Impuesto*']]))
+  const encabezados = ['Nombre', 'Precio', 'Impuesto']
+  const mapeo = mapearColumnas(encabezados)
+  const filas = [['A', '10000', '']]
+  const r = convertir({
+    filas, mapeo, plantillas: { inventariable: p },
+    opciones: { isv: true, ivaStrategy: 'por_fila', inventariable: 'si' },
+  })
+  assert.equal(r.salidas.inventariable[0].isv, 'EXENTO')
+})

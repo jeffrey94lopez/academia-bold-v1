@@ -185,10 +185,30 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
     }
 
     if (plantilla.tieneIsv && opciones.isv !== false) {
-      if (pct == null) { pct = 0; sinImpuesto++ }
-      const opcion = mapearImpuesto(pct, plantilla.listas.impuestos)
-      if (!opcion) aviso(n, `"${nombre}": el impuesto ${pct}% no está en tu plantilla; se dejó vacío.`)
-      out.isv = opcion ?? ''
+      const strategy = opciones.ivaStrategy ?? 'por_fila'
+      let elegido
+      if (strategy === 'todos_igual') {
+        if (!opciones.ivaGeneral) {
+          throw new Error('ivaStrategy=todos_igual requiere opciones.ivaGeneral')
+        }
+        elegido = opciones.ivaGeneral
+      } else {
+        // por_fila: usa el valor del archivo; si falta, cae a ivaGeneral si está,
+        // o al EXENTO default (comportamiento actual).
+        if (pct == null) {
+          sinImpuesto++
+          if (opciones.ivaGeneral) elegido = opciones.ivaGeneral
+          else {
+            const exento = mapearImpuesto(0, plantilla.listas.impuestos)
+            elegido = exento ?? ''
+          }
+        } else {
+          const opcion = mapearImpuesto(pct, plantilla.listas.impuestos)
+          if (!opcion) aviso(n, `"${nombre}": el impuesto ${pct}% no está en tu plantilla; se dejó vacío.`)
+          elegido = opcion ?? ''
+        }
+      }
+      out.isv = elegido
     }
 
     salidas[tipo].push(out)
