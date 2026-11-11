@@ -4,6 +4,7 @@ import { crearBase, esc, CANCELADO } from './chat-base.js'
 import { FORMATOS_CODIGO, crearGeneradorCodigos } from './inv-codigos.js'
 import { iniciarCodigos } from './barras-chat.js'
 import { telemetriaReal } from './herramientas-telemetria.js'
+import { getContextoBold } from './bold-context.js'
 
 const letraColumna = i => { let s = '', n = i; do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1 } while (n >= 0); return s }
 const FIN = Symbol('fin')
@@ -18,6 +19,53 @@ export const TEXTO_INTRO = INTRO_HTML.replace(/<[^>]+>/g, '')
 export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 'chat', telemetria = telemetriaReal('inventario') }) {
   const sesion = crearSesion()
   const { bot, usuario, chips, pedirArchivos, pedirCampos, vivo } = crearBase({ host, alDesplazar })
+
+  // Modo del conversor: 'mono' (plantilla sintética) o 'multi' (sube la del cliente).
+  let modo = null
+  let conFE = null  // se setea en el camino mono antes de armar la plantilla sintética.
+
+  async function pasoSucursales() {
+    const q = await bot(
+      '<b>Antes de empezar, una pregunta importante sobre tu cuenta de Bold:</b>' +
+      '<p>No te pregunto dónde querés cargar el inventario ahora. ' +
+      'Te pregunto por el <b>total de sucursales activas en tu cuenta de Bold POS</b>.</p>' +
+      '<p>¿Tu cuenta tiene más de una sucursal?</p>')
+    const r = await chips(q, [
+      { texto: 'Solo tengo esta sucursal', detalle: 'Preparo la plantilla por vos con tu sucursal lista. No hace falta descargar nada de Bold.', valor: 'una' },
+      { texto: 'Tengo más de una sucursal', detalle: 'Te pido que descargues la plantilla desde Bold POS; la de tu cuenta trae los IDs de todas tus sucursales.', valor: 'mas' },
+    ])
+    vivo()
+    modo = r === 'una' ? 'mono' : 'multi'
+    telemetria.paso(modo === 'mono' ? 'sucursales_una' : 'sucursales_mas')
+  }
+
+  async function pasoPlantillaSintetica() {
+    const ctx = getContextoBold()
+    const warehouseId = ctx?.warehouseId
+    if (!warehouseId) {
+      // Sin warehouseId no podemos armar la plantilla. Caemos a multi.
+      await bot('No pude identificar tu sucursal desde Bold. Vamos por el camino manual: descargá tu plantilla desde Bold POS.', { demora: 300 })
+      modo = 'multi'
+      telemetria.error('plantilla_sintetica', 'sin_warehouse_id')
+      return pasoPlantillas()
+    }
+    const qFE = await bot('¿Tu cuenta de Bold tiene <b>facturación electrónica</b> activa?')
+    conFE = await chips(qFE, [{ texto: 'Sí', valor: true }, { texto: 'No', valor: false }])
+    vivo()
+
+    const t0 = Date.now()
+    const r = await sesion.agregarPlantillaSintetica({ warehouseId, conFE })
+    if (r.ok) {
+      telemetria.paso('plantilla_sintetica_lista', { ms_total: Date.now() - t0 })
+      await bot('Perfecto, te preparé la plantilla para <b>tu sucursal</b>. Ahora pasamos a tu archivo de productos.', { demora: 400 })
+      sesion.estado.opciones.isv = conFE  // ya respondió, no re-preguntar en pasoPreguntas.
+      return
+    }
+    telemetria.error('plantilla_sintetica', r.codigo)
+    await bot('Tuve un problema preparando tu plantilla. Vamos por el camino manual: descargala desde Bold POS y súbela aquí. Te guío paso a paso.', { demora: 500 })
+    modo = 'multi'
+    return pasoPlantillas()
+  }
 
 // ---------- Paso 1: plantilla(s) de Bold ----------
   // Qué plantillas necesita este cliente (null = lo que suba).
@@ -318,8 +366,11 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
 
   try {
     telemetria.inicio(via)
+    await pasoSucursales()
     await bot(INTRO_HTML)
-    await pasoPlantillas(); telemetria.paso('plantillas')
+    if (modo === 'mono') await pasoPlantillaSintetica()
+    if (modo === 'multi') await pasoPlantillas()
+    telemetria.paso('plantillas')
     await pasoOrigen(); telemetria.paso('origen')
     await pasoColumnas(); telemetria.paso('columnas')
     await pasoPreguntas(); telemetria.paso('preguntas')
