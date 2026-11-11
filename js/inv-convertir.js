@@ -68,7 +68,16 @@ function esInventariable(fila, mapeo, opciones) {
   return mapeo.existencia !== undefined ? true : null
 }
 
-const vacia = fila => fila.every(c => String(c ?? '').trim() === '')
+function filaSinDatoMapeado(fila, mapeo) {
+  const camposRelevantes = ['nombre', 'codigo', 'precioTotal', 'precioBase', 'costo', 'existencia']
+  for (const campo of camposRelevantes) {
+    const col = mapeo[campo]
+    if (col === undefined) continue
+    const v = String(fila[col] ?? '').trim()
+    if (v !== '') return false
+  }
+  return true
+}
 
 // opciones: { formatoNumero, inventariable: 'si'|'no'|null, isv: bool,
 //             unidades: {origen: unidadBold}, categoriasAGeneral: bool,
@@ -103,7 +112,7 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
   const purgaUnidades = purgar(unidadesOriginales)
 
   filas.forEach((fila, i) => {
-    if (vacia(fila)) return
+    if (filaSinDatoMapeado(fila, mapeo)) return
     const n = fila.__fila ?? i + 1
 
     const nombre = aTexto(get(fila, 'nombre'))

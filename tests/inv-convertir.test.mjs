@@ -270,3 +270,33 @@ test('convertir: IVA — por_fila sin general y fila vacía → EXENTO (backward
   })
   assert.equal(r.salidas.inventariable[0].isv, 'EXENTO')
 })
+
+test('convertir: fila con basura solo en columna no mapeada → omitida silenciosa', () => {
+  const p = leerPlantilla(hojasInv())
+  // "Observaciones" no está en el mapeo del conversor → basura ignorable.
+  const encabezados = ['Nombre', 'Precio', 'Observaciones']
+  const mapeo = mapearColumnas(encabezados)
+  const filas = [
+    ['Producto 1', '10000', 'ok'],
+    ['', '', '-- Separador de sección --'],  // basura solo en no-mapeada
+    ['Producto 2', '20000', ''],
+  ]
+  const r = convertir({ filas, mapeo, plantillas: { inventariable: p }, opciones: { inventariable: 'si' } })
+  assert.equal(r.salidas.inventariable.length, 2)
+  // No se contó como error:
+  assert.equal(r.errores.length, 0)
+})
+
+test('convertir: fila con nombre pero sin precio → error (regresión)', () => {
+  const p = leerPlantilla(hojasInv())
+  const encabezados = ['Nombre', 'Precio']
+  const mapeo = mapearColumnas(encabezados)
+  const filas = [
+    ['Producto completo', '10000'],
+    ['Producto sin precio', ''],
+  ]
+  const r = convertir({ filas, mapeo, plantillas: { inventariable: p }, opciones: { inventariable: 'si' } })
+  assert.equal(r.salidas.inventariable.length, 1)
+  assert.equal(r.errores.length, 1)
+  assert.match(r.errores[0].mensaje, /precio de venta no es un número válido/)
+})
