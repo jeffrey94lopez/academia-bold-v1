@@ -9,6 +9,27 @@ import { getContextoBold } from './bold-context.js'
 const letraColumna = i => { let s = '', n = i; do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1 } while (n >= 0); return s }
 const FIN = Symbol('fin')
 
+const OPCIONES_IVA = [
+  { texto: 'IVA-19', valor: 'IVA-19' },
+  { texto: 'IVA-5',  valor: 'IVA-5' },
+  { texto: 'Excluido', valor: 'EXCLUIDO' },
+  { texto: 'Exento',   valor: 'EXENTO' },
+]
+
+function contarIva({ mapeo, filas }) {
+  // Helper pequeño que cuenta filas con / sin IVA válido. Lo usa el chat para
+  // armar el mensaje "X con, Y sin" del caso mixto.
+  let con = 0, sin = 0
+  if (mapeo.impuesto === undefined) return { con: 0, sin: filas.length }
+  for (const f of filas) {
+    if (f.every(c => String(c ?? '').trim() === '')) continue
+    const v = String(f[mapeo.impuesto] ?? '').trim()
+    if (v === '' || isNaN(parseFloat(v.replace(',', '.')))) sin++
+    else con++
+  }
+  return { con, sin }
+}
+
 const INTRO_HTML = '¡Claro! Te ayudo a pasar tu inventario a Bold POS paso a paso: conseguir tu plantilla, subir tu archivo de productos, una revisión rápida y la descarga. <b>No necesitas saber nada de Excel, y tus archivos no salen de tu computador.</b>'
 // Lo que queda en el historial de la conversación (texto plano).
 export const TEXTO_INTRO = INTRO_HTML.replace(/<[^>]+>/g, '')
@@ -19,6 +40,26 @@ export const TEXTO_INTRO = INTRO_HTML.replace(/<[^>]+>/g, '')
 export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 'chat', telemetria = telemetriaReal('inventario') }) {
   const sesion = crearSesion()
   const { bot, usuario, chips, pedirArchivos, pedirCampos, vivo } = crearBase({ host, alDesplazar })
+
+  // Mira la columna de IVA del archivo (si está mapeada) y devuelve:
+  // 'completo' (todas las filas con IVA válido), 'vacio' (ninguna) o 'mixto'.
+  // Usa parseImpuesto que ya existe en inv-numeros.
+  async function detectarEstadoIva() {
+    const { parseImpuesto } = await import('./inv-numeros.js')
+    const { mapeo, filas } = sesion.estado.origen
+    if (mapeo.impuesto === undefined) return 'vacio'
+    let con = 0, sin = 0
+    for (const f of filas) {
+      if (vacia(f)) continue
+      const v = parseImpuesto(f[mapeo.impuesto])
+      if (v == null) sin++; else con++
+    }
+    if (con === 0) return 'vacio'
+    if (sin === 0) return 'completo'
+    return 'mixto'
+  }
+
+  const vacia = fila => fila.every(c => String(c ?? '').trim() === '')
 
   // Modo del conversor: 'mono' (plantilla sintética) o 'multi' (sube la del cliente).
   let modo = null
@@ -230,14 +271,60 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
 
   // ---------- Paso 4: preguntas que dependen de la cuenta y del archivo ----------
   async function pasoPreguntas() {
-    // Facturación electrónica: decide si la plantilla lleva la columna de impuesto.
-    const trae = sesion.tieneIsv()
-    const qIsv = await bot(`¿Tu cuenta tiene <b>facturación electrónica</b> habilitada? ${trae ? 'Tu plantilla trae la columna de impuesto (ISV), así que parece que sí.' : 'Tu plantilla no trae la columna de impuesto (ISV).'}`)
-    const conIsv = (await chips(qIsv, [{ texto: 'Sí', valor: true }, { texto: 'No', valor: false }]))
-    vivo()
-    sesion.estado.opciones.isv = conIsv
-    if (conIsv && !trae) await bot('Entonces descarga de nuevo tu plantilla desde Bold POS (con la facturación electrónica activa) y súbela otra vez; por ahora no puedo llenar el impuesto sin esa columna. Seguimos con lo demás.')
-    if (!conIsv && trae) await bot('Entendido: dejaré la columna de impuesto vacía.')
+    // Facturación electrónica. En el camino mono ya se preguntó al armar la
+    // plantilla sintética; sesion.estado.opciones.isv lo lleva seteado.
+    const yaSePregunto = sesion.estado.opciones.isv !== null
+    if (!yaSePregunto) {
+      const trae = sesion.tieneIsv()
+      const qIsv = await bot(`¿Tu cuenta tiene <b>facturación electrónica</b> habilitada? ${trae ? 'Tu plantilla trae la columna de impuesto (ISV), así que parece que sí.' : 'Tu plantilla no trae la columna de impuesto (ISV).'}`)
+      const conIsv = (await chips(qIsv, [{ texto: 'Sí', valor: true }, { texto: 'No', valor: false }]))
+      vivo()
+      sesion.estado.opciones.isv = conIsv
+      if (conIsv && !trae) await bot('Entonces descarga de nuevo tu plantilla desde Bold POS (con la facturación electrónica activa) y súbela otra vez; por ahora no puedo llenar el impuesto sin esa columna. Seguimos con lo demás.')
+      if (!conIsv && trae) await bot('Entendido: dejaré la columna de impuesto vacía.')
+    }
+
+    // Preguntas de IVA general y manejo de mixto (ambos caminos).
+    if (sesion.estado.opciones.isv) {
+      const estado = await detectarEstadoIva()
+      if (estado === 'vacio') {
+        const q = await bot('Tu archivo no trae IVA por producto. ¿Qué IVA querés aplicar por defecto a tus ítems?')
+        const iva = await chips(q, OPCIONES_IVA)
+        vivo()
+        sesion.estado.opciones.ivaStrategy = 'por_fila'
+        sesion.estado.opciones.ivaGeneral = iva
+        telemetria.paso('iva_general_elegido', { iva, camino: modo })
+      } else if (estado === 'mixto') {
+        const con = contarIva(sesion.estado.origen).con
+        const sin = contarIva(sesion.estado.origen).sin
+        telemetria.error('iva_mixto', 'detectado', { filas_con: con, filas_sin: sin })
+        const q = await bot(`Tu archivo trae IVA en algunos productos (<b>${con}</b> filas) pero no en otros (<b>${sin}</b> filas). ¿Cómo lo resolvemos?`)
+        const r = await chips(q, [
+          { texto: 'Vuelvo a subir mi archivo con la columna de IVA completa', valor: 'reupload' },
+          { texto: 'Elegí UN IVA para los que faltan, respetá los que ya tienen', valor: 'por_fila_fallback' },
+          { texto: 'Aplicá UN IVA a TODOS, yo corrijo en Bold después', valor: 'todos_igual' },
+        ])
+        vivo()
+        if (r === 'reupload') {
+          telemetria.error('iva_mixto', 'resolucion_reupload')
+          await bot('Dale, subí el archivo de nuevo con la columna de IVA completa.')
+          await pasoOrigen()
+          return pasoPreguntas()  // vuelve a entrar con el archivo nuevo
+        }
+        const strategy = r === 'todos_igual' ? 'todos_igual' : 'por_fila'
+        const qIva = await bot('¿Cuál es ese IVA?')
+        const iva = await chips(qIva, OPCIONES_IVA)
+        vivo()
+        sesion.estado.opciones.ivaStrategy = strategy
+        sesion.estado.opciones.ivaGeneral = iva
+        const codigoReso = r === 'todos_igual' ? 'resolucion_todos_igual' : 'resolucion_por_fila_con_fallback'
+        telemetria.error('iva_mixto', codigoReso, { iva_elegido: iva })
+        if (r === 'todos_igual') {
+          await bot('Listo. Si querés cambiar el IVA de algunos productos después del import, podés hacerlo en Bold POS con <b>Actualización masiva</b>. La pestaña <b>Instrucciones</b> del xlsx descargado tiene la lista de IVAs válidos.', { demora: 500 })
+        }
+      }
+      // estado === 'completo': no se pregunta, cada fila usa su valor del archivo.
+    }
 
     let r = sesion.recalcular()
     if (r.pendienteInventariable) {

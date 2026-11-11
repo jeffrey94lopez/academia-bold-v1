@@ -35,6 +35,8 @@ export const ERRORES = {
   filas_precio: 'Productos con precio inválido',
   filas_plantilla_tipo: 'Productos de un tipo cuya plantilla no subió',
   sin_warehouse_id: 'No vino el warehouseId en el contexto de Bold (plantilla sintética)',
+  detectado: 'Se detectó IVA mixto en el archivo (algunas filas con IVA, otras sin)',
+  resolucion_reupload: 'El cliente eligió volver a subir el archivo con la columna de IVA completa',
   sin_resultado: 'No se pudo armar ningún producto',
   datos_vacios: 'No se encontraron códigos en lo que pegó o subió',
   formato_invalido: 'Los códigos no sirven para el formato de barras elegido',
