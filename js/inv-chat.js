@@ -396,9 +396,62 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
     }
   }
 
+  function construirCategoriasParaCrear() {
+    const cats = new Set()
+    for (const tipo of Object.keys(sesion.estado.resultado.salidas)) {
+      for (const it of sesion.estado.resultado.salidas[tipo]) {
+        if (it.categoria && it.categoria.toLowerCase() !== 'general') cats.add(it.categoria)
+      }
+    }
+    return [...cats].sort()
+  }
+
+  function construirUnidadesNoCanonicas() {
+    // Las unidades canónicas de Bold que sintetizamos en vendor/ — hardcoded acá
+    // para no romper el aislamiento del chat con inv-plantilla-sintetica.
+    const CANONICAS = new Set([
+      'Centímetros', 'Galónes', 'Gramos', 'Kilogramos', 'Libras', 'Litros',
+      'Metros', 'Metros cuadrados', 'Metros cúbicos', 'Miligramos', 'Mililitros',
+      'Milímetros', 'Onzas', 'Par', 'Unidades',
+    ])
+    const uso = new Set()
+    for (const tipo of Object.keys(sesion.estado.resultado.salidas)) {
+      for (const it of sesion.estado.resultado.salidas[tipo]) {
+        if (it.unidad && !CANONICAS.has(it.unidad)) uso.add(it.unidad)
+      }
+    }
+    return [...uso].sort()
+  }
+
   // ---------- Resultado ----------
   async function pasoResultado() {
     const r = sesion.estado.resultado
+
+    // Camino mono: no hay plantilla Bold subida → todo lo que no sea General
+    // o una unidad canónica son "faltantes" en Bold. Le damos la lista para crear.
+    if (modo === 'mono') {
+      const catsParaCrear = construirCategoriasParaCrear()
+      const unidadesParaCrear = construirUnidadesNoCanonicas()
+      if (catsParaCrear.length) {
+        const b = await bot(`Estas <b>${catsParaCrear.length}</b> categorías no existen en tu Bold todavía. Creálas antes de importar (Bold POS → Ítems → Categorías → Crear). Podés pegarlas una por línea:<pre class="inv-cats">${esc(catsParaCrear.join('\n'))}</pre>`, { demora: 500 })
+        const acc = await chips(b, [{ texto: 'Copiar categorías', valor: 'copiar' }, { texto: 'Continuar', valor: 'seguir' }])
+        vivo()
+        if (acc === 'copiar') {
+          try { await navigator.clipboard.writeText(catsParaCrear.join('\n')) } catch { /* sin portapapeles */ }
+          await bot('Copiadas ✅', { demora: 250 })
+        }
+      }
+      if (unidadesParaCrear.length) {
+        const b = await bot(`Estas <b>${unidadesParaCrear.length}</b> unidades que usás no están en la lista estándar de Bold. Creálas antes de importar (Bold POS → Ítems → Unidades):<pre class="inv-cats">${esc(unidadesParaCrear.join('\n'))}</pre>`, { demora: 500 })
+        const acc = await chips(b, [{ texto: 'Copiar unidades', valor: 'copiar' }, { texto: 'Continuar', valor: 'seguir' }])
+        vivo()
+        if (acc === 'copiar') {
+          try { await navigator.clipboard.writeText(unidadesParaCrear.join('\n')) } catch { /* ídem */ }
+          await bot('Copiadas ✅', { demora: 250 })
+        }
+      }
+    }
+
     const tipos = Object.keys(r.salidas).filter(t => r.salidas[t].length)
     if (r.total) telemetria.paso('resultado'); else telemetria.error('resultado', 'sin_resultado')
     // Cuántas filas fallaron y por qué (solo el motivo, no el producto).
