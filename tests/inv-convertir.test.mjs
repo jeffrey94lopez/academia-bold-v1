@@ -165,3 +165,17 @@ test('códigos duplicados y dañados por Excel generan aviso', () => {
   assert.match(msgs, /ya está en la fila 1/)
   assert.match(msgs, /notación científica/)
 })
+
+test('convertir: aplica sanear a los campos de texto de salida', () => {
+  const p = leerPlantilla(hojasInv())
+  const encabezados = ['Nombre', 'Precio de venta total', 'Codigo', 'Descripcion', 'Existencia']
+  const mapeo = mapearColumnas(encabezados)
+  const filas = [
+    ['Café`especial {promo}', 12000, 'A°1', '¡Hola! mundo', 5],
+  ]
+  const r = convertir({ filas, mapeo, plantillas: { inventariable: p }, opciones: {} })
+  const out = r.salidas.inventariable[0]
+  assert.equal(out.nombre, "Café'especial promo")
+  assert.equal(out.codigo, 'A#1')
+  assert.equal(out.descripcion, 'Hola mundo')
+})

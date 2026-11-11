@@ -6,6 +6,7 @@
 // (se exporta, pero conviene mirar) y lo que el cliente debe resolver.
 import { normalizar, parseNumero, parseSiNo, parseImpuesto, aCodigo, aTexto } from './inv-numeros.js'
 import { crearGeneradorCodigos } from './inv-codigos.js'
+import { sanear } from './inv-saneamiento.js'
 
 // Grupos de sinónimos de unidades: la clave es la unidad "canónica".
 const UNIDADES = {
@@ -155,8 +156,13 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
     }
 
     const out = {
-      codigo, nombre, categoria, referencia: aTexto(get(fila, 'referencia')),
-      descripcion: aTexto(get(fila, 'descripcion')), unidad, costo, precioTotal,
+      codigo: sanear(codigo),
+      nombre: sanear(nombre),
+      categoria: sanear(categoria),
+      referencia: sanear(aTexto(get(fila, 'referencia'))),
+      descripcion: sanear(aTexto(get(fila, 'descripcion'))),
+      unidad: sanear(unidad),
+      costo, precioTotal,
     }
 
     if (inventariable) {
