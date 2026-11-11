@@ -7,6 +7,7 @@
 import { normalizar, parseNumero, parseSiNo, parseImpuesto, aCodigo, aTexto } from './inv-numeros.js'
 import { crearGeneradorCodigos } from './inv-codigos.js'
 import { sanear } from './inv-saneamiento.js'
+import { purgar } from './inv-purgador.js'
 
 // Grupos de sinónimos de unidades: la clave es la unidad "canónica".
 const UNIDADES = {
@@ -92,6 +93,15 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
   const aviso = (n, msg) => avisos.push({ fila: n, mensaje: msg })
   const error = (n, msg, codigo) => errores.push({ fila: n, mensaje: msg, codigo })
 
+  const categoriasOriginales = filas
+    .map(f => get(f, 'categoria'))
+    .filter(Boolean)
+  const unidadesOriginales = filas
+    .map(f => get(f, 'unidad'))
+    .filter(Boolean)
+  const purgaCategorias = purgar(categoriasOriginales)
+  const purgaUnidades = purgar(unidadesOriginales)
+
   filas.forEach((fila, i) => {
     if (vacia(fila)) return
     const n = fila.__fila ?? i + 1
@@ -119,13 +129,14 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
 
     // Unidad.
     const listaUnidades = plantilla.listas.unidades
-    const unidadOrigen = aTexto(get(fila, 'unidad'))
+    const unidadOriginalCliente = aTexto(get(fila, 'unidad'))
+    const unidadPurgada = purgaUnidades.mapeo[get(fila, 'unidad')] ?? unidadOriginalCliente
     let unidad
-    if (!unidadOrigen) unidad = mapearUnidad('Unidades', listaUnidades) ?? listaUnidades[0] ?? 'Unidades'
+    if (!unidadPurgada) unidad = mapearUnidad('Unidades', listaUnidades) ?? listaUnidades[0] ?? 'Unidades'
     else {
-      unidad = opciones.unidades?.[unidadOrigen] ?? mapearUnidad(unidadOrigen, listaUnidades)
+      unidad = opciones.unidades?.[unidadPurgada] ?? mapearUnidad(unidadPurgada, listaUnidades)
       if (!unidad) {
-        unidadesSinMapa.add(unidadOrigen)
+        unidadesSinMapa.add(unidadPurgada)
         unidad = mapearUnidad('Unidades', listaUnidades) ?? listaUnidades[0] ?? 'Unidades'
       }
     }
@@ -133,7 +144,8 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
     // Categoría: debe existir en Bold antes de importar.
     const lista = plantilla.listas.categorias
     const general = lista.find(c => normalizar(c) === 'general') ?? lista[0] ?? 'General'
-    let categoria = sinPrefijoNumerico(aTexto(get(fila, 'categoria')))
+    const catOriginal = sinPrefijoNumerico(aTexto(get(fila, 'categoria')))
+    let categoria = purgaCategorias.mapeo[get(fila, 'categoria')] ?? catOriginal
     if (!categoria) { categoria = general; sinCategoria++ }
     else {
       const existente = lista.find(c => normalizar(c) === normalizar(categoria))

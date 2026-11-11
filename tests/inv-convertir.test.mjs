@@ -179,3 +179,34 @@ test('convertir: aplica sanear a los campos de texto de salida', () => {
   assert.equal(out.codigo, 'A#1')
   assert.equal(out.descripcion, 'Hola mundo')
 })
+
+test('convertir: aplica el purgador a las categorías del archivo', () => {
+  const p = leerPlantilla(hojasInv())
+  const encabezados = ['Nombre', 'Precio', 'Categoria']
+  const mapeo = mapearColumnas(encabezados)
+  const filas = [
+    ['Camisa A', '10000', 'CAMISA'],
+    ['Camisa B', '10000', 'camisa'],
+    ['Camisa C', '10000', 'Camisas'],
+  ]
+  const r = convertir({ filas, mapeo, plantillas: { inventariable: p }, opciones: { inventariable: 'si' } })
+  // Las 3 filas quedan con la misma canónica (singular/plural + case).
+  const cats = r.salidas.inventariable.map(x => x.categoria)
+  assert.equal(new Set(cats).size, 1)
+})
+
+test('convertir: aplica el purgador a las unidades del archivo', () => {
+  const p = leerPlantilla(hojasInv())
+  const encabezados = ['Nombre', 'Precio', 'Unidad']
+  const mapeo = mapearColumnas(encabezados)
+  const filas = [
+    ['Arroz 500g', '5000', 'Gramos'],
+    ['Arroz 1kg',  '9000', 'GRAMOS'],
+    ['Arroz 2kg', '17000', 'gramos'],
+  ]
+  const r = convertir({ filas, mapeo, plantillas: { inventariable: p }, opciones: { inventariable: 'si' } })
+  const unidades = r.salidas.inventariable.map(x => x.unidad)
+  assert.equal(new Set(unidades).size, 1)
+  // La unidad final es la que matchea con la lista de la plantilla.
+  assert.equal(unidades[0], 'Gramos')
+})
