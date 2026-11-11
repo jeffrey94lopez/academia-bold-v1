@@ -3,8 +3,14 @@
 // cliente y recalcula la conversión cada vez que algo cambia.
 import { leerLibro, escribirPlantilla, descargar } from './inv-excel.js'
 import { leerPlantilla } from './inv-plantilla.js'
+import { construirPlantilla } from './inv-plantilla-sintetica.js'
 import { elegirHoja } from './inv-origen.js'
 import { convertir } from './inv-convertir.js'
+
+const BASES = {
+  inventariable: '/vendor/bold-plantilla-base-inventariable.xlsx',
+  noinventariable: '/vendor/bold-plantilla-base-noinventariable.xlsx',
+}
 
 export const ETIQUETA_TIPO = { inventariable: 'inventariables', noinventariable: 'no inventariables' }
 const RUTA_XLSX = 'vendor/xlsx.full.min.js'
@@ -22,6 +28,20 @@ export function cargarXlsx() {
     document.head.appendChild(s)
   })
   return cargaXlsx
+}
+
+// Un retry con backoff 300→800ms solo para fallos de red; errores de parse o
+// estructura no se reintentan porque son determinísticos.
+async function fetchConRetry(url) {
+  const intentar = () => fetch(url).then(r => {
+    if (!r.ok) throw new Error(`http ${r.status}`)
+    return r.arrayBuffer()
+  })
+  try { return await intentar() }
+  catch { await new Promise(r => setTimeout(r, 300))
+          try { return await intentar() }
+          catch { await new Promise(r => setTimeout(r, 800))
+                  return await intentar() } }
 }
 
 export function crearSesion() {
@@ -49,6 +69,35 @@ export function crearSesion() {
         estado.plantillas[info.tipo] = { info, wb, nombre: file.name }
         return { info }
       } catch { return { error: `No pude leer "${file.name}".`, codigo: 'archivo_ilegible' } }
+    },
+
+    // Arma la plantilla por el cliente mono-sucursal sin pedirle que la suba.
+    // Fetcha los dos bases de vendor/ en paralelo (con 1 retry para fallas de
+    // red), les inyecta warehouseId y, si corresponde, la columna Impuesto*.
+    // En caso de fallo cae al flujo multi (el chat pide la plantilla manual).
+    async agregarPlantillaSintetica({ warehouseId, conFE }) {
+      const XLSX = await cargarXlsx()
+      try {
+        const [invBytes, noInvBytes] = await Promise.all([
+          fetchConRetry(BASES.inventariable),
+          fetchConRetry(BASES.noinventariable),
+        ])
+        const inv = construirPlantilla(XLSX, {
+          baseBytes: invBytes, warehouseId, conFE, tipo: 'inventariable',
+        })
+        const noInv = construirPlantilla(XLSX, {
+          baseBytes: noInvBytes, warehouseId, conFE, tipo: 'noinventariable',
+        })
+        estado.plantillas.inventariable = { info: inv.info, wb: inv.wb, nombre: '(plantilla preparada para vos)' }
+        estado.plantillas.noinventariable = { info: noInv.info, wb: noInv.wb, nombre: '(plantilla preparada para vos)' }
+        return { ok: true }
+      } catch (e) {
+        const msg = String(e?.message ?? e)
+        const codigo = /^parse_fallo/.test(msg) ? 'parse_fallo'
+          : /^estructura_cambio/.test(msg) ? 'estructura_cambio'
+          : 'fetch_fallo'
+        return { error: 'No pude preparar la plantilla por vos.', codigo }
+      }
     },
 
     // → { filas, hoja } o { error }
