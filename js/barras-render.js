@@ -5,9 +5,9 @@
 import { PAPELES } from './barras.js'
 
 const LIBS = {
-  barras: ['https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js', () => globalThis.JsBarcode],
-  qr: ['https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js', () => globalThis.qrcode],
-  zip: ['https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js', () => globalThis.JSZip],
+  barras: ['vendor/jsbarcode-3.11.5.all.min.js', () => globalThis.JsBarcode],
+  qr: ['vendor/qrcode-generator-1.4.4.js', () => globalThis.qrcode],
+  zip: ['vendor/jszip-3.10.1.min.js', () => globalThis.JSZip],
 }
 const cargas = {}
 export function cargarLib(nombre) {
