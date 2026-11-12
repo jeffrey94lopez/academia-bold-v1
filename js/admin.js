@@ -15,7 +15,7 @@ import { evaluarBorradoCategoria } from './category-guard.js'
 import { loadSettings, loadSettingsResult, saveSetting, loadVisibilityOverrides, saveLessonVisibility } from './settings.js'
 import { aplicarVisibilidad, visibles } from './lesson-visibility.js'
 import { APP_ENV } from './env.js'
-import { embedLesson, EMBED_WEBHOOK, EMBED_TOKEN } from './lesson-embed.js'
+import { embedLesson, embedTexto } from './lesson-embed.js'
 import { dedupeQuestions, firstUserMessage } from './faq-suggest.js'
 import { draftKey, buildDraft, shouldOfferRestore, relTime } from './lesson-draft.js'
 import { construirCopia, otraVertical, puedeDuplicarse, prepararPayload } from './lesson-duplicate.js'
@@ -1756,27 +1756,11 @@ function updatePreview() {
 }
 
 async function embedFaqItem(id, pregunta, respuesta) {
-  try {
-    const text = `Pregunta frecuente:\nPregunta: ${pregunta}\nRespuesta: ${respuesta}`
-    const res = await fetch(EMBED_WEBHOOK, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': EMBED_TOKEN },
-      body: JSON.stringify({ lessonId: `faq_${id}`, text })
-    })
-    return res.ok
-  } catch (_) { return false }
+  return embedTexto(`faq_${id}`, `Pregunta frecuente:\nPregunta: ${pregunta}\nRespuesta: ${respuesta}`)
 }
 
 async function embedGlosarioTerm(id, termino, definicion) {
-  try {
-    const text = `Término del glosario: ${termino}\nDefinición: ${definicion}`
-    const res = await fetch(EMBED_WEBHOOK, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': EMBED_TOKEN },
-      body: JSON.stringify({ lessonId: `glosario_${id}`, text })
-    })
-    return res.ok
-  } catch (_) { return false }
+  return embedTexto(`glosario_${id}`, `Término del glosario: ${termino}\nDefinición: ${definicion}`)
 }
 
 async function renderFaqPanel() {
