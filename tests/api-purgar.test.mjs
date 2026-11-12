@@ -108,3 +108,30 @@ test('validarPedido: tipos y limites', () => {
   assert.equal(v.ok, true)
   assert.deepEqual(v.limpio, { modo: 'simplificar', categorias: [], existentes: [], unidades: [], account_id: 'acc' })
 })
+
+test('produccion 404 aunque falten las variables de n8n', async () => {
+  process.env.VERCEL_ENV = 'production'
+  delete process.env.N8N_PURGA_URL
+  delete process.env.N8N_API_KEY
+  assert.equal((await pedir(base)).status, 404)
+})
+
+test('en Vercel sin VERCEL_ENV -> 404; con preview pasa', async () => {
+  process.env.VERCEL = '1'
+  assert.equal((await pedir(base)).status, 404)
+  process.env.VERCEL_ENV = 'preview'
+  assert.equal((await pedir(base)).status, 200)
+})
+
+test('limite de cuerpo en bytes (multibyte)', async () => {
+  const grande = JSON.stringify({ ...base, relleno: 'ñ'.repeat(40000) })
+  assert.ok(grande.length < 65536)
+  assert.equal((await pedir(grande)).status, 400)
+})
+
+test('solo devuelve la forma conocida del upstream', async () => {
+  globalThis.fetch = async () => new Response(JSON.stringify({ resultado: { a: 1 }, cache: true, debug: 'x' }))
+  assert.deepEqual(await (await pedir(base)).json(), { resultado: { a: 1 }, cache: true })
+  globalThis.fetch = async () => new Response(JSON.stringify({ desactivado: true, debug: 'x' }))
+  assert.deepEqual(await (await pedir(base)).json(), { desactivado: true })
+})

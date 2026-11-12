@@ -37,7 +37,9 @@ export function validarPedido(body) {
 
 export async function POST(request) {
   // Cerrado en produccion
-  if (process.env.VERCEL_ENV === 'production') return json({ error: 'Not found' }, 404)
+  // Fail closed: en Vercel solo se permite preview
+  const env = process.env.VERCEL_ENV
+  if (env === 'production' || (process.env.VERCEL === '1' && env !== 'preview')) return json({ error: 'Not found' }, 404)
 
   const url = process.env.N8N_PURGA_URL
   const key = process.env.N8N_API_KEY
@@ -50,7 +52,7 @@ export async function POST(request) {
   try {
     // content-length puede faltar o mentir: se verifica sobre el texto real
     const texto = await request.text()
-    if (texto.length > MAX_CUERPO) return json({ error: 'Bad request' }, 400)
+    if (Buffer.byteLength(texto, 'utf8') > MAX_CUERPO) return json({ error: 'Bad request' }, 400)
     body = JSON.parse(texto)
   } catch {
     return json({ error: 'Bad request' }, 400)
@@ -64,10 +66,15 @@ export async function POST(request) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': key },
       body: JSON.stringify({ ...v.limpio, env: process.env.VERCEL_ENV ?? 'development' }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: request.signal
+        ? AbortSignal.any([request.signal, AbortSignal.timeout(TIMEOUT_MS)])
+        : AbortSignal.timeout(TIMEOUT_MS),
     })
     if (!upstream.ok) return json({ error: 'Upstream error' }, 502)
-    return json(await upstream.json())
+    const data = await upstream.json()
+    // Solo la forma conocida; nada mas del upstream llega al cliente
+    if (data && data.desactivado === true) return json({ desactivado: true })
+    return json({ resultado: data?.resultado, cache: data?.cache === true })
   } catch {
     return json({ error: 'Upstream error' }, 502)
   }
