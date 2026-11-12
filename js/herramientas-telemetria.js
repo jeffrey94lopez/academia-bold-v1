@@ -1,12 +1,13 @@
 // js/herramientas-telemetria.js — qué tanto se usan las herramientas de BolBot
 // (conversor de inventario y generador de códigos) y dónde se atoran.
 //
-// Cuatro eventos en analytics_events, todos con run_id (una conversación) y, si Bold
+// Cinco eventos en analytics_events, todos con run_id (una conversación) y, si Bold
 // mandó el contexto, account_id / business_name / vertical:
 //   tool_start     la conversación arrancó
 //   tool_step      llegó a un paso (una vez por paso y conversación)
 //   tool_error     algo falló o se atoró (código fijo, nunca texto libre)
 //   tool_complete  se llevó el resultado: descargó, imprimió, bajó el ZIP
+//   tool_ia        decisión ante una propuesta de la IA (sin dedup, solo conteos)
 // Jamás se manda contenido del cliente: ni nombres de productos, ni códigos, ni
 // nombres de archivo. Solo conteos y opciones elegidas.
 //
@@ -43,6 +44,10 @@ export const ERRORES = {
   dibujo_fallo: 'Algunos códigos no se pudieron dibujar',
   libreria_no_carga: 'No cargó la herramienta de dibujo (conexión)',
   descarga_fallo: 'Falló la descarga de imágenes',
+  ia_fallo: 'La IA no respondió (error del servicio)',
+  ia_respuesta_invalida: 'La IA respondió algo que no cumple las reglas; se descartó',
+  ia_timeout: 'La IA tardó más de 15 s',
+  ia_lista_grande: 'Más de 300 categorías o unidades distintas; no se usó la IA',
   excepcion: 'Error inesperado',
   otro: 'Otro',
 }
@@ -87,6 +92,18 @@ export function crearTelemetriaHerramienta({ track, tool, runId, getContexto = (
     // `detalle`: solo números o cadenas cortas propias del sistema (nunca texto del cliente).
     error(paso, codigo, detalle = {}) {
       track('tool_error', payload({ paso, codigo: codigo in ERRORES ? codigo : 'otro', ...detalle }))
+    },
+
+    // Decisión del cliente ante una propuesta de la IA (purgador). Sin deduplicar: cada
+    // propuesta cuenta. Solo números y códigos del sistema, nunca texto del cliente:
+    // por eso se eligen los campos a mano en vez de esparcir `detalle`.
+    ia(etapa, decision, detalle = {}) {
+      const { n_entrada, n_salida, codigo } = detalle
+      const extra = { etapa, decision }
+      if (n_entrada !== undefined) extra.n_entrada = n_entrada
+      if (n_salida !== undefined) extra.n_salida = n_salida
+      if (codigo !== undefined) extra.codigo = codigo
+      track('tool_ia', payload(extra))
     },
 
     // accion: descarga | impresion | zip | lista_codigos. `datos`: conteos y opciones.

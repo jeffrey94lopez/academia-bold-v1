@@ -44,6 +44,26 @@ test('un código de error desconocido se guarda como "otro"', () => {
   assert.equal(eventos[1].p.filas, 2)
 })
 
+test('ia: cada llamada es un evento tool_ia con run_id, sin deduplicar y solo con campos permitidos', () => {
+  const { t, eventos } = crear()
+  t.ia('categorias', 'acepto', { n_entrada: 48, n_salida: 12, texto: 'Coca Cola' })
+  t.ia('categorias', 'acepto', { n_entrada: 48, n_salida: 12 })
+  t.ia('unidades', 'fallo', { n_entrada: 5, n_salida: 0, codigo: 'ia_timeout' })
+  assert.deepEqual(eventos.map(e => e.tipo), ['tool_ia', 'tool_ia', 'tool_ia'])
+  assert.equal(eventos[0].p.run_id, 'r1')
+  assert.equal(eventos[0].p.etapa, 'categorias')
+  assert.equal(eventos[0].p.decision, 'acepto')
+  assert.equal(eventos[0].p.n_entrada, 48)
+  assert.equal(eventos[0].p.n_salida, 12)
+  assert.equal('texto' in eventos[0].p, false)
+  assert.equal('codigo' in eventos[0].p, false)
+  assert.equal(eventos[2].p.codigo, 'ia_timeout')
+})
+
+test('los códigos de error de la IA tienen explicación para el admin', () => {
+  for (const c of ['ia_fallo', 'ia_respuesta_invalida', 'ia_timeout', 'ia_lista_grande']) assert.ok(c in ERRORES, c)
+})
+
 // Evita el error silencioso: un código nuevo en el chat que nadie etiquetó caería en "Otro".
 test('todo código de error que emite el código tiene explicación y todo paso tiene etiqueta', () => {
   const leer = f => readFileSync(new URL(`../js/${f}`, import.meta.url), 'utf8')
