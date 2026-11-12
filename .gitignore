@@ -46,3 +46,4 @@ version.json
 # Perfil persistente del sniffer de postMessage del POS
 .playwright-bold-session/
 .env*
+supabase/.temp/
