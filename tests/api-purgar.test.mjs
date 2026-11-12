@@ -49,15 +49,15 @@ test('reenvia solo campos permitidos y env lo pone el servidor', async () => {
   assert.deepEqual(await r.json(), { resultado: { ok: 1 }, cache: false })
   const enviado = JSON.parse(llamadas[0].opts.body)
   assert.equal(enviado.x, undefined)
-  assert.equal(enviado.env, 'preview')
+  assert.equal(enviado.env, 'sandbox')
   assert.deepEqual(enviado.existentes, [])
   assert.equal(llamadas[0].url, process.env.N8N_PURGA_URL)
   assert.equal(llamadas[0].opts.headers['x-api-key'], 'clave-secreta')
 })
 
-test('env por defecto development', async () => {
+test('env local tambien es sandbox', async () => {
   await pedir(base)
-  assert.equal(JSON.parse(llamadas[0].opts.body).env, 'development')
+  assert.equal(JSON.parse(llamadas[0].opts.body).env, 'sandbox')
 })
 
 test('301 elementos, elemento de 81 chars y modo desconocido -> 400', async () => {

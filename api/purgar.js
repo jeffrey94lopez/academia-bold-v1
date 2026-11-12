@@ -65,7 +65,8 @@ export async function POST(request) {
     const upstream = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': key },
-      body: JSON.stringify({ ...v.limpio, env: process.env.VERCEL_ENV ?? 'development' }),
+      // Solo responde fuera de produccion: el env es siempre el de app_settings/analytics de sandbox.
+      body: JSON.stringify({ ...v.limpio, env: 'sandbox' }),
       signal: request.signal
         ? AbortSignal.any([request.signal, AbortSignal.timeout(TIMEOUT_MS)])
         : AbortSignal.timeout(TIMEOUT_MS),
