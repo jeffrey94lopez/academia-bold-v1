@@ -300,3 +300,36 @@ test('convertir: fila con nombre pero sin precio → error (regresión)', () => 
   assert.equal(r.errores.length, 1)
   assert.match(r.errores[0].mensaje, /precio de venta no es un número válido/)
 })
+
+// categoriasIA: el mapeo de la IA se aplica tras el heurístico y antes de validar contra Bold.
+const hojasSoloGeneral = () => {
+  const h = hojasInv()
+  h.Instrucciones = [
+    ['Listado de impuestos:', 'Listado de Unidades:', 'Categorias:', 'Listas de precios:'],
+    ['EXENTO', 'Unidades', 'General'],
+  ]
+  return h
+}
+const baseIA = () => ({
+  filas: [alegraFila({ 5: 'BEBIDA FRIA' }), alegraFila({ 5: 'Bebidas', 2: 'Jugo' }), alegraFila({ 5: 'Aseo', 2: 'Jabon' })],
+  mapeo: mapearColumnas(ALEGRA), plantillas: { inventariable: leerPlantilla(hojasSoloGeneral()) },
+})
+
+test('categoriasIA: agrupa la categoría y la fila sale con el nombre final', () => {
+  const r = convertir({ ...baseIA(), opciones: { categoriasIA: { 'BEBIDA FRIA': 'Bebidas' } } })
+  assert.equal(r.categoriasFaltantes.length, 2)
+  assert.deepEqual([...r.categoriasFaltantes].sort(), ['Aseo', 'Bebidas'])
+  assert.equal(r.salidas.inventariable[0].categoria, 'Bebidas')
+})
+
+test('categoriasIA: categoriasAGeneral sigue ganando', () => {
+  const r = convertir({ ...baseIA(), opciones: { categoriasAGeneral: true, categoriasIA: { 'BEBIDA FRIA': 'Bebidas' } } })
+  assert.deepEqual(r.categoriasFaltantes, [])
+  assert.ok(r.salidas.inventariable.every(s => s.categoria === 'General'))
+})
+
+test('convertir expone categoriasPurgadas y unidadesPurgadas', () => {
+  const r = convertir(baseIA())
+  assert.ok(Array.isArray(r.categoriasPurgadas))
+  assert.ok(Array.isArray(r.unidadesPurgadas))
+})

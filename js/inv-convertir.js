@@ -155,6 +155,8 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
     const general = lista.find(c => normalizar(c) === 'general') ?? lista[0] ?? 'General'
     const catOriginal = sinPrefijoNumerico(aTexto(get(fila, 'categoria')))
     let categoria = purgaCategorias.mapeo[get(fila, 'categoria')] ?? catOriginal
+    // Agrupación propuesta por la IA (clave = canónica del heurístico); categoriasAGeneral sigue ganando abajo.
+    categoria = opciones.categoriasIA?.[categoria] ?? categoria
     if (!categoria) { categoria = general; sinCategoria++ }
     else {
       const existente = lista.find(c => normalizar(c) === normalizar(categoria))
@@ -234,6 +236,8 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
     salidas, errores, avisos,
     categoriasFaltantes: [...faltanCategorias.values()],
     unidadesSinMapa: [...unidadesSinMapa],
+    categoriasPurgadas: purgaCategorias.limpias,
+    unidadesPurgadas: purgaUnidades.limpias,
     pendienteInventariable, sinCodigo, codigosCreados,
     total: salidas.inventariable.length + salidas.noinventariable.length,
     plantillaReferencia: referencia ? referencia.tipo : null,

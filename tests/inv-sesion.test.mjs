@@ -75,3 +75,20 @@ test('cargarOrigen: el total no cuenta filas sin nombre, código, precio ni cost
   assert.equal(r.error, undefined)
   assert.equal(r.total, 2)
 })
+
+test('cargarOrigen: reinicia categoriasIA pero conserva estado.ia', async () => {
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['Código', 'Nombre', 'Costo', 'Precio'], ['A1', 'Camisa', 10, 20],
+  ]), 'Productos')
+  const bytes = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+  const archivo = { name: 'p.xlsx', arrayBuffer: async () => bytes }
+  const sesion = crearSesion()
+  assert.equal(sesion.estado.opciones.categoriasIA, null)
+  assert.deepEqual(sesion.estado.ia, { firma: null, decisiones: {} })
+  sesion.estado.opciones.categoriasIA = { A: 'B' }
+  sesion.estado.ia.firma = 'f1'
+  await sesion.cargarOrigen(archivo)
+  assert.equal(sesion.estado.opciones.categoriasIA, null)
+  assert.equal(sesion.estado.ia.firma, 'f1')
+})
