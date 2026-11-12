@@ -4,8 +4,8 @@
 // Los números vienen de la RPC analytics_herramientas (supabase/migrations/
 // create_analytics_herramientas.sql); herramientas-vista.js los deja listos para pintar.
 import { rangeControlsHtml, wireRangeControls, computeRange, kpiCard } from './analytics-ui.js'
-import { fetchHerramientas } from './analytics-api.js'
-import { armarVista } from './herramientas-vista.js'
+import { fetchHerramientas, fetchHerramientasIA } from './analytics-api.js'
+import { armarVista, armarVistaIA } from './herramientas-vista.js'
 import { APP_ENV } from './env.js'
 
 const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g,
@@ -89,6 +89,38 @@ function comerciosHtml(lista) {
     </div>`).join('')}</div>`
 }
 
+const COLORES_IA = {
+  acepto: ['Aceptó', 'bg-[var(--blue-100)]'],
+  corrigio: ['Corrigió', 'bg-[var(--blue-40)]'],
+  originales: ['Usó los originales', 'bg-[var(--black-40)]'],
+  fallo: ['Falló', 'bg-[var(--error-100)]'],
+}
+const SIN_PRECIO = '<span class="text-[var(--black-40)] text-sm font-bold">Sin precio configurado</span>'
+const fmtN = v => String(Math.round(Number(v) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+
+function iaHtml(v) {
+  if (!v) return '<p class="text-xs text-[var(--black-40)]">Sin datos de IA todavía</p>'
+  const monto = m => (m == null ? SIN_PRECIO : escapeHtml(m))
+  const kpis = [
+    kpiCard('Llamadas a la IA', fmtN(v.llamadas), `${v.cachePct}% resuelto desde caché`),
+    kpiCard('Costo total', monto(v.costoTotal), `${fmtN(v.tokensEntrada)} tokens de entrada · ${fmtN(v.tokensSalida)} de salida`),
+    kpiCard('Costo por conversión', monto(v.costoPorConversion), 'conversaciones que usaron IA'),
+    kpiCard('Costo por descarga', monto(v.costoPorDescarga), 'plantillas descargadas'),
+  ].join('')
+  const barras = v.decisiones.map(d => `
+    <div class="text-xs">
+      <div class="flex justify-between gap-2 mb-1"><b class="text-[var(--black-100)]">${escapeHtml(d.etiqueta)}</b>
+        <span class="text-[var(--black-40)]">${d.total} ${d.total === 1 ? 'decisión' : 'decisiones'}</span></div>
+      <div class="flex h-4 rounded-full bg-[var(--black-10)] overflow-hidden">${d.total ? Object.keys(COLORES_IA).map(k =>
+        d[k] ? `<span class="block h-full ${COLORES_IA[k][1]}" style="width:${(100 * d[k]) / d.total}%" title="${escapeHtml(COLORES_IA[k][0])}: ${d[k]}"></span>` : '').join('') : ''}</div>
+      <p class="text-[11px] text-[var(--black-60)] mt-1">${Object.keys(COLORES_IA).map(k =>
+        `${escapeHtml(COLORES_IA[k][0])}: <b>${d[k]}</b>`).join(' · ')}</p>
+    </div>`).join('')
+  return `<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">${kpis}</div>
+    <p class="text-[10px] font-bold text-[var(--black-40)] uppercase mb-2">Qué hicieron con las propuestas de la IA</p>
+    <div class="flex flex-col gap-3">${barras}</div>`
+}
+
 export async function renderHerramientasAnalytics(from = null, to = null) {
   const el = document.getElementById('analytics-content')
   if (!el) return
@@ -96,6 +128,8 @@ export async function renderHerramientasAnalytics(from = null, to = null) {
   el.innerHTML = '<p class="text-[var(--black-40)] text-sm p-4">Cargando…</p>'
 
   let data
+  // Independiente: si la RPC de IA no existe todavía, solo esa tarjeta se queda sin datos.
+  const iaPromesa = fetchHerramientasIA(from, to, APP_ENV).then(armarVistaIA, () => null)
   try {
     data = await fetchHerramientas(from, to, APP_ENV)
   } catch (e) {
@@ -103,6 +137,7 @@ export async function renderHerramientasAnalytics(from = null, to = null) {
     return
   }
   const v = armarVista(data)
+  const ia = await iaPromesa
 
   el.innerHTML = `
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -122,6 +157,8 @@ export async function renderHerramientasAnalytics(from = null, to = null) {
       </p>
     </div>
     ${v.herramientas.map(seccionHerramienta).join('')}
+    <h2 class="text-base font-black text-[var(--black-100)] mb-2 mt-6">IA del conversor</h2>
+    ${tarjeta('Costo y aceptación del purgador', iaHtml(ia))}
     <h2 class="text-base font-black text-[var(--black-100)] mb-2 mt-6">Comercios</h2>
     ${tarjeta('Quién usó qué', comerciosHtml(v.comercios))}`
 

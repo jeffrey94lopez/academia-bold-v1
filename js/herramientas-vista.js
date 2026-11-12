@@ -81,3 +81,26 @@ export function armarVista(data) {
     comerciosTerminaron: comercios.filter(c => c.inventario?.ok || c.codigos?.ok).length,
   }
 }
+
+const ETAPAS_IA = [
+  { etapa: 'categorias', etiqueta: 'Categorías' },
+  { etapa: 'unidades', etiqueta: 'Unidades' },
+  { etapa: 'simplificar', etiqueta: 'Simplificar categorías' },
+]
+const usd = v => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : `US$ ${Number(v).toFixed(4)}`)
+
+// Costo y aceptación del purgador con IA (RPC analytics_herramientas_ia).
+// Un monto null significa que no hay precio configurado; no se inventa un cero.
+export function armarVistaIA(data) {
+  const d = data ?? {}
+  return {
+    llamadas: n(d.llamadas), cachePct: n(d.cache_pct),
+    tokensEntrada: n(d.tokens_entrada), tokensSalida: n(d.tokens_salida),
+    costoTotal: usd(d.costo_usd), costoPorConversion: usd(d.costo_por_conversion), costoPorDescarga: usd(d.costo_por_descarga),
+    decisiones: ETAPAS_IA.map(({ etapa, etiqueta }) => {
+      const x = d.decisiones?.[etapa] ?? {}
+      const fila = { etapa, etiqueta, acepto: n(x.acepto), corrigio: n(x.corrigio), originales: n(x.originales), fallo: n(x.fallo) }
+      return { ...fila, total: fila.acepto + fila.corrigio + fila.originales + fila.fallo }
+    }),
+  }
+}

@@ -100,6 +100,17 @@ export async function fetchHerramientas(from, to, env = 'prod', client) {
   })
 }
 
+// Costo y aceptación del purgador con IA del conversor. Si la migración todavía no
+// está aplicada la RPC no existe y esto rechaza: quien llama lo atrapa por su cuenta.
+export async function fetchHerramientasIA(from, to, env = 'prod', client) {
+  if (!client) client = await getSupabaseClient()
+  return callRpc(client, 'analytics_herramientas_ia', {
+    p_from: from.toISOString(),
+    p_to: to.toISOString(),
+    p_env: env,
+  })
+}
+
 export async function fetchComercios(from, to, limit = 200, client) {
   if (!client) client = await getSupabaseClient()
   return callRpc(client, 'analytics_bot_comercios', {

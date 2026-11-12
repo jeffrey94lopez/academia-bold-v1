@@ -2,8 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { crearTelemetriaHerramienta, ERRORES, PASOS, ETIQUETAS_PASO } from '../js/herramientas-telemetria.js'
-import { armarVista } from '../js/herramientas-vista.js'
-import { fetchHerramientas } from '../js/analytics-api.js'
+import { armarVista, armarVistaIA } from '../js/herramientas-vista.js'
+import { fetchHerramientas, fetchHerramientasIA } from '../js/analytics-api.js'
 
 function crear(extra = {}) {
   const eventos = []
@@ -136,4 +136,60 @@ test('fetchHerramientas llama la RPC con fechas y entorno', async () => {
   assert.deepEqual(await fetchHerramientas(from, to, 'sandbox', client), { ok: 1 })
   assert.equal(cap.name, 'analytics_herramientas')
   assert.deepEqual(cap.params, { p_from: from.toISOString(), p_to: to.toISOString(), p_env: 'sandbox' })
+})
+
+// ---------- Tarjeta de IA del conversor ----------
+const IA_COMPLETA = {
+  llamadas: 40, cache_pct: 25, tokens_entrada: 12000, tokens_salida: 3000,
+  costo_usd: 0.0456, costo_por_conversion: 0.0012, costo_por_descarga: 0.0034,
+  decisiones: {
+    categorias: { acepto: 6, corrigio: 2, originales: 1, fallo: 1 },
+    unidades: { acepto: 3, corrigio: 0, originales: 0, fallo: 0 },
+    simplificar: { acepto: 1, corrigio: 1, originales: 2, fallo: 0 },
+  },
+}
+
+test('armarVistaIA: datos completos con montos a 4 decimales y totales por etapa', () => {
+  const v = armarVistaIA(IA_COMPLETA)
+  assert.equal(v.llamadas, 40)
+  assert.equal(v.cachePct, 25)
+  assert.equal(v.tokensEntrada, 12000)
+  assert.equal(v.tokensSalida, 3000)
+  assert.equal(v.costoTotal, 'US$ 0.0456')
+  assert.equal(v.costoPorConversion, 'US$ 0.0012')
+  assert.equal(v.costoPorDescarga, 'US$ 0.0034')
+  assert.deepEqual(v.decisiones.map(d => d.etapa), ['categorias', 'unidades', 'simplificar'])
+  assert.deepEqual(v.decisiones[0], { etapa: 'categorias', etiqueta: 'Categorías', acepto: 6, corrigio: 2, originales: 1, fallo: 1, total: 10 })
+  assert.equal(v.decisiones[1].total, 3)
+  assert.equal(v.decisiones[2].total, 4)
+})
+
+test('armarVistaIA: costo null se marca sin precio configurado', () => {
+  const v = armarVistaIA({ ...IA_COMPLETA, costo_usd: null, costo_por_conversion: null, costo_por_descarga: null })
+  assert.equal(v.costoTotal, null)
+  assert.equal(v.costoPorConversion, null)
+  assert.equal(v.costoPorDescarga, null)
+  assert.equal(v.llamadas, 40)
+})
+
+test('armarVistaIA: sin llamadas todo es cero y no divide por cero', () => {
+  for (const data of [{ llamadas: 0, cache_pct: 0 }, null, undefined, {}]) {
+    const v = armarVistaIA(data)
+    assert.equal(v.llamadas, 0)
+    assert.equal(v.cachePct, 0)
+    assert.equal(v.tokensEntrada, 0)
+    assert.equal(v.costoTotal, null)
+    assert.equal(v.decisiones.length, 3)
+    for (const d of v.decisiones) assert.deepEqual([d.acepto, d.corrigio, d.originales, d.fallo, d.total], [0, 0, 0, 0, 0])
+  }
+})
+
+test('fetchHerramientasIA llama a la RPC con rango y entorno', async () => {
+  let llamada
+  const client = { rpc: async (n, p) => { llamada = { n, p }; return { data: IA_COMPLETA, error: null } } }
+  const r = await fetchHerramientasIA(new Date('2026-01-01T00:00:00Z'), new Date('2026-01-31T00:00:00Z'), 'sandbox', client)
+  assert.equal(llamada.n, 'analytics_herramientas_ia')
+  assert.deepEqual(llamada.p, { p_from: '2026-01-01T00:00:00.000Z', p_to: '2026-01-31T00:00:00.000Z', p_env: 'sandbox' })
+  assert.equal(r.llamadas, 40)
+  await assert.rejects(fetchHerramientasIA(new Date(), new Date(), 'sandbox', { rpc: async () => ({ data: null, error: { message: 'x' } }) }), /analytics_herramientas_ia/)
 })
