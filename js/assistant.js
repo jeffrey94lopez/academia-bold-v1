@@ -11,7 +11,6 @@ import { inactivitySettings, isStaleConversation } from './inactivity.js'
 import { loadSettingsResult } from './settings.js'
 import { registrarCruce, marcarCruce } from './cruce-vertical.js'
 import { getBotOrigin, notificarMensajeBot } from './bot-origin.js'
-import { APP_ENV } from './env.js'
 import { esIntencionInventario } from './inv-intencion.js'
 import { esIntencionCodigos } from './barras-intencion.js'
 import { textoSeguroDelBot } from './bot-respuesta-segura.js'
@@ -825,13 +824,13 @@ async function sendMessage(text, { textoVisible, cross, sinBurbuja = false, salt
 
   // Pasar el inventario a la plantilla de Bold: lo resuelve el conversor local
   // dentro del chat, sin llamar a n8n. Solo fuera de producción mientras se prueba.
-  if (APP_ENV !== 'prod' && esIntencionCodigos(text)) {
+  if (esIntencionCodigos(text)) {
     await responderHerramienta('codigos')
     return
   }
   // Cargar o crear productos: primero se pregunta cómo quiere hacerlo (uno por uno,
   // con la herramienta o con la plantilla a mano) y solo después se responde.
-  if (APP_ENV !== 'prod' && !saltarCamino && esIntencionInventario(text)) {
+  if (!saltarCamino && esIntencionInventario(text)) {
     await responderHerramienta('camino')
     return
   }

@@ -30,10 +30,18 @@ const pedir = (body, headers = {}) =>
   }))
 const base = { modo: 'categorias', categorias: ['a', 'b'], run_id: 'r1' }
 
-test('produccion responde 404 sin llamar a n8n', async () => {
+test('produccion reenvia con env prod', async () => {
+  process.env.VERCEL = '1'
   process.env.VERCEL_ENV = 'production'
-  const r = await pedir(base)
-  assert.equal(r.status, 404)
+  const r = await pedir({ ...base, env: 'sandbox' })
+  assert.equal(r.status, 200)
+  assert.equal(JSON.parse(llamadas[0].opts.body).env, 'prod')
+})
+
+test('en Vercel con un env que no es production ni preview -> 404', async () => {
+  process.env.VERCEL = '1'
+  process.env.VERCEL_ENV = 'development'
+  assert.equal((await pedir(base)).status, 404)
   assert.equal(llamadas.length, 0)
 })
 
@@ -110,11 +118,13 @@ test('validarPedido: tipos y limites', () => {
   assert.deepEqual(v.limpio, { modo: 'simplificar', categorias: [], existentes: [], unidades: [], account_id: 'acc' })
 })
 
-test('produccion 404 aunque falten las variables de n8n', async () => {
+test('produccion sin variables de n8n -> 500 sin llamar a nadie', async () => {
+  process.env.VERCEL = '1'
   process.env.VERCEL_ENV = 'production'
   delete process.env.N8N_PURGA_URL
   delete process.env.N8N_API_KEY
-  assert.equal((await pedir(base)).status, 404)
+  assert.equal((await pedir(base)).status, 500)
+  assert.equal(llamadas.length, 0)
 })
 
 test('en Vercel sin VERCEL_ENV -> 404; con preview pasa', async () => {

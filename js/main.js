@@ -132,6 +132,6 @@ function renderOnboardingResume() {
 }
 
 // Importar inventario: en pruebas, solo fuera de producción.
-if (APP_ENV !== 'prod') document.getElementById('inventario-link')?.classList.remove('hidden')
+document.getElementById('inventario-link')?.classList.remove('hidden')
 
 lucide.createIcons()

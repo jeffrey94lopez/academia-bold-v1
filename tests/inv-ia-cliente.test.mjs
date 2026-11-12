@@ -86,17 +86,17 @@ test('activa:false → ia_desactivada sin red', async () => {
   assert.equal(llamado, false)
 })
 
-test('iaActiva: en prod es false sin consultar settings', async () => {
+test('iaActiva: consulta el ajuste (tambien en prod; sin fila prod queda apagada)', async () => {
   let consultado = false
-  const r = await iaActiva({ appEnv: 'prod', cargar: async () => { consultado = true; return {} } })
+  const r = await iaActiva({ cargar: async () => { consultado = true; return {} } })
   assert.equal(r, false)
-  assert.equal(consultado, false)
+  assert.equal(consultado, true)
 })
 
 test('iaActiva: solo la cadena "true" activa; ausente o excepción es false', async () => {
-  const con = (v) => iaActiva({ appEnv: 'sandbox', cargar: async () => v })
+  const con = (v) => iaActiva({ cargar: async () => v })
   assert.equal(await con({ inventario_ia_activa: 'true' }), true)
   assert.equal(await con({ inventario_ia_activa: 'false' }), false)
   assert.equal(await con({}), false)
-  assert.equal(await iaActiva({ appEnv: 'sandbox', cargar: async () => { throw new Error('x') } }), false)
+  assert.equal(await iaActiva({ cargar: async () => { throw new Error('x') } }), false)
 })
