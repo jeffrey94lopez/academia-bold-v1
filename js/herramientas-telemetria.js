@@ -80,6 +80,9 @@ export function crearTelemetriaHerramienta({ track, tool, runId, getContexto = (
   }
 
   return {
+    // La conversación (la usa el purgador con IA para agrupar sus pedidos).
+    runId,
+
     // via: dónde arrancó (chat, pagina, inventario = viene del conversor).
     inicio(via = 'chat') { track('tool_start', payload({ via })) },
 

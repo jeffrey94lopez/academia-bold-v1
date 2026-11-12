@@ -4,11 +4,20 @@ import { crearBase, esc, CANCELADO } from './chat-base.js'
 import { FORMATOS_CODIGO, crearGeneradorCodigos } from './inv-codigos.js'
 import { iniciarCodigos } from './barras-chat.js'
 import { telemetriaReal } from './herramientas-telemetria.js'
-import { filaSinDatoMapeado } from './inv-convertir.js'
+import { filaSinDatoMapeado, mapearUnidad } from './inv-convertir.js'
 import { getContextoBold } from './bold-context.js'
+import { pedirIA, iaActiva } from './inv-ia-cliente.js'
+import { armarPedido, resumenGrupos, huboCambios, firmaIA, filtrarMapeo, componerMapeos, corregirMapeo, cuantosQuedan } from './inv-ia.js'
+import { UNIDADES_CANONICAS_BOLD } from './inv-plantilla-sintetica.js'
 
 const letraColumna = i => { let s = '', n = i; do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1 } while (n >= 0); return s }
 const FIN = Symbol('fin')
+// Purgador con IA: más de esto tras unir → se ofrece simplificar.
+const UMBRAL_SIMPLIFICAR = 15
+// Miembros visibles por grupo en el resumen ("… (+k)").
+const MIEMBROS_VISIBLES = 3
+// Códigos de pedirIA que son "no había nada que hacer": ni mensaje ni telemetría.
+const SILENCIOSOS = new Set(['ia_desactivada', 'ia_sin_datos'])
 
 const OPCIONES_IVA = [
   { texto: 'IVA-19', valor: 'IVA-19' },
@@ -337,6 +346,9 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
       r = sesion.recalcular()
     }
 
+    await pasoIA(r)
+    r = sesion.recalcular()
+
     for (const u of r.unidadesSinMapa) {
       const unidades = sesion.plantillaReferencia().listas.unidades
       const q = await bot(`No reconozco la unidad de medida «${esc(u)}». ¿Cuál es en Bold POS?`)
@@ -397,6 +409,182 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
         await bot(`✅ Creé <b>${r.codigosCreados}</b> código(s) nuevo(s), sin repetir ninguno de los que ya tenías.`, { demora: 300 })
       }
     }
+  }
+
+  // ---------- Purgador con IA (Spec 2): unir categorías y traducir unidades ----------
+  // Todo es opcional: si la IA está apagada, falla o tarda, el flujo sigue igual que antes.
+
+  // Pide a la IA con una burbuja de espera que se quita al llegar la respuesta.
+  async function consultarIA(etapa, datos, espera) {
+    const conDatos = armarPedido(datos) !== null
+    const b = conDatos ? await bot(espera, { demora: 250 }) : null
+    const cuenta = getContextoBold()?.accountId
+    const res = await pedirIA(
+      { ...datos, runId: telemetria.runId, accountId: cuenta == null ? undefined : String(cuenta) },
+      { activa: true },
+    )
+    b?.parentElement?.remove()
+    vivo()
+    if (!res.ok && !SILENCIOSOS.has(res.codigo)) telemetria.ia(etapa, 'fallo', { codigo: res.codigo })
+    return res
+  }
+
+  // "• Bebidas ← BEBIDA FRIA, bebidas frías, Refrescos (+2)". Los que cambian van primero.
+  function htmlGrupos(mapeo) {
+    const grupos = resumenGrupos(mapeo)
+    const orden = [...grupos.filter(g => g.cambia), ...grupos.filter(g => !g.cambia)]
+    const li = orden.map(g => {
+      const otros = g.miembros.filter(m => m !== g.nombre)
+      if (!otros.length) return `<li><b>${esc(g.nombre)}</b> <span class="inv-ia-igual">(sin cambios)</span></li>`
+      const vistos = otros.slice(0, MIEMBROS_VISIBLES).map(esc).join(', ')
+      const mas = otros.length > MIEMBROS_VISIBLES ? ` (+${otros.length - MIEMBROS_VISIBLES})` : ''
+      return `<li><b>${esc(g.nombre)}</b> <span class="inv-ia-flecha">←</span> ${vistos}${mas}</li>`
+    })
+    return `<ul class="inv-ia-grupos">${li.join('')}</ul>`
+  }
+
+  // Editor dentro de la burbuja: por grupo que cambia, su nombre (editable) y cada
+  // miembro con "Sacar del grupo". Resuelve con el mapeo corregido.
+  function editorGrupos(b, mapeo) {
+    return new Promise(resolver => {
+      const grupos = resumenGrupos(mapeo).filter(g => g.cambia)
+      const sacados = new Set()
+      const caja = document.createElement('div')
+      caja.className = 'inv-ia-editor'
+      caja.innerHTML = grupos.map((g, i) => `<fieldset class="inv-ia-grupo">
+          <label class="inv-campo"><span>Nombre del grupo</span>
+            <input class="inv-entrada" type="text" maxlength="80" data-grupo="${esc(g.nombre)}" value="${esc(g.nombre)}" aria-describedby="inv-ia-m${i}"></label>
+          <ul class="inv-ia-miembros" id="inv-ia-m${i}">${g.miembros.map(m => `<li><span>${esc(m)}</span>${m === g.nombre ? ''
+            : `<button type="button" class="inv-ia-sacar" data-miembro="${esc(m)}" aria-pressed="false">Sacar del grupo</button>`}</li>`).join('')}</ul>
+        </fieldset>`).join('') +
+        '<div class="inv-acciones"><button type="button" class="inv-chipbtn inv-chipbtn-fuerte">Listo</button></div>'
+      caja.addEventListener('click', e => {
+        const btn = e.target.closest('.inv-ia-sacar')
+        if (!btn) return
+        const m = btn.dataset.miembro
+        const fuera = !sacados.has(m)
+        if (fuera) sacados.add(m); else sacados.delete(m)
+        btn.setAttribute('aria-pressed', String(fuera))
+        btn.textContent = fuera ? 'Devolver al grupo' : 'Sacar del grupo'
+        btn.closest('li').classList.toggle('inv-ia-fuera', fuera)
+      })
+      caja.querySelector('.inv-acciones button').addEventListener('click', () => {
+        const nombres = Object.create(null)
+        caja.querySelectorAll('input[data-grupo]').forEach(el => { nombres[el.dataset.grupo] = el.value })
+        caja.querySelector('.inv-acciones').remove()
+        caja.querySelectorAll('input, button').forEach(el => { el.disabled = true })
+        usuario('Listo, ya corregí los grupos')
+        resolver(corregirMapeo(mapeo, { nombres, sacados: [...sacados] }))
+      })
+      b.appendChild(caja)
+      alDesplazar()
+    })
+  }
+
+  // Muestra una propuesta de grupos y deja decidir. → { mapeo, decision } (mapeo null = originales).
+  async function decidirGrupos(intro, mapeo, { conOriginales = true } = {}) {
+    const b = await bot(`${intro}${htmlGrupos(mapeo)}`)
+    const d = await chips(b, [
+      { texto: 'Se ve bien', valor: 'acepto' },
+      { texto: 'Corregir alguna', valor: 'corrigio' },
+      ...(conOriginales ? [{ texto: 'Dejar las originales', valor: 'originales' }] : []),
+    ])
+    vivo()
+    if (d === 'originales') return { mapeo: null, decision: d }
+    if (d === 'acepto') return { mapeo, decision: d }
+    const corregido = await editorGrupos(b, mapeo)
+    vivo()
+    return { mapeo: corregido, decision: d }
+  }
+
+  async function pasoIA(r) {
+    if (!(await iaActiva())) return
+    vivo()
+    const existentes = sesion.plantillaReferencia().listas.categorias
+    const categorias = r.categoriasPurgadas ?? []
+    const listaUnidades = sesion.plantillaReferencia().listas.unidades
+    const unidades = (r.unidadesPurgadas ?? []).filter(u => !mapearUnidad(u, listaUnidades))
+    const firma = firmaIA({ categorias, existentes, unidades })
+    const ia = sesion.estado.ia
+    const opciones = sesion.estado.opciones
+
+    // Mismo archivo otra vez (p. ej. re-subió por el IVA): se reaplica lo que ya decidió.
+    if (ia.firma === firma) {
+      opciones.categoriasIA = ia.decisiones.categoriasIA ?? null
+      Object.assign(opciones.unidades, ia.decisiones.unidades ?? {})
+      sesion.recalcular()
+      return
+    }
+    const decisiones = { categoriasIA: null, unidades: {} }
+
+    // 1) Categorías escritas distinto que son la misma.
+    let final = null      // canónica del heurístico → nombre final
+    let siguen = categorias.length
+    const resCat = await consultarIA('categorias', { modo: 'categorias', categorias, existentes }, 'Estoy ordenando tus categorías…')
+    if (resCat.ok) {
+      const propuesta = filtrarMapeo(resCat.mapeo, categorias)
+      if (huboCambios(propuesta)) {
+        const m = cuantosQuedan(propuesta)
+        const { mapeo, decision } = await decidirGrupos(
+          `Tu archivo traía <b>${categorias.length}</b> categorías. Varias eran la misma escrita distinto; quedan <b>${m}</b>:`, propuesta)
+        final = mapeo
+        siguen = mapeo ? cuantosQuedan(mapeo) : categorias.length
+        telemetria.ia('categorias', decision, { n_entrada: categorias.length, n_salida: siguen })
+        if (decision === 'originales') siguen = 0 // no quiso la IA: no se ofrece simplificar
+      } else {
+        final = propuesta
+        siguen = cuantosQuedan(propuesta)
+      }
+
+      // 2) Simplificar: si siguen quedando muchas, juntarlas en grupos más amplios.
+      if (siguen > UMBRAL_SIMPLIFICAR) {
+        const q = await bot(`Quedan <b>${siguen}</b> categorías. ¿Quieres que te proponga juntarlas en menos grupos más amplios?`)
+        const si = await chips(q, [{ texto: 'Sí, propónmelo', valor: true }, { texto: 'No, así está bien', valor: false }])
+        vivo()
+        if (si) {
+          const nombres = [...new Set(Object.values(final))]
+          const resSim = await consultarIA('simplificar', { modo: 'simplificar', categorias: nombres, existentes }, 'Estoy buscando grupos más amplios…')
+          if (resSim.ok) {
+            const propuesta2 = filtrarMapeo(resSim.mapeo, nombres)
+            if (huboCambios(propuesta2)) {
+              const { mapeo, decision } = await decidirGrupos(
+                `Te propongo estos grupos más amplios; quedan <b>${cuantosQuedan(propuesta2)}</b>:`, propuesta2)
+              if (mapeo) final = componerMapeos(final, mapeo)
+              telemetria.ia('simplificar', decision, { n_entrada: nombres.length, n_salida: cuantosQuedan(final) })
+            } else {
+              await bot('No encontré grupos más amplios que tengan sentido; dejo tus categorías como están.', { demora: 300 })
+            }
+          }
+        }
+      }
+      if (final && huboCambios(final)) decisiones.categoriasIA = final
+    }
+    opciones.categoriasIA = decisiones.categoriasIA
+
+    // 3) Unidades que el heurístico no reconoce → las de Bold. Las null siguen a la pregunta de siempre.
+    const resUni = await consultarIA('unidades', { modo: 'unidades', unidades }, 'Estoy revisando tus unidades…')
+    if (resUni.ok) {
+      const traducidas = Object.entries(resUni.mapeo).filter(([, v]) => v !== null)
+      if (traducidas.length) {
+        const b = await bot(`Traduje tus unidades a las de Bold: ${traducidas.map(([u, v]) => `${esc(u)} → <b>${esc(v)}</b>`).join(', ')}.`)
+        const d = await chips(b, [{ texto: 'Se ve bien', valor: 'acepto' }, { texto: 'Corregir alguna', valor: 'corrigio' }])
+        vivo()
+        for (const [u, v] of traducidas) {
+          let elegida = v
+          if (d === 'corrigio') {
+            const q = await bot(`«${esc(u)}» en Bold es… (propuse <b>${esc(v)}</b>)`)
+            elegida = await chips(q, UNIDADES_CANONICAS_BOLD.map(x => ({ texto: x, valor: x })))
+            vivo()
+          }
+          decisiones.unidades[u] = elegida
+        }
+        telemetria.ia('unidades', d, { n_entrada: unidades.length, n_salida: traducidas.length })
+        Object.assign(opciones.unidades, decisiones.unidades)
+      }
+    }
+
+    sesion.estado.ia = { firma, decisiones }
+    sesion.recalcular()
   }
 
   function construirUnidadesNoCanonicas() {

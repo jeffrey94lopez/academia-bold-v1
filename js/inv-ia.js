@@ -103,3 +103,52 @@ export function resumenGrupos(mapeo) {
 export function huboCambios(mapeo) {
   return resumenGrupos(mapeo).some(g => g.cambia)
 }
+
+// ── Helpers de la conversación (Task 6): composición y correcciones ──
+
+const propio = (m, k) => m != null && Object.hasOwn(m, k)
+
+// Firma de lo que se le pediría a la IA: si al re-subir el archivo las listas son
+// las mismas, el chat reaplica las decisiones anteriores en vez de volver a preguntar.
+export function firmaIA({ categorias = [], existentes = [], unidades = [] } = {}) {
+  return JSON.stringify([categorias, existentes, unidades])
+}
+
+// Deja en el mapeo solo las claves de `claves` (p. ej. las categorías del archivo,
+// sin las existentes de Bold que la IA también devuelve).
+export function filtrarMapeo(mapeo, claves) {
+  const out = Object.create(null)
+  for (const k of claves) if (propio(mapeo, k)) out[k] = mapeo[k]
+  return out
+}
+
+// Compone dos pasadas: base (canónica → grupo1) y encima (grupo1 → grupo2) da
+// canónica → grupo2. Lo que `encima` no conoce se queda con el valor de `base`.
+export function componerMapeos(base, encima) {
+  const out = Object.create(null)
+  for (const k of Object.keys(base)) {
+    const v = base[k]
+    out[k] = propio(encima, v) ? encima[v] : v
+  }
+  return out
+}
+
+// Correcciones del cliente sobre una propuesta: `nombres` renombra grupos
+// ({ nombreViejo → nombreNuevo }, saneado; vacío = se queda el viejo) y `sacados`
+// saca miembros de su grupo (quedan solos, con su propio nombre).
+export function corregirMapeo(mapeo, { nombres = {}, sacados = [] } = {}) {
+  const fuera = new Set(sacados)
+  const out = Object.create(null)
+  for (const k of Object.keys(mapeo)) {
+    if (fuera.has(k)) { out[k] = k; continue }
+    const g = mapeo[k]
+    const nuevo = propio(nombres, g) ? sanear(nombres[g]).slice(0, LIMITES.maxLargo) : ''
+    out[k] = nuevo || g
+  }
+  return out
+}
+
+// Cuántos nombres distintos quedan tras aplicar el mapeo.
+export function cuantosQuedan(mapeo) {
+  return new Set(Object.values(mapeo)).size
+}

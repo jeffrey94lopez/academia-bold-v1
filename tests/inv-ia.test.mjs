@@ -100,3 +100,46 @@ test('un miembro "__proto__" queda como clave propia del mapeo', () => {
   assert.equal(huboCambios(r.mapeo), true)
   assert.ok(resumenGrupos(r.mapeo).length >= 1)
 })
+
+// ── Helpers de la conversación (Task 6) ──
+import { firmaIA, filtrarMapeo, componerMapeos, corregirMapeo, cuantosQuedan } from '../js/inv-ia.js'
+
+const nulo = o => Object.assign(Object.create(null), o)
+
+test('firmaIA: igual para las mismas listas, distinta si cambia una', () => {
+  const a = firmaIA({ categorias: ['A', 'B'], existentes: ['General'], unidades: ['UND'] })
+  assert.equal(a, firmaIA({ categorias: ['A', 'B'], existentes: ['General'], unidades: ['UND'] }))
+  assert.notEqual(a, firmaIA({ categorias: ['A', 'B'], existentes: ['General'], unidades: [] }))
+  assert.notEqual(a, firmaIA({ categorias: ['A,B'], existentes: ['General'], unidades: ['UND'] }))
+  assert.equal(firmaIA(), firmaIA({}))
+})
+
+test('filtrarMapeo deja solo las claves pedidas y propias', () => {
+  const m = nulo({ Bebidas: 'Bebidas', 'BEBIDA FRIA': 'Bebidas', General: 'General' })
+  const f = filtrarMapeo(m, ['BEBIDA FRIA', 'Bebidas', 'constructor', 'Otra'])
+  assert.deepEqual({ ...f }, { 'BEBIDA FRIA': 'Bebidas', Bebidas: 'Bebidas' })
+  assert.equal(Object.getPrototypeOf(f), null)
+})
+
+test('componerMapeos: canónica → grupo1 → grupo2', () => {
+  const base = nulo({ 'BEBIDA FRIA': 'Bebidas', Bebidas: 'Bebidas', Jugos: 'Jugos', Aseo: 'Aseo' })
+  const encima = nulo({ Bebidas: 'Líquidos', Jugos: 'Líquidos' })
+  assert.deepEqual({ ...componerMapeos(base, encima) }, { 'BEBIDA FRIA': 'Líquidos', Bebidas: 'Líquidos', Jugos: 'Líquidos', Aseo: 'Aseo' })
+  // Un grupo llamado como una propiedad de Object.prototype no rompe la búsqueda.
+  assert.deepEqual({ ...componerMapeos(nulo({ x: 'constructor' }), nulo({})) }, { x: 'constructor' })
+})
+
+test('corregirMapeo: renombra (saneado) y saca miembros', () => {
+  const m = nulo({ 'BEBIDA FRIA': 'Bebidas', Bebidas: 'Bebidas', Refrescos: 'Bebidas', Aseo: 'Aseo' })
+  const c = corregirMapeo(m, { nombres: { Bebidas: '  Bebidas {frías}! ' }, sacados: ['Refrescos'] })
+  assert.deepEqual({ ...c }, { 'BEBIDA FRIA': 'Bebidas frías', Bebidas: 'Bebidas frías', Refrescos: 'Refrescos', Aseo: 'Aseo' })
+  // Nombre vacío tras sanear → se queda el original.
+  assert.equal(corregirMapeo(m, { nombres: { Bebidas: '{}' } }).Bebidas, 'Bebidas')
+  // Sin correcciones devuelve lo mismo.
+  assert.deepEqual({ ...corregirMapeo(m) }, { ...m })
+})
+
+test('cuantosQuedan cuenta nombres finales distintos', () => {
+  assert.equal(cuantosQuedan(nulo({ a: 'X', b: 'X', c: 'Y' })), 2)
+  assert.equal(cuantosQuedan(nulo({})), 0)
+})
