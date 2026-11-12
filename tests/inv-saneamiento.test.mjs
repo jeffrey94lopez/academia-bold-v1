@@ -18,7 +18,6 @@ test('sanear: elimina llaves, pipe, porcentaje, interrogaciones y signos de excl
   assert.equal(sanear('{Promoción}'), 'Promoción')
   assert.equal(sanear('¡Hola!'), 'Hola')
   assert.equal(sanear('A%B?C'), 'ABC')
-  assert.equal(sanear('A|B'), 'AB')
 })
 
 test('sanear: colapsa espacios dejados por caracteres borrados', () => {
@@ -46,4 +45,10 @@ test('sanear: null/undefined → cadena vacía (no explota)', () => {
 
 test('sanear: números y letras no-latinas pasan sin modificar', () => {
   assert.equal(sanear('ABC123 xyz'), 'ABC123 xyz')
+})
+
+test('sanear: el pipe separa palabras, así que se cambia por un espacio', () => {
+  assert.equal(sanear('Ferretería|varios'), 'Ferretería varios')
+  assert.equal(sanear('A|B'), 'A B')
+  assert.equal(sanear('A | B'), 'A B')
 })
