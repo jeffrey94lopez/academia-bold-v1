@@ -74,7 +74,7 @@ test('unidades', () => {
   const p = armarPedido({ modo: 'unidades', unidades: ['UND', 'Kgs', 'Docena'] })
   const r = validarRespuesta(p, { unidades: { UND: 'Unidades', Kgs: 'Kilogramos', Docena: null } })
   assert.equal(r.ok, true)
-  assert.deepEqual(r.mapeo, { UND: 'Unidades', Kgs: 'Kilogramos', Docena: null })
+  assert.deepEqual({ ...r.mapeo }, { UND: 'Unidades', Kgs: 'Kilogramos', Docena: null })
   assert.equal(validarRespuesta(p, { unidades: { UND: 'Cajas', Kgs: 'Kilogramos', Docena: null } }).ok, false)
   assert.equal(validarRespuesta(p, { unidades: { UND: 'Unidades', Kgs: 'Kilogramos' } }).ok, false)
 })
@@ -87,4 +87,16 @@ test('resumenGrupos y huboCambios', () => {
   ])
   assert.equal(huboCambios(mapeo), true)
   assert.equal(huboCambios({ Aseo: 'Aseo' }), false)
+})
+
+test('un miembro "__proto__" queda como clave propia del mapeo', () => {
+  const pedido = armarPedido({ modo: 'categorias', categorias: ['__proto__', 'Aseo'] })
+  const r = validarRespuesta(pedido, { grupos: [
+    { nombre: 'Aseo', miembros: ['__proto__', 'Aseo'] },
+  ] })
+  assert.equal(r.ok, true)
+  assert.equal(Object.hasOwn(r.mapeo, '__proto__'), true)
+  assert.equal(r.mapeo['__proto__'], 'Aseo')
+  assert.equal(huboCambios(r.mapeo), true)
+  assert.ok(resumenGrupos(r.mapeo).length >= 1)
 })

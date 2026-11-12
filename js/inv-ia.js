@@ -43,7 +43,7 @@ function validarGrupos(pedido, respuesta) {
   const existentes = new Set(pedido.existentes)
   const permitidos = new Set([...pedido.categorias, ...existentes])
   const vistos = new Set()
-  const mapeo = {}
+  const mapeo = Object.create(null)
   for (const g of grupos) {
     if (!g || typeof g.nombre !== 'string' || !Array.isArray(g.miembros) || !g.miembros.length) return INVALIDA
     if (!g.nombre || sanear(g.nombre) !== g.nombre) return INVALIDA
@@ -67,7 +67,7 @@ function validarGrupos(pedido, respuesta) {
 function validarUnidades(pedido, respuesta) {
   const u = respuesta?.unidades
   if (!u || typeof u !== 'object' || Array.isArray(u)) return INVALIDA
-  const mapeo = {}
+  const mapeo = Object.create(null)
   for (const x of pedido.unidades) {
     if (!Object.hasOwn(u, x)) return INVALIDA
     const v = u[x]

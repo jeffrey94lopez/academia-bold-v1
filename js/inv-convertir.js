@@ -143,7 +143,7 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
     let unidad
     if (!unidadPurgada) unidad = mapearUnidad('Unidades', listaUnidades) ?? listaUnidades[0] ?? 'Unidades'
     else {
-      unidad = opciones.unidades?.[unidadPurgada] ?? mapearUnidad(unidadPurgada, listaUnidades)
+      unidad = (opciones.unidades && Object.hasOwn(opciones.unidades, unidadPurgada) ? opciones.unidades[unidadPurgada] : null) ?? mapearUnidad(unidadPurgada, listaUnidades)
       if (!unidad) {
         unidadesSinMapa.add(unidadPurgada)
         unidad = mapearUnidad('Unidades', listaUnidades) ?? listaUnidades[0] ?? 'Unidades'
@@ -156,7 +156,8 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
     const catOriginal = sinPrefijoNumerico(aTexto(get(fila, 'categoria')))
     let categoria = purgaCategorias.mapeo[get(fila, 'categoria')] ?? catOriginal
     // Agrupación propuesta por la IA (clave = canónica del heurístico); categoriasAGeneral sigue ganando abajo.
-    categoria = opciones.categoriasIA?.[categoria] ?? categoria
+    const ia = opciones.categoriasIA
+    if (ia && Object.hasOwn(ia, categoria)) categoria = ia[categoria]
     if (!categoria) { categoria = general; sinCategoria++ }
     else {
       const existente = lista.find(c => normalizar(c) === normalizar(categoria))

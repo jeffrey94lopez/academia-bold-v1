@@ -329,7 +329,20 @@ test('categoriasIA: categoriasAGeneral sigue ganando', () => {
 })
 
 test('convertir expone categoriasPurgadas y unidadesPurgadas', () => {
-  const r = convertir(baseIA())
-  assert.ok(Array.isArray(r.categoriasPurgadas))
-  assert.ok(Array.isArray(r.unidadesPurgadas))
+  const r = convertir({
+    filas: [alegraFila({ 5: 'Camisa' }), alegraFila({ 5: 'Camisas', 2: 'Otra' })],
+    mapeo: mapearColumnas(ALEGRA), plantillas: { inventariable: leerPlantilla(hojasSoloGeneral()) },
+  })
+  assert.equal(r.categoriasPurgadas.length, 1)
+  assert.match(r.categoriasPurgadas[0], /^Camisas?$/)
+  assert.deepEqual(r.unidadesPurgadas, ['Unidad'])
+})
+
+test('categoria "constructor" no rompe con categoriasIA vacio ni con unidades', () => {
+  const r = convertir({
+    filas: [alegraFila({ 5: 'constructor', 4: 'toString' })],
+    mapeo: mapearColumnas(ALEGRA), plantillas: { inventariable: leerPlantilla(hojasSoloGeneral()) },
+    opciones: { categoriasIA: {}, unidades: {} },
+  })
+  assert.equal(r.salidas.inventariable[0].categoria, 'constructor')
 })
