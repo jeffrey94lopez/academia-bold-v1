@@ -58,6 +58,7 @@ alter table public.inventario_ia_uso      enable row level security;
 
 revoke all on table public.inventario_purga_cache from anon, authenticated;
 revoke all on table public.inventario_ia_uso      from anon, authenticated;
+revoke all on sequence public.inventario_ia_uso_id_seq from anon, authenticated;
 
 -- ── RPC ────────────────────────────────────────────────────────────────────
 -- Definiciones:
@@ -141,6 +142,7 @@ as $$
        and payload->>'tool' = 'inventario'
        and payload->>'run_id' is not null
        and payload->>'etapa' in ('categorias', 'unidades', 'simplificar')
+       and payload->>'decision' in ('acepto', 'corrigio', 'originales', 'fallo')
      order by payload->>'run_id', payload->>'etapa', created_at desc, id desc
   ),
   decisiones as (
