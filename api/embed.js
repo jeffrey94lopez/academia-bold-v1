@@ -53,7 +53,8 @@ async function sesionValida(token) {
     })
     if (r.status !== 200) return false
     const u = await r.json()
-    return !!(u && typeof u.id === 'string' && u.id)
+    // Un usuario anonimo de Supabase (si algun dia se habilita) no es admin.
+    return !!(u && typeof u.id === 'string' && u.id && u.is_anonymous !== true)
   } catch {
     return false
   }

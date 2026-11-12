@@ -82,6 +82,15 @@ test('auth 200 sin id o auth caida -> 401', async () => {
   assert.equal((await pedir(base)).status, 401)
 })
 
+test('usuario anonimo de Supabase -> 401', async () => {
+  globalThis.fetch = async (url) => {
+    llamadas.push({ url })
+    return new Response(JSON.stringify({ id: 'u-anon', is_anonymous: true }), { status: 200 })
+  }
+  assert.equal((await pedir(base)).status, 401)
+  assert.ok(llamadas.every(l => String(l.url).startsWith('https://tczcngfhuendmldafbrc.supabase.co/')))
+})
+
 test('verifica el token contra Supabase con apikey y bearer', async () => {
   await pedir(base)
   const a = llamadas[0]
