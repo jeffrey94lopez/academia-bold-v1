@@ -114,10 +114,10 @@ test('firmaIA: igual para las mismas listas, distinta si cambia una', () => {
   assert.equal(firmaIA(), firmaIA({}))
 })
 
-test('filtrarMapeo deja solo las claves pedidas y propias', () => {
+test('filtrarMapeo deja solo las claves pedidas; las que faltan se quedan con su nombre', () => {
   const m = nulo({ Bebidas: 'Bebidas', 'BEBIDA FRIA': 'Bebidas', General: 'General' })
   const f = filtrarMapeo(m, ['BEBIDA FRIA', 'Bebidas', 'constructor', 'Otra'])
-  assert.deepEqual({ ...f }, { 'BEBIDA FRIA': 'Bebidas', Bebidas: 'Bebidas' })
+  assert.deepEqual({ ...f }, { 'BEBIDA FRIA': 'Bebidas', Bebidas: 'Bebidas', constructor: 'constructor', Otra: 'Otra' })
   assert.equal(Object.getPrototypeOf(f), null)
 })
 

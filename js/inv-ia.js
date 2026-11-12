@@ -115,10 +115,11 @@ export function firmaIA({ categorias = [], existentes = [], unidades = [] } = {}
 }
 
 // Deja en el mapeo solo las claves de `claves` (p. ej. las categorías del archivo,
-// sin las existentes de Bold que la IA también devuelve).
+// sin las existentes de Bold que la IA también devuelve). Una clave que la IA no
+// devolvió (p. ej. recortada al armar el pedido) se queda con su propio nombre.
 export function filtrarMapeo(mapeo, claves) {
   const out = Object.create(null)
-  for (const k of claves) if (propio(mapeo, k)) out[k] = mapeo[k]
+  for (const k of claves) out[k] = propio(mapeo, k) ? mapeo[k] : k
   return out
 }
 

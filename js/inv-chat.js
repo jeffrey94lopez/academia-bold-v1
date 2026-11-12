@@ -346,8 +346,7 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
       r = sesion.recalcular()
     }
 
-    await pasoIA(r)
-    r = sesion.recalcular()
+    if (await pasoIA(r)) r = sesion.recalcular()
 
     for (const u of r.unidadesSinMapa) {
       const unidades = sesion.plantillaReferencia().listas.unidades
@@ -445,7 +444,9 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
 
   // Editor dentro de la burbuja: por grupo que cambia, su nombre (editable) y cada
   // miembro con "Sacar del grupo". Resuelve con el mapeo corregido.
+  let editoresAbiertos = 0
   function editorGrupos(b, mapeo) {
+    const n = ++editoresAbiertos
     return new Promise(resolver => {
       const grupos = resumenGrupos(mapeo).filter(g => g.cambia)
       const sacados = new Set()
@@ -453,8 +454,8 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
       caja.className = 'inv-ia-editor'
       caja.innerHTML = grupos.map((g, i) => `<fieldset class="inv-ia-grupo">
           <label class="inv-campo"><span>Nombre del grupo</span>
-            <input class="inv-entrada" type="text" maxlength="80" data-grupo="${esc(g.nombre)}" value="${esc(g.nombre)}" aria-describedby="inv-ia-m${i}"></label>
-          <ul class="inv-ia-miembros" id="inv-ia-m${i}">${g.miembros.map(m => `<li><span>${esc(m)}</span>${m === g.nombre ? ''
+            <input class="inv-entrada" type="text" maxlength="80" data-grupo="${esc(g.nombre)}" value="${esc(g.nombre)}" aria-describedby="inv-ia-m${n}-${i}"></label>
+          <ul class="inv-ia-miembros" id="inv-ia-m${n}-${i}">${g.miembros.map(m => `<li><span>${esc(m)}</span>${m === g.nombre ? ''
             : `<button type="button" class="inv-ia-sacar" data-miembro="${esc(m)}" aria-pressed="false">Sacar del grupo</button>`}</li>`).join('')}</ul>
         </fieldset>`).join('') +
         '<div class="inv-acciones"><button type="button" class="inv-chipbtn inv-chipbtn-fuerte">Listo</button></div>'
@@ -497,8 +498,9 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
     return { mapeo: corregido, decision: d }
   }
 
+  // → true solo si cambió `opciones` (el llamador recalcula en ese caso).
   async function pasoIA(r) {
-    if (!(await iaActiva())) return
+    if (!(await iaActiva())) return false
     vivo()
     const existentes = sesion.plantillaReferencia().listas.categorias
     const categorias = r.categoriasPurgadas ?? []
@@ -512,10 +514,9 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
     if (ia.firma === firma) {
       opciones.categoriasIA = ia.decisiones.categoriasIA ?? null
       Object.assign(opciones.unidades, ia.decisiones.unidades ?? {})
-      sesion.recalcular()
-      return
+      return true
     }
-    const decisiones = { categoriasIA: null, unidades: {} }
+    const decisiones = { categoriasIA: null, unidades: Object.create(null) }
 
     // 1) Categorías escritas distinto que son la misma.
     let final = null      // canónica del heurístico → nombre final
@@ -583,8 +584,9 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
       }
     }
 
-    sesion.estado.ia = { firma, decisiones }
-    sesion.recalcular()
+    // Solo se recuerda una corrida cuyo paso de categorías funcionó; una fallida se reintenta.
+    if (resCat.ok) sesion.estado.ia = { firma, decisiones }
+    return opciones.categoriasIA !== null || Object.keys(decisiones.unidades).length > 0
   }
 
   function construirUnidadesNoCanonicas() {
