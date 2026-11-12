@@ -29,7 +29,7 @@ export async function iaActiva({
 
 export async function pedirIA(
   { modo, categorias, existentes, unidades, runId, accountId },
-  { fetch: f = globalThis.fetch, timeoutMs = 15000, activa } = {},
+  { fetch: f = globalThis.fetch, timeoutMs = 60000, activa } = {},
 ) {
   if (activa === false) return falla('ia_desactivada')
 

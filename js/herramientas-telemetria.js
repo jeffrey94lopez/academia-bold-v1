@@ -46,7 +46,7 @@ export const ERRORES = {
   descarga_fallo: 'Falló la descarga de imágenes',
   ia_fallo: 'La IA no respondió (error del servicio)',
   ia_respuesta_invalida: 'La IA respondió algo que no cumple las reglas; se descartó',
-  ia_timeout: 'La IA tardó más de 15 s',
+  ia_timeout: 'La IA tardó más de 60 s',
   ia_lista_grande: 'Más de 300 categorías o unidades distintas; no se usó la IA',
   excepcion: 'Error inesperado',
   otro: 'Otro',

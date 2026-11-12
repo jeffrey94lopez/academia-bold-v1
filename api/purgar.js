@@ -6,7 +6,7 @@ const MAX_ELEMENTOS = 300
 const MAX_CHARS = 80
 const MAX_ID = 64
 const MAX_CUERPO = 65536
-const TIMEOUT_MS = 20000
+const TIMEOUT_MS = 55000
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
