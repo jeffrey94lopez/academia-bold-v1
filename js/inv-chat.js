@@ -18,6 +18,7 @@ const UMBRAL_SIMPLIFICAR = 15
 const MIEMBROS_VISIBLES = 3
 // Códigos de pedirIA que son "no había nada que hacer": ni mensaje ni telemetría.
 const SILENCIOSOS = new Set(['ia_desactivada', 'ia_sin_datos'])
+const CORTAN_IA = new Set(['ia_timeout', 'ia_fallo'])
 
 const OPCIONES_IVA = [
   { texto: 'IVA-19', valor: 'IVA-19' },
@@ -413,8 +414,12 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
   // ---------- Purgador con IA (Spec 2): unir categorías y traducir unidades ----------
   // Todo es opcional: si la IA está apagada, falla o tarda, el flujo sigue igual que antes.
 
+  let iaCaida = false // vive lo que la conversación; se reinicia al montar el chat
+
   // Pide a la IA con una burbuja de espera que se quita al llegar la respuesta.
   async function consultarIA(etapa, datos, espera) {
+    // n8n caído: tras un timeout/fallo no se insiste en esta conversación (cae al heurístico).
+    if (iaCaida) return { ok: false, codigo: 'ia_desactivada' }
     const conDatos = armarPedido(datos) !== null
     const b = conDatos ? await bot(espera, { demora: 250 }) : null
     const cuenta = getContextoBold()?.accountId
@@ -424,7 +429,11 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
     )
     b?.parentElement?.remove()
     vivo()
-    if (!res.ok && !SILENCIOSOS.has(res.codigo)) telemetria.ia(etapa, 'fallo', { codigo: res.codigo })
+    if (!res.ok && !SILENCIOSOS.has(res.codigo)) {
+      telemetria.ia(etapa, 'fallo', { codigo: res.codigo })
+      telemetria.error('ia_' + etapa, res.codigo)
+      if (CORTAN_IA.has(res.codigo)) iaCaida = true
+    }
     return res
   }
 
@@ -555,6 +564,8 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
             } else {
               await bot('No encontré grupos más amplios que tengan sentido; dejo tus categorías como están.', { demora: 300 })
             }
+          } else {
+            await bot('No pude proponer una versión más simple; seguimos con las categorías como están.', { demora: 300 })
           }
         }
       }

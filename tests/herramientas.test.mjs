@@ -193,3 +193,10 @@ test('fetchHerramientasIA llama a la RPC con rango y entorno', async () => {
   assert.equal(r.llamadas, 40)
   await assert.rejects(fetchHerramientasIA(new Date(), new Date(), 'sandbox', { rpc: async () => ({ data: null, error: { message: 'x' } }) }), /analytics_herramientas_ia/)
 })
+
+test('los fallos de la IA del purgador llegan a tool_error con códigos explicados', () => {
+  const src = readFileSync(new URL('../js/inv-chat.js', import.meta.url), 'utf8')
+  assert.match(src, /telemetria\.error\('ia_' \+ etapa, res\.codigo\)/)
+  assert.match(src, /CORTAN_IA = new Set\(\['ia_timeout', 'ia_fallo'\]\)/)
+  for (const c of ['ia_fallo', 'ia_respuesta_invalida', 'ia_timeout', 'ia_lista_grande']) assert.ok(c in ERRORES, c)
+})
