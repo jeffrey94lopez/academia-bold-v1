@@ -1,6 +1,7 @@
 import { test, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { POST, validarPedido } from '../api/purgar.js'
+import { createHmac } from 'node:crypto'
+import { POST, validarPedido, hashIp } from '../api/purgar.js'
 
 const ENV_ORIG = { ...process.env }
 const FETCH_ORIG = globalThis.fetch
@@ -134,4 +135,38 @@ test('solo devuelve la forma conocida del upstream', async () => {
   assert.deepEqual(await (await pedir(base)).json(), { resultado: { a: 1 }, cache: true })
   globalThis.fetch = async () => new Response(JSON.stringify({ desactivado: true, debug: 'x' }))
   assert.deepEqual(await (await pedir(base)).json(), { desactivado: true })
+})
+
+const hmac = (ip, k = 'clave-secreta') => createHmac('sha256', k).update(ip).digest('hex')
+
+test('ip_hash: HMAC de x-real-ip con N8N_API_KEY; nunca la IP cruda', async () => {
+  await pedir(base, { 'x-real-ip': '203.0.113.7' })
+  const cuerpo = llamadas[0].opts.body
+  assert.equal(JSON.parse(cuerpo).ip_hash, hmac('203.0.113.7'))
+  assert.match(JSON.parse(cuerpo).ip_hash, /^[0-9a-f]{64}$/)
+  assert.ok(!cuerpo.includes('203.0.113.7'))
+  await pedir(base, { 'x-real-ip': '203.0.113.7' })
+  assert.equal(JSON.parse(llamadas[1].opts.body).ip_hash, JSON.parse(cuerpo).ip_hash) // determinista
+  await pedir(base, { 'x-real-ip': '203.0.113.8' })
+  assert.notEqual(JSON.parse(llamadas[2].opts.body).ip_hash, JSON.parse(cuerpo).ip_hash) // distinta por ip
+})
+
+test('ip_hash: primera de x-forwarded-for si no hay x-real-ip; null sin headers', async () => {
+  await pedir(base, { 'x-forwarded-for': ' 198.51.100.1 , 10.0.0.1' })
+  assert.equal(JSON.parse(llamadas[0].opts.body).ip_hash, hmac('198.51.100.1'))
+  await pedir(base)
+  const enviado = JSON.parse(llamadas[1].opts.body)
+  assert.ok('ip_hash' in enviado)
+  assert.equal(enviado.ip_hash, null)
+  assert.equal(hashIp(new Headers({ 'x-real-ip': '1.2.3.4' }), 'k'), hmac('1.2.3.4', 'k'))
+  assert.equal(hashIp(new Headers({ 'x-real-ip': '1.2.3.4' }), ''), null)
+})
+
+test('ip_hash del cliente se ignora: lo pone siempre el servidor', async () => {
+  const falso = 'f'.repeat(64)
+  assert.equal(validarPedido({ ...base, ip_hash: falso }).limpio.ip_hash, undefined)
+  await pedir({ ...base, ip_hash: falso })
+  assert.equal(JSON.parse(llamadas[0].opts.body).ip_hash, null)
+  await pedir({ ...base, ip_hash: falso }, { 'x-real-ip': '203.0.113.9' })
+  assert.equal(JSON.parse(llamadas[1].opts.body).ip_hash, hmac('203.0.113.9'))
 })

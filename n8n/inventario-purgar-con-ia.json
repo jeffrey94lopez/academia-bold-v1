@@ -28,7 +28,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "// Verifica x-api-key y valida el pedido. /api/purgar ya valida, esto es defensa en\n// profundidad: el webhook es publico y no debe gastar tokens con basura.\nconst MODOS = ['categorias', 'unidades', 'simplificar']\nconst LISTAS = ['categorias', 'existentes', 'unidades']\nconst MAX_ELEMENTOS = 300\nconst MAX_CHARS = 80\nconst MAX_ID = 64\n\n// Clave esperada: variable de entorno PURGA_API_KEY de n8n (= N8N_API_KEY de Vercel).\n// Si n8n bloquea $env, reemplazar la constante al importar. Con el placeholder sin\n// reemplazar NADIE pasa (falla cerrado).\nconst CLAVE_CONSTANTE = 'BoldBodi-***TOKEN***'\nfunction claveEsperada() {\n  let v = ''\n  try { v = $env.PURGA_API_KEY || '' } catch (e) { v = '' }\n  if (!v) v = CLAVE_CONSTANTE\n  return v.includes('***') ? '' : v\n}\n// Comparacion en tiempo constante (sin require('crypto'), que n8n bloquea por defecto).\nfunction iguales(a, b) {\n  if (typeof a !== 'string' || typeof b !== 'string' || !b) return false\n  let d = a.length ^ b.length\n  for (let i = 0; i < b.length; i++) d |= (a.charCodeAt(i) || 0) ^ b.charCodeAt(i)\n  return d === 0\n}\n\nconst entrada = $input.first().json\nconst headers = entrada.headers || {}\nif (!iguales(headers['x-api-key'], claveEsperada())) {\n  return [{ json: { ok: false, status: 401, error: 'unauthorized' } }]\n}\nconst malo = [{ json: { ok: false, status: 400, error: 'bad_request' } }]\nconst body = entrada.body\nif (!body || typeof body !== 'object' || Array.isArray(body)) return malo\nif (!MODOS.includes(body.modo)) return malo\nconst out = { ok: true, modo: body.modo }\nfor (const k of LISTAS) {\n  const v = body[k] === undefined || body[k] === null ? [] : body[k]\n  if (!Array.isArray(v) || v.length > MAX_ELEMENTOS) return malo\n  for (const e of v) if (typeof e !== 'string' || e.length > MAX_CHARS) return malo\n  out[k] = v\n}\nfor (const k of ['run_id', 'account_id']) {\n  const v = body[k]\n  if (v === undefined || v === null || v === '') { out[k] = null; continue }\n  if (typeof v !== 'string' || v.length > MAX_ID) return malo\n  out[k] = v\n}\nconst principal = out.modo === 'unidades' ? out.unidades : out.categorias\nif (!principal.length) return malo\n// /api/purgar siempre manda 'sandbox' (la IA solo corre fuera de prod); app_settings e\n// inventario_ia_uso usan el env de la app ('prod' | 'sandbox'). Cualquier otro valor =\n// sandbox, igual que resolveAppEnv (js/env.js). No cambiar este mapeo.\nout.env = body.env === 'production' || body.env === 'prod' ? 'prod' : 'sandbox'\nout.inicio = Date.now()\nreturn [{ json: out }]\n"
+        "jsCode": "// Verifica x-api-key y valida el pedido. /api/purgar ya valida, esto es defensa en\n// profundidad: el webhook es publico y no debe gastar tokens con basura.\nconst MODOS = ['categorias', 'unidades', 'simplificar']\nconst LISTAS = ['categorias', 'existentes', 'unidades']\nconst MAX_ELEMENTOS = 300\nconst MAX_CHARS = 80\nconst MAX_ID = 64\n\n// Clave esperada: variable de entorno PURGA_API_KEY de n8n (= N8N_API_KEY de Vercel).\n// Si n8n bloquea $env, reemplazar la constante al importar. Con el placeholder sin\n// reemplazar NADIE pasa (falla cerrado).\nconst CLAVE_CONSTANTE = 'BoldBodi-***TOKEN***'\nfunction claveEsperada() {\n  let v = ''\n  try { v = $env.PURGA_API_KEY || '' } catch (e) { v = '' }\n  if (!v) v = CLAVE_CONSTANTE\n  return v.includes('***') ? '' : v\n}\n// Comparacion en tiempo constante (sin require('crypto'), que n8n bloquea por defecto).\nfunction iguales(a, b) {\n  if (typeof a !== 'string' || typeof b !== 'string' || !b) return false\n  let d = a.length ^ b.length\n  for (let i = 0; i < b.length; i++) d |= (a.charCodeAt(i) || 0) ^ b.charCodeAt(i)\n  return d === 0\n}\n\nconst entrada = $input.first().json\nconst headers = entrada.headers || {}\nif (!iguales(headers['x-api-key'], claveEsperada())) {\n  return [{ json: { ok: false, status: 401, error: 'unauthorized' } }]\n}\nconst malo = [{ json: { ok: false, status: 400, error: 'bad_request' } }]\nconst body = entrada.body\nif (!body || typeof body !== 'object' || Array.isArray(body)) return malo\nif (!MODOS.includes(body.modo)) return malo\nconst out = { ok: true, modo: body.modo }\nfor (const k of LISTAS) {\n  const v = body[k] === undefined || body[k] === null ? [] : body[k]\n  if (!Array.isArray(v) || v.length > MAX_ELEMENTOS) return malo\n  for (const e of v) if (typeof e !== 'string' || e.length > MAX_CHARS) return malo\n  out[k] = v\n}\nfor (const k of ['run_id', 'account_id']) {\n  const v = body[k]\n  if (v === undefined || v === null || v === '') { out[k] = null; continue }\n  if (typeof v !== 'string' || v.length > MAX_ID) return malo\n  out[k] = v\n}\nconst principal = out.modo === 'unidades' ? out.unidades : out.categorias\nif (!principal.length) return malo\n// /api/purgar siempre manda 'sandbox' (la IA solo corre fuera de prod); app_settings e\n// inventario_ia_uso usan el env de la app ('prod' | 'sandbox'). Cualquier otro valor =\n// sandbox, igual que resolveAppEnv (js/env.js). No cambiar este mapeo.\nout.env = body.env === 'production' || body.env === 'prod' ? 'prod' : 'sandbox'\n// HMAC de la IP que calcula /api/purgar (64 hex). Cualquier otra cosa = sin IP: solo\n// aplica el tope global.\nout.ip_hash = typeof body.ip_hash === 'string' && /^[0-9a-f]{64}$/.test(body.ip_hash) ? body.ip_hash : null\nout.inicio = Date.now()\nreturn [{ json: out }]\n"
       }
     },
     {
@@ -93,7 +93,7 @@
       ],
       "parameters": {
         "method": "GET",
-        "url": "=https://tczcngfhuendmldafbrc.supabase.co/rest/v1/app_settings?select=key,value,env&key=in.(inventario_ia_activa,inventario_purga_model,inventario_ia_prompt_version)&env=in.(prod,{{ $json.env }})",
+        "url": "=https://tczcngfhuendmldafbrc.supabase.co/rest/v1/app_settings?select=key,value,env&key=in.(inventario_ia_activa,inventario_purga_model,inventario_ia_prompt_version,inventario_ia_tope_diario,inventario_ia_tope_ip)&env=in.(prod,{{ $json.env }})",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "supabaseApi",
         "options": {
@@ -125,7 +125,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "// Mezcla app_settings como mergeSettings (js/env.js): 'prod' es la base y la fila del\n// env la pisa. Para el purgador, clave ausente = APAGADO.\nconst ped = $('Validar clave y pedido').first().json\nlet filas = []\ntry { filas = JSON.parse($input.first().json.filas || '[]') } catch (e) { filas = [] }\nif (!Array.isArray(filas)) filas = []\nconst map = {}\nfor (const r of filas) if (r && r.env === 'prod') map[r.key] = r.value\nif (ped.env !== 'prod') for (const r of filas) if (r && r.env === ped.env) map[r.key] = r.value\n\nconst MODELO_DEFECTO = 'gemini-2.5-flash'\nconst PROMPTS_DISPONIBLES = ['1']\nconst modeloLeido = String(map.inventario_purga_model || '').trim()\n// El modelo va en la URL de Vertex: solo nombres simples.\nconst modelo = /^[a-z0-9][a-z0-9.-]{0,63}$/.test(modeloLeido) ? modeloLeido : MODELO_DEFECTO\nconst versionLeida = String(map.inventario_ia_prompt_version || '1').trim()\nconst prompt_version = PROMPTS_DISPONIBLES.includes(versionLeida) ? versionLeida : '1'\n\nconst ordenada = l => [...l].sort()\n// Solo entra en la clave lo que ve Gemini en ese modo.\nconst listas = ped.modo === 'unidades'\n  ? [ordenada(ped.unidades)]\n  : [ordenada(ped.categorias), ordenada(ped.existentes)]\nconst claveTexto = ped.account_id\n  ? JSON.stringify([ped.account_id, ped.modo, ...listas, modelo, prompt_version])\n  : ''\n\nreturn [{ json: {\n  ...ped,\n  activa: map.inventario_ia_activa === 'true',\n  modelo,\n  prompt_version,\n  claveTexto,\n  limite: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),\n} }]\n"
+        "jsCode": "// Mezcla app_settings como mergeSettings (js/env.js): 'prod' es la base y la fila del\n// env la pisa. Para el purgador, clave ausente = APAGADO.\nconst ped = $('Validar clave y pedido').first().json\nlet filas = []\ntry { filas = JSON.parse($input.first().json.filas || '[]') } catch (e) { filas = [] }\nif (!Array.isArray(filas)) filas = []\nconst map = {}\nfor (const r of filas) if (r && r.env === 'prod') map[r.key] = r.value\nif (ped.env !== 'prod') for (const r of filas) if (r && r.env === ped.env) map[r.key] = r.value\n\nconst MODELO_DEFECTO = 'gemini-2.5-flash'\nconst PROMPTS_DISPONIBLES = ['1']\nconst modeloLeido = String(map.inventario_purga_model || '').trim()\n// El modelo va en la URL de Vertex: solo nombres simples.\nconst modelo = /^[a-z0-9][a-z0-9.-]{0,63}$/.test(modeloLeido) ? modeloLeido : MODELO_DEFECTO\nconst versionLeida = String(map.inventario_ia_prompt_version || '1').trim()\nconst prompt_version = PROMPTS_DISPONIBLES.includes(versionLeida) ? versionLeida : '1'\n\n// Topes diarios (llamadas reales a Gemini en 24 h). Entero seguro >= 0; si falta o no es\n// valido, el default.\nfunction tope(v, defecto) {\n  const t = String(v === undefined || v === null ? '' : v).trim()\n  return /^[0-9]{1,9}$/.test(t) ? Number(t) : defecto\n}\nconst tope_diario = tope(map.inventario_ia_tope_diario, 500)\nconst tope_ip = tope(map.inventario_ia_tope_ip, 30)\n\nconst ordenada = l => [...l].sort()\n// Solo entra en la clave lo que ve Gemini en ese modo.\nconst listas = ped.modo === 'unidades'\n  ? [ordenada(ped.unidades)]\n  : [ordenada(ped.categorias), ordenada(ped.existentes)]\nconst claveTexto = ped.account_id\n  ? JSON.stringify([ped.account_id, ped.modo, ...listas, modelo, prompt_version])\n  : ''\n\nreturn [{ json: {\n  ...ped,\n  activa: map.inventario_ia_activa === 'true',\n  modelo,\n  prompt_version,\n  tope_diario,\n  tope_ip,\n  claveTexto,\n  limite: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),\n} }]\n"
       }
     },
     {
@@ -315,7 +315,7 @@
         -200
       ],
       "parameters": {
-        "jsCode": "// Hit de cache valido = fila con resultado que todavia pasa la validacion.\n\nconst UNIDADES_BOLD = [\"Centímetros\",\"Galónes\",\"Gramos\",\"Kilogramos\",\"Libras\",\"Litros\",\"Metros\",\"Metros cuadrados\",\"Metros cúbicos\",\"Miligramos\",\"Mililitros\",\"Milímetros\",\"Onzas\",\"Par\",\"Unidades\"]\nfunction sanear(t) {\n  if (t === null || t === undefined) return ''\n  return String(t).replace(/[`´]/g, \"'\").replace(/°/g, '#').replace(/\\|/g, ' ').replace(/[{}%?¡!]/g, '').replace(/\\s+/g, ' ').trim()\n}\nfunction validarGrupos(p, r) {\n  const grupos = r && r.grupos\n  if (!Array.isArray(grupos)) return false\n  const existentes = new Set(p.existentes)\n  const permitidos = new Set([...p.categorias, ...p.existentes])\n  const vistos = new Set()\n  for (const g of grupos) {\n    if (!g || typeof g.nombre !== 'string' || !Array.isArray(g.miembros) || !g.miembros.length) return false\n    if (!g.nombre || g.nombre.length > 80 || sanear(g.nombre) !== g.nombre) return false\n    let existente = null\n    for (const m of g.miembros) {\n      if (typeof m !== 'string' || !permitidos.has(m) || vistos.has(m)) return false\n      vistos.add(m)\n      if (existentes.has(m)) { if (existente !== null) return false; existente = m }\n    }\n    if (existente !== null && g.nombre !== existente) return false\n    if (p.modo === 'categorias' && existente === null && !g.miembros.includes(g.nombre)) return false\n  }\n  return p.categorias.every(c => vistos.has(c))\n}\nfunction validarUnidades(p, r) {\n  const u = r && r.unidades\n  if (!u || typeof u !== 'object' || Array.isArray(u)) return false\n  for (const x of p.unidades) {\n    if (!Object.prototype.hasOwnProperty.call(u, x)) return false\n    if (u[x] !== null && !UNIDADES_BOLD.includes(u[x])) return false\n  }\n  return true\n}\nfunction validar(p, r) {\n  try { return p.modo === 'unidades' ? validarUnidades(p, r) : validarGrupos(p, r) } catch (e) { return false }\n}\nfunction cuantosSalen(p, r) {\n  if (p.modo === 'unidades') return p.unidades.filter(x => r.unidades[x] !== null).length\n  return new Set(r.grupos.map(g => g.nombre)).size\n}\n\nconst ctx = $('Mezclar ajustes').first().json\nlet filas = []\ntry { filas = JSON.parse($input.first().json.filas || '[]') } catch (e) { filas = [] }\nconst resultado = Array.isArray(filas) && filas[0] ? filas[0].resultado : null\nconst hit = !!resultado && validar(ctx, resultado)\nconst n_entrada = (ctx.modo === 'unidades' ? ctx.unidades : ctx.categorias).length\nreturn [{ json: {\n  hit,\n  resultado: hit ? resultado : null,\n  uso: {\n    env: ctx.env, run_id: ctx.run_id, account_id: ctx.account_id, modo: ctx.modo,\n    modelo: ctx.modelo, prompt_version: ctx.prompt_version,\n    tokens_entrada: 0, tokens_salida: 0, cache_hit: true,\n    n_entrada, n_salida: hit ? cuantosSalen(ctx, resultado) : null,\n    duracion_ms: Date.now() - ctx.inicio,\n  },\n} }]\n"
+        "jsCode": "// Hit de cache valido = fila con resultado que todavia pasa la validacion.\n\nconst UNIDADES_BOLD = [\"Centímetros\",\"Galónes\",\"Gramos\",\"Kilogramos\",\"Libras\",\"Litros\",\"Metros\",\"Metros cuadrados\",\"Metros cúbicos\",\"Miligramos\",\"Mililitros\",\"Milímetros\",\"Onzas\",\"Par\",\"Unidades\"]\nfunction sanear(t) {\n  if (t === null || t === undefined) return ''\n  return String(t).replace(/[`´]/g, \"'\").replace(/°/g, '#').replace(/\\|/g, ' ').replace(/[{}%?¡!]/g, '').replace(/\\s+/g, ' ').trim()\n}\nfunction validarGrupos(p, r) {\n  const grupos = r && r.grupos\n  if (!Array.isArray(grupos)) return false\n  const existentes = new Set(p.existentes)\n  const permitidos = new Set([...p.categorias, ...p.existentes])\n  const vistos = new Set()\n  for (const g of grupos) {\n    if (!g || typeof g.nombre !== 'string' || !Array.isArray(g.miembros) || !g.miembros.length) return false\n    if (!g.nombre || g.nombre.length > 80 || sanear(g.nombre) !== g.nombre) return false\n    let existente = null\n    for (const m of g.miembros) {\n      if (typeof m !== 'string' || !permitidos.has(m) || vistos.has(m)) return false\n      vistos.add(m)\n      if (existentes.has(m)) { if (existente !== null) return false; existente = m }\n    }\n    if (existente !== null && g.nombre !== existente) return false\n    if (p.modo === 'categorias' && existente === null && !g.miembros.includes(g.nombre)) return false\n  }\n  return p.categorias.every(c => vistos.has(c))\n}\nfunction validarUnidades(p, r) {\n  const u = r && r.unidades\n  if (!u || typeof u !== 'object' || Array.isArray(u)) return false\n  for (const x of p.unidades) {\n    if (!Object.prototype.hasOwnProperty.call(u, x)) return false\n    if (u[x] !== null && !UNIDADES_BOLD.includes(u[x])) return false\n  }\n  return true\n}\nfunction validar(p, r) {\n  try { return p.modo === 'unidades' ? validarUnidades(p, r) : validarGrupos(p, r) } catch (e) { return false }\n}\nfunction cuantosSalen(p, r) {\n  if (p.modo === 'unidades') return p.unidades.filter(x => r.unidades[x] !== null).length\n  return new Set(r.grupos.map(g => g.nombre)).size\n}\n\nconst ctx = $('Mezclar ajustes').first().json\nlet filas = []\ntry { filas = JSON.parse($input.first().json.filas || '[]') } catch (e) { filas = [] }\nconst resultado = Array.isArray(filas) && filas[0] ? filas[0].resultado : null\nconst hit = !!resultado && validar(ctx, resultado)\nconst n_entrada = (ctx.modo === 'unidades' ? ctx.unidades : ctx.categorias).length\nreturn [{ json: {\n  hit,\n  resultado: hit ? resultado : null,\n  uso: {\n    env: ctx.env, run_id: ctx.run_id, account_id: ctx.account_id, modo: ctx.modo,\n    modelo: ctx.modelo, prompt_version: ctx.prompt_version,\n    ip_hash: ctx.ip_hash,\n    tokens_entrada: 0, tokens_salida: 0, cache_hit: true,\n    n_entrada, n_salida: hit ? cuantosSalen(ctx, resultado) : null,\n    duracion_ms: Date.now() - ctx.inicio,\n  },\n} }]\n"
       }
     },
     {
@@ -421,7 +421,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2880,
+        3600,
         0
       ],
       "parameters": {
@@ -434,7 +434,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3120,
+        3840,
         0
       ],
       "parameters": {
@@ -465,11 +465,11 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3360,
+        4080,
         0
       ],
       "parameters": {
-        "jsCode": "// Parsea la salida de Gemini, la lleva a la forma que espera el navegador y la valida.\n// Si no pasa, el webhook responde 502 (el navegador sigue sin IA) y no se cachea.\n\nconst UNIDADES_BOLD = [\"Centímetros\",\"Galónes\",\"Gramos\",\"Kilogramos\",\"Libras\",\"Litros\",\"Metros\",\"Metros cuadrados\",\"Metros cúbicos\",\"Miligramos\",\"Mililitros\",\"Milímetros\",\"Onzas\",\"Par\",\"Unidades\"]\nfunction sanear(t) {\n  if (t === null || t === undefined) return ''\n  return String(t).replace(/[`´]/g, \"'\").replace(/°/g, '#').replace(/\\|/g, ' ').replace(/[{}%?¡!]/g, '').replace(/\\s+/g, ' ').trim()\n}\nfunction validarGrupos(p, r) {\n  const grupos = r && r.grupos\n  if (!Array.isArray(grupos)) return false\n  const existentes = new Set(p.existentes)\n  const permitidos = new Set([...p.categorias, ...p.existentes])\n  const vistos = new Set()\n  for (const g of grupos) {\n    if (!g || typeof g.nombre !== 'string' || !Array.isArray(g.miembros) || !g.miembros.length) return false\n    if (!g.nombre || g.nombre.length > 80 || sanear(g.nombre) !== g.nombre) return false\n    let existente = null\n    for (const m of g.miembros) {\n      if (typeof m !== 'string' || !permitidos.has(m) || vistos.has(m)) return false\n      vistos.add(m)\n      if (existentes.has(m)) { if (existente !== null) return false; existente = m }\n    }\n    if (existente !== null && g.nombre !== existente) return false\n    if (p.modo === 'categorias' && existente === null && !g.miembros.includes(g.nombre)) return false\n  }\n  return p.categorias.every(c => vistos.has(c))\n}\nfunction validarUnidades(p, r) {\n  const u = r && r.unidades\n  if (!u || typeof u !== 'object' || Array.isArray(u)) return false\n  for (const x of p.unidades) {\n    if (!Object.prototype.hasOwnProperty.call(u, x)) return false\n    if (u[x] !== null && !UNIDADES_BOLD.includes(u[x])) return false\n  }\n  return true\n}\nfunction validar(p, r) {\n  try { return p.modo === 'unidades' ? validarUnidades(p, r) : validarGrupos(p, r) } catch (e) { return false }\n}\nfunction cuantosSalen(p, r) {\n  if (p.modo === 'unidades') return p.unidades.filter(x => r.unidades[x] !== null).length\n  return new Set(r.grupos.map(g => g.nombre)).size\n}\n\nconst ctx = $('Mezclar ajustes').first().json\nconst r = $input.first().json || {}\nconst meta = r.usageMetadata || {}\n\nfunction leer() {\n  const partes = (((r.candidates || [])[0] || {}).content || {}).parts || []\n  const texto = partes.filter(p => p && !p.thought && typeof p.text === 'string').map(p => p.text).join('')\n  if (!texto) return null\n  let crudo\n  try { crudo = JSON.parse(texto) } catch (e) { return null }\n  if (!crudo || typeof crudo !== 'object') return null\n  if (ctx.modo === 'unidades') {\n    if (!Array.isArray(crudo.pares)) return null\n    // Lo que falte o no sea de Bold queda en null: el chat lo pregunta como hoy.\n    const porOriginal = new Map()\n    for (const p of crudo.pares) if (p && typeof p.original === 'string' && !porOriginal.has(p.original)) porOriginal.set(p.original, p.unidad)\n    const unidades = {}\n    for (const x of ctx.unidades) {\n      const v = porOriginal.get(x)\n      unidades[x] = UNIDADES_BOLD.includes(v) ? v : null\n    }\n    return { unidades }\n  }\n  if (!Array.isArray(crudo.grupos)) return null\n  // Una categoria que Gemini olvido queda sola (ante la duda, no unir).\n  const grupos = crudo.grupos.slice()\n  const vistos = new Set()\n  for (const g of grupos) if (g && Array.isArray(g.miembros)) for (const m of g.miembros) vistos.add(m)\n  for (const c of ctx.categorias) if (!vistos.has(c)) grupos.push({ nombre: c, miembros: [c] })\n  return { grupos }\n}\n\nconst resultado = leer()\nconst ok = !!resultado && validar(ctx, resultado)\nlet clave = null\ntry { clave = $('Clave de cache').first().json.clave || null } catch (e) { clave = null }\nreturn [{ json: {\n  ok,\n  resultado: ok ? resultado : null,\n  clave,\n  uso: {\n    env: ctx.env, run_id: ctx.run_id, account_id: ctx.account_id, modo: ctx.modo,\n    modelo: ctx.modelo, prompt_version: ctx.prompt_version,\n    tokens_entrada: Number(meta.promptTokenCount) || 0,\n    // El razonamiento (thoughts) se cobra como salida.\n    tokens_salida: (Number(meta.candidatesTokenCount) || 0) + (Number(meta.thoughtsTokenCount) || 0),\n    cache_hit: false,\n    n_entrada: (ctx.modo === 'unidades' ? ctx.unidades : ctx.categorias).length,\n    n_salida: ok ? cuantosSalen(ctx, resultado) : null,\n    duracion_ms: Date.now() - ctx.inicio,\n  },\n} }]\n"
+        "jsCode": "// Parsea la salida de Gemini, la lleva a la forma que espera el navegador y la valida.\n// Si no pasa, el webhook responde 502 (el navegador sigue sin IA) y no se cachea.\n\nconst UNIDADES_BOLD = [\"Centímetros\",\"Galónes\",\"Gramos\",\"Kilogramos\",\"Libras\",\"Litros\",\"Metros\",\"Metros cuadrados\",\"Metros cúbicos\",\"Miligramos\",\"Mililitros\",\"Milímetros\",\"Onzas\",\"Par\",\"Unidades\"]\nfunction sanear(t) {\n  if (t === null || t === undefined) return ''\n  return String(t).replace(/[`´]/g, \"'\").replace(/°/g, '#').replace(/\\|/g, ' ').replace(/[{}%?¡!]/g, '').replace(/\\s+/g, ' ').trim()\n}\nfunction validarGrupos(p, r) {\n  const grupos = r && r.grupos\n  if (!Array.isArray(grupos)) return false\n  const existentes = new Set(p.existentes)\n  const permitidos = new Set([...p.categorias, ...p.existentes])\n  const vistos = new Set()\n  for (const g of grupos) {\n    if (!g || typeof g.nombre !== 'string' || !Array.isArray(g.miembros) || !g.miembros.length) return false\n    if (!g.nombre || g.nombre.length > 80 || sanear(g.nombre) !== g.nombre) return false\n    let existente = null\n    for (const m of g.miembros) {\n      if (typeof m !== 'string' || !permitidos.has(m) || vistos.has(m)) return false\n      vistos.add(m)\n      if (existentes.has(m)) { if (existente !== null) return false; existente = m }\n    }\n    if (existente !== null && g.nombre !== existente) return false\n    if (p.modo === 'categorias' && existente === null && !g.miembros.includes(g.nombre)) return false\n  }\n  return p.categorias.every(c => vistos.has(c))\n}\nfunction validarUnidades(p, r) {\n  const u = r && r.unidades\n  if (!u || typeof u !== 'object' || Array.isArray(u)) return false\n  for (const x of p.unidades) {\n    if (!Object.prototype.hasOwnProperty.call(u, x)) return false\n    if (u[x] !== null && !UNIDADES_BOLD.includes(u[x])) return false\n  }\n  return true\n}\nfunction validar(p, r) {\n  try { return p.modo === 'unidades' ? validarUnidades(p, r) : validarGrupos(p, r) } catch (e) { return false }\n}\nfunction cuantosSalen(p, r) {\n  if (p.modo === 'unidades') return p.unidades.filter(x => r.unidades[x] !== null).length\n  return new Set(r.grupos.map(g => g.nombre)).size\n}\n\nconst ctx = $('Mezclar ajustes').first().json\nconst r = $input.first().json || {}\nconst meta = r.usageMetadata || {}\n\nfunction leer() {\n  const partes = (((r.candidates || [])[0] || {}).content || {}).parts || []\n  const texto = partes.filter(p => p && !p.thought && typeof p.text === 'string').map(p => p.text).join('')\n  if (!texto) return null\n  let crudo\n  try { crudo = JSON.parse(texto) } catch (e) { return null }\n  if (!crudo || typeof crudo !== 'object') return null\n  if (ctx.modo === 'unidades') {\n    if (!Array.isArray(crudo.pares)) return null\n    // Lo que falte o no sea de Bold queda en null: el chat lo pregunta como hoy.\n    const porOriginal = new Map()\n    for (const p of crudo.pares) if (p && typeof p.original === 'string' && !porOriginal.has(p.original)) porOriginal.set(p.original, p.unidad)\n    const unidades = {}\n    for (const x of ctx.unidades) {\n      const v = porOriginal.get(x)\n      unidades[x] = UNIDADES_BOLD.includes(v) ? v : null\n    }\n    return { unidades }\n  }\n  if (!Array.isArray(crudo.grupos)) return null\n  // Una categoria que Gemini olvido queda sola (ante la duda, no unir).\n  const grupos = crudo.grupos.slice()\n  const vistos = new Set()\n  for (const g of grupos) if (g && Array.isArray(g.miembros)) for (const m of g.miembros) vistos.add(m)\n  for (const c of ctx.categorias) if (!vistos.has(c)) grupos.push({ nombre: c, miembros: [c] })\n  return { grupos }\n}\n\nconst resultado = leer()\nconst ok = !!resultado && validar(ctx, resultado)\nlet clave = null\ntry { clave = $('Clave de cache').first().json.clave || null } catch (e) { clave = null }\nreturn [{ json: {\n  ok,\n  resultado: ok ? resultado : null,\n  clave,\n  uso: {\n    env: ctx.env, run_id: ctx.run_id, account_id: ctx.account_id, modo: ctx.modo,\n    modelo: ctx.modelo, prompt_version: ctx.prompt_version,\n    ip_hash: ctx.ip_hash,\n    tokens_entrada: Number(meta.promptTokenCount) || 0,\n    // El razonamiento (thoughts) se cobra como salida.\n    tokens_salida: (Number(meta.candidatesTokenCount) || 0) + (Number(meta.thoughtsTokenCount) || 0),\n    cache_hit: false,\n    n_entrada: (ctx.modo === 'unidades' ? ctx.unidades : ctx.categorias).length,\n    n_salida: ok ? cuantosSalen(ctx, resultado) : null,\n    duracion_ms: Date.now() - ctx.inicio,\n  },\n} }]\n"
       }
     },
     {
@@ -478,7 +478,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        4080,
+        4800,
         0
       ],
       "parameters": {
@@ -524,7 +524,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        3600,
+        4320,
         0
       ],
       "parameters": {
@@ -558,7 +558,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        3840,
+        4560,
         400
       ],
       "parameters": {
@@ -575,7 +575,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        4320,
+        5040,
         0
       ],
       "parameters": {
@@ -609,7 +609,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        4560,
+        5280,
         0
       ],
       "parameters": {
@@ -655,12 +655,113 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        3840,
+        4560,
         0
       ],
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ { resultado: $('Leer respuesta').first().json.resultado, cache: false } }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "purga-026",
+      "name": "Consultar cupo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2880,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://tczcngfhuendmldafbrc.supabase.co/rest/v1/rpc/inventario_ia_cupo",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ p_env: $('Mezclar ajustes').first().json.env, p_ip_hash: $('Mezclar ajustes').first().json.ip_hash }) }}",
+        "options": {
+          "timeout": 5000,
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "cupo"
+            }
+          }
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "Szz5zeGA5Wxy3Rtj",
+          "name": "Supabase Academia (service-role)"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "purga-027",
+      "name": "Revisar cupo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Hay cupo si las llamadas reales a Gemini de las ultimas 24 h (inventario_ia_cupo)\n// estan bajo los topes. Si la RPC falla o devuelve algo raro: SIN cupo (falla cerrado).\nconst ctx = $('Mezclar ajustes').first().json\nlet c = null\ntry { c = JSON.parse($input.first().json.cupo || 'null') } catch (e) { c = null }\nif (Array.isArray(c)) c = c[0]\nconst n = v => (typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 ? v : null)\nconst global = c && typeof c === 'object' ? n(c.global) : null\nconst ip = c && typeof c === 'object' ? n(c.ip) : null\nlet hay_cupo = global !== null && global < ctx.tope_diario\nif (ctx.ip_hash) hay_cupo = hay_cupo && ip !== null && ip < ctx.tope_ip\nreturn [{ json: { hay_cupo } }]\n"
+      }
+    },
+    {
+      "id": "purga-028",
+      "name": "Hay cupo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "hay-cupo-cond",
+              "leftValue": "={{ $json.hay_cupo }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "purga-029",
+      "name": "Responder sin cupo",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3600,
+        400
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { desactivado: true } }}",
         "options": {
           "responseCode": 200
         }
@@ -764,7 +865,7 @@
         ],
         [
           {
-            "node": "Armar pedido Gemini",
+            "node": "Consultar cupo",
             "type": "main",
             "index": 0
           }
@@ -815,7 +916,7 @@
         ],
         [
           {
-            "node": "Armar pedido Gemini",
+            "node": "Consultar cupo",
             "type": "main",
             "index": 0
           }
@@ -827,6 +928,46 @@
         [
           {
             "node": "Registrar uso (cache)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar cupo": {
+      "main": [
+        [
+          {
+            "node": "Revisar cupo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Revisar cupo": {
+      "main": [
+        [
+          {
+            "node": "Hay cupo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hay cupo?": {
+      "main": [
+        [
+          {
+            "node": "Armar pedido Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder sin cupo",
             "type": "main",
             "index": 0
           }

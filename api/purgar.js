@@ -1,5 +1,6 @@
 // Proxy del purgador con IA: valida el pedido y lo reenvia a n8n.
 // Nunca expone la URL ni la clave de n8n, ni devuelve el input en errores.
+import { createHmac } from 'node:crypto'
 const MODOS = ['categorias', 'unidades', 'simplificar']
 const LISTAS = ['categorias', 'existentes', 'unidades']
 const MAX_ELEMENTOS = 300
@@ -33,6 +34,16 @@ export function validarPedido(body) {
     limpio[k] = body[k]
   }
   return { ok: true, limpio }
+}
+
+// IP del cliente segun Vercel (x-real-ip / primera de x-forwarded-for; en Vercel el cliente
+// no puede falsearlas). Solo sale de aca como HMAC con N8N_API_KEY: la IP cruda nunca se
+// reenvia ni se registra. Sin IP → null (n8n solo aplica el tope global).
+export function hashIp(headers, key) {
+  const real = (headers.get('x-real-ip') || '').trim()
+  const ip = real || (headers.get('x-forwarded-for') || '').split(',')[0].trim()
+  if (!ip || !key) return null
+  return createHmac('sha256', key).update(ip).digest('hex')
 }
 
 export async function POST(request) {
@@ -69,7 +80,8 @@ export async function POST(request) {
       // Las previews de otras ramas llevan BUILD_ENV=<rama> en la telemetria del cliente
       // (scripts/build-meta.js), pero ahi el gate del navegador queda apagado (no hay fila
       // inventario_ia_activa para esa rama), asi que no llegan llamadas con ese env.
-      body: JSON.stringify({ ...v.limpio, env: 'sandbox' }),
+      // ip_hash va DESPUES de validar: validarPedido descarta cualquier ip_hash del cliente.
+      body: JSON.stringify({ ...v.limpio, env: 'sandbox', ip_hash: hashIp(request.headers, key) }),
       signal: request.signal
         ? AbortSignal.any([request.signal, AbortSignal.timeout(TIMEOUT_MS)])
         : AbortSignal.timeout(TIMEOUT_MS),

@@ -193,6 +193,34 @@ igual que los otros).
   - **costo por descarga** = costo total / corridas con `tool_complete` del conversor en el
     periodo (lo que cuesta cada plantilla que de verdad se llevó un cliente).
 
+### Topes diarios (migración `update_inventario_ia_cupo.sql`)
+Las previews de Vercel son públicas (sin Deployment Protection), así que estos topes son la
+defensa contra abuso y costo. Decisión del usuario: **500 llamadas/día global y 30/día por IP**.
+- **Qué cuenta:** filas de `inventario_ia_uso` con `cache_hit = false` en las últimas 24 h
+  (ventana móvil) del `env`: toda llamada real a Gemini, incluidas las que fallaron o
+  vencieron (también cuestan). Las respuestas de caché no cuentan ni consultan el tope.
+- **IP:** `/api/purgar` toma `x-real-ip` (o la primera de `x-forwarded-for`), calcula
+  `ip_hash = HMAC-SHA256(N8N_API_KEY, ip)` en hex y lo agrega al cuerpo **después** de validar
+  (un `ip_hash` mandado por el cliente se descarta). La IP cruda nunca se reenvía, ni se
+  guarda, ni se registra. Sin IP → `ip_hash: null` y solo aplica el tope global. n8n acepta
+  solo `/^[0-9a-f]{64}$/`; cualquier otra cosa = null. `ip_hash` se guarda en
+  `inventario_ia_uso` (columna nueva, índice `(env, ip_hash, creado)`).
+- **RPC `inventario_ia_cupo(p_env, p_ip_hash)` → `{ global, ip }`**: `security definer`,
+  solo `service_role` (revocada a `public`, `anon` y `authenticated`).
+- **Ajustes:** `app_settings.inventario_ia_tope_diario` (`'500'`) e `inventario_ia_tope_ip`
+  (`'30'`), sembrados en `sandbox` y `prod`, misma mezcla prod + env. Entero ≥ 0; si falta o
+  no es válido, 500 / 30. `'0'` apaga la IA sin tocar `inventario_ia_activa`.
+- **Workflow:** solo en el camino sin caché, justo antes de **Armar pedido Gemini**:
+  **Consultar cupo** (POST `/rpc/inventario_ia_cupo`) → **Revisar cupo** → **Hay cupo?**
+  (`global < tope_diario` y, si hay `ip_hash`, `ip < tope_ip`). Sin cupo → **Responder sin
+  cupo** `{ desactivado: true }` (200): el navegador sigue sin IA como cuando está apagada; no
+  llama a Gemini ni registra uso. Si la RPC falla o devuelve algo raro → sin cupo (falla
+  cerrado).
+- **Límites conocidos:** el conteo no es atómico y la fila de uso se escribe después de
+  responder, así que llamadas concurrentes (hasta ~45 s de Gemini) pueden pasar unas pocas
+  por encima del tope. Es un freno de costo, no un contador exacto. El rate limit por
+  minuto del firewall de Vercel sigue siendo complementario.
+
 ### Aceptación (telemetría del navegador)
 Evento nuevo `tool_ia` (no se reusa `tool_step`: `telemetria.paso()` solo manda `{paso}` y
 deduplica por corrida) con `etapa: 'categorias' | 'unidades' | 'simplificar'`,

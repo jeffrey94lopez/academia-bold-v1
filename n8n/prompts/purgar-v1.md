@@ -76,3 +76,9 @@ permisivo que el navegador con la salida cruda del modelo:
 Lo que sale del webhook igual pasa `validarRespuesta` (port en **Revisar cache** y **Leer
 respuesta**, incluido el largo máximo de 80 caracteres del nombre); si no, responde 502 y
 no se cachea.
+
+**Topes diarios:** antes de llamar a Gemini (solo sin caché), **Consultar cupo** /
+**Revisar cupo** / **Hay cupo?** comparan las llamadas reales de 24 h con
+`inventario_ia_tope_diario` (500) e `inventario_ia_tope_ip` (30); sin cupo, o si la consulta
+falla, responde `{ desactivado: true }` sin gastar tokens. Ver la sección "Topes diarios" del
+spec.
