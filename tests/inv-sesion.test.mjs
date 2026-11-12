@@ -57,3 +57,21 @@ test('agregarPlantillaSintetica: falla 2 veces → devuelve error fetch_fallo', 
   assert.equal(r.codigo, 'fetch_fallo')
   assert.deepEqual(sesion.estado.plantillas, {})
 })
+
+// Una fila con datos solo en columnas que no son de producto (una nota suelta en
+// la columna de IVA) no es un producto: no debe inflar el "Encontré N producto(s)".
+test('cargarOrigen: el total no cuenta filas sin nombre, código, precio ni costo', async () => {
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['Código', 'Nombre', 'Costo', 'Precio', 'IVA'],
+    ['A1', 'Camisa', 10, 20, 19],
+    ['', '', '', '', ''],
+    ['', '', '', '', 'nota suelta'],
+    ['A2', 'Pantalón', 15, 30, ''],
+  ]), 'Productos')
+  const bytes = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+  const archivo = { name: 'productos.xlsx', arrayBuffer: async () => bytes }
+  const r = await crearSesion().cargarOrigen(archivo)
+  assert.equal(r.error, undefined)
+  assert.equal(r.total, 2)
+})

@@ -4,6 +4,7 @@ import { crearBase, esc, CANCELADO } from './chat-base.js'
 import { FORMATOS_CODIGO, crearGeneradorCodigos } from './inv-codigos.js'
 import { iniciarCodigos } from './barras-chat.js'
 import { telemetriaReal } from './herramientas-telemetria.js'
+import { filaSinDatoMapeado } from './inv-convertir.js'
 import { getContextoBold } from './bold-context.js'
 
 const letraColumna = i => { let s = '', n = i; do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1 } while (n >= 0); return s }
@@ -22,7 +23,7 @@ function contarIva({ mapeo, filas }) {
   let con = 0, sin = 0
   if (mapeo.impuesto === undefined) return { con: 0, sin: filas.length }
   for (const f of filas) {
-    if (f.every(c => String(c ?? '').trim() === '')) continue
+    if (filaSinDatoMapeado(f, mapeo)) continue
     const v = String(f[mapeo.impuesto] ?? '').trim()
     if (v === '' || isNaN(parseFloat(v.replace(',', '.')))) sin++
     else con++
@@ -50,7 +51,7 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
     if (mapeo.impuesto === undefined) return 'vacio'
     let con = 0, sin = 0
     for (const f of filas) {
-      if (vacia(f)) continue
+      if (filaSinDatoMapeado(f, mapeo)) continue
       const v = parseImpuesto(f[mapeo.impuesto])
       if (v == null) sin++; else con++
     }
@@ -58,8 +59,6 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
     if (sin === 0) return 'completo'
     return 'mixto'
   }
-
-  const vacia = fila => fila.every(c => String(c ?? '').trim() === '')
 
   // Modo del conversor: 'mono' (plantilla sintética) o 'multi' (sube la del cliente).
   let modo = null
@@ -276,9 +275,13 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
     const yaSePregunto = sesion.estado.opciones.isv !== null
     if (!yaSePregunto) {
       const trae = sesion.tieneIsv()
-      const qIsv = await bot(`¿Tu cuenta tiene <b>facturación electrónica</b> habilitada? ${trae ? 'Tu plantilla trae la columna de impuesto (ISV), así que parece que sí.' : 'Tu plantilla no trae la columna de impuesto (ISV).'}`)
-      const conIsv = (await chips(qIsv, [{ texto: 'Sí', valor: true }, { texto: 'No', valor: false }]))
-      vivo()
+      // Si la respondió al intentar la plantilla automática (y esta falló), no se repite.
+      let conIsv = conFE
+      if (conIsv === null) {
+        const qIsv = await bot(`¿Tu cuenta tiene <b>facturación electrónica</b> habilitada? ${trae ? 'Tu plantilla trae la columna de impuesto (ISV), así que parece que sí.' : 'Tu plantilla no trae la columna de impuesto (ISV).'}`)
+        conIsv = (await chips(qIsv, [{ texto: 'Sí', valor: true }, { texto: 'No', valor: false }]))
+        vivo()
+      }
       sesion.estado.opciones.isv = conIsv
       if (conIsv && !trae) await bot('Entonces descarga de nuevo tu plantilla desde Bold POS (con la facturación electrónica activa) y súbela otra vez; por ahora no puedo llenar el impuesto sin esa columna. Seguimos con lo demás.')
       if (!conIsv && trae) await bot('Entendido: dejaré la columna de impuesto vacía.')
@@ -337,7 +340,7 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
     for (const u of r.unidadesSinMapa) {
       const unidades = sesion.plantillaReferencia().listas.unidades
       const q = await bot(`No reconozco la unidad de medida «${esc(u)}». ¿Cuál es en Bold POS?`)
-      sesion.estado.opciones.unidades[u] = await chips(q, unidades.slice(0, 8).map(x => ({ texto: x, valor: x })))
+      sesion.estado.opciones.unidades[u] = await chips(q, unidades.map(x => ({ texto: x, valor: x })))
       vivo()
     }
     r = sesion.recalcular()
@@ -396,16 +399,6 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
     }
   }
 
-  function construirCategoriasParaCrear() {
-    const cats = new Set()
-    for (const tipo of Object.keys(sesion.estado.resultado.salidas)) {
-      for (const it of sesion.estado.resultado.salidas[tipo]) {
-        if (it.categoria && it.categoria.toLowerCase() !== 'general') cats.add(it.categoria)
-      }
-    }
-    return [...cats].sort()
-  }
-
   function construirUnidadesNoCanonicas() {
     // Las unidades canónicas de Bold que sintetizamos en vendor/ — hardcoded acá
     // para no romper el aislamiento del chat con inv-plantilla-sintetica.
@@ -427,20 +420,10 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
   async function pasoResultado() {
     const r = sesion.estado.resultado
 
-    // Camino mono: no hay plantilla Bold subida → todo lo que no sea General
-    // o una unidad canónica son "faltantes" en Bold. Le damos la lista para crear.
+    // Camino mono: las categorías faltantes ya se resolvieron en pasoPreguntas (con
+    // la opción de mandarlas a General); acá solo quedan las unidades no canónicas.
     if (modo === 'mono') {
-      const catsParaCrear = construirCategoriasParaCrear()
       const unidadesParaCrear = construirUnidadesNoCanonicas()
-      if (catsParaCrear.length) {
-        const b = await bot(`Estas <b>${catsParaCrear.length}</b> categorías no existen en tu Bold todavía. Creálas antes de importar (Bold POS → Ítems → Categorías → Crear). Podés pegarlas una por línea:<pre class="inv-cats">${esc(catsParaCrear.join('\n'))}</pre>`, { demora: 500 })
-        const acc = await chips(b, [{ texto: 'Copiar categorías', valor: 'copiar' }, { texto: 'Continuar', valor: 'seguir' }])
-        vivo()
-        if (acc === 'copiar') {
-          try { await navigator.clipboard.writeText(catsParaCrear.join('\n')) } catch { /* sin portapapeles */ }
-          await bot('Copiadas ✅', { demora: 250 })
-        }
-      }
       if (unidadesParaCrear.length) {
         const b = await bot(`Estas <b>${unidadesParaCrear.length}</b> unidades que usás no están en la lista estándar de Bold. Creálas antes de importar (Bold POS → Ítems → Unidades):<pre class="inv-cats">${esc(unidadesParaCrear.join('\n'))}</pre>`, { demora: 500 })
         const acc = await chips(b, [{ texto: 'Copiar unidades', valor: 'copiar' }, { texto: 'Continuar', valor: 'seguir' }])
@@ -508,8 +491,9 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
     telemetria.inicio(via)
     await pasoSucursales()
     await bot(INTRO_HTML)
+    // pasoPlantillaSintetica ya cae a pasoPlantillas por su cuenta si no puede armarla.
     if (modo === 'mono') await pasoPlantillaSintetica()
-    if (modo === 'multi') await pasoPlantillas()
+    else await pasoPlantillas()
     telemetria.paso('plantillas')
     await pasoOrigen(); telemetria.paso('origen')
     await pasoColumnas(); telemetria.paso('columnas')

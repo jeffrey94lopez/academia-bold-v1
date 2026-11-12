@@ -5,7 +5,7 @@ import { leerLibro, escribirPlantilla, descargar } from './inv-excel.js'
 import { leerPlantilla } from './inv-plantilla.js'
 import { construirPlantilla } from './inv-plantilla-sintetica.js'
 import { elegirHoja } from './inv-origen.js'
-import { convertir } from './inv-convertir.js'
+import { convertir, filaSinDatoMapeado } from './inv-convertir.js'
 
 const BASES = {
   inventariable: '/vendor/bold-plantilla-base-inventariable.xlsx',
@@ -112,7 +112,7 @@ export function crearSesion() {
         estado.opciones.inventariable = null
         estado.opciones.codigos = null
         estado.resultado = null
-        return { hoja: mejor.nombre, total: filas.filter(f => f.some(c => String(c).trim() !== '')).length }
+        return { hoja: mejor.nombre, total: filas.filter(f => !filaSinDatoMapeado(f, mejor.mapeo)).length }
       } catch { return { error: `No pude leer "${file.name}".`, codigo: 'archivo_ilegible' } }
     },
 

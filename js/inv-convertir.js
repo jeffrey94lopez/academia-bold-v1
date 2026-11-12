@@ -68,7 +68,7 @@ function esInventariable(fila, mapeo, opciones) {
   return mapeo.existencia !== undefined ? true : null
 }
 
-function filaSinDatoMapeado(fila, mapeo) {
+export function filaSinDatoMapeado(fila, mapeo) {
   const camposRelevantes = ['nombre', 'codigo', 'precioTotal', 'precioBase', 'costo', 'existencia']
   for (const campo of camposRelevantes) {
     const col = mapeo[campo]
