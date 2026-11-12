@@ -3,7 +3,6 @@
 // Habla con POST /api/purgar (servidor, Task 5) con timeout y gate. Nunca
 // lanza: todo resultado es { ok: true, mapeo } o { ok: false, codigo }.
 import { armarPedido, validarRespuesta, LIMITES } from './inv-ia.js'
-import { APP_ENV } from './env.js'
 
 const CLAVE = 'inventario_ia_activa'
 
@@ -14,11 +13,11 @@ const falla = (codigo) => ({ ok: false, codigo })
 // OJO: app_settings guarda texto, y aquí "clave ausente" significa APAGADO.
 // Es a propósito lo contrario de la convención del repo (ausente ⇒ habilitado):
 // una función que gasta cuota de IA no debe encenderse sola.
+// El ajuste se lee por env (prod en produccion), asi que encenderla en sandbox no la
+// enciende en produccion.
 export async function iaActiva({
-  appEnv = APP_ENV,
   cargar = async (keys) => (await import('./settings.js')).loadSettings(keys),
 } = {}) {
-  if (appEnv === 'prod') return false
   try {
     const s = await cargar([CLAVE])
     return s?.[CLAVE] === 'true'

@@ -47,10 +47,12 @@ export function hashIp(headers, key) {
 }
 
 export async function POST(request) {
-  // Cerrado en produccion
-  // Fail closed: en Vercel solo se permite preview
-  const env = process.env.VERCEL_ENV
-  if (env === 'production' || (process.env.VERCEL === '1' && env !== 'preview')) return json({ error: 'Not found' }, 404)
+  // Fail closed: en Vercel solo production y preview. El env de app_settings/analytics sale
+  // del servidor: production -> prod; preview y local -> sandbox. En produccion la IA queda
+  // apagada hasta que exista inventario_ia_activa='true' con env prod (n8n lo exige).
+  const vercelEnv = process.env.VERCEL_ENV
+  if (process.env.VERCEL === '1' && vercelEnv !== 'preview' && vercelEnv !== 'production') return json({ error: 'Not found' }, 404)
+  const env = vercelEnv === 'production' ? 'prod' : 'sandbox'
 
   const url = process.env.N8N_PURGA_URL
   const key = process.env.N8N_API_KEY
@@ -76,12 +78,10 @@ export async function POST(request) {
     const upstream = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': key },
-      // Solo responde fuera de produccion: el env es siempre el de app_settings/analytics de sandbox.
-      // Las previews de otras ramas llevan BUILD_ENV=<rama> en la telemetria del cliente
-      // (scripts/build-meta.js), pero ahi el gate del navegador queda apagado (no hay fila
-      // inventario_ia_activa para esa rama), asi que no llegan llamadas con ese env.
+      // Todas las previews usan env sandbox: n8n lee inventario_ia_activa de sandbox (con prod
+      // de base), asi que conviene mantener una fila sandbox explicita para no heredar la de prod.
       // ip_hash va DESPUES de validar: validarPedido descarta cualquier ip_hash del cliente.
-      body: JSON.stringify({ ...v.limpio, env: 'sandbox', ip_hash: hashIp(request.headers, key) }),
+      body: JSON.stringify({ ...v.limpio, env, ip_hash: hashIp(request.headers, key) }),
       signal: request.signal
         ? AbortSignal.any([request.signal, AbortSignal.timeout(TIMEOUT_MS)])
         : AbortSignal.timeout(TIMEOUT_MS),
