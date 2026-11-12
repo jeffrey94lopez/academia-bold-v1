@@ -16,7 +16,7 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "webhookId": "inventario-purgar-con-ia-wh-001"
+      "webhookId": "2cad57c9-81ce-4b5f-b2b9-0716655fb626"
     },
     {
       "id": "purga-002",
@@ -112,7 +112,8 @@
           "name": "Supabase Academia (service-role)"
         }
       },
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
     },
     {
       "id": "purga-006",
@@ -184,8 +185,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1440,
-        0
+        1680,
+        600
       ],
       "parameters": {
         "method": "DELETE",
@@ -202,7 +203,7 @@
           ]
         },
         "options": {
-          "timeout": 5000,
+          "timeout": 2000,
           "response": {
             "response": {
               "responseFormat": "text",
@@ -314,7 +315,7 @@
         -200
       ],
       "parameters": {
-        "jsCode": "// Hit de cache valido = fila con resultado que todavia pasa la validacion.\n\nconst UNIDADES_BOLD = [\"Centímetros\",\"Galónes\",\"Gramos\",\"Kilogramos\",\"Libras\",\"Litros\",\"Metros\",\"Metros cuadrados\",\"Metros cúbicos\",\"Miligramos\",\"Mililitros\",\"Milímetros\",\"Onzas\",\"Par\",\"Unidades\"]\nfunction sanear(t) {\n  if (t === null || t === undefined) return ''\n  return String(t).replace(/[`´]/g, \"'\").replace(/°/g, '#').replace(/\\|/g, ' ').replace(/[{}%?¡!]/g, '').replace(/\\s+/g, ' ').trim()\n}\nfunction validarGrupos(p, r) {\n  const grupos = r && r.grupos\n  if (!Array.isArray(grupos)) return false\n  const existentes = new Set(p.existentes)\n  const permitidos = new Set([...p.categorias, ...p.existentes])\n  const vistos = new Set()\n  for (const g of grupos) {\n    if (!g || typeof g.nombre !== 'string' || !Array.isArray(g.miembros) || !g.miembros.length) return false\n    if (!g.nombre || sanear(g.nombre) !== g.nombre) return false\n    let existente = null\n    for (const m of g.miembros) {\n      if (typeof m !== 'string' || !permitidos.has(m) || vistos.has(m)) return false\n      vistos.add(m)\n      if (existentes.has(m)) { if (existente !== null) return false; existente = m }\n    }\n    if (existente !== null && g.nombre !== existente) return false\n    if (p.modo === 'categorias' && existente === null && !g.miembros.includes(g.nombre)) return false\n  }\n  return p.categorias.every(c => vistos.has(c))\n}\nfunction validarUnidades(p, r) {\n  const u = r && r.unidades\n  if (!u || typeof u !== 'object' || Array.isArray(u)) return false\n  for (const x of p.unidades) {\n    if (!Object.prototype.hasOwnProperty.call(u, x)) return false\n    if (u[x] !== null && !UNIDADES_BOLD.includes(u[x])) return false\n  }\n  return true\n}\nfunction validar(p, r) {\n  try { return p.modo === 'unidades' ? validarUnidades(p, r) : validarGrupos(p, r) } catch (e) { return false }\n}\nfunction cuantosSalen(p, r) {\n  if (p.modo === 'unidades') return p.unidades.filter(x => r.unidades[x] !== null).length\n  return new Set(r.grupos.map(g => g.nombre)).size\n}\n\nconst ctx = $('Mezclar ajustes').first().json\nlet filas = []\ntry { filas = JSON.parse($input.first().json.filas || '[]') } catch (e) { filas = [] }\nconst resultado = Array.isArray(filas) && filas[0] ? filas[0].resultado : null\nconst hit = !!resultado && validar(ctx, resultado)\nconst n_entrada = (ctx.modo === 'unidades' ? ctx.unidades : ctx.categorias).length\nreturn [{ json: {\n  hit,\n  resultado: hit ? resultado : null,\n  uso: {\n    env: ctx.env, run_id: ctx.run_id, account_id: ctx.account_id, modo: ctx.modo,\n    modelo: ctx.modelo, prompt_version: ctx.prompt_version,\n    tokens_entrada: 0, tokens_salida: 0, cache_hit: true,\n    n_entrada, n_salida: hit ? cuantosSalen(ctx, resultado) : null,\n    duracion_ms: Date.now() - ctx.inicio,\n  },\n} }]\n"
+        "jsCode": "// Hit de cache valido = fila con resultado que todavia pasa la validacion.\n\nconst UNIDADES_BOLD = [\"Centímetros\",\"Galónes\",\"Gramos\",\"Kilogramos\",\"Libras\",\"Litros\",\"Metros\",\"Metros cuadrados\",\"Metros cúbicos\",\"Miligramos\",\"Mililitros\",\"Milímetros\",\"Onzas\",\"Par\",\"Unidades\"]\nfunction sanear(t) {\n  if (t === null || t === undefined) return ''\n  return String(t).replace(/[`´]/g, \"'\").replace(/°/g, '#').replace(/\\|/g, ' ').replace(/[{}%?¡!]/g, '').replace(/\\s+/g, ' ').trim()\n}\nfunction validarGrupos(p, r) {\n  const grupos = r && r.grupos\n  if (!Array.isArray(grupos)) return false\n  const existentes = new Set(p.existentes)\n  const permitidos = new Set([...p.categorias, ...p.existentes])\n  const vistos = new Set()\n  for (const g of grupos) {\n    if (!g || typeof g.nombre !== 'string' || !Array.isArray(g.miembros) || !g.miembros.length) return false\n    if (!g.nombre || g.nombre.length > 80 || sanear(g.nombre) !== g.nombre) return false\n    let existente = null\n    for (const m of g.miembros) {\n      if (typeof m !== 'string' || !permitidos.has(m) || vistos.has(m)) return false\n      vistos.add(m)\n      if (existentes.has(m)) { if (existente !== null) return false; existente = m }\n    }\n    if (existente !== null && g.nombre !== existente) return false\n    if (p.modo === 'categorias' && existente === null && !g.miembros.includes(g.nombre)) return false\n  }\n  return p.categorias.every(c => vistos.has(c))\n}\nfunction validarUnidades(p, r) {\n  const u = r && r.unidades\n  if (!u || typeof u !== 'object' || Array.isArray(u)) return false\n  for (const x of p.unidades) {\n    if (!Object.prototype.hasOwnProperty.call(u, x)) return false\n    if (u[x] !== null && !UNIDADES_BOLD.includes(u[x])) return false\n  }\n  return true\n}\nfunction validar(p, r) {\n  try { return p.modo === 'unidades' ? validarUnidades(p, r) : validarGrupos(p, r) } catch (e) { return false }\n}\nfunction cuantosSalen(p, r) {\n  if (p.modo === 'unidades') return p.unidades.filter(x => r.unidades[x] !== null).length\n  return new Set(r.grupos.map(g => g.nombre)).size\n}\n\nconst ctx = $('Mezclar ajustes').first().json\nlet filas = []\ntry { filas = JSON.parse($input.first().json.filas || '[]') } catch (e) { filas = [] }\nconst resultado = Array.isArray(filas) && filas[0] ? filas[0].resultado : null\nconst hit = !!resultado && validar(ctx, resultado)\nconst n_entrada = (ctx.modo === 'unidades' ? ctx.unidades : ctx.categorias).length\nreturn [{ json: {\n  hit,\n  resultado: hit ? resultado : null,\n  uso: {\n    env: ctx.env, run_id: ctx.run_id, account_id: ctx.account_id, modo: ctx.modo,\n    modelo: ctx.modelo, prompt_version: ctx.prompt_version,\n    tokens_entrada: 0, tokens_salida: 0, cache_hit: true,\n    n_entrada, n_salida: hit ? cuantosSalen(ctx, resultado) : null,\n    duracion_ms: Date.now() - ctx.inicio,\n  },\n} }]\n"
       }
     },
     {
@@ -357,7 +358,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2880,
+        3120,
         -400
       ],
       "parameters": {
@@ -403,7 +404,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        3120,
+        2880,
         -400
       ],
       "parameters": {
@@ -446,7 +447,7 @@
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify($json.cuerpo) }}",
         "options": {
-          "timeout": 14000
+          "timeout": 12000
         }
       },
       "credentials": {
@@ -468,7 +469,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "// Parsea la salida de Gemini, la lleva a la forma que espera el navegador y la valida.\n// Si no pasa, el webhook responde 502 (el navegador sigue sin IA) y no se cachea.\n\nconst UNIDADES_BOLD = [\"Centímetros\",\"Galónes\",\"Gramos\",\"Kilogramos\",\"Libras\",\"Litros\",\"Metros\",\"Metros cuadrados\",\"Metros cúbicos\",\"Miligramos\",\"Mililitros\",\"Milímetros\",\"Onzas\",\"Par\",\"Unidades\"]\nfunction sanear(t) {\n  if (t === null || t === undefined) return ''\n  return String(t).replace(/[`´]/g, \"'\").replace(/°/g, '#').replace(/\\|/g, ' ').replace(/[{}%?¡!]/g, '').replace(/\\s+/g, ' ').trim()\n}\nfunction validarGrupos(p, r) {\n  const grupos = r && r.grupos\n  if (!Array.isArray(grupos)) return false\n  const existentes = new Set(p.existentes)\n  const permitidos = new Set([...p.categorias, ...p.existentes])\n  const vistos = new Set()\n  for (const g of grupos) {\n    if (!g || typeof g.nombre !== 'string' || !Array.isArray(g.miembros) || !g.miembros.length) return false\n    if (!g.nombre || sanear(g.nombre) !== g.nombre) return false\n    let existente = null\n    for (const m of g.miembros) {\n      if (typeof m !== 'string' || !permitidos.has(m) || vistos.has(m)) return false\n      vistos.add(m)\n      if (existentes.has(m)) { if (existente !== null) return false; existente = m }\n    }\n    if (existente !== null && g.nombre !== existente) return false\n    if (p.modo === 'categorias' && existente === null && !g.miembros.includes(g.nombre)) return false\n  }\n  return p.categorias.every(c => vistos.has(c))\n}\nfunction validarUnidades(p, r) {\n  const u = r && r.unidades\n  if (!u || typeof u !== 'object' || Array.isArray(u)) return false\n  for (const x of p.unidades) {\n    if (!Object.prototype.hasOwnProperty.call(u, x)) return false\n    if (u[x] !== null && !UNIDADES_BOLD.includes(u[x])) return false\n  }\n  return true\n}\nfunction validar(p, r) {\n  try { return p.modo === 'unidades' ? validarUnidades(p, r) : validarGrupos(p, r) } catch (e) { return false }\n}\nfunction cuantosSalen(p, r) {\n  if (p.modo === 'unidades') return p.unidades.filter(x => r.unidades[x] !== null).length\n  return new Set(r.grupos.map(g => g.nombre)).size\n}\n\nconst ctx = $('Mezclar ajustes').first().json\nconst r = $input.first().json || {}\nconst meta = r.usageMetadata || {}\n\nfunction leer() {\n  const partes = (((r.candidates || [])[0] || {}).content || {}).parts || []\n  const texto = partes.filter(p => p && !p.thought && typeof p.text === 'string').map(p => p.text).join('')\n  if (!texto) return null\n  let crudo\n  try { crudo = JSON.parse(texto) } catch (e) { return null }\n  if (!crudo || typeof crudo !== 'object') return null\n  if (ctx.modo === 'unidades') {\n    if (!Array.isArray(crudo.pares)) return null\n    // Lo que falte o no sea de Bold queda en null: el chat lo pregunta como hoy.\n    const porOriginal = new Map()\n    for (const p of crudo.pares) if (p && typeof p.original === 'string' && !porOriginal.has(p.original)) porOriginal.set(p.original, p.unidad)\n    const unidades = {}\n    for (const x of ctx.unidades) {\n      const v = porOriginal.get(x)\n      unidades[x] = UNIDADES_BOLD.includes(v) ? v : null\n    }\n    return { unidades }\n  }\n  if (!Array.isArray(crudo.grupos)) return null\n  // Una categoria que Gemini olvido queda sola (ante la duda, no unir).\n  const grupos = crudo.grupos.slice()\n  const vistos = new Set()\n  for (const g of grupos) if (g && Array.isArray(g.miembros)) for (const m of g.miembros) vistos.add(m)\n  for (const c of ctx.categorias) if (!vistos.has(c)) grupos.push({ nombre: c, miembros: [c] })\n  return { grupos }\n}\n\nconst resultado = leer()\nconst ok = !!resultado && validar(ctx, resultado)\nlet clave = null\ntry { clave = $('Clave de cache').first().json.clave || null } catch (e) { clave = null }\nreturn [{ json: {\n  ok,\n  resultado: ok ? resultado : null,\n  clave,\n  uso: {\n    env: ctx.env, run_id: ctx.run_id, account_id: ctx.account_id, modo: ctx.modo,\n    modelo: ctx.modelo, prompt_version: ctx.prompt_version,\n    tokens_entrada: Number(meta.promptTokenCount) || 0,\n    // El razonamiento (thoughts) se cobra como salida.\n    tokens_salida: (Number(meta.candidatesTokenCount) || 0) + (Number(meta.thoughtsTokenCount) || 0),\n    cache_hit: false,\n    n_entrada: (ctx.modo === 'unidades' ? ctx.unidades : ctx.categorias).length,\n    n_salida: ok ? cuantosSalen(ctx, resultado) : null,\n    duracion_ms: Date.now() - ctx.inicio,\n  },\n} }]\n"
+        "jsCode": "// Parsea la salida de Gemini, la lleva a la forma que espera el navegador y la valida.\n// Si no pasa, el webhook responde 502 (el navegador sigue sin IA) y no se cachea.\n\nconst UNIDADES_BOLD = [\"Centímetros\",\"Galónes\",\"Gramos\",\"Kilogramos\",\"Libras\",\"Litros\",\"Metros\",\"Metros cuadrados\",\"Metros cúbicos\",\"Miligramos\",\"Mililitros\",\"Milímetros\",\"Onzas\",\"Par\",\"Unidades\"]\nfunction sanear(t) {\n  if (t === null || t === undefined) return ''\n  return String(t).replace(/[`´]/g, \"'\").replace(/°/g, '#').replace(/\\|/g, ' ').replace(/[{}%?¡!]/g, '').replace(/\\s+/g, ' ').trim()\n}\nfunction validarGrupos(p, r) {\n  const grupos = r && r.grupos\n  if (!Array.isArray(grupos)) return false\n  const existentes = new Set(p.existentes)\n  const permitidos = new Set([...p.categorias, ...p.existentes])\n  const vistos = new Set()\n  for (const g of grupos) {\n    if (!g || typeof g.nombre !== 'string' || !Array.isArray(g.miembros) || !g.miembros.length) return false\n    if (!g.nombre || g.nombre.length > 80 || sanear(g.nombre) !== g.nombre) return false\n    let existente = null\n    for (const m of g.miembros) {\n      if (typeof m !== 'string' || !permitidos.has(m) || vistos.has(m)) return false\n      vistos.add(m)\n      if (existentes.has(m)) { if (existente !== null) return false; existente = m }\n    }\n    if (existente !== null && g.nombre !== existente) return false\n    if (p.modo === 'categorias' && existente === null && !g.miembros.includes(g.nombre)) return false\n  }\n  return p.categorias.every(c => vistos.has(c))\n}\nfunction validarUnidades(p, r) {\n  const u = r && r.unidades\n  if (!u || typeof u !== 'object' || Array.isArray(u)) return false\n  for (const x of p.unidades) {\n    if (!Object.prototype.hasOwnProperty.call(u, x)) return false\n    if (u[x] !== null && !UNIDADES_BOLD.includes(u[x])) return false\n  }\n  return true\n}\nfunction validar(p, r) {\n  try { return p.modo === 'unidades' ? validarUnidades(p, r) : validarGrupos(p, r) } catch (e) { return false }\n}\nfunction cuantosSalen(p, r) {\n  if (p.modo === 'unidades') return p.unidades.filter(x => r.unidades[x] !== null).length\n  return new Set(r.grupos.map(g => g.nombre)).size\n}\n\nconst ctx = $('Mezclar ajustes').first().json\nconst r = $input.first().json || {}\nconst meta = r.usageMetadata || {}\n\nfunction leer() {\n  const partes = (((r.candidates || [])[0] || {}).content || {}).parts || []\n  const texto = partes.filter(p => p && !p.thought && typeof p.text === 'string').map(p => p.text).join('')\n  if (!texto) return null\n  let crudo\n  try { crudo = JSON.parse(texto) } catch (e) { return null }\n  if (!crudo || typeof crudo !== 'object') return null\n  if (ctx.modo === 'unidades') {\n    if (!Array.isArray(crudo.pares)) return null\n    // Lo que falte o no sea de Bold queda en null: el chat lo pregunta como hoy.\n    const porOriginal = new Map()\n    for (const p of crudo.pares) if (p && typeof p.original === 'string' && !porOriginal.has(p.original)) porOriginal.set(p.original, p.unidad)\n    const unidades = {}\n    for (const x of ctx.unidades) {\n      const v = porOriginal.get(x)\n      unidades[x] = UNIDADES_BOLD.includes(v) ? v : null\n    }\n    return { unidades }\n  }\n  if (!Array.isArray(crudo.grupos)) return null\n  // Una categoria que Gemini olvido queda sola (ante la duda, no unir).\n  const grupos = crudo.grupos.slice()\n  const vistos = new Set()\n  for (const g of grupos) if (g && Array.isArray(g.miembros)) for (const m of g.miembros) vistos.add(m)\n  for (const c of ctx.categorias) if (!vistos.has(c)) grupos.push({ nombre: c, miembros: [c] })\n  return { grupos }\n}\n\nconst resultado = leer()\nconst ok = !!resultado && validar(ctx, resultado)\nlet clave = null\ntry { clave = $('Clave de cache').first().json.clave || null } catch (e) { clave = null }\nreturn [{ json: {\n  ok,\n  resultado: ok ? resultado : null,\n  clave,\n  uso: {\n    env: ctx.env, run_id: ctx.run_id, account_id: ctx.account_id, modo: ctx.modo,\n    modelo: ctx.modelo, prompt_version: ctx.prompt_version,\n    tokens_entrada: Number(meta.promptTokenCount) || 0,\n    // El razonamiento (thoughts) se cobra como salida.\n    tokens_salida: (Number(meta.candidatesTokenCount) || 0) + (Number(meta.thoughtsTokenCount) || 0),\n    cache_hit: false,\n    n_entrada: (ctx.modo === 'unidades' ? ctx.unidades : ctx.categorias).length,\n    n_salida: ok ? cuantosSalen(ctx, resultado) : null,\n    duracion_ms: Date.now() - ctx.inicio,\n  },\n} }]\n"
       }
     },
     {
@@ -477,7 +478,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3600,
+        4080,
         0
       ],
       "parameters": {
@@ -523,7 +524,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        3840,
+        3600,
         0
       ],
       "parameters": {
@@ -557,7 +558,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        4080,
+        3840,
         400
       ],
       "parameters": {
@@ -574,7 +575,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        4080,
+        4320,
         0
       ],
       "parameters": {
@@ -588,7 +589,7 @@
           "conditions": [
             {
               "id": "guardar-en-cache-cond",
-              "leftValue": "={{ !!$('Leer respuesta').first().json.clave }}",
+              "leftValue": "={{ $('Leer respuesta').first().json.ok && !!$('Leer respuesta').first().json.clave }}",
               "rightValue": "",
               "operator": {
                 "type": "boolean",
@@ -608,8 +609,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        4320,
-        -200
+        4560,
+        0
       ],
       "parameters": {
         "method": "POST",
@@ -654,7 +655,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        4560,
+        3840,
         0
       ],
       "parameters": {
@@ -733,6 +734,11 @@
       "main": [
         [
           {
+            "node": "Tiene cuenta?",
+            "type": "main",
+            "index": 0
+          },
+          {
             "node": "Borrar cache vieja",
             "type": "main",
             "index": 0
@@ -741,17 +747,6 @@
         [
           {
             "node": "Responder desactivado",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Borrar cache vieja": {
-      "main": [
-        [
-          {
-            "node": "Tiene cuenta?",
             "type": "main",
             "index": 0
           }
@@ -813,7 +808,7 @@
       "main": [
         [
           {
-            "node": "Registrar uso (cache)",
+            "node": "Responder desde cache",
             "type": "main",
             "index": 0
           }
@@ -827,11 +822,11 @@
         ]
       ]
     },
-    "Registrar uso (cache)": {
+    "Responder desde cache": {
       "main": [
         [
           {
-            "node": "Responder desde cache",
+            "node": "Registrar uso (cache)",
             "type": "main",
             "index": 0
           }
@@ -864,17 +859,6 @@
       "main": [
         [
           {
-            "node": "Registrar uso",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Registrar uso": {
-      "main": [
-        [
-          {
             "node": "Respuesta valida?",
             "type": "main",
             "index": 0
@@ -886,7 +870,7 @@
       "main": [
         [
           {
-            "node": "Guardar en cache?",
+            "node": "Responder resultado",
             "type": "main",
             "index": 0
           }
@@ -900,29 +884,44 @@
         ]
       ]
     },
-    "Guardar en cache?": {
+    "Responder resultado": {
       "main": [
         [
           {
-            "node": "Guardar cache",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Responder resultado",
+            "node": "Registrar uso",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Guardar cache": {
+    "Responder fallo": {
       "main": [
         [
           {
-            "node": "Responder resultado",
+            "node": "Registrar uso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar uso": {
+      "main": [
+        [
+          {
+            "node": "Guardar en cache?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar en cache?": {
+      "main": [
+        [
+          {
+            "node": "Guardar cache",
             "type": "main",
             "index": 0
           }

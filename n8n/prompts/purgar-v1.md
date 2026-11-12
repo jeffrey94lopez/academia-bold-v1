@@ -61,3 +61,18 @@ Centímetros, Galónes, Gramos, Kilogramos, Libras, Litros, Metros, Metros cuadr
 - Elige una unidad solo si significa lo mismo. Ejemplos: "UND", "Un", "unidad", "pza" son "Unidades"; "Kg", "Kgs", "kilos" son "Kilogramos"; "Lt", "lts" son "Litros"; "gr" es "Gramos"; "m2" es "Metros cuadrados".
 - Si no tiene equivalente en la lista (por ejemplo "Caja", "Docena", "Paquete", "Bulto", "Rollo") o tienes dudas, usa null. Nunca inventes una unidad que no esté en la lista.
 ```
+
+## Notas del servidor
+
+Fuera del prompt (no es parte del texto que recibe Gemini). El nodo **Leer respuesta**
+hace dos reparaciones seguras antes de validar, y por eso el servidor es un poco más
+permisivo que el navegador con la salida cruda del modelo:
+
+- **Categorías omitidas:** si Gemini no devuelve alguna entrada de `categorias`, se agrega
+  como un grupo propio `{nombre: c, miembros: [c]}` (ante la duda, no unir). No une nada.
+- **Unidades:** una entrada sin par o con una unidad fuera de las 15 queda en `null`; el
+  chat la pregunta como hoy. Si Gemini repite un `original`, gana el primero.
+
+Lo que sale del webhook igual pasa `validarRespuesta` (port en **Revisar cache** y **Leer
+respuesta**, incluido el largo máximo de 80 caracteres del nombre); si no, responde 502 y
+no se cachea.

@@ -143,3 +143,10 @@ test('cuantosQuedan cuenta nombres finales distintos', () => {
   assert.equal(cuantosQuedan(nulo({ a: 'X', b: 'X', c: 'Y' })), 2)
   assert.equal(cuantosQuedan(nulo({})), 0)
 })
+
+test('validarRespuesta: nombre de grupo de más de 80 caracteres → inválida (simplificar)', () => {
+  const p = armarPedido({ modo: 'simplificar', categorias: ['Cerveza', 'Vino'] })
+  const nombre = 'L'.repeat(LIMITES.maxLargo)
+  assert.equal(validarRespuesta(p, { grupos: [{ nombre, miembros: ['Cerveza', 'Vino'] }] }).ok, true)
+  assert.equal(validarRespuesta(p, { grupos: [{ nombre: nombre + 'x', miembros: ['Cerveza', 'Vino'] }] }).ok, false)
+})

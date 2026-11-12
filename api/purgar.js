@@ -66,6 +66,9 @@ export async function POST(request) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': key },
       // Solo responde fuera de produccion: el env es siempre el de app_settings/analytics de sandbox.
+      // Las previews de otras ramas llevan BUILD_ENV=<rama> en la telemetria del cliente
+      // (scripts/build-meta.js), pero ahi el gate del navegador queda apagado (no hay fila
+      // inventario_ia_activa para esa rama), asi que no llegan llamadas con ese env.
       body: JSON.stringify({ ...v.limpio, env: 'sandbox' }),
       signal: request.signal
         ? AbortSignal.any([request.signal, AbortSignal.timeout(TIMEOUT_MS)])

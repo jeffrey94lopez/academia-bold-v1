@@ -46,7 +46,7 @@ function validarGrupos(pedido, respuesta) {
   const mapeo = Object.create(null)
   for (const g of grupos) {
     if (!g || typeof g.nombre !== 'string' || !Array.isArray(g.miembros) || !g.miembros.length) return INVALIDA
-    if (!g.nombre || sanear(g.nombre) !== g.nombre) return INVALIDA
+    if (!g.nombre || g.nombre.length > LIMITES.maxLargo || sanear(g.nombre) !== g.nombre) return INVALIDA
     let existente = null
     for (const m of g.miembros) {
       if (typeof m !== 'string' || !permitidos.has(m) || vistos.has(m)) return INVALIDA
