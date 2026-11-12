@@ -77,8 +77,10 @@ Lo que sale del webhook igual pasa `validarRespuesta` (port en **Revisar cache**
 respuesta**, incluido el largo máximo de 80 caracteres del nombre); si no, responde 502 y
 no se cachea.
 
-**Topes diarios:** antes de llamar a Gemini (solo sin caché), **Consultar cupo** /
-**Revisar cupo** / **Hay cupo?** comparan las llamadas reales de 24 h con
-`inventario_ia_tope_diario` (500) e `inventario_ia_tope_ip` (30); sin cupo, o si la consulta
-falla, responde `{ desactivado: true }` sin gastar tokens. Ver la sección "Topes diarios" del
-spec.
+**Topes diarios:** antes de llamar a Gemini (solo sin caché), **Reservar cupo** inserta la
+fila de uso y el trigger `inventario_ia_reservar_cupo` de Supabase la rechaza (atómico, con
+lock por env) si ya se llegó a `inventario_ia_tope_diario` (500) o `inventario_ia_tope_ip`
+(30); **Confirmar reserva** / **Revisar reserva** / **Hay cupo?** siguen solo si la fila
+existe. Sin cupo, o si algo falla, responde `{ desactivado: true }` sin gastar tokens.
+**Completar uso** pone los tokens en esa misma fila después de responder. Ver la sección
+"Topes diarios" del spec.

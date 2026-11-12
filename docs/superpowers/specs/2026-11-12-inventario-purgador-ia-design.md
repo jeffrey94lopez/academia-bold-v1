@@ -193,33 +193,52 @@ igual que los otros).
   - **costo por descarga** = costo total / corridas con `tool_complete` del conversor en el
     periodo (lo que cuesta cada plantilla que de verdad se llevó un cliente).
 
-### Topes diarios (migración `update_inventario_ia_cupo.sql`)
+### Topes diarios (migraciones `update_inventario_ia_cupo.sql` + `update_inventario_ia_reserva.sql`)
 Las previews de Vercel son públicas (sin Deployment Protection), así que estos topes son la
 defensa contra abuso y costo. Decisión del usuario: **500 llamadas/día global y 30/día por IP**.
 - **Qué cuenta:** filas de `inventario_ia_uso` con `cache_hit = false` en las últimas 24 h
   (ventana móvil) del `env`: toda llamada real a Gemini, incluidas las que fallaron o
-  vencieron (también cuestan). Las respuestas de caché no cuentan ni consultan el tope.
+  vencieron (también cuestan). Las respuestas de caché no cuentan ni reservan cupo.
 - **IP:** `/api/purgar` toma `x-real-ip` (o la primera de `x-forwarded-for`), calcula
   `ip_hash = HMAC-SHA256(N8N_API_KEY, ip)` en hex y lo agrega al cuerpo **después** de validar
   (un `ip_hash` mandado por el cliente se descarta). La IP cruda nunca se reenvía, ni se
   guarda, ni se registra. Sin IP → `ip_hash: null` y solo aplica el tope global. n8n acepta
   solo `/^[0-9a-f]{64}$/`; cualquier otra cosa = null. `ip_hash` se guarda en
   `inventario_ia_uso` (columna nueva, índice `(env, ip_hash, creado)`).
-- **RPC `inventario_ia_cupo(p_env, p_ip_hash)` → `{ global, ip }`**: `security definer`,
-  solo `service_role` (revocada a `public`, `anon` y `authenticated`).
+- **Reserva atómica (trigger `inventario_ia_reservar_cupo`, BEFORE INSERT en
+  `inventario_ia_uso`):** la fila de uso de una llamada real se inserta **antes** de llamar a
+  Gemini. Para filas con `cache_hit = false` el trigger toma
+  `pg_advisory_xact_lock(hashtext('inventario_ia_cupo:' || env))`, cuenta (global y, si hay
+  `ip_hash`, por IP) y, si ya se llegó al tope, corta el INSERT con `RAISE` (`P0001`,
+  `sin_cupo_global` / `sin_cupo_ip` → PostgREST 400). El lock dura hasta el commit, así que
+  pedidos en paralelo se serializan: con el conteo en tope − 1 solo uno pasa (probado en
+  Postgres 17 con sesiones concurrentes). Los hits de caché (`cache_hit = true`) pasan sin
+  contar ni bloquear. `security definer`, revocada a `public`/`anon`/`authenticated`; la
+  tabla sigue siendo solo de `service_role`.
 - **Ajustes:** `app_settings.inventario_ia_tope_diario` (`'500'`) e `inventario_ia_tope_ip`
-  (`'30'`), sembrados en `sandbox` y `prod`, misma mezcla prod + env. Entero ≥ 0; si falta o
-  no es válido, 500 / 30. `'0'` apaga la IA sin tocar `inventario_ia_activa`.
+  (`'30'`), sembrados en `sandbox` y `prod`, misma mezcla prod + env. Los lee el **trigger**
+  (n8n ya no): el cliente no puede mandar topes. Entero de 1 a 9 dígitos; si falta o no es
+  válido, 500 / 30. Pasa si `conteo < tope`: `'0'` apaga la IA sin tocar
+  `inventario_ia_activa`.
 - **Workflow:** solo en el camino sin caché, justo antes de **Armar pedido Gemini**:
-  **Consultar cupo** (POST `/rpc/inventario_ia_cupo`) → **Revisar cupo** → **Hay cupo?**
-  (`global < tope_diario` y, si hay `ip_hash`, `ip < tope_ip`). Sin cupo → **Responder sin
-  cupo** `{ desactivado: true }` (200): el navegador sigue sin IA como cuando está apagada; no
-  llama a Gemini ni registra uso. Si la RPC falla o devuelve algo raro → sin cupo (falla
-  cerrado).
-- **Límites conocidos:** el conteo no es atómico y la fila de uso se escribe después de
-  responder, así que llamadas concurrentes (hasta ~45 s de Gemini) pueden pasar unas pocas
-  por encima del tope. Es un freno de costo, no un contador exacto. El rate limit por
-  minuto del firewall de Vercel sigue siendo complementario.
+  **Reservar cupo** (POST `/inventario_ia_uso`, `Prefer: return=minimal`, fila con
+  `cache_hit: false`, `n_entrada` y una marca aleatoria `reserva`) → **Confirmar reserva**
+  (GET `?select=id&reserva=eq.<marca>`) → **Revisar reserva** → **Hay cupo?** (hay cupo solo
+  si la fila existe con un `id` entero > 0). Sin cupo, o si cualquiera de las dos llamadas
+  falla o responde algo raro → **Responder sin cupo** `{ desactivado: true }` (200, falla
+  cerrado): el navegador sigue sin IA como cuando está apagada. Después de responder,
+  **Completar uso** (PATCH `?id=eq.<id>`, `return=minimal`) llena `tokens_entrada`,
+  `tokens_salida`, `n_salida` y `duracion_ms` de **esa** fila (timeout o respuesta inválida:
+  tokens 0 si no vinieron). El camino sin caché escribe exactamente una fila.
+- **Por qué no una RPC:** en esta instancia de n8n un POST a `/rpc/...` con la credencial de
+  Supabase falló con "Converting circular structure to JSON", y una función que inserta no
+  se puede llamar por GET. POST a tabla con `return=minimal` + GET son los patrones que ya
+  funcionan en vivo (**Registrar uso (cache)**, **Buscar en cache**); el GET de confirmación
+  además cubre el caso en que el POST insertó pero n8n leyó mal la respuesta.
+- **Límites conocidos:** si n8n se cae entre la reserva y el PATCH, la fila queda con tokens
+  null pero cuenta para el tope (como debe). `inventario_ia_cupo` (solo lectura) queda en la
+  base sin uso; se puede borrar más adelante. El rate limit por minuto del firewall de Vercel
+  sigue siendo complementario.
 
 ### Aceptación (telemetría del navegador)
 Evento nuevo `tool_ia` (no se reusa `tool_step`: `telemetria.paso()` solo manda `{paso}` y
