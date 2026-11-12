@@ -1,0 +1,85 @@
+/* css/inventario.css — conversación del conversor de inventario (chat de BolBot y
+   página inventario.html). Usa los tokens de style.css. */
+
+/* ── Página propia: el contenedor se comporta como la lista de mensajes del chat ── */
+.inv-body { margin: 0; background: var(--black-0, #fff); color: var(--black-100, #1e1e1e); font-family: 'Montserrat', system-ui, sans-serif; }
+.inv-wrap { max-width: 720px; margin: 0 auto; padding: 16px 16px 80px; }
+.inv-volver { display: inline-block; margin-bottom: 12px; font-size: 13px; font-weight: 600; color: var(--blue-100, #121e6c); text-decoration: none; }
+.inv-titulo { margin: 0 0 16px; font-size: 22px; font-weight: 700; color: var(--blue-100, #121e6c); }
+.inv-chatbox { display: flex; flex-direction: column; gap: 12px; }
+
+/* ── Burbujas ── */
+.inv-aparece { animation: invAparece .25s ease; }
+@keyframes invAparece { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .inv-aparece { animation: none; } }
+.msg-bot-wide.inv-soltar { outline: 2px dashed var(--blue-100, #121e6c); outline-offset: 2px; }
+.msg-bot-wide b { font-weight: 700; }
+
+/* ── Botones de respuesta rápida y de adjuntar ── */
+.inv-acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.inv-chipbtn { padding: 9px 14px; border: 1px solid var(--blue-30, #babdd3); border-radius: 999px; background: #fff; color: var(--blue-100, #121e6c); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; text-align: left; }
+.inv-chipbtn:hover { border-color: var(--blue-100, #121e6c); background: var(--blue-10, #f1f2f6); }
+.inv-chipbtn:focus-visible { outline: 2px solid var(--blue-100, #121e6c); outline-offset: 2px; }
+.inv-chipbtn:disabled { opacity: .6; cursor: progress; }
+.inv-chipbtn-fuerte { background: var(--blue-100, #121e6c); border-color: var(--blue-100, #121e6c); color: #fff; }
+.inv-chipbtn-fuerte:hover { background: var(--blue-hover, #091144); color: #fff; }
+
+/* ── Contenido dentro de las burbujas ── */
+.inv-lista { margin: 8px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.5; }
+.inv-cats { margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: #fff; border: 1px solid var(--blue-20, #d2d4e1); font: inherit; font-size: 13px; white-space: pre-wrap; max-height: 160px; overflow: auto; }
+.inv-nota { margin: 8px 0 0; font-size: 12px; color: var(--black-60, #606060); }
+.inv-detalle { margin-top: 8px; font-size: 13px; }
+.inv-detalle summary { cursor: pointer; font-weight: 600; }
+.inv-detalle ul { margin: 6px 0 0; padding-left: 18px; max-height: 200px; overflow: auto; }
+
+/* ── Editor de columnas (cuando el cliente pide corregir) ── */
+.inv-editor { margin-top: 10px; display: grid; gap: 8px; }
+.inv-campo { display: grid; gap: 2px; font-size: 12px; font-weight: 600; }
+.inv-campo select { width: 100%; max-width: 100%; padding: 6px; font: inherit; font-size: 13px; border: 1px solid var(--blue-20, #d2d4e1); border-radius: 8px; background: #fff; }
+.inv-campo small { font-weight: 400; color: var(--black-60, #606060); min-height: 1em; overflow-wrap: anywhere; }
+
+/* ── Purgador con IA: resumen de grupos y editor ── */
+.inv-ia-grupos { margin: 8px 0 0; padding: 8px 10px 8px 26px; border-radius: 8px; background: #fff; border: 1px solid var(--blue-20, #d2d4e1); font-size: 13px; line-height: 1.5; max-height: 220px; overflow: auto; overflow-wrap: anywhere; }
+.inv-ia-grupos li + li { margin-top: 2px; }
+.inv-ia-flecha { color: var(--blue-100, #121e6c); font-weight: 700; }
+.inv-ia-igual { color: var(--black-60, #606060); }
+.inv-ia-editor { margin-top: 10px; display: grid; gap: 10px; }
+.inv-ia-grupo { margin: 0; padding: 10px; border: 1px solid var(--blue-20, #d2d4e1); border-radius: 8px; background: #fff; display: grid; gap: 8px; min-width: 0; }
+.inv-ia-miembros { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 13px; }
+.inv-ia-miembros li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; border-top: 1px solid var(--blue-10, #f1f2f6); }
+.inv-ia-miembros li:first-child { border-top: 0; }
+.inv-ia-miembros span { min-width: 0; overflow-wrap: anywhere; }
+.inv-ia-fuera span { color: var(--black-60, #606060); text-decoration: line-through; }
+.inv-ia-sacar { flex: none; padding: 6px 10px; border: 1px solid var(--blue-30, #babdd3); border-radius: 999px; background: #fff; color: var(--blue-100, #121e6c); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.inv-ia-sacar:hover { border-color: var(--blue-100, #121e6c); background: var(--blue-10, #f1f2f6); }
+.inv-ia-sacar:focus-visible { outline: 2px solid var(--blue-100, #121e6c); outline-offset: 2px; }
+.inv-ia-sacar[aria-pressed="true"] { background: var(--blue-10, #f1f2f6); }
+.inv-ia-sacar:disabled { opacity: .6; cursor: default; }
+
+/* ── Botones con una línea de explicación debajo ── */
+.inv-chipdetalle { display: block; margin-top: 2px; font-size: 11px; font-weight: 400; color: var(--black-60, #606060); }
+.inv-chipbtn:has(.inv-chipdetalle) { border-radius: 12px; }
+
+/* ── Guía numerada y campos de texto ── */
+.inv-pasos { margin: 8px 0 0; padding-left: 20px; font-size: 13px; line-height: 1.55; display: grid; gap: 4px; }
+.inv-entrada { width: 100%; box-sizing: border-box; padding: 8px; font: inherit; font-size: 13px; border: 1px solid var(--blue-20, #d2d4e1); border-radius: 8px; background: #fff; }
+textarea.inv-entrada { resize: vertical; }
+
+/* ── Vista previa de los códigos ── */
+.inv-muestra { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-top: 10px; }
+.inv-et-vista { display: flex; align-items: center; justify-content: center; padding: 6px; background: #fff; border: 1px solid var(--blue-20, #d2d4e1); border-radius: 8px; }
+.inv-et-vista svg { max-width: 100%; height: auto; }
+
+/* ── Impresión: solo se ve la hoja de códigos (js/barras-render.js la inserta en el body) ── */
+#inv-impresion { display: none; }
+@media print {
+  body.inv-imprimiendo, html:has(body.inv-imprimiendo) { height: auto !important; overflow: visible !important; background: #fff !important; }
+  body.inv-imprimiendo > *:not(#inv-impresion):not(style) { display: none !important; }
+  body.inv-imprimiendo #inv-impresion { display: block; }
+  #inv-impresion .inv-et { display: flex; align-items: center; justify-content: center; box-sizing: border-box; break-inside: avoid; }
+  #inv-impresion svg { height: auto; width: auto; }
+  #inv-impresion.inv-imp-hoja { display: grid; grid-template-columns: repeat(auto-fill, minmax(60mm, 1fr)); gap: 0; }
+  #inv-impresion.inv-imp-hoja .inv-et { padding: 4mm; border: 1px dashed #999; }
+  #inv-impresion.inv-imp-hoja svg { max-width: 100%; }
+  #inv-impresion.inv-imp-etiquetas .inv-et { break-after: page; overflow: hidden; }
+}

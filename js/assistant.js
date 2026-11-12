@@ -11,6 +11,9 @@ import { inactivitySettings, isStaleConversation } from './inactivity.js'
 import { loadSettingsResult } from './settings.js'
 import { registrarCruce, marcarCruce } from './cruce-vertical.js'
 import { getBotOrigin, notificarMensajeBot } from './bot-origin.js'
+import { APP_ENV } from './env.js'
+import { esIntencionInventario } from './inv-intencion.js'
+import { esIntencionCodigos } from './barras-intencion.js'
 import { textoSeguroDelBot } from './bot-respuesta-segura.js'
 
 const N8N_URL     = '/api/chat'
@@ -784,7 +787,9 @@ function bindAssistantEvents() {
 
 // ── Send message ──────────────────────────────────────────────────────────────
 
-async function sendMessage(text, { textoVisible, cross } = {}) {
+// `sinBurbuja`: el texto lo arma una herramienta del chat (el cliente ya eligió un botón).
+// `saltarCamino`: no volver a preguntar «¿cómo prefieres cargar tus productos?».
+async function sendMessage(text, { textoVisible, cross, sinBurbuja = false, saltarCamino = false } = {}) {
   if (!text || sending) return
   sending = true
 
@@ -812,11 +817,24 @@ async function sendMessage(text, { textoVisible, cross } = {}) {
 
   document.getElementById('quickQueries')?.classList.add('hidden')
 
-  appendBubble('user', textoVisible || text)
+  if (!sinBurbuja) appendBubble('user', textoVisible || text)
   history.push({ role: 'user', content: text })
   // Una vez por mensaje del usuario, y solo con origen (el recorrido guiado
   // cuenta en qué paso le escriben); en el portal no hay origen y no se llama.
   if (getBotOrigin().origin) notificarMensajeBot()
+
+  // Pasar el inventario a la plantilla de Bold: lo resuelve el conversor local
+  // dentro del chat, sin llamar a n8n. Solo fuera de producción mientras se prueba.
+  if (APP_ENV !== 'prod' && esIntencionCodigos(text)) {
+    await responderHerramienta('codigos')
+    return
+  }
+  // Cargar o crear productos: primero se pregunta cómo quiere hacerlo (uno por uno,
+  // con la herramienta o con la plantilla a mano) y solo después se responde.
+  if (APP_ENV !== 'prod' && !saltarCamino && esIntencionInventario(text)) {
+    await responderHerramienta('camino')
+    return
+  }
 
   const typing = document.getElementById('typingIndicator')
   typing.classList.remove('hidden')
@@ -942,6 +960,32 @@ async function sendMessage(text, { textoVisible, cross } = {}) {
   } finally {
     sending = false
   }
+}
+
+// Respuesta local a un pedido de herramienta (pasar inventario, crear códigos): la
+// conversación ocurre en las mismas burbujas del chat (sin n8n ni tokens). Se
+// registra la pregunta y el arranque; los pasos siguientes son de la herramienta.
+async function responderHerramienta(cual) {
+  const host = () => document.getElementById('chatMessages')
+  const abrirConversor = () => import('./inv-chat.js').then(m => m.iniciarConversacion({ host, alDesplazar: scrollToBottom, via: 'camino' }))
+  const { iniciar, intro, tema } = cual === 'codigos'
+    ? await import('./barras-chat.js').then(m => ({ iniciar: () => m.iniciarCodigos({ host, alDesplazar: scrollToBottom }), intro: m.TEXTO_INTRO_CODIGOS, tema: 'Códigos de barras y QR' }))
+    : await import('./inv-camino.js').then(m => ({
+      iniciar: () => m.iniciarCamino({
+        host, alDesplazar: scrollToBottom, vertical: getSeleccion().vertical,
+        acciones: { herramienta: abrirConversor, preguntar: texto => sendMessage(texto, { sinBurbuja: true, saltarCamino: true }) },
+      }),
+      intro: m.TEXTO_INTRO_CAMINO, tema: 'Importar inventario',
+    }))
+  history.push({ role: 'assistant', content: intro })
+  storageSet('bold_chat_history', JSON.stringify(history.slice(-20)))
+  sessionMessages.push({ role: 'user', content: history[history.length - 2]?.content ?? '' })
+  sessionMessages.push({ role: 'assistant', content: intro })
+  const nowIso = new Date().toISOString()
+  await upsertConversation({ messages: sessionMessages, topic: tema, last_activity_at: nowIso })
+  markActivity(Date.parse(nowIso))
+  // Sin await: la conversación dura minutos y no debe bloquear nuevos mensajes.
+  iniciar()
 }
 
 function appendBubble(role, content) {

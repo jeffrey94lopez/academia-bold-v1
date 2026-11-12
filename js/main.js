@@ -9,6 +9,7 @@ import { storageGet, storageSet, storageRemove } from './storage.js'
 import { shouldShowNavHint, NAV_HINT_KEY } from './nav-hint.js'
 import { claveAvance, cargarAvance } from './onboarding-progress.js'
 import { modeloTarjeta } from './onboarding-resume.js'
+import { APP_ENV } from './env.js'
 
 // Escucha el `bold:context` del POS y le avisa que ya estamos listos. Va
 // primero: cuanto antes se instale, menos chance de perder el mensaje.
@@ -129,5 +130,8 @@ function renderOnboardingResume() {
   }
   onbResumeEl.classList.remove('hidden')
 }
+
+// Importar inventario: en pruebas, solo fuera de producción.
+if (APP_ENV !== 'prod') document.getElementById('inventario-link')?.classList.remove('hidden')
 
 lucide.createIcons()

@@ -1,0 +1,15 @@
+# Archivos internos que no se publican. vercel.json usa outputDirectory ".", así que
+# sin esta lista Vercel sirve el repo entero (workflows de n8n, migraciones, planes,
+# tests y scripts quedaban accesibles en academia.localizadoc.com).
+#
+# OJO: el build corre `node scripts/build-meta.js` y Tailwind lee css/input.css,
+# tailwind.config.js, *.html y js/. Nada de eso puede entrar aquí.
+.claude/
+docs/
+n8n/
+supabase/
+tests/
+CLAUDE.md
+README.md
+scripts/*
+!scripts/build-meta.js

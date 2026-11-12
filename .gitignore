@@ -43,3 +43,7 @@ version.json
 
 # Artefactos de Playwright MCP
 .playwright-mcp/
+# Perfil persistente del sniffer de postMessage del POS
+.playwright-bold-session/
+.env*
+supabase/.temp/
