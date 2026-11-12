@@ -78,9 +78,8 @@ export async function POST(request) {
     const upstream = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': key },
-      // Las previews de otras ramas llevan BUILD_ENV=<rama> en la telemetria del cliente
-      // (scripts/build-meta.js), pero ahi el gate del navegador queda apagado (no hay fila
-      // inventario_ia_activa para esa rama), asi que no llegan llamadas con ese env.
+      // Todas las previews usan env sandbox: n8n lee inventario_ia_activa de sandbox (con prod
+      // de base), asi que conviene mantener una fila sandbox explicita para no heredar la de prod.
       // ip_hash va DESPUES de validar: validarPedido descarta cualquier ip_hash del cliente.
       body: JSON.stringify({ ...v.limpio, env, ip_hash: hashIp(request.headers, key) }),
       signal: request.signal

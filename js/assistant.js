@@ -823,7 +823,7 @@ async function sendMessage(text, { textoVisible, cross, sinBurbuja = false, salt
   if (getBotOrigin().origin) notificarMensajeBot()
 
   // Pasar el inventario a la plantilla de Bold: lo resuelve el conversor local
-  // dentro del chat, sin llamar a n8n. Solo fuera de producción mientras se prueba.
+  // dentro del chat (la IA del purgador va aparte, por /api/purgar).
   if (esIntencionCodigos(text)) {
     await responderHerramienta('codigos')
     return
