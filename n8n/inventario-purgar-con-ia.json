@@ -676,14 +676,10 @@
         0
       ],
       "parameters": {
-        "method": "POST",
-        "url": "https://tczcngfhuendmldafbrc.supabase.co/rest/v1/rpc/inventario_ia_cupo",
+        "method": "GET",
+        "url": "=https://tczcngfhuendmldafbrc.supabase.co/rest/v1/rpc/inventario_ia_cupo?p_env={{ encodeURIComponent($('Mezclar ajustes').first().json.env) }}&p_ip_hash={{ $('Mezclar ajustes').first().json.ip_hash || '' }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "supabaseApi",
-        "sendBody": true,
-        "contentType": "raw",
-        "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ p_env: $('Mezclar ajustes').first().json.env, p_ip_hash: $('Mezclar ajustes').first().json.ip_hash }) }}",
         "options": {
           "timeout": 5000,
           "response": {
