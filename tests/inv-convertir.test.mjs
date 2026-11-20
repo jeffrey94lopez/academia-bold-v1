@@ -287,17 +287,19 @@ test('convertir: IVA — por_fila sin general y fila vacía → EXENTO (backward
 test('convertir: fila con basura solo en columna no mapeada → omitida silenciosa', () => {
   const p = leerPlantilla(hojasInv())
   // "Observaciones" no está en el mapeo del conversor → basura ignorable.
-  const encabezados = ['Nombre', 'Precio', 'Observaciones']
+  const encabezados = ['Nombre', 'Precio', 'Observaciones', 'Costo', 'Existencia']
   const mapeo = mapearColumnas(encabezados)
   const filas = [
-    ['Producto 1', '10000', 'ok'],
-    ['', '', '-- Separador de sección --'],  // basura solo en no-mapeada
-    ['Producto 2', '20000', ''],
+    ['Producto 1', '10000', 'ok', 100, 1],
+    ['', '', '-- Separador de sección --', '', ''],  // basura solo en no-mapeada
+    ['Producto 2', '20000', '', 100, 1],
   ]
-  const r = convertir({ ...conDatos(encabezados, filas), plantillas: { inventariable: p }, opciones: { inventariable: 'si' } })
+  const r = convertir({ filas, mapeo, plantillas: { inventariable: p }, opciones: { inventariable: 'si' } })
   assert.equal(r.salidas.inventariable.length, 2)
   // No se contó como error:
   assert.equal(r.errores.length, 0)
+  // Y tampoco quedó como pendiente: se omitió en silencio.
+  assert.equal(r.pendientes.length, 0)
 })
 
 test('convertir: fila con nombre pero sin precio → error (regresión)', () => {
