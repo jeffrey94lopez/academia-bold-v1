@@ -31,6 +31,16 @@ test('validarValor: números', () => {
   assert.deepEqual(validarValor('costo', '1.500', 'auto'), { ok: true, valor: 1500 })
 })
 
+test('validarValor: rechaza texto que no es un numero', () => {
+  for (const t of ['1e3', 'abc', '-0', '-5', '12abc']) {
+    assert.deepEqual(validarValor('costo', t), { ok: false }, t)
+  }
+  assert.deepEqual(validarValor('costo', '$25'), { ok: true, valor: 25 })
+  const cero = validarValor('costo', ' 0 ')
+  assert.deepEqual(cero, { ok: true, valor: 0 })
+  assert.equal(Object.is(cero.valor, 0), true)
+})
+
 test('pendientesDeFase y esColumnaCompleta', () => {
   const r = { pendientes: [pend(2, 'costo'), pend(3, 'existencia'), pend(4, 'costo')], columnasSinDato: ['costo'] }
   assert.deepEqual(pendientesDeFase(r, 'costo').map(p => p.fila), [2, 4])
