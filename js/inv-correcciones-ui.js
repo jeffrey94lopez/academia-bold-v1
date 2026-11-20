@@ -79,13 +79,14 @@ export function crearVentanasCorreccion({ sesion, bot, chips, usuario, vivo, alD
       vivo()
       if (valor === null) continue
       estado.opciones = conValorColumna(estado.opciones, campo, valor)
-      estado.decisiones.valorComun = { campo, valor, filas: lista.length }
+      estado.decisiones.valorComun[campo] = { valor, filas: lista.length }
       reportar('correccion_corrigio', campo, lista.length)
       return 'resuelto'
     }
   }
 
   // Lista de filas sueltas (hasta 50 por ronda), con campo y control propio por línea.
+  // → 'reupload' si el cliente prefiere subir otro archivo; si no, resuelve sin valor.
   async function filasSueltas(campo, lista, { sinAtajo = false } = {}) {
     const visibles = pagina(lista)
     const numerico = NUMERICOS.has(campo)
@@ -116,7 +117,8 @@ export function crearVentanasCorreccion({ sesion, bot, chips, usuario, vivo, alD
       caja.innerHTML = `<div class="inv-corr-lista">${lineas}</div>
         <small class="inv-corr-error inv-corr-general" role="alert"></small>
         <div class="inv-acciones"><button type="button" class="inv-chipbtn inv-chipbtn-fuerte" data-accion="listo">Listo</button>
-        ${sinAtajo ? "" : `<button type="button" class="inv-chipbtn" data-accion="atajo">${esc(atajo)}</button>`}</div>`
+        ${sinAtajo ? "" : `<button type="button" class="inv-chipbtn" data-accion="atajo">${esc(atajo)}</button>`}
+        <button type="button" class="inv-chipbtn" data-accion="reupload">Subir otro archivo</button></div>`
       const general = caja.querySelector('.inv-corr-general')
       const marcados = new Set()  // líneas con "En 0" / "Omitir" activo
 
@@ -194,6 +196,13 @@ export function crearVentanasCorreccion({ sesion, bot, chips, usuario, vivo, alD
         resolver()
       })
 
+      // Salida siempre disponible: el cliente puede cambiar de archivo en vez de corregir aquí.
+      caja.querySelector('[data-accion="reupload"]').addEventListener('click', () => {
+        reportar('correccion_reupload', campo, lista.length)
+        cerrar('Subir otro archivo')
+        resolver('reupload')
+      })
+
       b.appendChild(caja)
       alDesplazar()
       caja.querySelector('.inv-entrada')?.focus({ preventScroll: true })
@@ -217,8 +226,9 @@ export function crearVentanasCorreccion({ sesion, bot, chips, usuario, vivo, alD
         }
         if (paso === 'lista') {
           // Columna entera vacía en nombre/precio: omitir todo dejaría 0 productos, no se ofrece.
-          await filasSueltas(campo, lista, { sinAtajo: directa && !NUMERICOS.has(campo) })
+          const salida = await filasSueltas(campo, lista, { sinAtajo: directa && !NUMERICOS.has(campo) })
           vivo()
+          if (salida === 'reupload') return 'reupload'
         }
         r = sesion.recalcular()
         // Una ronda siempre debe resolver las filas que mostró; si no, es un error de programación.

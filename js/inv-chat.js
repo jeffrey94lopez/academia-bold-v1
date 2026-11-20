@@ -637,10 +637,10 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
       resumen.push(`Dejaste en 0 ${partes.join(' y ')} a propósito.`)
     }
     if (dec.omitidas) resumen.push(`Omitiste ${dec.omitidas} fila(s).`)
-    if (dec.valorComun) {
-      const { campo, valor, filas } = dec.valorComun
+    for (const [campo, { valor, filas }] of Object.entries(dec.valorComun)) {
       resumen.push(`Pusiste ${esc(valor)} en ${esc(ETIQUETA_CAMPO[campo].toLowerCase())} a ${filas} fila(s).`)
     }
+    if (dec.corregidos) resumen.push(`Corregiste ${dec.corregidos} dato(s).`)
     const textoResumen = resumen.length ? `<p class="inv-nota">${resumen.join(' ')}</p>` : ''
     const b = await bot(`${texto}${textoResumen}${lista('error(es): estas filas no se incluyen', r.errores)}${lista('aviso(s) para revisar', r.avisos)}
       ${r.total ? '<p class="inv-nota">Descarga la plantilla e impórtala en Bold POS.</p>' : ''}`, { demora: 700 })
