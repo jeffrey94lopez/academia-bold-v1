@@ -83,6 +83,7 @@ decisión: no cambia lo que hoy se acepta).
    **Omitir** (nombre/precio), para corregir unas pocas y decidir las demás sin escribir todo.
    Botones: **Listo** y un atajo de fase que aplica a todos los pendientes del campo:
    costo/existencia → **Dejar todos en 0**; nombre/precio → **Omitir todas estas filas**.
+   Toda lista ofrece además **Subir otro archivo** (sale de la corrección sin resolver nada).
 
 "Listo" no avanza mientras quede una línea sin valor válido (número ≥ 0; nombre no vacío) o sin
 decisión; el error sale en línea junto al campo, no en un mensaje aparte.
@@ -129,7 +130,7 @@ los avisos automáticos "quedaron en 0" para estos campos (ya no hay ceros autom
   (para saber a quién aplica existencia) y antes de `pasoIA`**. Recorre las fases en orden;
   cada una: `recalcular()` → si hay pendientes del campo, ventana → aplicar → siguiente.
 - Editor propio, estilo `editorMapeo` / `editorGrupos`, clases en `css/inventario.css`.
-- "Subir otro archivo" vuelve a `pasoOrigen` y reentra a `pasoPreguntas` (ya existe el patrón del
+- "Subir otro archivo" (en cualquier ventana, de columna completa o de lista) vuelve a `pasoOrigen` y reentra a `pasoPreguntas` (ya existe el patrón del
   IVA mixto, `inv-chat.js:321-326`).
 - Telemetría (`telemetria.paso` / `error` existentes o `tool_step` nuevos, **solo conteos**):
   `corregir_<campo>` con `pendientes`, y la decisión (`corrigio`, `ceros`, `omitio`, `reupload`).
@@ -175,9 +176,12 @@ una unidad sin equivalente ya se resuelve con `unidadesSinMapa`.
   solo inventariables, por eso las ventanas corren **después** de la pregunta de inventariable.
 - **`valorPorColumna`** solo llena celdas vacías; nunca pisa un valor válido ni uno negativo o inválido.
 - **Resumen final:** `decisiones.ceros` cuenta celdas puestas en 0 (por línea, por atajo o por
-  "todas en 0"); `decisiones.valorComun = { campo, valor, filas }` registra "el mismo valor a todas".
-- **Subir otro archivo:** vuelve a `pasoOrigen` y `pasoColumnas`. Se conserva lo de la cuenta
-  (facturación electrónica e IVA elegido); se reinician las decisiones del archivo (correcciones,
+  "todas en 0"); `decisiones.valorComun` es un mapa por campo (`{ costo: { valor, filas }, existencia: { ... } }`)
+  que registra "el mismo valor a todas"; si el cliente lo usa en costo y en existencia, el resumen
+  final dice una frase por campo. `decisiones.corregidos` se muestra como "Corregiste N dato(s)".
+- **Subir otro archivo:** vuelve a `pasoOrigen` y `pasoColumnas`. Se conserva solo lo de la cuenta
+  (facturación electrónica); el IVA elegido (`ivaStrategy` e `ivaGeneral`) se borra, porque era para
+  el archivo anterior y la pregunta de IVA se vuelve a hacer según el estado del archivo nuevo. Se reinician las decisiones del archivo (correcciones,
   omitidas, valor por columna, inventariable, códigos y categorías de IA; esta última se reaplica
   por firma si las listas son iguales, como ya ocurre).
 - **`r.total`** sigue siendo "filas exportadas" (también `sinCodigo`), así que sus consumidores
