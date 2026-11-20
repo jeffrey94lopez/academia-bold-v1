@@ -16,7 +16,7 @@ export const ETIQUETA_CAMPO = {
 }
 export const TAMANO_PAGINA = 50
 
-const SOLO_NUMERO = /^\s*\$?\s*\d[\d.,\s]*$/
+const SOLO_NUMERO = /^\s*(?:\$|L\.?)?\s*\d[\d.,\s]*$/i
 
 // Nombre: se sanea y no puede quedar vacío. Números: 0 es válido; vacío,
 // negativo o no numérico no lo son (un campo en blanco nunca vale 0).
@@ -26,7 +26,7 @@ export function validarValor(campo, texto, formato = 'auto') {
     return nombre ? { ok: true, valor: nombre } : { ok: false }
   }
   // parseNumero descarta lo que no es dígito ('1e3' -> 13); aquí lo que el
-  // cliente escribe debe ser solo dígitos, separadores, espacios y un '$' inicial.
+  // cliente escribe debe ser solo dígitos, separadores, espacios y un '$' o 'L'/'L.' inicial.
   if (!SOLO_NUMERO.test(String(texto ?? ''))) return { ok: false }
   const n = parseNumero(texto, formato)
   return n !== null && n >= 0 ? { ok: true, valor: n + 0 } : { ok: false }

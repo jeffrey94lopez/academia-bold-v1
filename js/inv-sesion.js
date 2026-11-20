@@ -49,7 +49,7 @@ export function crearSesion() {
     plantillas: {},   // { inventariable?: {info, wb, nombre}, noinventariable?: {...} }
     origen: null,     // { nombre, hoja, encabezados, mapeo, filas }
     opciones: { formatoNumero: 'auto', inventariable: null, isv: null, unidades: {}, categoriasAGeneral: false, codigos: null, categoriasIA: null, correcciones: {}, omitidas: [], valorPorColumna: {} },
-    decisiones: { ceros: { costo: 0, existencia: 0 }, omitidas: 0, corregidos: 0, valorComun: null },  // contadores del resumen final
+    decisiones: { ceros: { costo: 0, existencia: 0 }, omitidas: 0, corregidos: 0, valorComun: {} },  // contadores del resumen final
     ia: { firma: null, decisiones: {} },  // no se reinicia al re-subir: la firma decide si se reaplica
     resultado: null,
   }
@@ -117,7 +117,11 @@ export function crearSesion() {
         estado.opciones.correcciones = {}
         estado.opciones.omitidas = []
         estado.opciones.valorPorColumna = {}
-        estado.decisiones = { ceros: { costo: 0, existencia: 0 }, omitidas: 0, corregidos: 0, valorComun: null }
+        // El IVA elegido era para el archivo anterior: se vuelve a preguntar según el nuevo.
+        // `isv` (facturación electrónica) es un dato de la cuenta y se conserva.
+        estado.opciones.ivaStrategy = undefined
+        estado.opciones.ivaGeneral = undefined
+        estado.decisiones = { ceros: { costo: 0, existencia: 0 }, omitidas: 0, corregidos: 0, valorComun: {} }
         estado.resultado = null
         return { hoja: mejor.nombre, total: filas.filter(f => !filaSinDatoMapeado(f, mejor.mapeo)).length }
       } catch { return { error: `No pude leer "${file.name}".`, codigo: 'archivo_ilegible' } }

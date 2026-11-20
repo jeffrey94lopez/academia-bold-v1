@@ -31,6 +31,13 @@ test('validarValor: números', () => {
   assert.deepEqual(validarValor('costo', '1.500', 'auto'), { ok: true, valor: 1500 })
 })
 
+test('validarValor: acepta L o L. (Lempira) inicial como el $', () => {
+  assert.deepEqual(validarValor('precioTotal', 'L 50'), { ok: true, valor: 50 })
+  assert.deepEqual(validarValor('precioTotal', 'L. 5.950'), { ok: true, valor: 5950 })
+  assert.deepEqual(validarValor('costo', 'l50'), { ok: true, valor: 50 })
+  for (const t of ['LL50', 'L', 'L.', 'L50L', '50L']) assert.deepEqual(validarValor('costo', t), { ok: false }, t)
+})
+
 test('validarValor: rechaza texto que no es un numero', () => {
   for (const t of ['1e3', 'abc', '-0', '-5', '12abc']) {
     assert.deepEqual(validarValor('costo', t), { ok: false }, t)

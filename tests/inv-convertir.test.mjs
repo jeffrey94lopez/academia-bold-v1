@@ -461,11 +461,14 @@ test('convertir: una fila omitida no genera pendientes de costo ni existencia', 
   assert.equal(r.total, 0)
 })
 
-test('convertir: omitir una fila sin pendiente de nombre/precio no genera error', () => {
+test('convertir: omitir una fila sin pendiente de nombre/precio igual queda en el reporte', () => {
   const r = conv(ENC4, [['K', 9, '', 1]], { inventariable: 'si', omitidas: [1] })
   assert.equal(r.pendientes.length, 0)
-  assert.equal(r.errores.length, 0)
   assert.equal(r.total, 0)
+  assert.equal(r.errores.length, 1)
+  assert.equal(r.errores[0].codigo, 'filas_omitida')
+  assert.equal(r.errores[0].fila, 1)
+  assert.equal(r.errores[0].mensaje, '"K": la omitiste.')
 })
 
 test('convertir: valorPorColumna llena solo los vacíos', () => {

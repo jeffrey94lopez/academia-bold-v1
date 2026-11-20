@@ -172,7 +172,7 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
     // Fila omitida: no se exporta ni genera pendientes; solo se avisa si tenía nombre/precio por resolver.
     if (omitida) {
       const p = pend.find(x => x.campo === 'nombre' || x.campo === 'precioTotal')
-      if (!p) return
+      if (!p) return error(n, `"${nombreMostrado}": la omitiste.`, 'filas_omitida')
       const que = p.campo === 'nombre' ? 'nombre' : 'precio'
       const motivo = { vacio: `${que} vacío`, invalido: `${que} no válido`, negativo: `${que} negativo` }[p.motivo]
       return error(n, `"${nombreMostrado}": la omitiste (${motivo}).`, p.campo === 'nombre' ? 'filas_nombre' : 'filas_precio')
@@ -182,7 +182,7 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
     if (inventariable === null) { pendienteInventariable = true; inventariable = false }
     const tipo = inventariable ? 'inventariable' : 'noinventariable'
     const plantilla = plantillas[tipo]
-    if (!plantilla) return error(n, `"${nombre}" es ${inventariable ? 'inventariable' : 'no inventariable'}, pero no subiste esa plantilla de Bold.`, 'filas_plantilla_tipo')
+    if (!plantilla) return error(n, `"${nombreMostrado}" es ${inventariable ? 'inventariable' : 'no inventariable'}, pero no subiste esa plantilla de Bold.`, 'filas_plantilla_tipo')
 
     let costo = mapeo.costo === undefined ? null : parseNumero(get(fila, 'costo'), fmt)
     let crudoCosto = get(fila, 'costo')
