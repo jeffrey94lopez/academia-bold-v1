@@ -76,18 +76,20 @@ const IVA_MIXTO = escribirLibro('productos-iva-mixto.xlsx', FILAS, [0, 1, 2, 3, 
 const SIN_IVA = escribirLibro('productos-sin-iva.xlsx', FILAS.filter(f => f[6] !== 'nota suelta'), [0, 1, 2, 3, 4, 5])
 
 // Datos sucios para la corrección por fases (fila de Excel = posición + 2):
-// 2 precio «abc», 3 costo vacío, 4 existencia -4, 5 nombre vacío con otros datos,
-// 6 costo Y existencia vacíos, 7 nombre con HTML y precio inválido; 1 y 8 están bien.
+// 2 precio «abc» y existencia -1, 3 costo vacío, 4 existencia -4, 5 nombre vacío y existencia «zz»,
+// 6 costo Y existencia vacíos, 7 nombre con HTML, precio inválido, costo y existencia vacíos; 1 y 8 están bien.
+// Las filas que se OMITEN (2, 5, 7) traen también pendientes en costo/existencia: si el producto
+// las dejara pendientes en las fases siguientes, aparecerían líneas de más (se cuentan con «rondas»).
 const XSS = '<img src=x onerror=alert(1)>'
 const CAB_SUCIOS = ['Código', 'Nombre', 'Categoría', 'Unidad', 'Costo', 'Precio', 'Existencia']
 const FILAS_SUCIAS = [
   ['A001', 'Camisa azul', 'Camisa', 'Unidad', 120, 250, 10],
-  ['A002', 'Camisa roja', 'CAMISA', 'unidades', 120, 'abc', 4],
+  ['A002', 'Camisa roja', 'CAMISA', 'unidades', 120, 'abc', -1],
   ['A003', 'Pantalón de tela', 'Pantalones', 'und', '', 400, 6],
   ['A004', 'Arroz 1 kg', 'Abarrotes', 'Kilogramo', 18, 25, -4],
-  ['A005', '', 'abarrotes', 'Litro', 40, 55, 3],
+  ['A005', '', 'abarrotes', 'Litro', 40, 55, 'zz'],
   ['A006', 'Cable HDMI', 'Ferretería', 'Unidad', '', 45, ''],
-  ['A007', XSS, 'Pantalones', 'und', 15, 'xx', 2],
+  ['A007', XSS, 'Pantalones', 'und', '', 'xx', ''],
   ['A008', 'Aceite de oliva', 'Abarrotes', 'Litro', 40, 55, 7],
 ]
 const SUCIOS = escribirLibro('productos-sucios.xlsx', FILAS_SUCIAS, [0, 1, 2, 3, 4, 5, 6], CAB_SUCIOS)
@@ -184,27 +186,29 @@ const ESCENARIOS = {
   // se pulsa. `valores[campo]`: texto a escribir (o función de la fila). `cerosEsperados`: 0 que el cliente sí eligió.
   'corrige-todo':  { ...MONO, productos: SUCIOS, productosN: 8, xss: true,
                      valores: { nombre: f => `Nombre ${f}`, precioTotal: '99', costo: '33', existencia: '8' },
-                     rondas: { nombre: [1], precioTotal: [2], costo: [2], existencia: [2] },
+                     rondas: { nombre: [1], precioTotal: [2], costo: [3], existencia: [5] },
                      cerosEsperados: { costo: 0, existencia: 0 }, sin: [/Dejaste en 0/, /Omitiste/],
                      revisar: (d, c) => [
                        d.filter(r => String(r[c.nombre]).startsWith('Nombre ')).length === 1 ? null : 'debía haber 1 nombre escrito en la fase de nombre',
                        d.filter(r => Number(r[c.precio]) === 99).length === 2 ? null : 'debía haber 2 precios 99',
-                       d.filter(r => Number(r[c.costo]) === 33).length === 2 ? null : 'debía haber 2 costos 33',
-                       d.filter(r => Number(r[c.existencia]) === 8).length === 2 ? null : 'debía haber 2 existencias 8',
+                       d.filter(r => Number(r[c.costo]) === 33).length === 3 ? null : 'debía haber 3 costos 33',
+                       d.filter(r => Number(r[c.existencia]) === 8).length === 5 ? null : 'debía haber 5 existencias 8',
                        d.some(r => Number(r[c.existencia]) === -4) ? 'quedó la existencia -4' : null,
                      ] },
   'por-linea':     { ...MONO, productos: SUCIOS, productosN: 6, xss: true, movil: true,
-                     alterna: { nombre: [0], precioTotal: [1], costo: [0], existencia: [1] },
+                     alterna: { nombre: [0], precioTotal: [1], costo: [0], existencia: [2] },
+                     rondas: { nombre: [1], precioTotal: [2], costo: [2], existencia: [3] },
                      valores: { precioTotal: '99', costo: '33', existencia: '8' },
                      cerosEsperados: { costo: 1, existencia: 1 }, resumen: [/Omitiste 2 fila/, /Dejaste en 0 1 costo\(s\) y 1 existencia\(s\) a propósito/],
                      revisar: (d, c) => [
                        d.filter(r => Number(r[c.precio]) === 99).length === 1 ? null : 'debía haber 1 precio 99 (la fila del <img> se omitió)',
                        d.filter(r => Number(r[c.costo]) === 33).length === 1 ? null : 'debía haber 1 costo 33',
-                       d.filter(r => Number(r[c.existencia]) === 8).length === 1 ? null : 'debía haber 1 existencia 8',
+                       d.filter(r => Number(r[c.existencia]) === 8).length === 2 ? null : 'debía haber 2 existencias 8',
                        d.some(r => /img/.test(String(r[c.nombre]))) ? 'el producto omitido llegó a la plantilla' : null,
                      ] },
   'atajos':        { ...MONO, productos: SUCIOS, productosN: 5, xss: true, movil: true,
                      fases: { nombre: 'atajo', precioTotal: 'atajo', costo: 'atajo', existencia: 'atajo' },
+                     rondas: { nombre: [1], precioTotal: [2], costo: [2], existencia: [2] },
                      cerosEsperados: { costo: 2, existencia: 2 }, resumen: [/Omitiste 3 fila/, /Dejaste en 0 2 costo\(s\) y 2 existencia\(s\) a propósito/] },
   'sin-existencia': { ...MONO, productos: SIN_IVA, productosN: PRODUCTOS, preguntasColumna: 1, editores: 0,
                      cerosEsperados: { costo: 0, existencia: PRODUCTOS }, resumen: [new RegExp(`Dejaste en 0 ${PRODUCTOS} existencia\\(s\\) a propósito`)] },
