@@ -9,6 +9,7 @@ import { getContextoBold } from './bold-context.js'
 import { pedirIA, iaActiva } from './inv-ia-cliente.js'
 import { armarPedido, resumenGrupos, huboCambios, firmaIA, filtrarMapeo, componerMapeos, corregirMapeo, cuantosQuedan } from './inv-ia.js'
 import { UNIDADES_CANONICAS_BOLD } from './inv-plantilla-sintetica.js'
+import { listaCopiable } from './inv-lista-copiable.js'
 import { crearVentanasCorreccion } from './inv-correcciones-ui.js'
 import { ETIQUETA_CAMPO } from './inv-correcciones.js'
 
@@ -376,19 +377,12 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
     r = sesion.recalcular()
 
     if (r.categoriasFaltantes.length) {
-      const q = await bot(`Estas <b>${r.categoriasFaltantes.length}</b> categoría(s) no existen todavía en tu Bold POS, y Bold no importa ítems de una categoría que no exista. Créalas antes de importar:<pre class="inv-cats">${esc(r.categoriasFaltantes.join('\n'))}</pre>`)
-      let b = q
-      for (;;) {
-        const acc = await chips(b, [{ texto: 'Copiar categorías', valor: 'copiar' }, { texto: 'Enviar todo a “General”', valor: 'general' }, { texto: 'Ya las creé, continuar', valor: 'seguir' }])
-        vivo()
-        if (acc === 'copiar') {
-          try { await navigator.clipboard.writeText(r.categoriasFaltantes.join('\n')) } catch { /* sin portapapeles: la lista está a la vista */ }
-          b = await bot('Copiadas ✅ Pégalas al crearlas en Bold POS (una por línea).', { demora: 250 })
-          continue
-        }
-        if (acc === 'general') sesion.estado.opciones.categoriasAGeneral = true
-        break
-      }
+      const q = await bot(`Estas <b>${r.categoriasFaltantes.length}</b> categoría(s) no existen todavía en tu Bold POS, y Bold no importa ítems de una categoría que no exista. Copia cada una y pégala al crearla:`)
+      q.appendChild(listaCopiable(r.categoriasFaltantes, { esc }))
+      alDesplazar()
+      const acc = await chips(q, [{ texto: 'Ya las creé, continuar', valor: 'seguir' }, { texto: 'Enviar todo a “General”', valor: 'general' }])
+      vivo()
+      if (acc === 'general') sesion.estado.opciones.categoriasAGeneral = true
       r = sesion.recalcular()
     }
 
