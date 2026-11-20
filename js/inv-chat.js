@@ -9,6 +9,8 @@ import { getContextoBold } from './bold-context.js'
 import { pedirIA, iaActiva } from './inv-ia-cliente.js'
 import { armarPedido, resumenGrupos, huboCambios, firmaIA, filtrarMapeo, componerMapeos, corregirMapeo, cuantosQuedan } from './inv-ia.js'
 import { UNIDADES_CANONICAS_BOLD } from './inv-plantilla-sintetica.js'
+import { crearVentanasCorreccion } from './inv-correcciones-ui.js'
+import { ETIQUETA_CAMPO } from './inv-correcciones.js'
 
 const letraColumna = i => { let s = '', n = i; do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1 } while (n >= 0); return s }
 const FIN = Symbol('fin')
@@ -71,6 +73,7 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
   }
 
   // Modo del conversor: 'mono' (plantilla sintética) o 'multi' (sube la del cliente).
+  let ventanas = null  // ventanas de corrección: una por conversación
   let modo = null
   let conFE = null  // se setea en el camino mono antes de armar la plantilla sintética.
 
@@ -345,6 +348,26 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
       sesion.estado.opciones.inventariable = await chips(q, [{ texto: 'Sí, controlo existencias', valor: 'si' }, { texto: 'No, son servicios', valor: 'no' }])
       vivo()
       r = sesion.recalcular()
+    }
+
+    // Datos que no se pueden usar (nombre, precio, costo, existencia): una ventana por fase.
+    // Corren después de la pregunta de inventariable (la existencia solo cuenta en inventariables).
+    if (!r.pendienteInventariable) {
+      ventanas ??= crearVentanasCorreccion({ sesion, bot, chips, usuario, vivo, alDesplazar, esc, telemetria })
+      const fin = await ventanas.correr()
+      if (fin === 'reupload') {
+        await bot('Dale, sube el archivo de nuevo. Si hace falta, repasamos las columnas.', { demora: 300 })
+        await pasoOrigen()
+        await pasoColumnas()
+        return pasoPreguntas()  // vuelve a entrar con el archivo nuevo
+      }
+      r = sesion.recalcular()
+      if (r.pendientes.length) {
+        // Error de programación: las ventanas no vaciaron los pendientes.
+        console.error('[inventario] quedaron pendientes tras las ventanas de corrección:', r.pendientes.length)
+        telemetria.error('desconocido', 'excepcion')
+        throw FIN
+      }
     }
 
     if (await pasoIA(r)) r = sesion.recalcular()
@@ -647,7 +670,22 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
     const texto = r.total
       ? `¡Listo! 🎉 Armé <b>${r.total}</b> producto(s)${r.errores.length ? `; <b>${r.errores.length}</b> fila(s) tienen errores y no se incluyen` : ''}.`
       : 'No pude armar ningún producto con lo que me diste.'
-    const b = await bot(`${texto}${lista('error(es): estas filas no se incluyen', r.errores)}${lista('aviso(s) para revisar', r.avisos)}
+    // Lo que decidió el cliente al corregir (solo cuando hubo algo).
+    const dec = sesion.estado.decisiones
+    const resumen = []
+    if (dec.ceros.costo || dec.ceros.existencia) {
+      const partes = []
+      if (dec.ceros.costo) partes.push(`${dec.ceros.costo} costo(s)`)
+      if (dec.ceros.existencia) partes.push(`${dec.ceros.existencia} existencia(s)`)
+      resumen.push(`Dejaste en 0 ${partes.join(' y ')} a propósito.`)
+    }
+    if (dec.omitidas) resumen.push(`Omitiste ${dec.omitidas} fila(s).`)
+    if (dec.valorComun) {
+      const { campo, valor, filas } = dec.valorComun
+      resumen.push(`Pusiste ${esc(valor)} en ${esc(ETIQUETA_CAMPO[campo].toLowerCase())} a ${filas} fila(s).`)
+    }
+    const textoResumen = resumen.length ? `<p class="inv-nota">${resumen.join(' ')}</p>` : ''
+    const b = await bot(`${texto}${textoResumen}${lista('error(es): estas filas no se incluyen', r.errores)}${lista('aviso(s) para revisar', r.avisos)}
       ${r.total ? '<p class="inv-nota">Descarga la plantilla e impórtala en Bold POS.</p>' : ''}`, { demora: 700 })
     const fila = document.createElement('div')
     fila.className = 'inv-acciones'
