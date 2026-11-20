@@ -63,7 +63,7 @@
 .inv-copia-hecha { background: var(--blue-10, #f1f2f6); }
 .inv-copia-check { flex: 0 0 14px; width: 14px; font-size: 13px; font-weight: 700; color: #1e7b45; text-align: center; }
 .inv-copia-texto { flex: 1 1 auto; min-width: 0; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
-.inv-copia-boton { flex: 0 0 auto; min-width: 84px; padding: 6px 12px; text-align: center; }
+.inv-copia-boton { flex: 0 0 auto; min-width: 84px; max-width: 150px; padding: 6px 12px; text-align: center; }
 .inv-copia-contador { margin: 0; font-size: 12px; font-weight: 600; color: var(--black-60, #606060); }
 
 /* ── Purgador con IA: resumen de grupos y editor ── */

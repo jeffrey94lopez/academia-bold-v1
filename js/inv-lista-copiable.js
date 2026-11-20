@@ -4,7 +4,29 @@
 
 const FILAS_SIN_SCROLL = 15
 
-export function listaCopiable(items, { esc, copiar = texto => navigator.clipboard.writeText(texto), alCopiar = () => {} } = {}) {
+// Portapapeles moderno; si no existe o el iframe no lo permite (falta allow="clipboard-write"),
+// cae a execCommand('copy') con un textarea temporal. Lanza si ambos fallan.
+async function copiarPorDefecto(texto) {
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error('sin API')
+    await navigator.clipboard.writeText(texto)
+    return
+  } catch { /* sigue al respaldo */ }
+  const ta = document.createElement('textarea')
+  ta.value = texto
+  ta.readOnly = true
+  ta.setAttribute('aria-hidden', 'true')
+  ta.style.cssText = 'position:fixed;top:0;left:-9999px;opacity:0'
+  document.body.appendChild(ta)
+  try {
+    ta.select()
+    if (!document.execCommand('copy')) throw new Error('execCommand falló')
+  } finally {
+    ta.remove()
+  }
+}
+
+export function listaCopiable(items, { esc, copiar = copiarPorDefecto, alCopiar = () => {} } = {}) {
   const total = items.length
   const copiadas = new Set()
 
@@ -34,7 +56,13 @@ export function listaCopiable(items, { esc, copiar = texto => navigator.clipboar
       try {
         await copiar(item)
       } catch {
-        // Sin portapapeles: el texto sigue a la vista para copiarlo a mano; no se marca.
+        // Sin portapapeles: no se marca; se selecciona el texto para que el cliente use Ctrl+C.
+        boton.textContent = 'Selecciona y copia'
+        const rango = document.createRange()
+        rango.selectNodeContents(fila.querySelector('.inv-copia-texto'))
+        const sel = window.getSelection()
+        sel.removeAllRanges()
+        sel.addRange(rango)
         return
       }
       copiadas.add(i)
