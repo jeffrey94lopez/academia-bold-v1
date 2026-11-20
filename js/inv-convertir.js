@@ -99,6 +99,7 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
     ? crearGeneradorCodigos(opciones.codigos, filas.map(f => aCodigo(get(f, 'codigo')).texto).filter(Boolean))
     : null
   const pendientes = []
+  const omitidas = new Set(opciones.omitidas ?? [])
   const CAMPOS = ['nombre', 'precioTotal', 'costo', 'existencia']
   const candidatas = Object.fromEntries(CAMPOS.map(c => [c, 0]))
   const vacios = Object.fromEntries(CAMPOS.map(c => [c, 0]))
@@ -125,23 +126,35 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
     if (filaSinDatoMapeado(fila, mapeo)) return
     const n = fila.__fila ?? i + 1
 
-    const nombre = aTexto(get(fila, 'nombre'))
+    const omitida = omitidas.has(n)
+    const corr = campo => {
+      const c = opciones.correcciones
+      const f = c && Object.hasOwn(c, n) ? c[n] : null
+      return f && Object.hasOwn(f, campo) ? f[campo] : undefined
+    }
+    // Orden: corrección → valor por columna (solo si la celda estaba vacía) → archivo.
+    const resolver = (campo, crudo, valor) => {
+      const c = corr(campo)
+      if (c !== undefined) return [String(c), c]
+      const v = opciones.valorPorColumna
+      if (v && Object.hasOwn(v, campo) && motivoDe(crudo, valor) === 'vacio') return [String(v[campo]), v[campo]]
+      return [crudo, valor]
+    }
+
+    const nombre = corr('nombre') ?? aTexto(get(fila, 'nombre'))
     const nombreMostrado = nombre || '(sin nombre)'
     const pend = []
     const marcar = (campo, crudo, valor) => {
-      candidatas[campo]++
       const motivo = motivoDe(crudo, valor)
+      if (!omitida) {
+        candidatas[campo]++
+        if (motivo === 'vacio') vacios[campo]++
+      }
       if (!motivo) return
-      if (motivo === 'vacio') vacios[campo]++
       pend.push({ fila: n, nombre: nombreMostrado, campo, motivo, original: String(crudo ?? '') })
     }
-    marcar('nombre', nombre, nombre)
-
-    let inventariable = esInventariable(fila, mapeo, opciones)
-    if (inventariable === null) { pendienteInventariable = true; inventariable = false }
-    const tipo = inventariable ? 'inventariable' : 'noinventariable'
-    const plantilla = plantillas[tipo]
-    if (!plantilla) return error(n, `"${nombre}" es ${inventariable ? 'inventariable' : 'no inventariable'}, pero no subiste esa plantilla de Bold.`, 'filas_plantilla_tipo')
+    // El nombre solo puede estar vacío: se pasa 0 como valor para no tratarlo como número.
+    marcar('nombre', nombre, 0)
 
     // Impuesto y precio total.
     let pct = mapeo.impuesto === undefined ? null : parseImpuesto(get(fila, 'impuesto'))
@@ -152,15 +165,36 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
     }
     const crudoTotal = get(fila, 'precioTotal')
     const crudoPrecio = String(crudoTotal ?? '').trim() !== '' ? crudoTotal : get(fila, 'precioBase')
-    marcar('precioTotal', crudoPrecio, precioTotal)
+    const cPrecio = corr('precioTotal')
+    if (cPrecio !== undefined) precioTotal = cPrecio
+    marcar('precioTotal', cPrecio !== undefined ? String(cPrecio) : crudoPrecio, precioTotal)
 
-    const costo = mapeo.costo === undefined ? null : parseNumero(get(fila, 'costo'), fmt)
-    marcar('costo', get(fila, 'costo'), costo)
+    // Fila omitida: no se exporta ni genera pendientes; solo se avisa si tenía nombre/precio por resolver.
+    if (omitida) {
+      const p = pend.find(x => x.campo === 'nombre' || x.campo === 'precioTotal')
+      if (!p) return
+      const que = p.campo === 'nombre' ? 'nombre' : 'precio'
+      const motivo = { vacio: `${que} vacío`, invalido: `${que} no válido`, negativo: `${que} negativo` }[p.motivo]
+      return error(n, `"${nombreMostrado}": la omitiste (${motivo}).`, p.campo === 'nombre' ? 'filas_nombre' : 'filas_precio')
+    }
+
+    let inventariable = esInventariable(fila, mapeo, opciones)
+    if (inventariable === null) { pendienteInventariable = true; inventariable = false }
+    const tipo = inventariable ? 'inventariable' : 'noinventariable'
+    const plantilla = plantillas[tipo]
+    if (!plantilla) return error(n, `"${nombre}" es ${inventariable ? 'inventariable' : 'no inventariable'}, pero no subiste esa plantilla de Bold.`, 'filas_plantilla_tipo')
+
+    let costo = mapeo.costo === undefined ? null : parseNumero(get(fila, 'costo'), fmt)
+    let crudoCosto = get(fila, 'costo')
+    ;[crudoCosto, costo] = resolver('costo', crudoCosto, costo)
+    marcar('costo', crudoCosto, costo)
 
     let ex = null
     if (inventariable) {
       ex = mapeo.existencia === undefined ? null : parseNumero(get(fila, 'existencia'), fmt)
-      marcar('existencia', get(fila, 'existencia'), ex)
+      let crudoEx = get(fila, 'existencia')
+      ;[crudoEx, ex] = resolver('existencia', crudoEx, ex)
+      marcar('existencia', crudoEx, ex)
     }
 
     // Con cualquier pendiente la fila no se exporta; no es un error: el cliente la completa.

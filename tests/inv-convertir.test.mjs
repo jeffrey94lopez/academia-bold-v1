@@ -425,3 +425,86 @@ test('categoria "constructor" no rompe con categoriasIA vacio ni con unidades', 
   })
   assert.equal(r.salidas.inventariable[0].categoria, 'constructor')
 })
+
+// Task 2: correcciones, omitidas y valor por columna.
+test('convertir: la corrección sustituye al dato del archivo', () => {
+  const r = conv(['Nombre', 'Precio', 'Costo'], [['Camisa', 'abc', 5]], { inventariable: 'no', correcciones: { 1: { precioTotal: 25000 } } })
+  assert.equal(r.pendientes.length, 0)
+  assert.equal(r.salidas.noinventariable[0].precioTotal, 25000)
+})
+
+test('convertir: corregir nombre', () => {
+  const r = conv(['Nombre', 'Precio', 'Costo'], [['', 500, 5]], { inventariable: 'no', correcciones: { 1: { nombre: 'Lápiz' } } })
+  assert.equal(r.pendientes.length, 0)
+  assert.equal(r.salidas.noinventariable[0].nombre, 'Lápiz')
+})
+
+test('convertir: omitir fila de precio la saca sin pendientes y la lista como error', () => {
+  const r = conv(['Nombre', 'Precio'], [['Camisa', 'abc']], { inventariable: 'no', omitidas: [1] })
+  assert.equal(r.pendientes.length, 0)
+  assert.equal(r.salidas.noinventariable.length, 0)
+  assert.equal(r.errores.length, 1)
+  assert.equal(r.errores[0].codigo, 'filas_precio')
+  assert.equal(r.errores[0].fila, 1)
+  assert.match(r.errores[0].mensaje, /omitiste/)
+})
+
+test('convertir: omitir fila de nombre usa el código filas_nombre', () => {
+  const r = conv(['Nombre', 'Precio'], [['', 500]], { inventariable: 'no', omitidas: [1] })
+  assert.equal(r.errores.length, 1)
+  assert.equal(r.errores[0].codigo, 'filas_nombre')
+})
+
+test('convertir: una fila omitida no genera pendientes de costo ni existencia', () => {
+  const r = conv(ENC4, [['J', 'abc', '', '']], { inventariable: 'si', omitidas: [1] })
+  assert.equal(r.pendientes.length, 0)
+  assert.equal(r.total, 0)
+})
+
+test('convertir: omitir una fila sin pendiente de nombre/precio no genera error', () => {
+  const r = conv(ENC4, [['K', 9, '', 1]], { inventariable: 'si', omitidas: [1] })
+  assert.equal(r.pendientes.length, 0)
+  assert.equal(r.errores.length, 0)
+  assert.equal(r.total, 0)
+})
+
+test('convertir: valorPorColumna llena solo los vacíos', () => {
+  const r = conv(ENC4, [['A', 9, '', 5], ['B', 9, -1, 5]], { inventariable: 'si', valorPorColumna: { costo: 0 } })
+  assert.equal(r.salidas.inventariable.length, 1)
+  assert.equal(r.salidas.inventariable[0].nombre, 'A')
+  assert.equal(r.salidas.inventariable[0].costo, 0)
+  assert.deepEqual(r.pendientes.map(p => [p.nombre, p.campo, p.motivo]), [['B', 'costo', 'negativo']])
+})
+
+test('convertir: valorPorColumna existencia deja 0 a propósito sin avisos de "quedaron en 0"', () => {
+  const r = convertir({
+    filas: [alegraFila()], mapeo: mapearColumnas(ALEGRA),
+    plantillas: { inventariable: leerPlantilla(hojasInv()) },
+    opciones: { valorPorColumna: { existencia: 0 } },
+  })
+  assert.deepEqual(r.salidas.inventariable[0], {
+    codigo: '', nombre: 'Coca Cola 600ml', categoria: 'General', referencia: '', descripcion: '',
+    unidad: 'Unidades', costo: 350050, precioTotal: 5950, existencia: 0,
+  })
+  assert.doesNotMatch(r.avisos.map(a => a.mensaje).join('|'), /quedaron en 0/)
+})
+
+test('convertir: una fila con costo y existencia pendientes se resuelve por campo', () => {
+  const op = { inventariable: 'si' }
+  const uno = conv(ENC4, [['I', 9, '', -2]], { ...op, correcciones: { 1: { costo: 7 } } })
+  assert.deepEqual(uno.pendientes.map(p => p.campo), ['existencia'])
+  const dos = conv(ENC4, [['I', 9, '', -2]], { ...op, correcciones: { 1: { costo: 7, existencia: 3 } } })
+  assert.equal(dos.pendientes.length, 0)
+  assert.equal(dos.total, 1)
+})
+
+test('convertir: las correcciones se leen con hasOwn (una fila "constructor" no rompe)', () => {
+  const r = conv(ENC4, [['A', 9, 1, 1]], { inventariable: 'si', correcciones: {} })
+  assert.equal(r.total, 1)
+})
+
+test('convertir: un producto llamado "-5" no es pendiente de nombre', () => {
+  const r = conv(['Nombre', 'Precio', 'Costo'], [['-5', 100, 5]], { inventariable: 'no' })
+  assert.ok(!r.pendientes.some(p => p.campo === 'nombre'))
+  assert.equal(r.salidas.noinventariable[0].nombre, '-5')
+})
