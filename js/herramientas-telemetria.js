@@ -48,6 +48,11 @@ export const ERRORES = {
   ia_respuesta_invalida: 'La IA respondió algo que no cumple las reglas; se descartó',
   ia_timeout: 'La IA tardó más de 60 s',
   ia_lista_grande: 'Más de 300 categorías o unidades distintas; no se usó la IA',
+  correccion_pendientes: 'Se encontraron datos inválidos que el cliente debía corregir',
+  correccion_corrigio: 'Escribió los valores correctos',
+  correccion_ceros: 'Eligió dejar costos o existencias en 0',
+  correccion_omitio: 'Eligió omitir filas sin nombre o precio',
+  correccion_reupload: 'Prefirió subir otro archivo',
   excepcion: 'Error inesperado',
   otro: 'Otro',
 }

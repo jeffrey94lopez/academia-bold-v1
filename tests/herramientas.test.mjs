@@ -44,6 +44,19 @@ test('un código de error desconocido se guarda como "otro"', () => {
   assert.equal(eventos[1].p.filas, 2)
 })
 
+test('los códigos de las correcciones tienen etiqueta y se envían tal cual, solo con conteos', () => {
+  for (const c of ['correccion_pendientes', 'correccion_corrigio', 'correccion_ceros', 'correccion_omitio', 'correccion_reupload']) {
+    assert.ok(typeof ERRORES[c] === 'string' && ERRORES[c].trim().length > 0, c)
+  }
+  const { t, eventos } = crear()
+  t.error('correcciones', 'correccion_ceros', { campo: 'costo', filas: 3 })
+  assert.equal(eventos[0].tipo, 'tool_error')
+  assert.equal(eventos[0].p.codigo, 'correccion_ceros')
+  assert.equal(eventos[0].p.paso, 'correcciones')
+  assert.equal(eventos[0].p.campo, 'costo')
+  assert.equal(eventos[0].p.filas, 3)
+})
+
 test('ia: cada llamada es un evento tool_ia con run_id, sin deduplicar y solo con campos permitidos', () => {
   const { t, eventos } = crear()
   t.ia('categorias', 'acepto', { n_entrada: 48, n_salida: 12, texto: 'Coca Cola' })
