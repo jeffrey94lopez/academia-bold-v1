@@ -86,7 +86,7 @@ export function crearVentanasCorreccion({ sesion, bot, chips, usuario, vivo, alD
   }
 
   // Lista de filas sueltas (hasta 50 por ronda), con campo y control propio por línea.
-  async function filasSueltas(campo, lista) {
+  async function filasSueltas(campo, lista, { sinAtajo = false } = {}) {
     const visibles = pagina(lista)
     const numerico = NUMERICOS.has(campo)
     const etiquetaControl = numerico ? 'En 0' : 'Omitir'
@@ -116,7 +116,7 @@ export function crearVentanasCorreccion({ sesion, bot, chips, usuario, vivo, alD
       caja.innerHTML = `<div class="inv-corr-lista">${lineas}</div>
         <small class="inv-corr-error inv-corr-general" role="alert"></small>
         <div class="inv-acciones"><button type="button" class="inv-chipbtn inv-chipbtn-fuerte" data-accion="listo">Listo</button>
-        <button type="button" class="inv-chipbtn" data-accion="atajo">${esc(atajo)}</button></div>`
+        ${sinAtajo ? "" : `<button type="button" class="inv-chipbtn" data-accion="atajo">${esc(atajo)}</button>`}</div>`
       const general = caja.querySelector('.inv-corr-general')
       const marcados = new Set()  // líneas con "En 0" / "Omitir" activo
 
@@ -180,7 +180,7 @@ export function crearVentanasCorreccion({ sesion, bot, chips, usuario, vivo, alD
       })
 
       // El atajo aplica a TODOS los pendientes del campo, no solo a los visibles.
-      caja.querySelector('[data-accion="atajo"]').addEventListener('click', () => {
+      caja.querySelector('[data-accion="atajo"]')?.addEventListener('click', () => {
         if (numerico) {
           estado.opciones = conCeros(estado.opciones, lista)
           estado.decisiones.ceros[campo] += lista.length
@@ -216,7 +216,8 @@ export function crearVentanasCorreccion({ sesion, bot, chips, usuario, vivo, alD
           if (paso === 'lista') directa = true
         }
         if (paso === 'lista') {
-          await filasSueltas(campo, lista)
+          // Columna entera vacía en nombre/precio: omitir todo dejaría 0 productos, no se ofrece.
+          await filasSueltas(campo, lista, { sinAtajo: directa && !NUMERICOS.has(campo) })
           vivo()
         }
         r = sesion.recalcular()

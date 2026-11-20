@@ -352,23 +352,18 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
 
     // Datos que no se pueden usar (nombre, precio, costo, existencia): una ventana por fase.
     // Corren después de la pregunta de inventariable (la existencia solo cuenta en inventariables).
-    if (!r.pendienteInventariable) {
-      ventanas ??= crearVentanasCorreccion({ sesion, bot, chips, usuario, vivo, alDesplazar, esc, telemetria })
-      const fin = await ventanas.correr()
-      if (fin === 'reupload') {
-        await bot('Dale, sube el archivo de nuevo. Si hace falta, repasamos las columnas.', { demora: 300 })
-        await pasoOrigen()
-        await pasoColumnas()
-        return pasoPreguntas()  // vuelve a entrar con el archivo nuevo
-      }
-      r = sesion.recalcular()
-      if (r.pendientes.length) {
-        // Error de programación: las ventanas no vaciaron los pendientes.
-        console.error('[inventario] quedaron pendientes tras las ventanas de corrección:', r.pendientes.length)
-        telemetria.error('desconocido', 'excepcion')
-        throw FIN
-      }
+    if (r.pendienteInventariable) throw new Error('inventario: sigue pendiente la pregunta de inventariable')
+    ventanas ??= crearVentanasCorreccion({ sesion, bot, chips, usuario, vivo, alDesplazar, esc, telemetria })
+    const fin = await ventanas.correr()
+    if (fin === 'reupload') {
+      await bot('Dale, sube el archivo de nuevo. Si hace falta, repasamos las columnas.', { demora: 300 })
+      await pasoOrigen()
+      await pasoColumnas()
+      return pasoPreguntas()  // vuelve a entrar con el archivo nuevo
     }
+    r = sesion.recalcular()
+    // Error de programación: lo registra y avisa el catch de iniciarConversacion.
+    if (r.pendientes.length) throw new Error(`inventario: quedaron ${r.pendientes.length} pendientes tras las ventanas de corrección`)
 
     if (await pasoIA(r)) r = sesion.recalcular()
 
