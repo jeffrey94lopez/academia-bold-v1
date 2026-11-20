@@ -9,6 +9,9 @@ import { getContextoBold } from './bold-context.js'
 import { pedirIA, iaActiva } from './inv-ia-cliente.js'
 import { armarPedido, resumenGrupos, huboCambios, firmaIA, filtrarMapeo, componerMapeos, corregirMapeo, cuantosQuedan } from './inv-ia.js'
 import { UNIDADES_CANONICAS_BOLD } from './inv-plantilla-sintetica.js'
+import { listaCopiable } from './inv-lista-copiable.js'
+import { crearVentanasCorreccion } from './inv-correcciones-ui.js'
+import { ETIQUETA_CAMPO } from './inv-correcciones.js'
 
 const letraColumna = i => { let s = '', n = i; do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1 } while (n >= 0); return s }
 const FIN = Symbol('fin')
@@ -71,6 +74,7 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
   }
 
   // Modo del conversor: 'mono' (plantilla sintética) o 'multi' (sube la del cliente).
+  let ventanas = null  // ventanas de corrección: una por conversación
   let modo = null
   let conFE = null  // se setea en el camino mono antes de armar la plantilla sintética.
 
@@ -347,6 +351,21 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
       r = sesion.recalcular()
     }
 
+    // Datos que no se pueden usar (nombre, precio, costo, existencia): una ventana por fase.
+    // Corren después de la pregunta de inventariable (la existencia solo cuenta en inventariables).
+    if (r.pendienteInventariable) throw new Error('inventario: sigue pendiente la pregunta de inventariable')
+    ventanas ??= crearVentanasCorreccion({ sesion, bot, chips, usuario, vivo, alDesplazar, esc, telemetria })
+    const fin = await ventanas.correr()
+    if (fin === 'reupload') {
+      await bot('Dale, sube el archivo de nuevo. Si hace falta, repasamos las columnas.', { demora: 300 })
+      await pasoOrigen()
+      await pasoColumnas()
+      return pasoPreguntas()  // vuelve a entrar con el archivo nuevo
+    }
+    r = sesion.recalcular()
+    // Error de programación: lo registra y avisa el catch de iniciarConversacion.
+    if (r.pendientes.length) throw new Error(`inventario: quedaron ${r.pendientes.length} pendientes tras las ventanas de corrección`)
+
     if (await pasoIA(r)) r = sesion.recalcular()
 
     for (const u of r.unidadesSinMapa) {
@@ -358,19 +377,12 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
     r = sesion.recalcular()
 
     if (r.categoriasFaltantes.length) {
-      const q = await bot(`Estas <b>${r.categoriasFaltantes.length}</b> categoría(s) no existen todavía en tu Bold POS, y Bold no importa ítems de una categoría que no exista. Créalas antes de importar:<pre class="inv-cats">${esc(r.categoriasFaltantes.join('\n'))}</pre>`)
-      let b = q
-      for (;;) {
-        const acc = await chips(b, [{ texto: 'Copiar categorías', valor: 'copiar' }, { texto: 'Enviar todo a “General”', valor: 'general' }, { texto: 'Ya las creé, continuar', valor: 'seguir' }])
-        vivo()
-        if (acc === 'copiar') {
-          try { await navigator.clipboard.writeText(r.categoriasFaltantes.join('\n')) } catch { /* sin portapapeles: la lista está a la vista */ }
-          b = await bot('Copiadas ✅ Pégalas al crearlas en Bold POS (una por línea).', { demora: 250 })
-          continue
-        }
-        if (acc === 'general') sesion.estado.opciones.categoriasAGeneral = true
-        break
-      }
+      const q = await bot(`Estas <b>${r.categoriasFaltantes.length}</b> categoría(s) no existen todavía en tu Bold POS, y Bold no importa ítems de una categoría que no exista. Copia cada una y pégala al crearla:`)
+      q.appendChild(listaCopiable(r.categoriasFaltantes, { esc }))
+      alDesplazar()
+      const acc = await chips(q, [{ texto: 'Ya las creé, continuar', valor: 'seguir' }, { texto: 'Enviar todo a “General”', valor: 'general' }])
+      vivo()
+      if (acc === 'general') sesion.estado.opciones.categoriasAGeneral = true
       r = sesion.recalcular()
     }
 
@@ -600,41 +612,9 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
     return opciones.categoriasIA !== null || Object.keys(decisiones.unidades).length > 0
   }
 
-  function construirUnidadesNoCanonicas() {
-    // Las unidades canónicas de Bold que sintetizamos en vendor/ — hardcoded acá
-    // para no romper el aislamiento del chat con inv-plantilla-sintetica.
-    const CANONICAS = new Set([
-      'Centímetros', 'Galónes', 'Gramos', 'Kilogramos', 'Libras', 'Litros',
-      'Metros', 'Metros cuadrados', 'Metros cúbicos', 'Miligramos', 'Mililitros',
-      'Milímetros', 'Onzas', 'Par', 'Unidades',
-    ])
-    const uso = new Set()
-    for (const tipo of Object.keys(sesion.estado.resultado.salidas)) {
-      for (const it of sesion.estado.resultado.salidas[tipo]) {
-        if (it.unidad && !CANONICAS.has(it.unidad)) uso.add(it.unidad)
-      }
-    }
-    return [...uso].sort()
-  }
-
   // ---------- Resultado ----------
   async function pasoResultado() {
     const r = sesion.estado.resultado
-
-    // Camino mono: las categorías faltantes ya se resolvieron en pasoPreguntas (con
-    // la opción de mandarlas a General); acá solo quedan las unidades no canónicas.
-    if (modo === 'mono') {
-      const unidadesParaCrear = construirUnidadesNoCanonicas()
-      if (unidadesParaCrear.length) {
-        const b = await bot(`Estas <b>${unidadesParaCrear.length}</b> unidades que usás no están en la lista estándar de Bold. Creálas antes de importar (Bold POS → Ítems → Unidades):<pre class="inv-cats">${esc(unidadesParaCrear.join('\n'))}</pre>`, { demora: 500 })
-        const acc = await chips(b, [{ texto: 'Copiar unidades', valor: 'copiar' }, { texto: 'Continuar', valor: 'seguir' }])
-        vivo()
-        if (acc === 'copiar') {
-          try { await navigator.clipboard.writeText(unidadesParaCrear.join('\n')) } catch { /* ídem */ }
-          await bot('Copiadas ✅', { demora: 250 })
-        }
-      }
-    }
 
     const tipos = Object.keys(r.salidas).filter(t => r.salidas[t].length)
     if (r.total) telemetria.paso('resultado'); else telemetria.error('resultado', 'sin_resultado')
@@ -647,7 +627,22 @@ export async function iniciarConversacion({ host, alDesplazar = () => {}, via = 
     const texto = r.total
       ? `¡Listo! 🎉 Armé <b>${r.total}</b> producto(s)${r.errores.length ? `; <b>${r.errores.length}</b> fila(s) tienen errores y no se incluyen` : ''}.`
       : 'No pude armar ningún producto con lo que me diste.'
-    const b = await bot(`${texto}${lista('error(es): estas filas no se incluyen', r.errores)}${lista('aviso(s) para revisar', r.avisos)}
+    // Lo que decidió el cliente al corregir (solo cuando hubo algo).
+    const dec = sesion.estado.decisiones
+    const resumen = []
+    if (dec.ceros.costo || dec.ceros.existencia) {
+      const partes = []
+      if (dec.ceros.costo) partes.push(`${dec.ceros.costo} costo(s)`)
+      if (dec.ceros.existencia) partes.push(`${dec.ceros.existencia} existencia(s)`)
+      resumen.push(`Dejaste en 0 ${partes.join(' y ')} a propósito.`)
+    }
+    if (dec.omitidas) resumen.push(`Omitiste ${dec.omitidas} fila(s).`)
+    for (const [campo, { valor, filas }] of Object.entries(dec.valorComun)) {
+      resumen.push(`Pusiste ${esc(valor)} en ${esc(ETIQUETA_CAMPO[campo].toLowerCase())} a ${filas} fila(s).`)
+    }
+    if (dec.corregidos) resumen.push(`Corregiste ${dec.corregidos} dato(s).`)
+    const textoResumen = resumen.length ? `<p class="inv-nota">${resumen.join(' ')}</p>` : ''
+    const b = await bot(`${texto}${textoResumen}${lista('error(es): estas filas no se incluyen', r.errores)}${lista('aviso(s) para revisar', r.avisos)}
       ${r.total ? '<p class="inv-nota">Descarga la plantilla e impórtala en Bold POS.</p>' : ''}`, { demora: 700 })
     const fila = document.createElement('div')
     fila.className = 'inv-acciones'

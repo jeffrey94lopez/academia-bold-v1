@@ -27,9 +27,11 @@ test('Alegra real → plantilla inventariable escrita y releída', () => {
   const info = leerPlantilla(plantilla.hojas)
   const origen = abrir('alegra-export.xlsx')
   const hoja = elegirHoja(origen.hojas)
-  const filas = origen.hojas[hoja.nombre].slice(hoja.fila + 1)
+  // El export de Alegra no trae existencia y el motor ya no la inventa en 0: se la agregamos.
+  const colEx = origen.hojas[hoja.nombre][hoja.fila].length
+  const filas = origen.hojas[hoja.nombre].slice(hoja.fila + 1).map(f => { const c = [...f]; c[colEx] = 5; return c })
 
-  const r = convertir({ filas, mapeo: hoja.mapeo, plantillas: { inventariable: info } })
+  const r = convertir({ filas, mapeo: { ...hoja.mapeo, existencia: colEx }, plantillas: { inventariable: info } })
   assert.equal(r.errores.length, 0)
   assert.equal(r.salidas.inventariable.length, 1)
   assert.equal(r.salidas.inventariable[0].nombre, 'Coca Cola 600ml')

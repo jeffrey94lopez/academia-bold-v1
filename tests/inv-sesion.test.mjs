@@ -92,3 +92,61 @@ test('cargarOrigen: reinicia categoriasIA pero conserva estado.ia', async () => 
   assert.equal(sesion.estado.opciones.categoriasIA, null)
   assert.equal(sesion.estado.ia.firma, 'f1')
 })
+
+test('cargarOrigen: reinicia correcciones, omitidas, valorPorColumna y decisiones', async () => {
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['Código', 'Nombre', 'Costo', 'Precio'], ['A1', 'Camisa', 10, 20],
+  ]), 'Productos')
+  const bytes = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+  const archivo = { name: 'p.xlsx', arrayBuffer: async () => bytes }
+  const sesion = crearSesion()
+  const { estado } = sesion
+  assert.deepEqual(estado.opciones.correcciones, {})
+  assert.deepEqual(estado.opciones.omitidas, [])
+  assert.deepEqual(estado.opciones.valorPorColumna, {})
+  assert.deepEqual(estado.decisiones, { ceros: { costo: 0, existencia: 0 }, omitidas: 0, corregidos: 0, valorComun: {} })
+  estado.opciones.correcciones = { 5: { costo: 3 } }
+  estado.opciones.omitidas = [7]
+  estado.opciones.valorPorColumna = { costo: 1 }
+  estado.decisiones = { ceros: { costo: 2, existencia: 4 }, omitidas: 1, corregidos: 3, valorComun: { costo: { valor: 1, filas: 5 }, existencia: { valor: 2, filas: 3 } } }
+  estado.ia.firma = 'f1'
+  await sesion.cargarOrigen(archivo)
+  assert.deepEqual(estado.opciones.correcciones, {})
+  assert.deepEqual(estado.opciones.omitidas, [])
+  assert.deepEqual(estado.opciones.valorPorColumna, {})
+  assert.deepEqual(estado.decisiones, { ceros: { costo: 0, existencia: 0 }, omitidas: 0, corregidos: 0, valorComun: {} })
+  assert.equal(estado.ia.firma, 'f1')
+})
+
+test('cargarOrigen: al cargar otro archivo borra el IVA elegido pero conserva isv', async () => {
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['Código', 'Nombre', 'Costo', 'Precio'], ['A1', 'Camisa', 10, 20],
+  ]), 'Productos')
+  const bytes = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+  const sesion = crearSesion()
+  const { opciones } = sesion.estado
+  opciones.ivaStrategy = 'todos_igual'; opciones.ivaGeneral = 15; opciones.isv = true
+  const r = await sesion.cargarOrigen({ name: 'p.xlsx', arrayBuffer: async () => bytes })
+  assert.ok(!r.error)
+  assert.equal(opciones.ivaStrategy, undefined)
+  assert.equal(opciones.ivaGeneral, undefined)
+  assert.equal(opciones.isv, true)
+})
+
+test('cargarOrigen: una carga fallida no toca el IVA elegido', async () => {
+  const sesion = crearSesion()
+  const { opciones } = sesion.estado
+  opciones.ivaStrategy = 'por_fila'; opciones.ivaGeneral = 18; opciones.isv = true
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['x'], ['y']]), 'Hoja')
+  const bytes = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+  const sinTabla = await sesion.cargarOrigen({ name: 'a.xlsx', arrayBuffer: async () => bytes })
+  assert.equal(sinTabla.codigo, 'sin_tabla')
+  const ilegible = await sesion.cargarOrigen({ name: 'b.xlsx', arrayBuffer: async () => { throw new Error('x') } })
+  assert.equal(ilegible.codigo, 'archivo_ilegible')
+  assert.equal(opciones.ivaStrategy, 'por_fila')
+  assert.equal(opciones.ivaGeneral, 18)
+  assert.equal(opciones.isv, true)
+})
