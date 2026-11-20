@@ -48,7 +48,8 @@ export function crearSesion() {
   const estado = {
     plantillas: {},   // { inventariable?: {info, wb, nombre}, noinventariable?: {...} }
     origen: null,     // { nombre, hoja, encabezados, mapeo, filas }
-    opciones: { formatoNumero: 'auto', inventariable: null, isv: null, unidades: {}, categoriasAGeneral: false, codigos: null, categoriasIA: null },
+    opciones: { formatoNumero: 'auto', inventariable: null, isv: null, unidades: {}, categoriasAGeneral: false, codigos: null, categoriasIA: null, correcciones: {}, omitidas: [], valorPorColumna: {} },
+    decisiones: { ceros: { costo: 0, existencia: 0 }, omitidas: 0, corregidos: 0, valorComun: null },  // contadores del resumen final
     ia: { firma: null, decisiones: {} },  // no se reinicia al re-subir: la firma decide si se reaplica
     resultado: null,
   }
@@ -113,6 +114,10 @@ export function crearSesion() {
         estado.opciones.inventariable = null
         estado.opciones.codigos = null
         estado.opciones.categoriasIA = null
+        estado.opciones.correcciones = {}
+        estado.opciones.omitidas = []
+        estado.opciones.valorPorColumna = {}
+        estado.decisiones = { ceros: { costo: 0, existencia: 0 }, omitidas: 0, corregidos: 0, valorComun: null }
         estado.resultado = null
         return { hoja: mejor.nombre, total: filas.filter(f => !filaSinDatoMapeado(f, mejor.mapeo)).length }
       } catch { return { error: `No pude leer "${file.name}".`, codigo: 'archivo_ilegible' } }

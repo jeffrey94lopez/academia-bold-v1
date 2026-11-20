@@ -92,3 +92,29 @@ test('cargarOrigen: reinicia categoriasIA pero conserva estado.ia', async () => 
   assert.equal(sesion.estado.opciones.categoriasIA, null)
   assert.equal(sesion.estado.ia.firma, 'f1')
 })
+
+test('cargarOrigen: reinicia correcciones, omitidas, valorPorColumna y decisiones', async () => {
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['Código', 'Nombre', 'Costo', 'Precio'], ['A1', 'Camisa', 10, 20],
+  ]), 'Productos')
+  const bytes = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+  const archivo = { name: 'p.xlsx', arrayBuffer: async () => bytes }
+  const sesion = crearSesion()
+  const { estado } = sesion
+  assert.deepEqual(estado.opciones.correcciones, {})
+  assert.deepEqual(estado.opciones.omitidas, [])
+  assert.deepEqual(estado.opciones.valorPorColumna, {})
+  assert.deepEqual(estado.decisiones, { ceros: { costo: 0, existencia: 0 }, omitidas: 0, corregidos: 0, valorComun: null })
+  estado.opciones.correcciones = { 5: { costo: 3 } }
+  estado.opciones.omitidas = [7]
+  estado.opciones.valorPorColumna = { costo: 1 }
+  estado.decisiones = { ceros: { costo: 2, existencia: 4 }, omitidas: 1, corregidos: 3, valorComun: { campo: 'costo', valor: 1, filas: [5] } }
+  estado.ia.firma = 'f1'
+  await sesion.cargarOrigen(archivo)
+  assert.deepEqual(estado.opciones.correcciones, {})
+  assert.deepEqual(estado.opciones.omitidas, [])
+  assert.deepEqual(estado.opciones.valorPorColumna, {})
+  assert.deepEqual(estado.decisiones, { ceros: { costo: 0, existencia: 0 }, omitidas: 0, corregidos: 0, valorComun: null })
+  assert.equal(estado.ia.firma, 'f1')
+})
