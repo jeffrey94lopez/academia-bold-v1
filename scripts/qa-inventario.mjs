@@ -16,6 +16,8 @@
 //   sin-existencia         columna sin datos: UNA pregunta, «Dejar todas en 0»
 //   corrige-aqui           columna de nombre/precio vacía → «Corregirlos aquí» (sin atajo)
 //   reupload-correcciones  «Subir otro archivo» a media corrección: nada del primero queda
+//   reupload-desde-lista   «Subir otro archivo» desde una ventana con líneas, y termina con un archivo limpio
+//   mismo-dos              «Poner el mismo valor» en costo y existencia: el resumen dice las dos
 //   corrige-50mas / atajo-50mas   más de 50 pendientes: dos rondas, o el atajo cubre todos
 // Todos revisan además las categorías copiables (un botón Copiar por categoría), que el
 // nombre `<img onerror>` no se ejecute y que no haya un 0 que el cliente no eligió.
@@ -99,6 +101,9 @@ const SUCIOS_CIEGO = escribirLibro('productos-sin-nombre-ni-precio.xlsx',
   [['C001', '', 'Camisa', 'Unidad', 10, '', 5], ['C002', '', 'Camisa', 'Unidad', 12, '', 6],
    ['C003', '', 'Abarrotes', 'Litro', 14, '', 7], ['C004', '', 'Abarrotes', 'Litro', 16, '', 8]],
   [0, 1, 2, 3, 4, 5, 6], CAB_SUCIOS)
+// Filas limpias sin columna de costo ni de existencia: ambas se preguntan y se llenan con «Poner el mismo valor».
+const LIMPIOS_SIN_COSTO_NI_EXISTENCIA = escribirLibro('productos-sin-costo-ni-existencia.xlsx',
+  [FILAS_SUCIAS[0], FILAS_SUCIAS[3], FILAS_SUCIAS[7]], [0, 1, 2, 3, 5], CAB_SUCIOS)
 // 60 filas, 55 con costo vacío (más de una página de 50) y 5 con costo.
 const N_50 = 60
 const SUCIOS_50 = escribirLibro('productos-50mas.xlsx',
@@ -154,7 +159,7 @@ function iaFalsa(pedido) {
 
 // ---------- Escenarios ----------
 // Estos archivos no traen la categoría «Ferretería|varios».
-const SIN_FERRETERIA = new Set([SUCIOS, SUCIOS_SIN_COSTO, SUCIOS_CIEGO, SUCIOS_50])
+const SIN_FERRETERIA = new Set([SUCIOS, SUCIOS_SIN_COSTO, SUCIOS_CIEGO, SUCIOS_50, LIMPIOS_SIN_COSTO_NI_EXISTENCIA])
 const MONO = { ctx: CTX, sucursal: /^Solo tengo/, fe: 'Sí', mono: true, impuesto: true }
 const ESCENARIOS = {
   'mono-fe':       { ctx: CTX, sucursal: /^Solo tengo/, fe: 'Sí', productos: SIN_IVA, mono: true, impuesto: true },
@@ -224,6 +229,14 @@ const ESCENARIOS = {
                      fases: { precioTotal: 'atajo' }, columna: { costo: 'reupload' }, valores: { nombre: f => `Nombre corregido ${f}` },
                      cerosEsperados: { costo: 0, existencia: PRODUCTOS }, resumen: [new RegExp(`Dejaste en 0 ${PRODUCTOS} existencia\\(s\\) a propósito`)], sin: [/Omitiste/, /Pusiste/],
                      revisar: (d, c) => [d.some(r => /corregido/i.test(String(r[c.nombre]))) ? 'quedó un nombre corregido del primer archivo' : null] },
+  // Desde una ventana con líneas (columna de nombre vacía, «Corregirlos aquí») el cliente sale con «Subir otro archivo».
+  'reupload-desde-lista': { ...MONO, productos: SUCIOS_CIEGO, productos2: SIN_IVA, productosN: PRODUCTOS,
+                     columna: { nombre: 'lista' }, fases: { nombre: 'reupload' }, preguntasColumna: 2,
+                     cerosEsperados: { costo: 0, existencia: PRODUCTOS }, resumen: [new RegExp(`Dejaste en 0 ${PRODUCTOS} existencia\\(s\\) a propósito`)], sin: [/Omitiste/, /Pusiste/, /Corregiste/] },
+  // «Poner el mismo valor a todas» en costo Y en existencia: el resumen final menciona las dos decisiones.
+  'mismo-dos':     { ...MONO, productos: LIMPIOS_SIN_COSTO_NI_EXISTENCIA, productosN: 3, columna: { costo: 'mismo', existencia: 'mismo' }, preguntasColumna: 2,
+                     cerosEsperados: { costo: 0, existencia: 0 }, resumen: [/Pusiste 7 en costo a 3 fila/, /Pusiste 7 en existencia a 3 fila/],
+                     revisar: (d, c) => [d.every(r => Number(r[c.costo]) === 7) ? null : 'todos los costos debían ser 7', d.every(r => Number(r[c.existencia]) === 7) ? null : 'todas las existencias debían ser 7'] },
   'corrige-50mas': { ...MONO, productos: SUCIOS_50, productosN: N_50, valores: { costo: '12' }, rondas: { costo: [50, 5] },
                      cerosEsperados: { costo: 0, existencia: 0 }, sin: [/Dejaste en 0/],
                      revisar: (d, c) => [d.filter(r => Number(r[c.costo]) === 12).length === 55 ? null : 'debía haber 55 costos 12'] },
@@ -345,6 +358,8 @@ async function correr(nombre, E, browser) {
     const campo = await entradas[0].getAttribute('data-campo')
     const filasIds = await Promise.all(entradas.map(e => e.getAttribute('data-fila')))
     const atajoBtn = await caja.$('[data-accion="atajo"]')
+    const reuploadBtn = await caja.$('[data-accion="reupload"]')
+    verifica(!!reuploadBtn && (await reuploadBtn.innerText()).trim() === 'Subir otro archivo', `la ventana de ${campo} no ofrece «Subir otro archivo»`)
     editores.push({ campo, n: entradas.length, sinAtajo: !atajoBtn, nota: /de 50 en 50/.test(pregunta) })
     const id = `${nombre}-corr-${campo}${editores.filter(e => e.campo === campo).length > 1 ? '-2' : ''}`
     if (E.movil) { await entradas[0].scrollIntoViewIfNeeded(); await page.screenshot({ path: path.join(SALIDA, `${id}.png`) }) }
@@ -366,6 +381,11 @@ async function correr(nombre, E, browser) {
     }
 
     const modo = E.fases?.[campo] ?? 'escribir'
+    if (modo === 'reupload') {
+      if (reuploadBtn) await reuploadBtn.click()
+      if (E.productos2) productos = E.productos2
+      return
+    }
     if (modo === 'atajo') {
       verifica(!!atajoBtn, `la fase ${campo} no trae el botón de atajo`)
       if (atajoBtn) {
@@ -467,6 +487,13 @@ async function correr(nombre, E, browser) {
       await corregir(fila, pregunta)
       continue
     }
+    // «Poner el mismo valor a todas»: escribe el valor y pulsa «Aplicar».
+    if (await fila.evaluate(el => !!el.closest('.inv-corr-editor')?.querySelector('input[id^="inv-corr-valor-"]'))) {
+      await fila.evaluate(el => el.closest('.inv-corr-editor').querySelector('input').focus())
+      await page.keyboard.type('7')
+      await (await fila.$('[data-accion="ok"]')).click()
+      continue
+    }
     // Categorías por crear: un botón Copiar por categoría, que marca y cuenta.
     if (/no existen todavía/.test(pregunta) && !copiaVista) copiaVista = await probarCopia(pregunta)
     // Capturas de las burbujas de la IA (para revisar el diseño, sobre todo a 400 px).
@@ -561,6 +588,8 @@ async function correr(nombre, E, browser) {
     verifica(!datos.some(r => /cent[ií]metro/i.test(r[col(/^Unidad/i)])), 'algún producto quedó en Centímetros')
     // Ningún 0 automático: los ceros de costo/existencia son solo los que el cliente eligió.
     const columnas = { nombre: col(/^Nombre/i), precio: col(/^Precio Venta/i), costo: col(/^Precio Costo/i), existencia: col(/^Existencia/i) }
+    verifica(columnas.nombre >= 0 && columnas.precio >= 0 && columnas.costo >= 0, 'no se encontró la columna de nombre, precio o costo en la plantilla (los chequeos de 0 y vacíos serían vacuos)')
+    verifica(columnas.existencia >= 0, 'no se encontró la columna de existencia en la plantilla')
     if (process.env.QA_DEBUG) console.log(`  [${nombre}] columnas de la plantilla: ${cab.join(' | ')}`)
     const ceros = i => datos.filter(r => String(r[i]).trim() !== '' && Number(r[i]) === 0).length
     const esperados0 = E.cerosEsperados ?? { costo: 0 }
