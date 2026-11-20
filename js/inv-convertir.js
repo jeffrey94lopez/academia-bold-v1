@@ -90,7 +90,7 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
   const unidadesSinMapa = new Set()
   const codigosVistos = new Map()
   let pendienteInventariable = false
-  let sinExistencia = 0, sinImpuesto = 0, sinCosto = 0, sinCategoria = 0, codigosDanados = 0
+  let sinImpuesto = 0, sinCategoria = 0, codigosDanados = 0
   let sinCodigo = 0, codigosCreados = 0
 
   const get = (fila, campo) => (mapeo[campo] === undefined ? '' : fila[mapeo[campo]])
@@ -98,6 +98,16 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
   const generarCodigo = opciones.codigos
     ? crearGeneradorCodigos(opciones.codigos, filas.map(f => aCodigo(get(f, 'codigo')).texto).filter(Boolean))
     : null
+  const pendientes = []
+  const CAMPOS = ['nombre', 'precioTotal', 'costo', 'existencia']
+  const candidatas = Object.fromEntries(CAMPOS.map(c => [c, 0]))
+  const vacios = Object.fromEntries(CAMPOS.map(c => [c, 0]))
+  // 'vacio' si la celda viene en blanco, 'negativo' si el número es < 0, 'invalido' si no es un número.
+  const motivoDe = (crudo, valor) => {
+    if (String(crudo ?? '').trim() === '') return 'vacio'
+    if (valor == null) return 'invalido'
+    return valor < 0 ? 'negativo' : null
+  }
   const referencia = plantillas.inventariable ?? plantillas.noinventariable
   const aviso = (n, msg) => avisos.push({ fila: n, mensaje: msg })
   const error = (n, msg, codigo) => errores.push({ fila: n, mensaje: msg, codigo })
@@ -116,7 +126,16 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
     const n = fila.__fila ?? i + 1
 
     const nombre = aTexto(get(fila, 'nombre'))
-    if (!nombre) return error(n, 'No tiene nombre.', 'filas_nombre')
+    const nombreMostrado = nombre || '(sin nombre)'
+    const pend = []
+    const marcar = (campo, crudo, valor) => {
+      candidatas[campo]++
+      const motivo = motivoDe(crudo, valor)
+      if (!motivo) return
+      if (motivo === 'vacio') vacios[campo]++
+      pend.push({ fila: n, nombre: nombreMostrado, campo, motivo, original: String(crudo ?? '') })
+    }
+    marcar('nombre', nombre, nombre)
 
     let inventariable = esInventariable(fila, mapeo, opciones)
     if (inventariable === null) { pendienteInventariable = true; inventariable = false }
@@ -131,10 +150,21 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
       const base = parseNumero(get(fila, 'precioBase'), fmt)
       if (base != null) precioTotal = Math.round(base * (1 + (pct ?? 0) / 100) * 100) / 100
     }
-    if (precioTotal == null || precioTotal < 0) return error(n, `"${nombre}": el precio de venta no es un número válido.`, 'filas_precio')
+    const crudoTotal = get(fila, 'precioTotal')
+    const crudoPrecio = String(crudoTotal ?? '').trim() !== '' ? crudoTotal : get(fila, 'precioBase')
+    marcar('precioTotal', crudoPrecio, precioTotal)
 
-    let costo = mapeo.costo === undefined ? null : parseNumero(get(fila, 'costo'), fmt)
-    if (costo == null || costo < 0) { costo = 0; sinCosto++ }
+    const costo = mapeo.costo === undefined ? null : parseNumero(get(fila, 'costo'), fmt)
+    marcar('costo', get(fila, 'costo'), costo)
+
+    let ex = null
+    if (inventariable) {
+      ex = mapeo.existencia === undefined ? null : parseNumero(get(fila, 'existencia'), fmt)
+      marcar('existencia', get(fila, 'existencia'), ex)
+    }
+
+    // Con cualquier pendiente la fila no se exporta; no es un error: el cliente la completa.
+    if (pend.length) { pendientes.push(...pend); return }
 
     // Unidad.
     const listaUnidades = plantilla.listas.unidades
@@ -190,9 +220,6 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
     }
 
     if (inventariable) {
-      let ex = mapeo.existencia === undefined ? null : parseNumero(get(fila, 'existencia'), fmt)
-      if (ex == null) { ex = 0; sinExistencia++ }
-      else if (ex < 0) { aviso(n, `"${nombre}": existencia negativa, se dejó en 0.`); ex = 0 }
       out.existencia = ex
     }
 
@@ -226,15 +253,15 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
     salidas[tipo].push(out)
   })
 
-  if (sinExistencia) avisos.unshift({ fila: null, mensaje: `${sinExistencia} ítem(s) inventariable(s) sin existencia en el archivo: quedaron en 0.` })
-  if (sinCosto) avisos.unshift({ fila: null, mensaje: `${sinCosto} ítem(s) sin costo válido: quedaron en 0.` })
   if (sinImpuesto) avisos.unshift({ fila: null, mensaje: `${sinImpuesto} ítem(s) sin impuesto en el archivo: se marcaron como exentos.` })
   if (codigosCreados) avisos.unshift({ fila: null, mensaje: `${codigosCreados} ítem(s) no traían código: se les creó uno nuevo.` })
   if (sinCategoria) avisos.unshift({ fila: null, mensaje: `${sinCategoria} ítem(s) sin categoría: se asignaron a "General".` })
   if (codigosDanados) avisos.unshift({ fila: null, mensaje: `${codigosDanados} código(s) llegaron en notación científica (7.5E+12): Excel ya les cambió los dígitos y hay que corregirlos en el archivo original.` })
 
+  const columnasSinDato = CAMPOS.filter(c => candidatas[c] > 0 && vacios[c] === candidatas[c])
+
   return {
-    salidas, errores, avisos,
+    salidas, errores, avisos, pendientes, columnasSinDato,
     categoriasFaltantes: [...faltanCategorias.values()],
     unidadesSinMapa: [...unidadesSinMapa],
     categoriasPurgadas: purgaCategorias.limpias,

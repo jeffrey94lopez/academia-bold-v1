@@ -93,8 +93,8 @@ const plantilla = leerPlantilla({
 })
 
 test('convertir: sin código se avisa; si el cliente lo pide se crean sin repetir los existentes', () => {
-  const mapeo = mapearColumnas(['Código', 'Nombre', 'Precio', 'Existencia'])
-  const filas = [['P-001', 'Uno', 1, 1], ['', 'Dos', 1, 1], ['', 'Tres', 1, 1]]
+  const mapeo = mapearColumnas(['Código', 'Nombre', 'Precio', 'Existencia', 'Costo'])
+  const filas = [['P-001', 'Uno', 1, 1, 1], ['', 'Dos', 1, 1, 1], ['', 'Tres', 1, 1, 1]]
   const base = { filas, mapeo, plantillas: { inventariable: plantilla } }
   assert.equal(convertir(base).sinCodigo, 2)
   const r = convertir({ ...base, opciones: { codigos: { formato: 'personalizado', prefijo: 'P', inicio: 1, relleno: 3 } } })
@@ -106,7 +106,7 @@ test('convertir: sin código se avisa; si el cliente lo pide se crean sin repeti
 
 test('convertir: sin columna de código todos reciben uno', () => {
   const r = convertir({
-    filas: [['Uno', 1, 1], ['Dos', 1, 1]], mapeo: mapearColumnas(['Nombre', 'Precio', 'Existencia']),
+    filas: [['Uno', 1, 1, 1], ['Dos', 1, 1, 1]], mapeo: mapearColumnas(['Nombre', 'Precio', 'Existencia', 'Costo']),
     plantillas: { inventariable: plantilla }, opciones: { codigos: { formato: 'ean' } },
   })
   assert.equal(r.codigosCreados, 2)
