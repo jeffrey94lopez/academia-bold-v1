@@ -511,3 +511,26 @@ test('convertir: un producto llamado "-5" no es pendiente de nombre', () => {
   assert.ok(!r.pendientes.some(p => p.campo === 'nombre'))
   assert.equal(r.salidas.noinventariable[0].nombre, '-5')
 })
+
+// Purgado: el prefijo numérico de la categoría ("01 - Bebidas") se quita ANTES de unir duplicados.
+const ENC5 = ['Nombre', 'Precio', 'Costo', 'Existencia', 'Categoria', 'Unidad']
+test('purgado: "01 - Bebidas" y "Bebidas" son la misma categoría', () => {
+  const r = conv(ENC5, [['A', 9, 1, 1, '01 - Bebidas', 'Unidad'], ['B', 9, 1, 1, 'Bebidas', 'Unidad'], ['C', 9, 1, 1, '2 - Aseo', 'Unidad']])
+  assert.deepEqual(r.salidas.inventariable.map(x => x.categoria), ['Bebidas', 'Bebidas', 'Aseo'])
+  assert.deepEqual([...r.categoriasPurgadas].sort(), ['Aseo', 'Bebidas'])
+  assert.deepEqual(r.categoriasFaltantes, ['Aseo'])
+})
+
+test('purgado: una categoría que es solo prefijo no queda vacía ni se rompe', () => {
+  const r = conv(ENC5, [['A', 9, 1, 1, '01 -', 'Unidad']])
+  assert.equal(r.total, 1)
+})
+
+// Purgado: lo que el cliente omitió no cuenta como categoría ni unidad del archivo.
+test('purgado: las filas omitidas no aportan categorías ni unidades', () => {
+  const filas = [['A', 9, 1, 1, 'Bebidas', 'Unidad'], ['B', 9, 1, 1, 'Ferretería', 'Cja']]
+  const r = conv(ENC5, filas, { inventariable: 'si', omitidas: [2] })
+  assert.deepEqual(r.categoriasPurgadas, ['Bebidas'])
+  assert.deepEqual(r.unidadesPurgadas, ['Unidad'])
+  assert.deepEqual(r.categoriasFaltantes, [])
+})

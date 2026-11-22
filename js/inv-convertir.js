@@ -52,7 +52,8 @@ export function mapearImpuesto(pct, lista) {
   return lista.find(o => pctDeOpcion(o) === pct && !/excluido/i.test(o)) ?? null
 }
 
-const sinPrefijoNumerico = s => s.replace(/^\d+\s*-\s*/, '')
+// "01 - Bebidas" → "Bebidas". Si solo hay prefijo ("01 -") se deja tal cual para no vaciar la categoría.
+const sinPrefijoNumerico = s => s.replace(/^\d+\s*-\s*(?=\S)/, '')
 
 // Orden de prioridad: la columna Sí/No del archivo, "servicio" en el tipo, lo que
 // el cliente eligió para todo el archivo y, por último, si trae existencias.
@@ -113,10 +114,13 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
   const aviso = (n, msg) => avisos.push({ fila: n, mensaje: msg })
   const error = (n, msg, codigo) => errores.push({ fila: n, mensaje: msg, codigo })
 
-  const categoriasOriginales = filas
-    .map(f => get(f, 'categoria'))
-    .filter(Boolean)
-  const unidadesOriginales = filas
+  // Lo que se purga es lo que de verdad va a Bold: sin filas vacías ni omitidas por el cliente,
+  // y con la categoría ya sin su prefijo numérico para que "01 - Bebidas" y "Bebidas" se unan.
+  const numeroDeFila = (fila, i) => fila.__fila ?? i + 1
+  const activas = filas.filter((f, i) => !filaSinDatoMapeado(f, mapeo) && !omitidas.has(numeroDeFila(f, i)))
+  const categoriaDe = fila => sinPrefijoNumerico(aTexto(get(fila, 'categoria')))
+  const categoriasOriginales = activas.map(categoriaDe).filter(Boolean)
+  const unidadesOriginales = activas
     .map(f => get(f, 'unidad'))
     .filter(Boolean)
   const purgaCategorias = purgar(categoriasOriginales)
@@ -124,7 +128,7 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
 
   filas.forEach((fila, i) => {
     if (filaSinDatoMapeado(fila, mapeo)) return
-    const n = fila.__fila ?? i + 1
+    const n = numeroDeFila(fila, i)
 
     const omitida = omitidas.has(n)
     const corr = campo => {
@@ -217,8 +221,8 @@ export function convertir({ filas, mapeo, plantillas, opciones = {} }) {
     // Categoría: debe existir en Bold antes de importar.
     const lista = plantilla.listas.categorias
     const general = lista.find(c => normalizar(c) === 'general') ?? lista[0] ?? 'General'
-    const catOriginal = sinPrefijoNumerico(aTexto(get(fila, 'categoria')))
-    let categoria = purgaCategorias.mapeo[get(fila, 'categoria')] ?? catOriginal
+    const catOriginal = categoriaDe(fila)
+    let categoria = purgaCategorias.mapeo[catOriginal] ?? catOriginal
     // Agrupación propuesta por la IA (clave = canónica del heurístico); categoriasAGeneral sigue ganando abajo.
     const ia = opciones.categoriasIA
     if (ia && Object.hasOwn(ia, categoria)) categoria = ia[categoria]
