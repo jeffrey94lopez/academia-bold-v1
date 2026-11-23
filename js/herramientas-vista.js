@@ -136,12 +136,15 @@ export function topesHtml(v) {
         <span class="text-[var(--black-40)]">${pctV}%</span></div>
       <div class="flex h-4 rounded-full bg-[var(--black-10)] overflow-hidden"><span class="block h-full ${COLOR_NIVEL[nivel] ?? COLOR_NIVEL.ok}" style="width:${pctV}%"></span></div>
     </div>`
-  const agotado = v.nivelDiario === 'agotado' || v.nivelIp === 'agotado'
+  // El tope diario apaga la IA para todos; el de IP solo deja sin IA a esa IP.
+  const aviso = v.nivelDiario === 'agotado'
+    ? 'Tope alcanzado: la IA está apagada hasta que se liberen llamadas de las últimas 24 h'
+    : v.nivelIp === 'agotado' ? 'Una IP llegó a su tope: solo esa IP queda sin IA, el resto sigue con IA' : ''
   return `<div class="flex flex-col gap-3">
     ${barra('Llamadas a Gemini hoy', v.usadas, v.topeDiario, v.pctDiario, v.nivelDiario)}
     ${barra('IP más activa', v.ipMax, v.topeIp, v.pctIp, v.nivelIp)}
   </div>
-  ${agotado ? '<p class="text-xs font-bold text-[var(--error-100)] mt-2">Tope alcanzado: la IA está apagada hasta que se liberen llamadas de las últimas 24 h</p>' : ''}
+  ${aviso ? `<p class="text-xs font-bold text-[var(--error-100)] mt-2">${aviso}</p>` : ''}
   <p class="text-xs text-[var(--black-60)] mt-2">${v.iaActiva ? 'IA encendida' : 'IA apagada (interruptor inventario_ia_activa)'}</p>
   <p class="text-[11px] text-[var(--black-40)] mt-1">Siempre las últimas 24 h, sin importar el período</p>`
 }
