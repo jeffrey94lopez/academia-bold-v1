@@ -111,6 +111,12 @@ export async function fetchHerramientasIA(from, to, env = 'prod', client) {
   })
 }
 
+// Topes de la IA (últimas 24 h, no depende del período). RPC analytics_herramientas_ia_topes.
+export async function fetchHerramientasIATopes(env = 'prod', client) {
+  if (!client) client = await getSupabaseClient()
+  return callRpc(client, 'analytics_herramientas_ia_topes', { p_env: env })
+}
+
 export async function fetchComercios(from, to, limit = 200, client) {
   if (!client) client = await getSupabaseClient()
   return callRpc(client, 'analytics_bot_comercios', {

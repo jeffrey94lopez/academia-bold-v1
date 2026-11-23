@@ -4,8 +4,8 @@
 // Los números vienen de la RPC analytics_herramientas (supabase/migrations/
 // create_analytics_herramientas.sql); herramientas-vista.js los deja listos para pintar.
 import { rangeControlsHtml, wireRangeControls, computeRange, kpiCard } from './analytics-ui.js'
-import { fetchHerramientas, fetchHerramientasIA } from './analytics-api.js'
-import { armarVista, armarVistaIA } from './herramientas-vista.js'
+import { fetchHerramientas, fetchHerramientasIA, fetchHerramientasIATopes } from './analytics-api.js'
+import { armarVista, armarVistaIA, armarVistaTopes, topesHtml } from './herramientas-vista.js'
 import { APP_ENV } from './env.js'
 
 const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g,
@@ -130,6 +130,8 @@ export async function renderHerramientasAnalytics(from = null, to = null) {
   let data
   // Independiente: si la RPC de IA no existe todavía, solo esa tarjeta se queda sin datos.
   const iaPromesa = fetchHerramientasIA(from, to, APP_ENV).then(armarVistaIA, () => null)
+  // Igual de independiente: sin la RPC de topes (migración sin aplicar) solo esta tarjeta se vacía.
+  const topesPromesa = fetchHerramientasIATopes(APP_ENV).then(armarVistaTopes, () => null)
   try {
     data = await fetchHerramientas(from, to, APP_ENV)
   } catch (e) {
@@ -138,6 +140,7 @@ export async function renderHerramientasAnalytics(from = null, to = null) {
   }
   const v = armarVista(data)
   const ia = await iaPromesa
+  const topes = await topesPromesa
 
   el.innerHTML = `
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -159,6 +162,7 @@ export async function renderHerramientasAnalytics(from = null, to = null) {
     ${v.herramientas.map(seccionHerramienta).join('')}
     <h2 class="text-base font-black text-[var(--black-100)] mb-2 mt-6">IA del conversor</h2>
     ${tarjeta('Costo y aceptación del purgador', iaHtml(ia))}
+    ${tarjeta('Topes de la IA (últimas 24 h)', topesHtml(topes))}
     <h2 class="text-base font-black text-[var(--black-100)] mb-2 mt-6">Comercios</h2>
     ${tarjeta('Quién usó qué', comerciosHtml(v.comercios))}`
 
